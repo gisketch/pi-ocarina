@@ -83,7 +83,9 @@ pub fn reveal_workspace(
 
 #[tauri::command]
 pub fn reveal_skill(app: AppHandle, workspace: PathBuf, path: PathBuf) -> Result<(), String> {
-    let path = path.canonicalize().map_err(|_| "skill path is unavailable")?;
+    let path = path
+        .canonicalize()
+        .map_err(|_| "skill path is unavailable")?;
     let project_root = workspace
         .canonicalize()
         .map_err(|_| "workspace is unavailable")?
