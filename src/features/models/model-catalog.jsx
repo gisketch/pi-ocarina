@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 
 import { ThreadRunner } from "@/features/threads/thread-runner";
+import { CustomEndpoints } from "@/features/models/custom-endpoints";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
@@ -11,7 +12,7 @@ import { Input } from "@/shared/ui/input";
 
 /** @typedef {{ id: string, name: string, configured: boolean, source?: string, label?: string }} Provider */
 /** @typedef {{ provider: string, id: string, name: string, available: boolean }} Model */
-/** @typedef {{ providers: Provider[], models: Model[], errors: string[] }} Catalog */
+/** @typedef {{ providers: Provider[], models: Model[], customEndpoints?: Array<{ id: string, name: string, baseUrl: string, credentialReference: string, models: Array<{id: string, name: string}> }>, errors: string[] }} Catalog */
 
 /** @typedef {{ id: string, path: string }} Workspace */
 /** @param {{ workspace: Workspace | null }} props */
@@ -50,7 +51,7 @@ export function ModelCatalog({ workspace }) {
   const availableModels = catalog.models.filter(({ available }) => available);
   const model = selected && availableModels.some(({ provider, id }) => provider === selected.provider && id === selected.id)
     ? selected
-    : availableModels[0] ?? null;
+    : null;
   /** @param {string} provider */
   const saveCredential = async (provider) => {
     const requestId = crypto.randomUUID();
@@ -81,12 +82,12 @@ export function ModelCatalog({ workspace }) {
   };
   return (
     <div className="mt-4 space-y-2 border-t pt-4" data-testid="model-catalog">
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <span>{catalog.providers.length} providers</span>
         <Badge variant="secondary">{availableModels.length} available models</Badge>
-        {model && (
+        {availableModels.length > 0 && (
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{model.name}</DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{model?.name ?? "Choose a model"}</DropdownMenuTrigger>
             <DropdownMenuContent className={undefined}>
               {availableModels.map((item) => (
                 <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => setSelected(item)}>{item.name}</DropdownMenuItem>
@@ -95,7 +96,13 @@ export function ModelCatalog({ workspace }) {
           </DropdownMenu>
         )}
       </div>
-      <div className="space-y-3">
+      {!model && (
+        <div className="rounded-lg border border-dashed p-3 text-sm" data-testid="model-onboarding">
+          <p>{availableModels.length > 0 ? "Choose a model to start this thread." : "No usable model is configured for this workspace."}</p>
+          {availableModels.length === 0 && <Button asChild className="mt-2" size="sm" variant="outline"><a href="#provider-settings">Configure a provider</a></Button>}
+        </div>
+      )}
+      <div className="space-y-3" id="provider-settings">
         {catalog.providers.map((provider) => {
           const external = provider.source && provider.source !== "stored";
           return (
@@ -127,6 +134,11 @@ export function ModelCatalog({ workspace }) {
           );
         })}
       </div>
+      <CustomEndpoints
+        endpoints={catalog.customEndpoints ?? []}
+        onCatalog={(next) => setCatalog(/** @type {Catalog} */ (next))}
+        onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))}
+      />
       {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
       {model && <ThreadRunner key={`${workspace.id}/${model.provider}/${model.id}`} workspace={workspace} model={model} />}
     </div>

@@ -4,10 +4,11 @@
 
 **Blocked by:** 29 — Provider credential settings
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Endpoint name, provider identifier, base URL, credential reference, and supported model data persist through upstream Pi configuration.
-- [ ] Colliding built-in or existing provider identifiers are rejected before writing.
-- [ ] Only valid supported HTTP or HTTPS endpoint URLs are accepted according to the chosen security policy.
-- [ ] Legacy managed entries and built-in overrides remain distinct and deletion does not remove unrelated credentials.
+- [x] Endpoint name, provider identifier, base URL, credential reference, and supported model data persist through upstream Pi configuration.
+- [x] Colliding built-in or existing provider identifiers are rejected before writing.
+- [x] Only valid supported HTTP or HTTPS endpoint URLs are accepted according to the chosen security policy.
+- [x] Legacy managed entries and built-in overrides remain distinct and deletion does not remove unrelated credentials.
 
+**Checks:** F010–F012 are covered by the focused agent-host persistence test, frontend typecheck, Rust boundary tests, and Clippy.

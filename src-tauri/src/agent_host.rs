@@ -27,6 +27,8 @@ pub struct HostEvent {
 struct CatalogPayload {
     providers: Vec<CatalogProvider>,
     models: Vec<CatalogModel>,
+    #[serde(default)]
+    custom_endpoints: Vec<serde_json::Value>,
     errors: Vec<String>,
 }
 
@@ -66,6 +68,7 @@ impl HostEvent {
             let _ = (
                 catalog.providers.len(),
                 catalog.models.len(),
+                catalog.custom_endpoints.len(),
                 catalog.errors.len(),
             );
         }

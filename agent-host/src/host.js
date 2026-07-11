@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
-import { mkdtemp, rm } from "node:fs/promises";
-import { unwatchFile, watchFile } from "node:fs";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFileSync, unwatchFile, watchFile } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -74,6 +74,8 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
+      else if (operation === "saveCustomEndpoint") result = await saveCustomEndpoint(payload);
+      else if (operation === "deleteCustomEndpoint") result = await deleteCustomEndpoint(payload);
       else if (operation === "wait") result = await wait(payload.ms, controller.signal);
       else throw new Error(`Unsupported operation: ${operation}`);
       if (controller.signal.aborted) throw new Error("Cancelled");
@@ -259,7 +261,108 @@ export function loadModelCatalog({ agentDir = getAgentDir() } = {}) {
   const errors = [];
   if (authStorage.drainErrors().length) errors.push("auth.json could not be loaded; fix or remove the invalid file");
   if (registry.getError()) errors.push("models.json could not be loaded; fix or remove the invalid file");
-  return { providers, models, errors };
+  return { providers, models, customEndpoints: loadCustomEndpoints(agentDir), errors };
+}
+
+function loadCustomEndpoints(agentDir) {
+  try {
+    const ownership = JSON.parse(requireFile(join(agentDir, "pi-ocarina-endpoints.json")));
+    const config = JSON.parse(requireFile(join(agentDir, "models.json")));
+    return ownership.ids.flatMap((id) => {
+      const provider = config.providers?.[id];
+      if (!provider) return [];
+      return [{
+        id,
+        name: provider.name ?? id,
+        baseUrl: provider.baseUrl,
+        credentialReference: provider.apiKey,
+        models: (provider.models ?? []).map((model) => ({ id: model.id, name: model.name ?? model.id })),
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function requireFile(path) {
+  return readFileSync(path, "utf8");
+}
+
+export async function saveCustomEndpoint(payload = {}, agentDir = getAgentDir()) {
+  const endpoint = validateCustomEndpoint(payload);
+  await mkdir(agentDir, { recursive: true });
+  const modelsPath = join(agentDir, "models.json");
+  const ownershipPath = join(agentDir, "pi-ocarina-endpoints.json");
+  const config = await readJson(modelsPath, { providers: {} });
+  const ownership = await readJson(ownershipPath, { ids: [] });
+  const registry = ModelRegistry.create(AuthStorage.create(join(agentDir, "auth.json")), modelsPath);
+  const owned = ownership.ids.includes(endpoint.id);
+  if (!owned && (config.providers?.[endpoint.id] || registry.getAll().some(({ provider }) => provider === endpoint.id))) {
+    throw new Error("Provider identifier is already in use");
+  }
+  config.providers ??= {};
+  config.providers[endpoint.id] = {
+    name: endpoint.name,
+    baseUrl: endpoint.baseUrl,
+    api: "openai-completions",
+    apiKey: endpoint.credentialReference,
+    models: endpoint.models,
+  };
+  if (!owned) ownership.ids.push(endpoint.id);
+  await writeJsonAtomic(ownershipPath, ownership);
+  await writeJsonAtomic(modelsPath, config);
+  return loadModelCatalog({ agentDir });
+}
+
+export async function deleteCustomEndpoint({ id } = {}, agentDir = getAgentDir()) {
+  if (typeof id !== "string" || !id) throw new Error("Endpoint identifier is required");
+  const modelsPath = join(agentDir, "models.json");
+  const ownershipPath = join(agentDir, "pi-ocarina-endpoints.json");
+  const ownership = await readJson(ownershipPath, { ids: [] });
+  if (!ownership.ids.includes(id)) throw new Error("Endpoint is not managed by Pi Ocarina");
+  const config = await readJson(modelsPath, { providers: {} });
+  delete config.providers?.[id];
+  ownership.ids = ownership.ids.filter((ownedId) => ownedId !== id);
+  await writeJsonAtomic(modelsPath, config);
+  await writeJsonAtomic(ownershipPath, ownership);
+  return loadModelCatalog({ agentDir });
+}
+
+function validateCustomEndpoint({ id, name, baseUrl, credentialReference, models } = {}) {
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(id ?? "")) throw new Error("Provider identifier must use lowercase letters, numbers, dashes, or underscores");
+  if (typeof name !== "string" || !name.trim()) throw new Error("Endpoint name is required");
+  let url;
+  try { url = new URL(baseUrl); } catch { throw new Error("Base URL must be a valid URL"); }
+  const loopback = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) throw new Error("Remote endpoints must use HTTPS");
+  if (url.username || url.password) throw new Error("Base URL must not contain credentials");
+  if (typeof credentialReference !== "string" || !/^[A-Z_][A-Z0-9_]*$/.test(credentialReference)) {
+    throw new Error("Credential reference must be an environment variable name");
+  }
+  if (!Array.isArray(models) || models.length === 0 || models.some((model) => typeof model?.id !== "string" || !model.id.trim())) {
+    throw new Error("At least one model identifier is required");
+  }
+  return {
+    id,
+    name: name.trim(),
+    baseUrl: url.toString().replace(/\/$/, ""),
+    credentialReference,
+    models: models.map((model) => ({ id: model.id.trim(), name: model.name?.trim() || model.id.trim() })),
+  };
+}
+
+async function readJson(path, fallback) {
+  try { return JSON.parse(await readFile(path, "utf8")); }
+  catch (error) {
+    if (error?.code === "ENOENT") return structuredClone(fallback);
+    throw new Error(`${path.split("/").at(-1)} could not be loaded`);
+  }
+}
+
+async function writeJsonAtomic(path, value) {
+  const temp = `${path}.${process.pid}.tmp`;
+  await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  await rename(temp, path);
 }
 
 export function saveProviderCredential({ provider, apiKey } = {}, agentDir = getAgentDir()) {
