@@ -43,6 +43,14 @@ Never delete or rewrite user sessions, worktrees, credentials, or repositories w
 - Startup reports whether state was new, loaded, migrated, or recovered from backup; unsupported future schemas fail closed.
 - Rust broadcasts immutable snapshots to window consumers. Renderers never own or replace durable state.
 
+## UI Composition
+
+- The desktop shell has one thread sidebar and one conversation surface.
+- Workspace switching composes into the sidebar header; it is not a second permanent navigation column.
+- The transcript owns flexible height and the composer stays pinned beneath it.
+- Provider, appearance, notification, skill, and extension management live in dialogs instead of competing with the daily conversation flow.
+- The terminal is a collapsible bottom dock beneath the conversation surface.
+
 ## `pi-gui` Translation Map
 
 | `../pi-gui` responsibility | pi-ocarina owner |

@@ -19,7 +19,7 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
   const [files, setFiles] = useState(/** @type {string[]} */ ([]));
   const fileQuery = value.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   useEffect(() => { if (fileQuery == null || mentions.length) { setFiles([]); return; } const timer = setTimeout(() => void invoke("search_workspace_files", { workspaceId, query: fileQuery }).then(setFiles).catch(() => setFiles([])), 100); return () => clearTimeout(timer); }, [fileQuery, mentions.length, workspaceId]);
-  return <div className="space-y-2" data-testid="composer">
+  return <div className="mx-auto w-full max-w-4xl space-y-2 rounded-2xl border bg-card p-3 shadow-sm" data-testid="composer">
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
         <span>/{command.name}</span><span className="ml-2 truncate text-muted-foreground">{command.description}</span>

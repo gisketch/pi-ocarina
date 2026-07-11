@@ -9,14 +9,15 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
 
 /** @typedef {{ id: string, name: string, configured: boolean, source?: string, label?: string }} Provider */
 /** @typedef {{ provider: string, id: string, name: string, available: boolean }} Model */
 /** @typedef {{ providers: Provider[], models: Model[], customEndpoints?: Array<{ id: string, name: string, baseUrl: string, credentialReference: string, models: Array<{id: string, name: string}> }>, errors: string[] }} Catalog */
 
 /** @typedef {{ id: string, path: string }} Workspace */
-/** @param {{ workspace: Workspace | null, onModelChange?: (model: Model | null) => void }} props */
-export function ModelCatalog({ workspace, onModelChange = () => {} }) {
+/** @param {{ workspace: Workspace | null, sidebarVisible?: boolean, sidebarHeader?: React.ReactNode, onModelChange?: (model: Model | null) => void }} props */
+export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, onModelChange = () => {} }) {
   const [catalog, setCatalog] = useState(/** @type {Catalog} */ ({ providers: [], models: [], errors: [] }));
   const [selected, setSelected] = useState(/** @type {Model | null} */ (null));
   const [keys, setKeys] = useState(/** @type {Record<string, string>} */ ({}));
@@ -90,10 +91,8 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
     }
   };
   return (
-    <div className="mt-4 space-y-2 border-t pt-4" data-testid="model-catalog">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span>{catalog.providers.length} providers</span>
-        <Badge variant="secondary">{availableModels.length} available models</Badge>
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="model-catalog">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3 text-sm">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{scope === "global" ? "Global model" : "Repository model"}</DropdownMenuTrigger>
           <DropdownMenuContent className={undefined}>
@@ -120,55 +119,27 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        <Dialog>
+          <DialogTrigger asChild><Button className="ml-auto" size="sm" variant="ghost">Models & providers</Button></DialogTrigger>
+          <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+            <DialogHeader className={undefined}><DialogTitle className={undefined}>Models and providers</DialogTitle><DialogDescription className={undefined}>{availableModels.length} available models across {catalog.providers.length} providers.</DialogDescription></DialogHeader>
+            <div className="space-y-3">
+              {catalog.providers.map((provider) => {
+                const external = provider.source && provider.source !== "stored";
+                return <div key={provider.id} className="rounded-lg border p-3" data-testid={`provider-${provider.id}`}><div className="flex items-center justify-between gap-2 text-sm"><span>{provider.name}</span><Badge variant="outline">{external ? "Externally managed" : provider.configured ? "Stored" : "Not configured"}</Badge></div>{external ? <p className="mt-2 text-xs text-muted-foreground">{provider.label ?? "Configured outside Pi Ocarina"}</p> : <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); void saveCredential(provider.id); }}><label className="sr-only" htmlFor={`key-${provider.id}`}>{provider.name} API key</label><Input className="flex-1" id={`key-${provider.id}`} type="password" autoComplete="off" placeholder={provider.configured ? "Replace saved API key" : "API key"} value={keys[provider.id] ?? ""} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setKeys((current) => ({ ...current, [provider.id]: event.target.value }))} /><Button type="submit" disabled={!keys[provider.id]?.trim() || saving === provider.id}>{saving === provider.id ? "Saving…" : "Save"}</Button></form>}</div>;
+              })}
+              <CustomEndpoints endpoints={catalog.customEndpoints ?? []} onCatalog={(next) => setCatalog(/** @type {Catalog} */ (next))} onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))} />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-      {!model && (
+      {!model && availableModels.length === 0 && (
         <div className="rounded-lg border border-dashed p-3 text-sm" data-testid="model-onboarding">
           <p>{availableModels.length > 0 ? "Choose a model to start this thread." : "No usable model is configured for this workspace."}</p>
-          {availableModels.length === 0 && <Button asChild className="mt-2" size="sm" variant="outline"><a href="#provider-settings">Configure a provider</a></Button>}
         </div>
       )}
-      <details className="rounded-md border p-3" id="provider-settings">
-        <summary className="cursor-pointer text-sm font-medium">Provider settings</summary>
-      <div className="mt-3 space-y-3">
-        {catalog.providers.map((provider) => {
-          const external = provider.source && provider.source !== "stored";
-          return (
-            <div key={provider.id} className="rounded-lg border p-3" data-testid={`provider-${provider.id}`}>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span>{provider.name}</span>
-                <Badge variant="outline">{external ? "Externally managed" : provider.configured ? "Stored" : "Not configured"}</Badge>
-              </div>
-              {external ? (
-                <p className="mt-2 text-xs text-muted-foreground">{provider.label ?? "Configured outside Pi Ocarina"}</p>
-              ) : (
-                <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); void saveCredential(provider.id); }}>
-                  <label className="sr-only" htmlFor={`key-${provider.id}`}>{provider.name} API key</label>
-                  <Input
-                    className="flex-1"
-                    id={`key-${provider.id}`}
-                    type="password"
-                    autoComplete="off"
-                    placeholder={provider.configured ? "Replace saved API key" : "API key"}
-                    value={keys[provider.id] ?? ""}
-                    onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setKeys((current) => ({ ...current, [provider.id]: event.target.value }))}
-                  />
-                  <Button type="submit" disabled={!keys[provider.id]?.trim() || saving === provider.id}>
-                    {saving === provider.id ? "Saving…" : "Save"}
-                  </Button>
-                </form>
-              )}
-            </div>
-          );
-        })}
-      <CustomEndpoints
-        endpoints={catalog.customEndpoints ?? []}
-        onCatalog={(next) => setCatalog(/** @type {Catalog} */ (next))}
-        onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))}
-      />
-      </div>
-      </details>
       {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
-      <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} />
+      <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} />
     </div>
   );
 }

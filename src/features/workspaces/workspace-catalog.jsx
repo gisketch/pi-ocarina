@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowDownIcon, ArrowUpIcon, FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
@@ -101,56 +101,20 @@ export function WorkspaceCatalog({ sidebarVisible = true }) {
 
   const selectedWorkspace = state.windows?.[windowLabel]?.workspace_id ?? null;
   const selected = state.workspaces.find(({ id }) => id === selectedWorkspace) ?? null;
+  const sidebarHeader = <div className="mb-3 flex items-center gap-1 border-b pb-3">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button className="min-w-0 flex-1 justify-start" size="sm" variant="ghost"><FolderOpenIcon /><span className="truncate">{selected ? selected.name || folderName(selected) : "Choose workspace"}</span></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-64">{state.workspaces.map((workspace) => <DropdownMenuItem className={undefined} inset={undefined} key={workspace.id} onSelect={() => void run("select_workspace", { workspaceId: workspace.id })}>{workspace.root_workspace_id && <FolderGit2Icon />}{workspace.name || folderName(workspace)}</DropdownMenuItem>)}</DropdownMenuContent>
+    </DropdownMenu>
+    <Button aria-label="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button>
+    {selected && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Workspace actions" size="icon-sm" variant="ghost"><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className={undefined}><DropdownMenuItem className={undefined} inset={undefined} onSelect={() => { setName(selected.name || folderName(selected)); setRenameTarget(selected); }}>Rename</DropdownMenuItem><DropdownMenuItem className={undefined} inset={undefined} onSelect={() => void invoke("reveal_workspace", { workspaceId: selected.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>{selected.root_workspace_id ? <DropdownMenuItem className="text-destructive focus:text-destructive" inset={undefined} onSelect={() => void removeWorktree(selected)}><Trash2Icon />Remove worktree</DropdownMenuItem> : <><DropdownMenuItem className={undefined} disabled={!model} inset={undefined} onSelect={() => void createWorktree(selected)}><FolderGit2Icon />Create worktree</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" inset={undefined} onSelect={() => setRemoveTarget(selected)}>Remove from list…</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu>}
+  </div>;
 
   return (
-    <div className={sidebarVisible ? "grid h-full min-h-0 md:grid-cols-[20rem_minmax(0,1fr)]" : "h-full min-h-0"}>
-      {sidebarVisible && <aside className="min-h-0 overflow-y-auto border-r p-3">
-      <div className="space-y-2">
-        {state.workspaces.map((workspace, index) => (
-          <div className="flex items-center gap-2" key={workspace.id}>
-            <Button
-              className="min-w-0 flex-1 justify-start"
-              variant={workspace.id === selectedWorkspace ? "default" : "outline"}
-              onClick={() => void run("select_workspace", { workspaceId: workspace.id })}
-            >
-              {workspace.root_workspace_id && <FolderGit2Icon aria-label="Worktree" />}
-              <span className="truncate">{workspace.name || folderName(workspace)}</span>
-            </Button>
-            {workspace.root_workspace_id
-              ? <Button aria-label="Remove worktree" size="icon" variant="ghost" onClick={() => void removeWorktree(workspace)}><Trash2Icon /></Button>
-              : <Button aria-label="Create worktree" size="icon" disabled={!model} title={model ? "Create worktree" : "Choose a model first"} variant="ghost" onClick={() => void createWorktree(workspace)}><FolderGit2Icon /></Button>}
-            <Button
-              aria-label={`Move ${workspace.name || folderName(workspace)} up`}
-              disabled={index === 0}
-              size="icon"
-              variant="ghost"
-              onClick={() => void run("reorder_workspace", { workspaceId: workspace.id, newIndex: index - 1 })}
-            ><ArrowUpIcon /></Button>
-            <Button
-              aria-label={`Move ${workspace.name || folderName(workspace)} down`}
-              disabled={index === state.workspaces.length - 1}
-              size="icon"
-              variant="ghost"
-              onClick={() => void run("reorder_workspace", { workspaceId: workspace.id, newIndex: index + 1 })}
-            ><ArrowDownIcon /></Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button aria-label={`Manage ${workspace.name || folderName(workspace)}`} size="icon" variant="ghost"><MoreHorizontalIcon /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className={undefined}>
-                <DropdownMenuItem className={undefined} inset={undefined} onSelect={() => { setName(workspace.name || folderName(workspace)); setRenameTarget(workspace); }}>Rename</DropdownMenuItem>
-                <DropdownMenuItem className={undefined} inset={undefined} onSelect={() => void invoke("reveal_workspace", { workspaceId: workspace.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>
-                {!workspace.root_workspace_id && <DropdownMenuItem className="text-destructive focus:text-destructive" inset={undefined} onSelect={() => setRemoveTarget(workspace)}>Remove from list…</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ))}
-      </div>
-      <Button className="mt-3 w-full" variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      </aside>}
-      <section className="min-h-0 min-w-0 overflow-y-auto p-4">
-        {selected ? <><ModelCatalog onModelChange={setModel} workspace={selected} />{selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}</> : <p className="text-sm text-muted-foreground">Select a workspace to begin.</p>}
+    <div className="flex h-full min-h-0 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {selected ? <><ModelCatalog onModelChange={setModel} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} />{selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}</> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
+        {error && <p className="px-3 text-xs text-destructive">{error}</p>}
       </section>
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => !open && setRenameTarget(null)}>
