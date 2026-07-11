@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "project": "pi-ocarina",
+  "agents": [
+    "codex",
+    "copilot",
+    "claude",
+    "pi"
+  ],
+  "context": [],
+  "createdBy": "sonata",
+  "createdAt": "2026-07-11",
+  "updatedAt": "2026-07-11T13:11:19.428Z"
+}
