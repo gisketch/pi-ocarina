@@ -25,8 +25,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [attachments, setAttachments] = useState(/** @type {Array<any>} */ ([]));
   const [stream, setStream] = useState("");
   const [error, setError] = useState("");
-  const [running, setRunning] = useState(false);
-  const [runId, setRunId] = useState(/** @type {string | null} */ (null));
+  const [runningThreads, setRunningThreads] = useState(/** @type {Set<string>} */ (new Set()));
   const [queue, setQueue] = useState(/** @type {Array<any>} */ ([]));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
@@ -34,12 +33,17 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [renameTarget, setRenameTarget] = useState(/** @type {ThreadSummary | null} */ (null));
   const [renameValue, setRenameValue] = useState("");
   const revision = useRef(0);
+  const selectedThreadRef = useRef(/** @type {string | null} */ (null));
+  const runIdsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
+  const streamsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
+  const runtimePromptsRef = useRef(/** @type {Map<string, any>} */ (new Map()));
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
   const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
   const threadModel = thread?.model;
+  const running = thread ? runningThreads.has(thread.threadId) : false;
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
@@ -64,12 +68,14 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         cwd: workspace.path, threadId: saved.active_thread_id, sessionFile: saved.session_file,
       }));
       setThread(recovered);
+      selectedThreadRef.current = recovered.threadId;
       if (recovered.runStatus === "running") {
+        setRunningThreads((items) => new Set(items).add(recovered.threadId));
         void request("threadQueue", { threadId: recovered.threadId }).then((result) => setQueue(result.items)).catch(() => {});
         watchId = crypto.randomUUID();
         void request("watchThread", { threadId: recovered.threadId }, (event) => {
           if (event.payload.threadId !== saved.active_thread_id) return;
-          if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
+          if (event.type === "messageDelta") appendStream(recovered.threadId, event.payload.delta);
           if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
         }, watchId).catch(() => {});
       }
@@ -114,9 +120,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       await applyModel(selected); setPrompt(""); return;
     }
     if (!activeModel) { setError("Choose an available model to continue."); return; }
-    setRunning(true);
     setError("");
     setStream("");
+    /** @type {string | null} */
+    let startedThreadId = null;
+    /** @type {string | null} */
+    let activeRunId = null;
     try {
       const active = thread ?? /** @type {Thread} */ (await request("createThread", {
         cwd: workspace.path,
@@ -126,6 +135,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       }));
       const text = prompt;
       const submittedAttachments = attachments;
+      startedThreadId = active.threadId;
+      selectedThreadRef.current = active.threadId;
       setPrompt("");
       setThread({ ...active, messages: [...active.messages, { role: "user", text: text || submittedAttachments.map((item) => item.name).join(", ") }] });
       if (!thread) {
@@ -137,11 +148,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         }).catch(() => {});
       }
       void saveProjection(active, "running", "");
-      const activeRunId = crypto.randomUUID();
-      setRunId(activeRunId);
+      activeRunId = crypto.randomUUID();
+      runIdsRef.current.set(active.threadId, activeRunId);
+      setRunningThreads((items) => new Set(items).add(active.threadId));
       const completed = /** @type {Thread} */ (await request("promptThread", { threadId: active.threadId, prompt: text, attachments: submittedAttachments }, (event) => {
-        if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
-        if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
+        if (event.type === "messageDelta") appendStream(active.threadId, event.payload.delta);
+        if (event.type === "toolCall" && selectedThreadRef.current === active.threadId) setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
         if (event.type === "editorText" && event.payload.threadId === active.threadId) {
           setPrompt((value) => {
             const next = event.payload.mode === "append" ? value + event.payload.text : event.payload.text;
@@ -149,21 +161,32 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
             return next;
           });
         }
-        if (event.type === "runtimePrompt") { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); }
-        if (event.type === "runtimeNotice" && event.payload.type === "error") setError(event.payload.message);
+        if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
+        if (event.type === "runtimeNotice" && event.payload.type === "error" && selectedThreadRef.current === active.threadId) setError(event.payload.message);
       }, activeRunId));
-      setThread(completed);
+      if (selectedThreadRef.current === active.threadId) setThread(completed);
       setAttachments([]);
       draftAttachmentsRef.current[active.threadId] = [];
-      void saveProjection(completed, "idle", "");
-      setStream("");
+      if (selectedThreadRef.current === active.threadId) void saveProjection(completed, "idle", "", []);
+      streamsRef.current.delete(active.threadId);
+      if (selectedThreadRef.current === active.threadId) setStream("");
     } catch (cause) {
-      setError(String(cause));
+      if (!startedThreadId || selectedThreadRef.current === startedThreadId) setError(String(cause));
     } finally {
-      setRunning(false);
-      setRunId(null);
-      setQueue([]);
+      const completedThreadId = activeRunId ? [...runIdsRef.current].find(([, id]) => id === activeRunId)?.[0] : undefined;
+      if (completedThreadId) {
+        runIdsRef.current.delete(completedThreadId);
+        setRunningThreads((items) => { const next = new Set(items); next.delete(completedThreadId); return next; });
+        if (selectedThreadRef.current === completedThreadId) setQueue([]);
+      }
     }
+  }
+
+  /** @param {string} threadId @param {string} delta */
+  function appendStream(threadId, delta) {
+    const next = (streamsRef.current.get(threadId) ?? "") + delta;
+    streamsRef.current.set(threadId, next);
+    if (selectedThreadRef.current === threadId) setStream(next);
   }
 
   /** @param {"steer" | "followUp"} mode */
@@ -172,6 +195,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     try {
       const result = await request("queueThread", { threadId: thread.threadId, prompt, attachments, mode });
       setQueue(result.items); setPrompt(""); setAttachments([]);
+      void saveProjection(thread, "running", "", []);
     } catch (cause) { setError(String(cause)); }
   }
 
@@ -199,11 +223,11 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     catch (cause) { setError(String(cause)); }
   }
 
-  function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt) {
+  function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt, draftAttachment = attachments) {
     const key = active?.threadId ?? "new";
     const nextDrafts = { ...draftsRef.current, [key]: draft };
     draftsRef.current = nextDrafts;
-    const nextAttachments = { ...draftAttachmentsRef.current, [key]: attachments };
+    const nextAttachments = { ...draftAttachmentsRef.current, [key]: draftAttachment };
     draftAttachmentsRef.current = nextAttachments;
     const nextRevision = ++revision.current;
     return invoke("set_workspace_projection", { workspaceId: workspace.id, projection: {
@@ -222,6 +246,11 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     try {
       const opened = /** @type {Thread} */ (await request("openThread", { cwd: workspace.path, sessionFile: item.sessionFile }));
       setThread(opened);
+      selectedThreadRef.current = opened.threadId;
+      setStream(streamsRef.current.get(opened.threadId) ?? "");
+      const pendingPrompt = runtimePromptsRef.current.get(opened.threadId) ?? null;
+      setRuntimePrompt(pendingPrompt);
+      setRuntimeValue(pendingPrompt?.options?.[0] ?? "");
       setQueue((await request("threadQueue", { threadId: opened.threadId })).items);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
       setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
@@ -231,16 +260,18 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function newThread() {
     await saveProjection();
-    setThread(null); setStream(""); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
+    selectedThreadRef.current = null; setThread(null); setStream(""); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   function stopRun() {
-    if (runId) void request("cancel", { requestId: runId }).catch((cause) => setError(String(cause)));
+    const id = thread && runIdsRef.current.get(thread.threadId);
+    if (id) void request("cancel", { requestId: id }).catch((cause) => setError(String(cause)));
   }
 
   function resolvePrompt(cancelled = false) {
     if (!runtimePrompt) return;
     void request("resolveRuntimePrompt", { promptId: runtimePrompt.promptId, threadId: runtimePrompt.threadId, value: runtimePrompt.kind === "confirm" ? true : runtimeValue, cancelled });
+    runtimePromptsRef.current.delete(runtimePrompt.threadId);
     setRuntimePrompt(null);
   }
 
@@ -263,11 +294,11 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   }
 
   return (
-    <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(); }).catch((cause) => setError(String(cause))); }}>
+    <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
       <nav className="space-y-1" aria-label="Threads">
         <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
         {threads.map((item) => <div className="flex" key={item.sessionFile}>
-          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{item.title}</Button>
+          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <span aria-label="Running" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
         </div>)}
         {threads.length === 0 && <p className="px-2 text-xs text-muted-foreground">No threads yet.</p>}
@@ -293,7 +324,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       </TranscriptViewport>
       <Composer
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
-        attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(); }} onAttachmentError={(message) => setError(message)}
+        attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(thread, running ? "running" : "idle", prompt, items); }} onAttachmentError={(message) => setError(message)}
         commands={thread?.commands} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
         onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}

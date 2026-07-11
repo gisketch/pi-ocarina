@@ -22,6 +22,40 @@ test("attachments become Pi image content and file context", async () => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("two Pi sessions run concurrently without event bleed", async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const events = [];
+  let count = 0;
+  const sessions = [];
+  const createSession = async () => {
+    const listeners = new Set();
+    const id = `parallel-${++count}`;
+    const session = {
+      sessionId: id, messages: [], model: null, thinkingLevel: "off",
+      getAvailableThinkingLevels: () => ["off"],
+      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+      prompt: () => new Promise((resolve) => { session.finish = () => { listeners.forEach((listener) => listener({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: id } })); resolve(); }; }),
+      async abort() { session.finish?.(); }, dispose() {},
+    };
+    sessions.push(session);
+    return { session };
+  };
+  serve(input, output, createSession, () => ({ authStorage: {}, modelRegistry: {}, model: {} }));
+  output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
+  const send = (requestId, operation, payload) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
+  send("create-a", "createThread", { cwd: "/tmp", provider: "x", modelId: "x" });
+  send("create-b", "createThread", { cwd: "/tmp", provider: "x", modelId: "x" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("run-a", "promptThread", { threadId: "parallel-1", prompt: "a" });
+  send("run-b", "promptThread", { threadId: "parallel-2", prompt: "b" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  sessions[1].finish(); sessions[0].finish();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(events.find(({ requestId, type }) => requestId === "run-a" && type === "messageDelta").payload.threadId, "parallel-1");
+  assert.equal(events.find(({ requestId, type }) => requestId === "run-b" && type === "messageDelta").payload.threadId, "parallel-2");
+});
+
 test("JSONL bridge validates, interleaves requests, and cancels once", async () => {
   const input = new PassThrough();
   const output = new PassThrough();

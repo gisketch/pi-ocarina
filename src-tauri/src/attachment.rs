@@ -35,7 +35,8 @@ pub fn import_attachment(
     if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
         return Err("Attachment exceeds 25 MB".into());
     }
-    let safe_name = PathBuf::from(&name)
+    let name_path = PathBuf::from(&name);
+    let safe_name = name_path
         .file_name()
         .and_then(|value| value.to_str())
         .ok_or("Attachment name is invalid")?;

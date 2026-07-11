@@ -298,6 +298,7 @@ async function replaceThreadQueue({ threadId, items = [] } = {}, sessions, runni
   if (!Array.isArray(items)) throw new Error("Invalid queue");
   session.clearQueue();
   for (const item of items) {
+    if (!item || !["steer", "followUp"].includes(item.mode)) throw new Error("Invalid queue mode");
     const prepared = await preparePrompt(item.prompt, item.attachments ?? []);
     await session[item.mode](prepared.text, prepared.images);
   }
@@ -313,8 +314,8 @@ export async function preparePrompt(prompt, attachments) {
     if (!item || typeof item.path !== "string" || typeof item.name !== "string") throw new Error("Invalid attachment");
     const info = await stat(item.path);
     if (!info.isFile() || info.size > 25 * 1024 * 1024) throw new Error("Invalid attachment");
-    if (item.kind === "image") {
-      const extension = item.path.split(".").at(-1)?.toLowerCase();
+    const extension = item.path.split(".").at(-1)?.toLowerCase();
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension)) {
       const mimeType = extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension}`;
       images.push({ type: "image", data: (await readFile(item.path)).toString("base64"), mimeType });
     } else files.push(`Attached file available to tools: ${item.path}`);
