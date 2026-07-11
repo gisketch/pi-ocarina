@@ -30,7 +30,9 @@
     "active": true,
     "targets": ["app"],
     "resources": {
-      "../agent-host": "agent-host"
+      "../agent-host/dist": "agent-host/dist",
+      "../agent-host/node_modules": "agent-host/node_modules",
+      "../agent-host/package.json": "agent-host/package.json"
     }
   }
 }

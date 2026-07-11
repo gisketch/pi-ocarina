@@ -348,13 +348,13 @@ pub fn start_agent_host(app: AppHandle, state: State<'_, AgentHostState>) -> Res
     let node = if bundled_node.exists() {
         bundled_node
     } else {
-        source_root.join("node_modules/node/bin/node")
+        source_root.join("agent-host/node_modules/node/bin/node")
     };
-    let bundled_script = resources.join("agent-host/src/host.js");
+    let bundled_script = resources.join("agent-host/dist/host.js");
     let script = if bundled_script.exists() {
         bundled_script
     } else {
-        source_root.join("agent-host/src/host.js")
+        source_root.join("agent-host/dist/host.js")
     };
     let mut host = state.0.lock().unwrap();
     if let Some(active) = host.as_mut() {

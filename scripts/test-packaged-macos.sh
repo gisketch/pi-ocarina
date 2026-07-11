@@ -8,7 +8,7 @@ executable="$app/Contents/MacOS/pi-ocarina"
 
 test -x "$node"
 test -x "$executable"
-test -f "$resources/src/host.js"
+test -f "$resources/dist/host.js"
 test -f "$resources/node_modules/@mariozechner/pi-coding-agent/package.json"
 if find "$app/Contents" -name auth.json -o -name settings.json | grep -q .; then
   echo "credential or settings file was copied into the app bundle" >&2
@@ -25,7 +25,7 @@ trap cleanup EXIT
 mkdir -p "$workspace/.pi/extensions"
 printf 'export default function () {}\n' > "$workspace/.pi/extensions/packaged-proof.js"
 
-PATH=/usr/bin:/bin "$node" --input-type=module - "$resources/src/host.js" "$workspace" <<'JS'
+PATH=/usr/bin:/bin "$node" --input-type=module - "$resources/dist/host.js" "$workspace" <<'JS'
 import { pathToFileURL } from "node:url";
 const host = await import(pathToFileURL(process.argv[2]));
 const result = await host.inspectRuntime({ cwd: process.argv[3] });
@@ -35,7 +35,7 @@ if (catalog.errors.length) process.exit(1);
 if (process.env.HOME && (await import("node:fs")).existsSync(`${process.env.HOME}/.pi/agent/auth.json`) && !catalog.providers.some((provider) => provider.configured)) process.exit(1);
 JS
 
-PATH="$(dirname "$node"):/usr/bin:/bin" "$node" --input-type=module - "$node" "$resources/src/host.js" "$workspace" <<'JS'
+PATH="$(dirname "$node"):/usr/bin:/bin" "$node" --input-type=module - "$node" "$resources/dist/host.js" "$workspace" <<'JS'
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 const [node, host, cwd] = process.argv.slice(2);

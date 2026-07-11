@@ -1,0 +1,63 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { PanelLeftIcon } from "@/shared/ui/icon";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/shared/ui/button";
+import type { AppStateSnapshot, Preferences } from "@/shared/contracts/app";
+
+const defaults: Preferences = { theme: "dark", transparency: false, sidebar_visible: true };
+
+function applyAppearance(preferences: Preferences) {
+  document.documentElement.classList.add("dark");
+  document.documentElement.classList.toggle("transparent", preferences.transparency);
+  document.documentElement.style.colorScheme = "dark";
+}
+
+export function AppearanceControls({ onSidebarChange }: { onSidebarChange: (visible: boolean) => void }) {
+  const [preferences, setPreferences] = useState<Preferences>(defaults);
+  const [supportsTransparency, setSupportsTransparency] = useState(false);
+
+  const save = async (change: Partial<Preferences>) => {
+    const next: Preferences = { ...preferences, ...change, theme: "dark" };
+    const state = await invoke<{ preferences: Preferences }>("set_preferences", { preferences: next });
+    setPreferences(state.preferences);
+  };
+
+  useEffect(() => {
+    const sync = (next: Partial<Preferences>) => {
+      const value: Preferences = { ...defaults, ...next, theme: "dark" };
+      setPreferences(value);
+      applyAppearance(value);
+      onSidebarChange(value.sidebar_visible);
+    };
+    void invoke<{ transparency: boolean }>("appearance_support").then(({ transparency }) => setSupportsTransparency(transparency));
+    void invoke<AppStateSnapshot>("app_state_snapshot").then(({ state }) => sync(state.preferences));
+    const listener = listen<AppStateSnapshot["state"]>("app-state://changed", ({ payload }) => sync(payload.preferences));
+    return () => void listener.then((stop) => stop());
+  }, [onSidebarChange]);
+
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        void save({ sidebar_visible: !preferences.sidebar_visible });
+      }
+    };
+    addEventListener("keydown", shortcut);
+    return () => removeEventListener("keydown", shortcut);
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-1" aria-label="Appearance">
+      <Button variant="ghost" aria-pressed={preferences.sidebar_visible} onClick={() => void save({ sidebar_visible: !preferences.sidebar_visible })}>
+        <PanelLeftIcon /> Sidebar
+      </Button>
+      {supportsTransparency && (
+        <Button variant="ghost" aria-pressed={preferences.transparency} onClick={() => void save({ transparency: !preferences.transparency })}>
+          Transparency
+        </Button>
+      )}
+    </div>
+  );
+}
