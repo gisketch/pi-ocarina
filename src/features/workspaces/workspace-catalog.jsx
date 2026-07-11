@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { ModelCatalog } from "@/features/models/model-catalog";
+import { TerminalPanel } from "@/features/terminal/terminal-panel";
 
 /** @typedef {{ id: string, path: string }} Workspace */
 /** @typedef {{ workspaces: Workspace[], selected_workspace: string | null }} WorkspaceState */
@@ -60,6 +61,7 @@ export function WorkspaceCatalog() {
       </div>
       <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
       <ModelCatalog workspace={state.workspaces.find(({ id }) => id === state.selected_workspace) ?? null} />
+      {state.selected_workspace && <TerminalPanel workspaceId={state.selected_workspace} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );

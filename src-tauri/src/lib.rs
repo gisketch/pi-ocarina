@@ -1,5 +1,6 @@
 pub mod agent_host;
 pub mod app_state;
+pub mod terminal;
 pub mod workspace;
 
 use app_state::{
@@ -120,6 +121,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(agent_host::AgentHostState::default())
+        .manage(terminal::TerminalState::default())
         .setup(|app| {
             let state_path = app.path().app_data_dir()?.join("app-state.json");
             let store = AppStateStore::open(state_path).map_err(std::io::Error::other)?;
@@ -154,6 +156,11 @@ pub fn run() {
             set_window_projection,
             set_workspace_projection,
             open_external_url,
+            terminal::open_terminal,
+            terminal::write_terminal,
+            terminal::resize_terminal,
+            terminal::close_terminal,
+            terminal::set_terminal_shell,
             workspace::add_workspace,
             workspace::select_workspace
         ]);
