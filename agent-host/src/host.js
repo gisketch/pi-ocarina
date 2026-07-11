@@ -86,6 +86,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
       else if (operation === "renameThread") result = renameThread(payload, sessions);
       else if (operation === "reloadResources") result = await reloadResources(payload, sessions);
+      else if (operation === "setExtensionEnabled") result = await setExtensionEnabled(payload, sessions);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -340,6 +341,7 @@ function threadSnapshot(session) {
       scope: sourceInfo?.scope ?? "temporary", available: true,
       aliases: [`skill:${name}`], disableModelInvocation,
     })),
+    extensions: extensionSnapshot(session),
   };
 }
 
@@ -348,6 +350,59 @@ async function reloadResources({ threadId } = {}, sessions) {
   if (!session) throw new Error("Thread is not open");
   await session.reload();
   return threadSnapshot(session);
+}
+
+async function setExtensionEnabled({ threadId, source, enabled } = {}, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  const record = extensionSnapshot(session).find((item) => item.source === source);
+  if (!record?.managed) throw new Error("Extension is not managed by Pi settings");
+  const settings = session.settingsManager;
+  const scope = record.scope === "project" ? settings.getProjectSettings() : settings.getGlobalSettings();
+  if (record.kind === "package") {
+    const packages = (scope.packages ?? []).map((item) => packageSource(item) === source ? (enabled ? enablePackage(item) : { ...(typeof item === "object" ? item : { source }), extensions: [] }) : item);
+    record.scope === "project" ? settings.setProjectPackages(packages) : settings.setPackages(packages);
+  } else {
+    const paths = (scope.extensions ?? []).map((item) => item.replace(/^!/, "") === source ? (enabled ? source : `!${source}`) : item);
+    record.scope === "project" ? settings.setProjectExtensionPaths(paths) : settings.setExtensionPaths(paths);
+  }
+  await settings.flush();
+  await session.reload();
+  return threadSnapshot(session);
+}
+
+function packageSource(item) { return typeof item === "string" ? item : item.source; }
+function enablePackage(item) {
+  if (typeof item === "string") return item;
+  const enabled = { ...item };
+  delete enabled.extensions;
+  return enabled;
+}
+
+function extensionSnapshot(session) {
+  const settings = session.settingsManager;
+  if (!settings) return (session.resourceLoader?.getExtensions?.().extensions ?? []).map(extensionRecord);
+  const configured = [];
+  for (const [scopeName, scope] of [["user", settings.getGlobalSettings()], ["project", settings.getProjectSettings()]]) {
+    for (const item of scope.packages ?? []) configured.push({ source: packageSource(item), scope: scopeName, kind: "package", enabled: typeof item === "string" || item.extensions?.length !== 0, managed: true });
+    for (const item of scope.extensions ?? []) configured.push({ source: item.replace(/^!/, ""), scope: scopeName, kind: "path", enabled: !item.startsWith("!"), managed: true });
+  }
+  const records = new Map(configured.map((item) => [item.source, { ...item, label: extensionLabel(item.source) }]));
+  for (const item of (session.resourceLoader?.getExtensions?.().extensions ?? []).map(extensionRecord)) records.set(item.source, { ...records.get(item.source), ...item, enabled: true });
+  return [...records.values()];
+}
+
+function extensionRecord(extension) {
+  const source = extension.sourceInfo?.source ?? extension.path;
+  return { source, label: extensionLabel(source), path: extension.path, scope: extension.sourceInfo?.scope ?? "temporary", kind: extension.sourceInfo?.origin === "package" ? "package" : "path", enabled: true };
+}
+
+function extensionLabel(source) {
+  if (source.startsWith("npm:")) return extensionLabel(source.slice(4));
+  if (source.startsWith("git:")) return source.replace(/^git:/, "").replace(/\.git(?:#.*)?$/, "").split("/").slice(-2).join("/");
+  if (source.startsWith("@")) return source.split("@").slice(0, 2).join("@");
+  if (!source.includes("/") || source.startsWith("npm:")) return source.replace(/^npm:/, "").split("@")[0];
+  return source.replace(/#.*$/, "").replace(/\.git$/, "").replace(/\/$/, "").split("/").pop();
 }
 
 async function withSchema(snapshot) {

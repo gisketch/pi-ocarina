@@ -1,22 +1,24 @@
 // @ts-check
 import { SendIcon, StopCircleIcon } from "lucide-react";
 
-import { slashSuggestions } from "./commands";
+import { extensionMentions, slashSuggestions } from "./commands";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
 import { Textarea } from "@/shared/ui/textarea";
 
 const DEFAULT_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
-/** @param {{ value: string, running: boolean, disabled?: boolean, commands?: Array<any>, models: Array<any>, model: any, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
-export function Composer({ value, running, disabled, commands = [], models, model, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onStop, onModelChange, onThinkingChange }) {
+/** @param {{ value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
+export function Composer({ value, running, disabled, commands = [], extensions = [], models, model, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onStop, onModelChange, onThinkingChange }) {
   const suggestions = slashSuggestions(value, commands);
+  const mentions = extensionMentions(value, extensions);
   return <div className="space-y-2" data-testid="composer">
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
         <span>/{command.name}</span><span className="ml-2 truncate text-muted-foreground">{command.description}</span>
       </Button>)}
     </div>}
+    {mentions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Extension mentions">{mentions.map((extension) => <Button className="w-full justify-start" key={extension.source} type="button" variant="ghost" role="option" onClick={() => onChange(value.replace(/@[^\s]*$/, `@${extension.source} `))}>@{extension.label}</Button>)}</div>}
     <Textarea
       aria-label="Message"
       className={undefined}

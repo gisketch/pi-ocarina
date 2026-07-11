@@ -68,6 +68,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const output = new PassThrough();
   const events = [];
   const persisted = [];
+  let globalSettings = { packages: [{ source: "@scope/proof", skills: ["skills/**"] }] };
+  let reloads = 0;
   let emitSession = () => {};
   const makeSession = async () => {
     const listeners = new Set();
@@ -84,7 +86,13 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       async setModel(model) { this.model = model; },
       promptTemplates: [{ name: "review", description: "Review changes" }],
       resourceLoader: { getSkills: () => ({ skills: [{ name: "ship", description: "Ship it", filePath: "/tmp/workspace/.pi/skills/ship/SKILL.md", sourceInfo: { source: "project", scope: "project" }, disableModelInvocation: false }] }) },
-      async reload() {},
+      settingsManager: {
+        getGlobalSettings: () => globalSettings,
+        getProjectSettings: () => ({}),
+        setPackages(packages) { globalSettings = { ...globalSettings, packages }; },
+        setProjectPackages() {}, setExtensionPaths() {}, setProjectExtensionPaths() {}, async flush() {},
+      },
+      async reload() { reloads += 1; },
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text) {
         persisted.push({ role: "user", content: text });
@@ -124,6 +132,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   send("set-model", "setThreadModel", { threadId: "thread-1", provider: "test", modelId: "new" });
   send("set-thinking", "setThreadThinking", { threadId: "thread-1", thinkingLevel: "high" });
   send("reload", "reloadResources", { threadId: "thread-1" });
+  send("disable-extension", "setExtensionEnabled", { threadId: "thread-1", source: "@scope/proof", enabled: false });
+  send("reject-extension", "setExtensionEnabled", { threadId: "thread-1", source: "../../unknown", enabled: false });
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("list", "listThreads", { cwd: "/tmp/workspace" });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -151,6 +161,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "reload" && type === "completed").payload.skills[0], {
     name: "ship", description: "Ship it", path: "/tmp/workspace/.pi/skills/ship/SKILL.md", source: "project", scope: "project", available: true, aliases: ["skill:ship"], disableModelInvocation: false,
   });
+  assert.deepEqual(globalSettings.packages, [{ source: "@scope/proof", skills: ["skills/**"], extensions: [] }]);
+  assert.equal(reloads, 2);
+  assert.equal(events.find(({ requestId, type }) => requestId === "reject-extension" && type === "failed").payload.message, "Agent run failed. Check provider settings and try again.");
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "list" && type === "completed").payload, [
     { sessionFile: "/tmp/thread-1.jsonl", title: "Empty thread" },
   ]);

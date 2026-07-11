@@ -13,7 +13,7 @@ import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, extensions?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 /** @typedef {{ threadId?: string, sessionFile: string, title: string, modified?: string, messageCount?: number }} ThreadSummary */
 
 /** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
@@ -266,7 +266,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       </TranscriptViewport>
       <Composer
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
-        commands={thread?.commands} models={models} model={activeModel}
+        commands={thread?.commands} extensions={thread?.extensions} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
         onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}
         onSend={() => void submit()} onStop={stopRun}
@@ -281,6 +281,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           </div>)}
           <Button size="sm" variant="ghost" onClick={() => void reloadResources()}><RefreshCwIcon />Reload</Button>
         </div>
+      </details>}
+      {thread && <details className="rounded-md border bg-card p-3 text-sm">
+        <summary className="cursor-pointer font-medium">Extensions ({thread.extensions?.length ?? 0})</summary>
+        <div className="mt-2 space-y-2">{thread.extensions?.map((extension) => <div className="flex items-center justify-between gap-3" key={extension.source}><div className="min-w-0"><p className="font-medium">{extension.label}</p><p className="truncate text-xs text-muted-foreground">{extension.source} · {extension.scope}</p></div>{extension.managed && <Button size="sm" variant="outline" onClick={() => void request("setExtensionEnabled", { threadId: thread.threadId, source: extension.source, enabled: !extension.enabled }).then((value) => setThread(/** @type {Thread} */ (value))).catch((cause) => setError(String(cause)))}>{extension.enabled ? "Disable" : "Enable"}</Button>}</div>)}</div>
       </details>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
