@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "e2e",
+  "description": "Debug-only permissions for the real desktop smoke lane.",
+  "windows": ["main"],
+  "permissions": ["wdio:default", "wdio-webdriver:default"]
+}

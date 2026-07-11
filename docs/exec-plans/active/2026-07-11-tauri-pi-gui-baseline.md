@@ -26,7 +26,7 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 
 - [ ] Inventory the exact `pi-gui` flows and portable code needed for the first slice.
 - [ ] Resolve and record the Pi SDK package/version and packaged agent-host strategy.
-- [ ] Scaffold one Tauri 2 app with Bun, React JavaScript, Vite, and Tailwind.
+- [x] Scaffold one Tauri 2 app with Bun, React JavaScript, Vite, and Tailwind.
 - [ ] Define the smallest versioned command/event protocol.
 - [ ] Implement workspace open and Pi session discovery.
 - [ ] Implement prompt, streaming timeline, cancellation, and clear failures.
@@ -52,3 +52,4 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 ## Progress Log
 
 - 2026-07-11: Harness initialized with product, architecture, testing, and quality rules.
+- 2026-07-11: Ticket 01 completed with the Tauri shell and real macOS WebdriverIO smoke lane.

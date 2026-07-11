@@ -10,19 +10,34 @@
 
 ## Command Status
 
-Only the Sonata harness exists today. These commands are targets for the scaffold and must not be called verified until their scripts exist and pass:
+Verified:
 
 ```bash
 bun install
-bun run tauri dev
 bun run lint
+bun run typecheck
+bun run check
 bun run test
 bun run build
-bun run tauri build
-cargo fmt --check --manifest-path src-tauri/Cargo.toml
-cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-cargo test --manifest-path src-tauri/Cargo.toml
+bun run rust:build
+bun run rust:fmt
+bun run rust:lint
+bun run rust:test
 ```
+
+Local development:
+
+```bash
+bun run tauri dev
+```
+
+The real macOS desktop smoke uses an embedded WebDriver server and an E2E-only Tauri config:
+
+```bash
+bun run test:e2e
+```
+
+Normal builds do not grant the E2E capability or expose the WebdriverIO frontend bridge.
 
 ## Dependency Rules
 

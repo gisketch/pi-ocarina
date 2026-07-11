@@ -141,7 +141,7 @@
 | F110 | `apps/desktop/tests/core/worktrees.spec.ts` | keeps orphaned worktree workspaces visible after removing the root workspace | 26 — Worktree lifecycle | Adapt the source scenario into the smallest credible automated check owned by Ticket 26. |
 | F111 | `apps/desktop/tests/core/worktrees.spec.ts` | shows a worktree icon in the sidebar without a local text badge | 26 — Worktree lifecycle | Adapt the source scenario into the smallest credible automated check owned by Ticket 26. |
 | F112 | `apps/desktop/tests/demo/fork-demo.spec.ts` | records a fork-from-message walkthrough | 20 — Fork and tree navigation | Adapt the source scenario into the smallest credible automated check owned by Ticket 20. |
-| F113 | `apps/desktop/tests/dev/dev-reload.spec.ts` | reloads running desktop app for renderer, Electron, and shared package edits | 01 — Tauri shell and real-desktop test lane | Adapt the source scenario into the smallest credible automated check owned by Ticket 01. |
+| F113 | `apps/desktop/tests/dev/dev-reload.spec.ts` | reloads running desktop app for renderer, Electron, and shared package edits | 43 — beta.32 parity audit | Add a Tauri dev-reload acceptance check after renderer, Rust, and shared runtime surfaces exist. |
 | F114 | `apps/desktop/tests/live/extension-command-compatibility.spec.ts` | fails fast for unsupported handoff-like commands and learns terminal-only status | 35 — Extension dialogs and compatibility fallback | Adapt the source scenario into the smallest credible automated check owned by Ticket 35. |
 | F115 | `apps/desktop/tests/live/extension-command-compatibility.spec.ts` | persists learned terminal-only command compatibility across relaunch | 35 — Extension dialogs and compatibility fallback | Adapt the source scenario into the smallest credible automated check owned by Ticket 35. |
 | F116 | `apps/desktop/tests/live/extension-dock-reload.spec.ts` | refreshes runtime with new extension output and keeps the dock collapsed after rebuild | 36 — Extension reload and session continuity | Adapt the source scenario into the smallest credible automated check owned by Ticket 36. |
@@ -234,6 +234,7 @@
 | F203 | `README.md` | Thread search, archive, worktrees, terminal, changes, skills, extensions, themes, and notifications remain first-class desktop flows | 43 — beta.32 parity audit | Ticket 43 demonstrates this behavior end to end. |
 | F204 | `package.json / packages/pi-sdk-driver` | The installed desktop carries the Pi SDK runtime required to execute sessions | 02 — Self-contained upstream Pi packaging proof | A packaged-runtime check runs upstream Pi and a dynamic extension without system Node, Bun, or Pi. |
 | F205 | `packages/pi-sdk-driver / settings views` | Provider and model availability comes from Pi-owned auth and model configuration | 06 — Shared Pi auth and model catalog | A contract check proves the desktop reads upstream Pi stores without copying credentials into Rust or React. |
+| F206 | `Ticket 01 desktop contract` | The real Tauri desktop launches, exposes an accessible ready shell, and exits cleanly | 01 — Tauri shell and real-desktop test lane | The WebdriverIO macOS smoke launches the compiled Tauri app, observes the ready marker, and completes cleanly. |
 
 ## Audit Rules
 

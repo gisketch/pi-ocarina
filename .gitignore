@@ -6,6 +6,9 @@ node_modules/
 dist/
 build/
 coverage/
+src-tauri/target/
+src-tauri/gen/
+.serena/
 
 # sonata:block=context-tools:start
 # Local agent/runtime noise

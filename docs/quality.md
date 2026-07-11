@@ -7,20 +7,20 @@
 | Sonata structure | `./scripts/check-sonata.sh` | After harness, docs, or skill changes |
 | Placeholder sweep | `rg -n "undecided|generic app|Current stack: undecided|Create first useful version" AGENTS.md README.md docs/project-brief.md docs/architecture src tests config` | After stack or harness changes; expect no matches |
 | Context check | `./scripts/check-context.sh` | Before handoff when Pi context is expected |
+| Dependency install | `bun install` | After JavaScript dependency changes |
+| Frontend lint | `bun run lint` | After frontend or JavaScript tooling changes |
+| Frontend typecheck | `bun run typecheck` | After frontend JavaScript changes |
+| Frontend build | `bun run build` | Before frontend handoff |
+| Full static/Rust check | `bun run check` | Before implementation handoff |
+| Rust build | `bun run rust:build` | After Rust or Tauri configuration changes |
+| Rust format | `bun run rust:fmt` | After Rust changes |
+| Rust lint | `bun run rust:lint` | After Rust changes |
+| Rust tests | `bun run rust:test` | After Rust behavior changes |
+| Real macOS desktop smoke | `bun run test:e2e` | After shell, Tauri, or E2E harness changes |
 
 ## Planned Stack Checks
 
-Add these to `Current Checks` only after the scaffold exists and each command passes:
-
-- `bun install`
-- `bun run lint`
-- `bun run test`
-- `bun run build`
-- `cargo fmt --check --manifest-path src-tauri/Cargo.toml`
-- `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
-- `cargo test --manifest-path src-tauri/Cargo.toml`
-- real Tauri desktop smoke/E2E command
-- `bun run tauri build`
+Add release packaging checks when Ticket 42 makes `bun run tauri build` a supported artifact path.
 
 ## Quality Bar
 
