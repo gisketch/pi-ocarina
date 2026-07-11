@@ -11,6 +11,10 @@ import { Composer } from "@/features/composer/composer";
 import { ChangesPanel } from "@/features/review/changes-panel";
 import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments } from "@/features/composer/attachments";
+import { ExtensionDock } from "@/features/extensions/extension-dock-panel";
+import { EMPTY_DOCK, reduceDock } from "@/features/extensions/extension-dock.js";
+import { blockedCommand, loadCompatibility, saveCompatibility } from "@/features/extensions/compatibility.js";
+import { Textarea } from "@/shared/ui/textarea";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
@@ -31,6 +35,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [queue, setQueue] = useState(/** @type {Array<any>} */ ([]));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
+  const [notice, setNotice] = useState("");
+  const compatibilityRef = useRef(/** @type {Record<string, any>} */ (loadCompatibility(workspace.id)));
   const [newThinking, setNewThinking] = useState("medium");
   const [renameTarget, setRenameTarget] = useState(/** @type {ThreadSummary | null} */ (null));
   const [renameValue, setRenameValue] = useState("");
@@ -43,6 +49,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const runIdsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
   const streamsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
   const runtimePromptsRef = useRef(/** @type {Map<string, any>} */ (new Map()));
+  const docksRef = useRef(/** @type {Map<string, typeof EMPTY_DOCK>} */ (new Map()));
+  const [dock, setDock] = useState(EMPTY_DOCK);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
@@ -116,7 +124,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
     void listen("agent-host-event", ({ payload: event }) => {
       if (event.requestId !== requestId) return;
-      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText"].includes(event.type)) onEvent(event);
+      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText", "extensionDock", "compatibilityIssue", "sessionChanged"].includes(event.type)) onEvent(event);
       if (!["completed", "failed", "cancelled"].includes(event.type)) return;
       stop();
       if (event.type === "completed") resolve(event.payload);
@@ -130,6 +138,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function submit() {
     if ((!prompt.trim() && !attachments.length)) return;
+    const blocked = blockedCommand(prompt, thread?.commands, compatibilityRef.current);
+    if (blocked) { setError(blocked.message); return; }
     if (running) { await enqueue("followUp"); return; }
     const control = parseComposerControl(prompt);
     if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); return; }
@@ -181,7 +191,23 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           });
         }
         if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
-        if (event.type === "runtimeNotice" && event.payload.type === "error" && selectedThreadRef.current === active.threadId) setError(event.payload.message);
+        if (event.type === "runtimeNotice" && selectedThreadRef.current === active.threadId) event.payload.type === "error" ? setError(event.payload.message) : setNotice(event.payload.message);
+        if (event.type === "compatibilityIssue") {
+          const key = `${event.payload.extensionPath}::${event.payload.commandName}`;
+          compatibilityRef.current = { ...compatibilityRef.current, [key]: event.payload };
+          saveCompatibility(workspace.id, compatibilityRef.current);
+        }
+        if (event.type === "sessionChanged") {
+          selectedThreadRef.current = event.payload.threadId;
+          setThread(event.payload);
+          setThreads((items) => [{ threadId: event.payload.threadId, sessionFile: event.payload.sessionFile, title: event.payload.title ?? "New thread" }, ...items.filter((item) => item.threadId !== event.payload.threadId)]);
+          setPrompt(draftsRef.current[event.payload.threadId] ?? "");
+        }
+        if (event.type === "extensionDock") {
+          const next = reduceDock(docksRef.current.get(active.threadId), event.payload);
+          docksRef.current.set(active.threadId, next);
+          if (selectedThreadRef.current === active.threadId) setDock(next);
+        }
       }, activeRunId));
       if (selectedThreadRef.current === active.threadId) setThread(completed);
       draftAttachmentsRef.current[active.threadId] = [];
@@ -250,7 +276,11 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function reloadResources() {
     if (!thread) return;
-    try { setThread(/** @type {Thread} */ (await request("reloadResources", { threadId: thread.threadId }))); }
+    try {
+      setDock(EMPTY_DOCK); docksRef.current.delete(thread.threadId);
+      setThread(/** @type {Thread} */ (await request("reloadResources", { threadId: thread.threadId })));
+      compatibilityRef.current = {}; saveCompatibility(workspace.id, {});
+    }
     catch (cause) { setError(String(cause)); }
   }
 
@@ -283,6 +313,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       const pendingPrompt = runtimePromptsRef.current.get(opened.threadId) ?? null;
       setRuntimePrompt(pendingPrompt);
       setRuntimeValue(pendingPrompt?.options?.[0] ?? "");
+      setDock(docksRef.current.get(opened.threadId) ?? EMPTY_DOCK);
       setQueue((await request("threadQueue", { threadId: opened.threadId })).items);
       markRead(item);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
@@ -311,7 +342,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function newThread() {
     await saveProjection();
-    selectedThreadRef.current = null; setThread(null); setStream(""); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
+    selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   function stopRun() {
@@ -421,6 +452,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
+      <ExtensionDock dock={dock} />
+      {notice && <p className="rounded-md border bg-muted p-2 text-sm" role="status">{notice}<Button className="ml-2" size="sm" variant="ghost" onClick={() => setNotice("")}>Dismiss</Button></p>}
       {queue.length > 0 && <div className="space-y-1 rounded-md border p-2" aria-label="Queued messages">{queue.map((item) => <div className="flex items-center gap-2 text-xs" key={item.id}><span className="rounded bg-muted px-1 font-medium">{item.mode === "steer" ? "Steer" : "Queued"}</span><Input aria-label={`Edit ${item.mode}`} className="h-7" type="text" value={item.prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQueue(queue.map((value) => value.id === item.id ? { ...value, prompt: event.target.value } : value))} onBlur={() => void replaceQueue(queue)} /><Button size="icon-xs" variant="ghost" aria-label="Remove queued message" onClick={() => void replaceQueue(queue.filter((value) => value.id !== item.id))}><XIcon /></Button></div>)}</div>}
       {thread && <details className="rounded-md border bg-card p-3 text-sm">
         <summary className="cursor-pointer font-medium">Skills ({thread.skills?.length ?? 0})</summary>
@@ -440,7 +473,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
         <DialogContent className={undefined}>
           <DialogHeader className={undefined}><DialogTitle className={undefined}>{runtimePrompt?.title}</DialogTitle><DialogDescription className={undefined}>{runtimePrompt?.message}</DialogDescription></DialogHeader>
-          {runtimePrompt?.kind === "select" ? <select className="h-9 rounded-md border bg-background px-3" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLSelectElement>} */ event) => setRuntimeValue(event.target.value)}>{runtimePrompt.options?.map((/** @type {string} */ option) => <option key={option}>{option}</option>)}</select> : runtimePrompt?.kind !== "confirm" && <Input aria-label="Runtime input" className={undefined} type="text" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setRuntimeValue(event.target.value)} />}
+          {runtimePrompt?.kind === "select" ? <select className="h-9 rounded-md border bg-background px-3" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLSelectElement>} */ event) => setRuntimeValue(event.target.value)}>{runtimePrompt.options?.map((/** @type {string} */ option) => <option key={option}>{option}</option>)}</select> : runtimePrompt?.kind === "editor" ? <Textarea aria-label="Runtime editor" className={undefined} value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLTextAreaElement>} */ event) => setRuntimeValue(event.target.value)} /> : runtimePrompt?.kind !== "confirm" && <Input aria-label="Runtime input" className={undefined} type="text" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setRuntimeValue(event.target.value)} />}
           <DialogFooter className={undefined}><Button variant="outline" onClick={() => resolvePrompt(true)}>Cancel</Button><Button onClick={() => resolvePrompt(false)}>Continue</Button></DialogFooter>
         </DialogContent>
       </Dialog>

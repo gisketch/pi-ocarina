@@ -72,7 +72,119 @@ impl HostEvent {
                 catalog.errors.len(),
             );
         }
+        validate_extension_event(&event.kind, &event.payload)?;
         Ok(event)
+    }
+}
+
+fn validate_extension_event(kind: &str, payload: &serde_json::Value) -> Result<(), String> {
+    if !matches!(
+        kind,
+        "extensionDock"
+            | "runtimePrompt"
+            | "runtimeNotice"
+            | "editorText"
+            | "compatibilityIssue"
+            | "sessionChanged"
+    ) {
+        return Ok(());
+    }
+    let object = payload
+        .as_object()
+        .ok_or_else(|| format!("Invalid agent-host {kind} payload"))?;
+    bounded_string(object.get("threadId"), 256, "threadId")?;
+    match kind {
+        "extensionDock" => {
+            let dock_kind = bounded_string(object.get("kind"), 16, "kind")?;
+            if !matches!(dock_kind, "status" | "widget" | "title") {
+                return Err("Invalid extension dock kind".into());
+            }
+            optional_bounded_string(object.get("key"), 256, "key")?;
+            validate_literal(object.get("value"))?;
+        }
+        "runtimePrompt" => {
+            bounded_string(object.get("promptId"), 256, "promptId")?;
+            let prompt_kind = bounded_string(object.get("kind"), 16, "kind")?;
+            if !matches!(prompt_kind, "select" | "confirm" | "input" | "editor") {
+                return Err("Invalid runtime prompt kind".into());
+            }
+            optional_bounded_string(object.get("title"), 4096, "title")?;
+            optional_bounded_string(object.get("message"), 65_536, "message")?;
+            validate_literal(object.get("options"))?;
+        }
+        "runtimeNotice" => {
+            bounded_string(object.get("message"), 65_536, "message")?;
+            let level = bounded_string(object.get("type"), 16, "type")?;
+            if !matches!(level, "info" | "warning" | "error") {
+                return Err("Invalid runtime notice type".into());
+            }
+        }
+        "editorText" => {
+            let text = object
+                .get("text")
+                .and_then(serde_json::Value::as_str)
+                .ok_or("Invalid text")?;
+            if text.len() > 262_144 {
+                return Err("Invalid text".into());
+            }
+            let mode = bounded_string(object.get("mode"), 16, "mode")?;
+            if !matches!(mode, "append" | "replace") {
+                return Err("Invalid editor text mode".into());
+            }
+        }
+        "compatibilityIssue" => {
+            bounded_string(object.get("message"), 65_536, "message")?;
+            bounded_string(object.get("capability"), 128, "capability")?;
+            optional_bounded_string(object.get("commandName"), 256, "commandName")?;
+            optional_bounded_string(object.get("extensionPath"), 4096, "extensionPath")?;
+        }
+        "sessionChanged" => {
+            bounded_string(object.get("previousThreadId"), 256, "previousThreadId")?;
+            bounded_string(object.get("sessionFile"), 4096, "sessionFile")?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn bounded_string<'a>(
+    value: Option<&'a serde_json::Value>,
+    max: usize,
+    name: &str,
+) -> Result<&'a str, String> {
+    let value = value
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("Invalid {name}"))?;
+    if value.is_empty() || value.len() > max {
+        return Err(format!("Invalid {name}"));
+    }
+    Ok(value)
+}
+
+fn optional_bounded_string(
+    value: Option<&serde_json::Value>,
+    max: usize,
+    name: &str,
+) -> Result<(), String> {
+    if value.is_none() || value == Some(&serde_json::Value::Null) {
+        return Ok(());
+    }
+    bounded_string(value, max, name).map(|_| ())
+}
+
+fn validate_literal(value: Option<&serde_json::Value>) -> Result<(), String> {
+    match value {
+        None | Some(serde_json::Value::Null) => Ok(()),
+        Some(serde_json::Value::String(text)) if text.len() <= 65_536 => Ok(()),
+        Some(serde_json::Value::Array(lines))
+            if lines.len() <= 100
+                && lines
+                    .iter()
+                    .all(|line| line.as_str().is_some_and(|text| text.len() <= 4096)) =>
+        {
+            Ok(())
+        }
+        _ => Err("Invalid extension UI literal".into()),
     }
 }
 
@@ -293,6 +405,14 @@ mod tests {
         .is_err());
         assert!(HostEvent::parse(
             r#"{"version":1,"requestId":"a","type":"catalog","payload":{"providers":[],"models":[],"errors":[],"apiKey":"secret"}}"#
+        )
+        .is_err());
+        assert!(HostEvent::parse(
+            r#"{"version":1,"requestId":"a","type":"extensionDock","payload":{"threadId":"thread","kind":"widget","key":"proof","value":["ready"]}}"#
+        )
+        .is_ok());
+        assert!(HostEvent::parse(
+            r#"{"version":1,"requestId":"a","type":"runtimePrompt","payload":{"threadId":"thread","promptId":"p","kind":"custom"}}"#
         )
         .is_err());
     }

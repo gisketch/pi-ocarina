@@ -4,10 +4,9 @@
 
 **Blocked by:** 33 — Extension discovery and management
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] One dock per session stays collapsed by default and expands to bounded accessible content.
-- [ ] Status-only and widget-only output receives literal fallback summaries.
-- [ ] Repeated widget updates replace state instead of spamming the transcript.
-- [ ] Dock state, title, and widgets never bleed between concurrent sessions.
-
+- [x] One dock per session stays collapsed by default and expands to bounded accessible content.
+- [x] Status-only and widget-only output receives literal fallback summaries.
+- [x] Repeated widget updates replace state instead of spamming the transcript.
+- [x] Dock state, title, and widgets never bleed between concurrent sessions.

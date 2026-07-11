@@ -317,12 +317,19 @@ async function promptThread({ threadId, prompt = "", attachments = [] } = {}, si
   if ((await sessionSchema(session.sessionFile, CURRENT_SESSION_VERSION)).newer) throw new Error("Session was written by a newer Pi version and is read-only");
   const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
   const abort = () => { void session.abort(); cancelThreadPrompts(threadId, prompts); };
-  session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish));
+  const commandName = prompt.trim().match(/^\/([^\s]+)/)?.[1];
+  const command = session.extensionRunner?.getRegisteredCommands?.().find(({ invocationName }) => invocationName === commandName);
+  session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish, command));
   signal.addEventListener("abort", abort, { once: true });
   runningThreads.add(threadId);
   try {
     const prepared = await preparePrompt(prompt, attachments);
     await session.prompt(prepared.text, { images: prepared.images });
+    if (session.sessionId !== threadId) {
+      sessions.delete(threadId);
+      sessions.set(session.sessionId, session);
+      publish("sessionChanged", { ...threadSnapshot(session), previousThreadId: threadId });
+    }
     return threadSnapshot(session);
   } finally {
     signal.removeEventListener("abort", abort);
@@ -396,24 +403,50 @@ function cancelThreadPrompts(threadId, prompts) {
   for (const [id, pending] of prompts) if (pending.threadId === threadId) { prompts.delete(id); pending.resolve(undefined); }
 }
 
-function runtimeUi(threadId, prompts, publish) {
+function runtimeUi(threadId, prompts, publish, command) {
   const ask = (kind, title, message, options) => new Promise((resolve) => {
     const promptId = crypto.randomUUID();
     prompts.set(promptId, { threadId, resolve });
-    publish("runtimePrompt", { promptId, threadId, kind, title, message, options });
+    publish("runtimePrompt", { promptId, threadId, kind, title: boundedOptional(title, 4096), message: boundedOptional(message, 65_536), options: Array.isArray(options) ? options.slice(0, 100).map((value) => boundedText(value, 4096)).filter(Boolean) : undefined });
   });
   return {
     select: (title, options) => ask("select", title, undefined, options),
     confirm: async (title, message) => Boolean(await ask("confirm", title, message)),
     input: (title, placeholder) => ask("input", title, placeholder),
-    notify: (message, type = "info") => publish("runtimeNotice", { threadId, message, type }),
-    onTerminalInput: () => () => {}, setStatus() {}, setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {},
-    setHiddenThinkingLabel() {}, setWidget() {}, setFooter() {}, setHeader() {}, setTitle() {},
-    pasteToEditor: (text) => publish("editorText", { threadId, text, mode: "append" }),
-    setEditorText: (text) => publish("editorText", { threadId, text, mode: "replace" }),
-    getEditorText: () => "", editor: (title, prefill) => ask("input", title, prefill),
-    custom: () => Promise.resolve(undefined), setAutocompleteProvider() {},
+    notify: (message, type = "info") => publish("runtimeNotice", { threadId, message: boundedText(message, 65_536) || "Extension notification", type: ["info", "warning", "error"].includes(type) ? type : "info" }),
+    onTerminalInput: () => () => {},
+    setStatus: (key, value) => publish("extensionDock", { threadId, kind: "status", key: boundedText(key, 256), value: literalUi(value, "Status unavailable") }),
+    setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {}, setHiddenThinkingLabel() {},
+    setWidget: (key, value) => publish("extensionDock", { threadId, kind: "widget", key: boundedText(key, 256), value: literalUi(value, "Custom widget unavailable in desktop") }),
+    setFooter() {}, setHeader() {},
+    setTitle: (value) => publish("extensionDock", { threadId, kind: "title", value: literalUi(value, "") }),
+    pasteToEditor: (text) => publish("editorText", { threadId, text: boundedText(text, 262_144), mode: "append" }),
+    setEditorText: (text) => publish("editorText", { threadId, text: boundedText(text, 262_144), mode: "replace" }),
+    getEditorText: () => "", editor: (title, prefill) => ask("editor", title, prefill),
+    custom: async () => {
+      const capability = "custom";
+      const message = `/${command?.invocationName ?? "extension command"} requires terminal-only custom UI and is not supported in Pi Ocarina. Use pi in the terminal for this command.`;
+      publish("compatibilityIssue", { threadId, capability, message, commandName: command?.invocationName, extensionPath: command?.sourceInfo?.path ?? command?.path ?? "unknown" });
+      throw new Error(message);
+    },
+    setAutocompleteProvider() {},
   };
+}
+
+function literalUi(value, fallback) {
+  if (value == null) return value;
+  if (typeof value === "string") return boundedText(value, 65_536);
+  if (Array.isArray(value) && value.every((line) => typeof line === "string")) return value.slice(0, 100).map((line) => boundedText(line, 4096));
+  return fallback;
+}
+
+function boundedText(value, max) {
+  return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+function boundedOptional(value, max) {
+  const text = boundedText(value, max);
+  return text || undefined;
 }
 
 function safeError(error) {
@@ -433,7 +466,7 @@ function threadSnapshot(session) {
     model: session.model ? { provider: session.model.provider, id: session.model.id, name: session.model.name } : null,
     thinkingLevel: session.thinkingLevel ?? "off",
     thinkingLevels: session.getAvailableThinkingLevels?.() ?? ["off"],
-    commands: extensionCommands.map(({ invocationName, description }) => ({ name: invocationName, description, source: "extension" }))
+    commands: extensionCommands.map(({ invocationName, description, sourceInfo, path }) => ({ name: invocationName, description, source: "extension", extensionPath: sourceInfo?.path ?? path ?? "unknown" }))
       .concat((session.promptTemplates ?? []).map(({ name, description }) => ({ name, description, source: "prompt" })))
       .concat(skills.map(({ name, description }) => ({ name: `skill:${name}`, description, source: "skill" }))),
     skills: skills.map(({ name, description, filePath, sourceInfo, disableModelInvocation }) => ({
