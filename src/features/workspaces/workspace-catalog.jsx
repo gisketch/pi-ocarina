@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "@/shared/ui/icon";
 import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";

@@ -4,7 +4,7 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Maximize2Icon, PlusIcon, TerminalIcon, XIcon } from "lucide-react";
+import { Maximize2Icon, PlusIcon, TerminalIcon, XIcon } from "@/shared/ui/icon";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";

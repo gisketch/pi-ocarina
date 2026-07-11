@@ -2,7 +2,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
-import { PlusIcon, SettingsIcon } from "lucide-react";
+import { PlusIcon, SettingsIcon } from "@/shared/ui/icon";
 
 import { AppearanceControls } from "@/features/appearance/appearance-controls";
 import { NotificationControls } from "@/features/notifications/notification-controls";
@@ -10,6 +10,7 @@ import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import { MatrixBackground } from "@/shared/ui/matrix-background";
 
 export function App() {
   const [runtime, setRuntime] = useState("Starting bundled Pi…");
@@ -38,13 +39,14 @@ export function App() {
 
   return (
     <main
-      className="h-screen overflow-hidden bg-background text-foreground"
+      className="h-screen overflow-hidden bg-transparent text-foreground"
       data-testid="app-ready"
     >
-      <Card className="flex h-full flex-col rounded-none border-0 shadow-none">
+      <MatrixBackground />
+      <Card className="pb-app-layer flex h-full flex-col rounded-none border-0 bg-transparent shadow-none">
         <CardHeader className="h-14 shrink-0 border-b px-4 py-0">
           <div className="flex h-full items-center gap-2">
-            <CardTitle className="text-base tracking-tight">Pi Ocarina</CardTitle>
+            <CardTitle className="font-heading text-base tracking-tight">Pi Ocarina</CardTitle>
             <span className="mr-auto text-xs text-muted-foreground" data-testid="runtime-status">{runtime}</span>
             <Dialog>
               <DialogTrigger asChild><Button aria-label="Settings" size="icon-sm" variant="ghost"><SettingsIcon /></Button></DialogTrigger>

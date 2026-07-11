@@ -1,5 +1,5 @@
 // @ts-check
-import { PaperclipIcon, SendIcon, StopCircleIcon, XIcon } from "lucide-react";
+import { PaperclipIcon, SendIcon, StopCircleIcon, XIcon } from "@/shared/ui/icon";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
@@ -8,18 +8,42 @@ import { extensionMentions, slashSuggestions } from "./commands";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
 import { Textarea } from "@/shared/ui/textarea";
+import { CellMatrix } from "@/shared/ui/cell-matrix";
 import { importAttachments, prepareAttachments } from "./attachments";
 
 const DEFAULT_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh"];
+
+/** @param {{ textarea: HTMLTextAreaElement | null }} props */
+function ComposerCaret({ textarea }) {
+  const [position, setPosition] = useState({ left: 0, top: 0, visible: false });
+  useEffect(() => {
+    if (!textarea) return;
+    const mirror = document.createElement("div"), marker = document.createElement("span");
+    mirror.style.cssText = "position:fixed;visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word";
+    document.body.append(mirror);
+    const update = () => {
+      const style = getComputedStyle(textarea);
+      Object.assign(mirror.style, { width: `${textarea.clientWidth}px`, font: style.font, letterSpacing: style.letterSpacing, lineHeight: style.lineHeight, padding: style.padding, border: style.border });
+      mirror.replaceChildren(document.createTextNode(textarea.value.slice(0, textarea.selectionStart)), marker);
+      marker.textContent = textarea.value.slice(textarea.selectionStart, textarea.selectionStart + 1) || " ";
+      setPosition({ left: marker.offsetLeft - textarea.scrollLeft, top: marker.offsetTop - textarea.scrollTop, visible: document.activeElement === textarea });
+    };
+    const events = ["input", "keyup", "click", "select", "scroll", "focus", "blur"];
+    events.forEach((event) => textarea.addEventListener(event, update)); addEventListener("resize", update); update();
+    return () => { events.forEach((event) => textarea.removeEventListener(event, update)); removeEventListener("resize", update); mirror.remove(); };
+  }, [textarea]);
+  return position.visible ? <CellMatrix cells="11" columns={2} rows={1} glow={false} toneSeed="composer-caret" className="pb-composer-caret absolute" style={{ left: position.left, top: position.top }} /> : null;
+}
 
 /** @param {{ workspaceId: string, value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
 export function Composer({ workspaceId, value, running, disabled, commands = [], extensions = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
   const suggestions = slashSuggestions(value, commands);
   const mentions = extensionMentions(value, extensions);
   const [files, setFiles] = useState(/** @type {string[]} */ ([]));
+  const [textarea, setTextarea] = useState(/** @type {HTMLTextAreaElement | null} */ (null));
   const fileQuery = value.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   useEffect(() => { if (fileQuery == null || mentions.length) { setFiles([]); return; } const timer = setTimeout(() => void invoke("search_workspace_files", { workspaceId, query: fileQuery }).then(setFiles).catch(() => setFiles([])), 100); return () => clearTimeout(timer); }, [fileQuery, mentions.length, workspaceId]);
-  return <div className="mx-auto w-full max-w-4xl space-y-2 rounded-2xl border bg-card p-3 shadow-sm" data-testid="composer">
+  return <div className="pb-composer mx-auto w-full max-w-4xl space-y-2 rounded-md border bg-card" data-testid="composer">
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
         <span>/{command.name}</span><span className="ml-2 truncate text-muted-foreground">{command.description}</span>
@@ -27,9 +51,10 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
     </div>}
     {mentions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Extension mentions">{mentions.map((extension) => <Button className="w-full justify-start" key={extension.source} type="button" variant="ghost" role="option" onClick={() => onChange(value.replace(/@[^\s]*$/, `@${extension.source} `))}>@{extension.label}</Button>)}</div>}
     {mentions.length === 0 && files.length > 0 && <div className="max-h-48 overflow-auto rounded-md border bg-popover p-1" role="listbox" aria-label="File mentions">{files.map((path) => <Button className="w-full justify-start" key={path} type="button" variant="ghost" role="option" onClick={() => onChange(value.replace(/@[^\s]*$/, `@${path} `))}>@{path}</Button>)}</div>}
-    <Textarea
+    <div className="relative"><Textarea
+      ref={setTextarea}
       aria-label="Message"
-      className={undefined}
+      className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
       value={value}
       disabled={disabled}
       placeholder="Ask Pi anything, use / for commands and skills"
@@ -44,9 +69,9 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
         if (event.key === "Escape" && running) { event.preventDefault(); onStop(); }
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.metaKey || event.ctrlKey ? onSteer() : onSend(); }
       }}
-    />
+    /><ComposerCaret textarea={textarea} /></div>
     {attachments.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Attachments">{attachments.map((item) => <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs" key={item.path}>{item.name}<Button aria-label={`Remove ${item.name}`} size="icon-xs" variant="ghost" onClick={() => onAttachments(attachments.filter((value) => value.path !== item.path))}><XIcon /></Button></span>)}</div>}
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="pb-composer-footer flex flex-wrap items-center gap-2">
       <Button aria-label="Attach files" type="button" size="icon-sm" variant="outline" disabled={disabled} onClick={() => void open({ multiple: true, directory: false }).then((paths) => paths?.length ? prepareAttachments(paths) : []).then((items) => items.length && onAttachments([...attachments, ...items])).catch((cause) => onAttachmentError(String(cause)))}><PaperclipIcon /></Button>
       <DropdownMenu><DropdownMenuTrigger render={<Button type="button" size="sm" variant="outline" disabled={running} />}>{model?.name ?? "Choose model"}</DropdownMenuTrigger>
         <DropdownMenuContent className={undefined}>{models.map((item) => <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => onModelChange(item)}>{item.name}</DropdownMenuItem>)}</DropdownMenuContent>

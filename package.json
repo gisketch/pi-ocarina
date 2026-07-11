@@ -25,9 +25,12 @@
     "build:e2e": "VITE_E2E=true tauri build --debug --no-bundle --config src-tauri/tauri.e2e.conf.json",
     "tauri": "tauri",
     "agent-host": "node_modules/node/bin/node agent-host/src/host.js",
-    "test:agent-host": "node_modules/node/bin/node --test agent-host/test/*.test.js"
+    "test:agent-host": "node_modules/node/bin/node --test agent-host/test/*.test.js",
+    "test:design-system": "node_modules/node/bin/node --test src/shared/ui/matrix.test.js"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
     "@mariozechner/pi-coding-agent": "0.73.1",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
@@ -36,8 +39,8 @@
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.24.0",
     "node": "20.19.5",
+    "pixelarticons": "^2.2.0",
     "radix-ui": "^1.6.2",
     "react": "19.2.7",
     "react-dom": "19.2.7",

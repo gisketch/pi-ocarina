@@ -36,6 +36,9 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 - Shadcn JavaScript output carries `@ts-nocheck`; authored application files opt into strict checks with `@ts-check`.
 - Feature-only UI stays local until a second real use proves it belongs in `shared/ui`.
 - Preserve keyboard access, focus visibility, semantics, and reduced-motion behavior.
+- Pi Ocarina owns its design system in `src/shared`; the sibling component-library prototype is migration input, never a runtime dependency.
+- The shipped appearance is dark-only. Space Grotesk is body text, Departure Mono is headings/composer input, and JetBrains Mono is buttons/code.
+- Application icons use the shared Pixelarticons wrapper rather than importing icon packages directly.
 - Copy `pi-gui` interaction behavior only after tracing the full flow and translating native calls to Tauri.
 - Runtime extension commands win name collisions with host commands; extension mentions precede file mentions.
 

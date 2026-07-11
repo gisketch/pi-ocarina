@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
-import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "@/shared/ui/icon";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -18,6 +18,7 @@ import { EMPTY_DOCK, reduceDock } from "@/features/extensions/extension-dock.js"
 import { blockedCommand, loadCompatibility, saveCompatibility } from "@/features/extensions/compatibility.js";
 import { notificationCategories, shouldNotify, shouldRequestPermission } from "@/features/notifications/notification-policy.js";
 import { Textarea } from "@/shared/ui/textarea";
+import { MatrixSpinner } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
@@ -467,12 +468,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
 
   return (
     <section className={sidebarVisible ? "grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)]" : "flex min-h-0 flex-1"} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
-      {sidebarVisible && <nav className="min-h-0 space-y-1 overflow-y-auto border-r p-3" aria-label="Threads">
+      {sidebarVisible && <nav className="pb-sidebar min-h-0 space-y-1 overflow-y-auto border-r p-3" aria-label="Threads">
         {sidebarHeader}
-        <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
+        <Button data-sidebar-row className="w-full justify-start" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
         <Input aria-label="Search threads" className="h-8" placeholder="Search threads" type="search" value={query} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQuery(event.target.value)} />
         {organized.active.map((item) => <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
-          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <span aria-label="Running" className="size-2 shrink-0 rounded-full bg-primary" />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
+          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="min-w-0 flex-1 justify-start truncate" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <MatrixSpinner size={2} gap={1} label={`${item.title} running`} />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
           {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
@@ -498,10 +499,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
         {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} /> : (
           message.role === "user"
-            ? <p key={`${message.role}-${index}`} className="ml-8 break-words rounded-md bg-muted p-2 text-sm">{message.text}</p>
-            : <MarkdownMessage key={`${message.role}-${index}`} className="mr-8 p-2">{message.text ?? ""}</MarkdownMessage>
+            ? <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-user"><p className="break-words">{message.text}</p></div>
+            : <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage>{message.text ?? ""}</MarkdownMessage></div>
         ))}
-        {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
+        {stream && <div className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></div>}
       </TranscriptViewport>
       <Composer
         workspaceId={workspace.id}

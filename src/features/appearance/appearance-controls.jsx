@@ -1,27 +1,18 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MonitorIcon, MoonIcon, PanelLeftIcon, SunIcon } from "lucide-react";
+import { PanelLeftIcon } from "@/shared/ui/icon";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
-
-/** @type {Array<{ name: string, Icon: import("react").ComponentType }>} */
-const themes = [
-  { name: "system", Icon: MonitorIcon },
-  { name: "light", Icon: SunIcon },
-  { name: "dark", Icon: MoonIcon },
-];
 
 /** @typedef {{ theme: string, transparency: boolean, sidebar_visible: boolean }} Preferences */
-const defaults = { theme: "system", transparency: false, sidebar_visible: true };
+const defaults = { theme: "dark", transparency: false, sidebar_visible: true };
 
 function applyAppearance(/** @type {Preferences} */ preferences) {
-  const systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.classList.toggle("dark", preferences.theme === "dark" || (preferences.theme === "system" && systemDark));
+  document.documentElement.classList.add("dark");
   document.documentElement.classList.toggle("transparent", preferences.transparency);
-  document.documentElement.style.colorScheme = preferences.theme === "system" ? "light dark" : preferences.theme;
+  document.documentElement.style.colorScheme = "dark";
 }
 
 export function AppearanceControls(/** @type {{ onSidebarChange: (visible: boolean) => void }} */ { onSidebarChange }) {
@@ -29,14 +20,14 @@ export function AppearanceControls(/** @type {{ onSidebarChange: (visible: boole
   const [supportsTransparency, setSupportsTransparency] = useState(false);
 
   const save = async (/** @type {Partial<Preferences>} */ change) => {
-    const next = { ...preferences, ...change };
+    const next = { ...preferences, ...change, theme: "dark" };
     const state = await invoke("set_preferences", { preferences: next });
     setPreferences(state.preferences);
   };
 
   useEffect(() => {
     const sync = (/** @type {Partial<Preferences>} */ next) => {
-      const value = { ...defaults, ...next };
+      const value = { ...defaults, ...next, theme: "dark" };
       setPreferences(value);
       applyAppearance(value);
       onSidebarChange(value.sidebar_visible);
@@ -46,13 +37,6 @@ export function AppearanceControls(/** @type {{ onSidebarChange: (visible: boole
     const listener = listen("app-state://changed", ({ payload }) => sync(payload.preferences));
     return () => void listener.then((stop) => stop());
   }, [onSidebarChange]);
-
-  useEffect(() => {
-    const media = matchMedia("(prefers-color-scheme: dark)");
-    const systemChange = () => preferences.theme === "system" && applyAppearance(preferences);
-    media.addEventListener("change", systemChange);
-    return () => media.removeEventListener("change", systemChange);
-  }, [preferences]);
 
   useEffect(() => {
     const shortcut = (/** @type {KeyboardEvent} */ event) => {
@@ -67,16 +51,6 @@ export function AppearanceControls(/** @type {{ onSidebarChange: (visible: boole
 
   return (
     <div className="flex flex-wrap items-center gap-1" aria-label="Appearance">
-      {themes.map(({ name, Icon }) => (
-        <Tooltip key={name}>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant={preferences.theme === name ? "secondary" : "ghost"} aria-label={`${name} theme`} onClick={() => void save({ theme: name })}>
-              <Icon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="">{name} theme</TooltipContent>
-        </Tooltip>
-      ))}
       <Button variant="ghost" aria-pressed={preferences.sidebar_visible} onClick={() => void save({ sidebar_visible: !preferences.sidebar_visible })}>
         <PanelLeftIcon /> Sidebar
       </Button>
