@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, PencilIcon } from "lucide-react";
+import { GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -30,6 +30,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [newThinking, setNewThinking] = useState("medium");
   const [renameTarget, setRenameTarget] = useState(/** @type {ThreadSummary | null} */ (null));
   const [renameValue, setRenameValue] = useState("");
+  const [tree, setTree] = useState(/** @type {Array<any>} */ ([]));
+  const [treeOpen, setTreeOpen] = useState(false);
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
@@ -221,6 +223,34 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     } catch (cause) { setError(String(cause)); }
   }
 
+  async function openTree() {
+    if (!thread) return;
+    try { const result = await request("getThreadTree", { threadId: thread.threadId }); setTree(result.nodes); setTreeOpen(true); }
+    catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {string} entryId */
+  async function forkAt(entryId) {
+    if (!thread) return;
+    try {
+      const forked = /** @type {Thread} */ (await request("forkThread", { threadId: thread.threadId, entryId, cwd: workspace.path }));
+      setThread(forked); setTreeOpen(false); setStream("");
+      setThreads(/** @type {ThreadSummary[]} */ (await request("listThreads", { cwd: workspace.path })));
+      await saveProjection(forked, "idle", draftsRef.current[forked.threadId] ?? "");
+    } catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {string} entryId @param {boolean} summarize */
+  async function navigateTo(entryId, summarize) {
+    if (!thread) return;
+    try {
+      const result = /** @type {Thread & {editorText?: string}} */ (await request("navigateThread", { threadId: thread.threadId, entryId, summarize }));
+      setThread(result); setTreeOpen(false); setStream("");
+      if (result.editorText != null) setPrompt(result.editorText);
+      await saveProjection(result, "idle", result.editorText ?? prompt);
+    } catch (cause) { setError(String(cause)); }
+  }
+
   /** @param {number} top */
   function rememberScroll(top) {
     const key = thread?.threadId ?? "new";
@@ -240,6 +270,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         {threads.length === 0 && <p className="px-2 text-xs text-muted-foreground">No threads yet.</p>}
       </nav>
       <div className="min-w-0 space-y-3">
+      {thread && <div className="flex justify-end"><Button size="sm" variant="outline" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></div>}
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
@@ -281,9 +312,29 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           <DialogFooter className={undefined}><Button variant="outline" onClick={() => setRenameTarget(null)}>Cancel</Button><Button disabled={!renameValue.trim()} onClick={() => void renameActiveThread()}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={treeOpen} onOpenChange={setTreeOpen}>
+        <DialogContent className="max-h-[80vh] overflow-auto">
+          <DialogHeader className={undefined}><DialogTitle className={undefined}>Session tree</DialogTitle><DialogDescription className={undefined}>Navigate within this Pi session or fork a new session.</DialogDescription></DialogHeader>
+          <TreeNodes nodes={tree} onFork={forkAt} onNavigate={navigateTo} />
+        </DialogContent>
+      </Dialog>
       </div>
     </section>
   );
+}
+
+/** @param {{nodes: Array<any>, onFork: (id: string) => Promise<void>, onNavigate: (id: string, summarize: boolean) => Promise<void>, depth?: number}} props */
+function TreeNodes({ nodes, onFork, onNavigate, depth = 0 }) {
+  return <div className="space-y-1">{nodes.map((node) => <div key={node.entryId}>
+    <div className="flex items-center gap-1 rounded-md border p-2" style={{ marginLeft: `${Math.min(depth, 6) * 12}px` }}>
+      <Button className="min-w-0 flex-1 justify-start" size="sm" variant={node.active ? "secondary" : "ghost"} onClick={() => void onNavigate(node.entryId, false)}>
+        <span className="truncate">{node.role ?? node.type}: {node.preview || "Empty"}</span>
+      </Button>
+      <Button aria-label="Navigate and summarize abandoned branch" size="sm" variant="outline" onClick={() => void onNavigate(node.entryId, true)}>Summarize</Button>
+      {node.role === "assistant" && <Button aria-label="Fork from response" size="icon-sm" variant="ghost" onClick={() => void onFork(node.entryId)}><GitBranchIcon /></Button>}
+    </div>
+    {node.children?.length > 0 && <TreeNodes nodes={node.children} onFork={onFork} onNavigate={onNavigate} depth={depth + 1} />}
+  </div>)}</div>;
 }
 
 /** @param {Message[]} messages @param {Message} tool */

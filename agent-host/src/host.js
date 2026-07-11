@@ -85,6 +85,9 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
       else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
       else if (operation === "renameThread") result = renameThread(payload, sessions);
+      else if (operation === "getThreadTree") result = getThreadTree(payload, sessions);
+      else if (operation === "forkThread") result = await forkThread(payload, createSession, sessions, leases, baselines);
+      else if (operation === "navigateThread") result = await navigateThread(payload, controller.signal, sessions);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -135,6 +138,54 @@ function renameThread({ threadId, title } = {}, sessions) {
   if (!normalized) throw new Error("Thread name is required");
   session.setSessionName(normalized);
   return { threadId, title: normalized };
+}
+
+function getThreadTree({ threadId } = {}, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  const compact = ({ entry, children, label }) => ({
+    entryId: entry.id,
+    parentId: entry.parentId,
+    type: entry.type,
+    role: entry.type === "message" ? entry.message.role : undefined,
+    preview: boundedPreview(entry.type === "message" ? messageText(entry.message.content) : entry.summary ?? label ?? entry.type),
+    active: entry.id === session.sessionManager.getLeafId(),
+    children: children.map(compact),
+  });
+  return { threadId, nodes: session.sessionManager.getTree().map(compact) };
+}
+
+async function forkThread({ threadId, entryId, cwd, agentDir } = {}, createSession, sessions, leases, baselines) {
+  const source = sessions.get(threadId);
+  if (!source) throw new Error("Thread is not open");
+  if (typeof entryId !== "string" || !entryId) throw new Error("Fork entry is required");
+  if (source.isStreaming) throw new Error("Session is already active");
+  const path = source.sessionManager.createBranchedSession(entryId);
+  if (!path) throw new Error("Fork requires a persistent Pi session");
+  const { session } = await createSession({ cwd, agentDir, sessionManager: SessionManager.open(path) });
+  sessions.set(session.sessionId, session);
+  try { leases.set(path, await acquireLease(path)); }
+  catch (error) { sessions.delete(session.sessionId); session.dispose(); throw error; }
+  baselines.set(path, await fileMtime(path));
+  return withSchema(threadSnapshot(session));
+}
+
+async function navigateThread({ threadId, entryId, summarize = false } = {}, signal, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  if (session.isStreaming) throw new Error("Session is already active");
+  const abort = () => session.abortBranchSummary();
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    const result = await session.navigateTree(entryId, { summarize: Boolean(summarize) });
+    if (result.cancelled) throw new Error("Cancelled");
+    return { ...(await withSchema(threadSnapshot(session))), editorText: result.editorText };
+  } finally { signal.removeEventListener("abort", abort); }
+}
+
+function boundedPreview(value) {
+  const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
 async function generateThreadTitle(prompt, signal) {
