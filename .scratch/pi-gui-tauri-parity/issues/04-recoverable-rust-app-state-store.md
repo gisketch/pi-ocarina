@@ -4,10 +4,9 @@
 
 **Blocked by:** 01 — Tauri shell and real-desktop test lane
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] App-owned state is written atomically and restored after restart.
-- [ ] A corrupt primary state file recovers from the last valid backup and reports recovery without losing Pi sessions.
-- [ ] State schema versions migrate deterministically and reject unsupported future versions safely.
-- [ ] Multiple windows receive consistent projections without making a renderer authoritative.
-
+- [x] App-owned state is written atomically and restored after restart.
+- [x] A corrupt primary state file recovers from the last valid backup and reports recovery without losing Pi sessions.
+- [x] State schema versions migrate deterministically and reject unsupported future versions safely.
+- [x] Multiple windows receive consistent projections without making a renderer authoritative.
