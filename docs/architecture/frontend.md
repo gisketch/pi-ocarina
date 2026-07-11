@@ -37,6 +37,7 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 - Feature-only UI stays local until a second real use proves it belongs in `shared/ui`.
 - Preserve keyboard access, focus visibility, semantics, and reduced-motion behavior.
 - Copy `pi-gui` interaction behavior only after tracing the full flow and translating native calls to Tauri.
+- Runtime extension commands win name collisions with host commands; extension mentions precede file mentions.
 
 ## State Rules
 

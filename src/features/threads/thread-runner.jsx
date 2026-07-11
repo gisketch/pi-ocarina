@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, PencilIcon, XIcon } from "lucide-react";
+import { MessageSquarePlusIcon, PencilIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -14,7 +14,7 @@ import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, extensions?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 /** @typedef {{ threadId?: string, sessionFile: string, title: string, modified?: string, messageCount?: number }} ThreadSummary */
 
 /** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
@@ -223,6 +223,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     catch (cause) { setError(String(cause)); }
   }
 
+  async function reloadResources() {
+    if (!thread) return;
+    try { setThread(/** @type {Thread} */ (await request("reloadResources", { threadId: thread.threadId }))); }
+    catch (cause) { setError(String(cause)); }
+  }
+
   function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt, draftAttachment = attachments) {
     const key = active?.threadId ?? "new";
     const nextDrafts = { ...draftsRef.current, [key]: draft };
@@ -325,13 +331,27 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       <Composer
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
         attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(thread, running ? "running" : "idle", prompt, items); }} onAttachmentError={(message) => setError(message)}
-        commands={thread?.commands} models={models} model={activeModel}
+        commands={thread?.commands} extensions={thread?.extensions} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
         onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
       {queue.length > 0 && <div className="space-y-1 rounded-md border p-2" aria-label="Queued messages">{queue.map((item) => <div className="flex items-center gap-2 text-xs" key={item.id}><span className="rounded bg-muted px-1 font-medium">{item.mode === "steer" ? "Steer" : "Queued"}</span><Input aria-label={`Edit ${item.mode}`} className="h-7" type="text" value={item.prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQueue(queue.map((value) => value.id === item.id ? { ...value, prompt: event.target.value } : value))} onBlur={() => void replaceQueue(queue)} /><Button size="icon-xs" variant="ghost" aria-label="Remove queued message" onClick={() => void replaceQueue(queue.filter((value) => value.id !== item.id))}><XIcon /></Button></div>)}</div>}
+      {thread && <details className="rounded-md border bg-card p-3 text-sm">
+        <summary className="cursor-pointer font-medium">Skills ({thread.skills?.length ?? 0})</summary>
+        <div className="mt-2 space-y-2">
+          {thread.skills?.map((skill) => <div className="flex items-start justify-between gap-3" key={skill.path}>
+            <div className="min-w-0"><p className="font-medium">/{skill.aliases[0]}</p><p className="text-muted-foreground">{skill.description}</p><p className="truncate text-xs text-muted-foreground">{skill.source} · {skill.path} · {skill.available ? "available" : "unavailable"}</p></div>
+            <Button size="sm" variant="outline" onClick={() => void invoke("reveal_skill", { workspace: workspace.path, path: skill.path }).catch((cause) => setError(String(cause)))}>Reveal</Button>
+          </div>)}
+          <Button size="sm" variant="ghost" onClick={() => void reloadResources()}><RefreshCwIcon />Reload</Button>
+        </div>
+      </details>}
+      {thread && <details className="rounded-md border bg-card p-3 text-sm">
+        <summary className="cursor-pointer font-medium">Extensions ({thread.extensions?.length ?? 0})</summary>
+        <div className="mt-2 space-y-2">{thread.extensions?.map((extension) => <div className="flex items-center justify-between gap-3" key={extension.source}><div className="min-w-0"><p className="font-medium">{extension.label}</p><p className="truncate text-xs text-muted-foreground">{extension.source} · {extension.scope}</p></div>{extension.managed && <Button size="sm" variant="outline" onClick={() => void request("setExtensionEnabled", { threadId: thread.threadId, source: extension.source, enabled: !extension.enabled }).then((value) => setThread(/** @type {Thread} */ (value))).catch((cause) => setError(String(cause)))}>{extension.enabled ? "Disable" : "Enable"}</Button>}</div>)}</div>
+      </details>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
         <DialogContent className={undefined}>

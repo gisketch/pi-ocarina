@@ -23,6 +23,15 @@ export function slashSuggestions(value, commands) {
   return mergeCommands(commands).filter(({ name }) => name.toLowerCase().startsWith(query));
 }
 
+/** Extension mentions intentionally precede future file mentions.
+ * @param {string} value @param {Array<{source: string, enabled: boolean, label: string}>} extensions */
+export function extensionMentions(value, extensions = []) {
+  const match = value.match(/(?:^|\s)@([^\s]*)$/);
+  if (!match) return [];
+  const query = match[1].toLowerCase();
+  return extensions.filter(({ enabled, label }) => enabled && label.toLowerCase().includes(query));
+}
+
 /** @param {string} value @returns {{type: "thinking", value: string} | {type: "model", provider: string, id: string} | null} */
 export function parseComposerControl(value) {
   const [command, argument = ""] = value.trim().split(/\s+/, 2);

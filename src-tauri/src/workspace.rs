@@ -81,6 +81,24 @@ pub fn reveal_workspace(
         .map_err(|error| format!("reveal workspace: {error}"))
 }
 
+#[tauri::command]
+pub fn reveal_skill(app: AppHandle, workspace: PathBuf, path: PathBuf) -> Result<(), String> {
+    let path = path.canonicalize().map_err(|_| "skill path is unavailable")?;
+    let project_root = workspace
+        .canonicalize()
+        .map_err(|_| "workspace is unavailable")?
+        .join(".pi/skills");
+    let global_root = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join(".pi/agent/skills"));
+    if !path.starts_with(project_root) && !global_root.is_some_and(|root| path.starts_with(root)) {
+        return Err("skill path is outside Pi skill roots".into());
+    }
+    app.opener()
+        .reveal_item_in_dir(path)
+        .map_err(|error| format!("reveal skill: {error}"))
+}
+
 fn rename(state: &mut AppState, workspace_id: &str, name: &str) -> Result<(), String> {
     let workspace = state
         .workspaces
