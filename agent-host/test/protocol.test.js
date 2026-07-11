@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -278,6 +278,45 @@ test("manual thread name wins a delayed one-shot generated title", async () => {
   assert.equal(events.find(({ requestId, type }) => requestId === "auto-name" && type === "completed").payload.applied, false);
   assert.equal(events.filter(({ requestId, type }) => requestId === "auto-name" && type === "started").length, 1);
   assert.equal(events.find(({ requestId, type }) => requestId === "reopen-list" && type === "completed").payload[0].title, "Manual title wins");
+});
+
+test("tree navigation keeps source history and fork creates a distinct session", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "pi-ocarina-tree-"));
+  const sourceFile = join(cwd, "source.jsonl");
+  const forkFile = join(cwd, "fork.jsonl");
+  await writeFile(sourceFile, `${JSON.stringify({ type: "session", version: 3, id: "source", timestamp: "2026-01-01T00:00:00.000Z", cwd })}\n`);
+  await writeFile(forkFile, `${JSON.stringify({ type: "session", version: 3, id: "fork", timestamp: "2026-01-01T00:00:00.000Z", cwd })}\n`);
+  const entries = new Map([
+    ["user", { id: "user", parentId: null, type: "message", message: { role: "user", content: "question" } }],
+    ["assistant", { id: "assistant", parentId: "user", type: "message", message: { role: "assistant", content: "answer" } }],
+  ]);
+  let navigated;
+  const source = {
+    sessionId: "source", sessionFile: sourceFile, messages: [], isStreaming: false,
+    sessionManager: {
+      getLeafId: () => "assistant", getEntry: (id) => entries.get(id),
+      getTree: () => [{ entry: entries.get("user"), children: [{ entry: entries.get("assistant"), children: [] }] }],
+      createBranchedSession: () => forkFile,
+    },
+    navigateTree: async (id, options) => { navigated = { id, options }; return { cancelled: false }; },
+    abortBranchSummary() {}, getAvailableThinkingLevels: () => ["off"], dispose() {},
+  };
+  const forked = { ...source, sessionId: "fork", sessionFile: forkFile, sessionManager: { ...source.sessionManager, getLeafId: () => "assistant" } };
+  let created = 0;
+  const input = new PassThrough(); const output = new PassThrough(); const events = [];
+  serve(input, output, async () => ({ session: created++ === 0 ? source : forked }), () => ({ authStorage: {}, modelRegistry: {}, model: {} }));
+  output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
+  const send = (requestId, operation, payload) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
+  send("create-tree", "createThread", { cwd, provider: "test", modelId: "test" }); await new Promise((resolve) => setTimeout(resolve, 5));
+  send("tree", "getThreadTree", { threadId: "source" });
+  send("navigate", "navigateThread", { threadId: "source", entryId: "user", summarize: true });
+  send("fork", "forkThread", { threadId: "source", entryId: "assistant", cwd });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(events.find(({ requestId, type }) => requestId === "tree" && type === "completed").payload.nodes[0].children[0].preview, "answer");
+  assert.deepEqual(navigated, { id: "user", options: { summarize: true } });
+  assert.equal(events.find(({ requestId, type }) => requestId === "fork" && type === "completed").payload.threadId, "fork");
+  assert.equal(source.sessionId, "source");
+  await rm(cwd, { recursive: true, force: true });
 });
 
 test("real provider creates a persistent thread and answers", { skip: process.env.PI_OCARINA_REAL_PROVIDER !== "1" }, async () => {

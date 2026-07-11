@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, PencilIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -12,6 +12,7 @@ import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments } from "@/features/composer/attachments";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
+import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, extensions?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
@@ -32,6 +33,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [newThinking, setNewThinking] = useState("medium");
   const [renameTarget, setRenameTarget] = useState(/** @type {ThreadSummary | null} */ (null));
   const [renameValue, setRenameValue] = useState("");
+  const [tree, setTree] = useState(/** @type {Array<any>} */ ([]));
+  const [treeOpen, setTreeOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [threadMetadata, setThreadMetadata] = useState(/** @type {Record<string, any>} */ ({}));
   const revision = useRef(0);
   const selectedThreadRef = useRef(/** @type {string | null} */ (null));
   const runIdsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
@@ -41,6 +46,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
   const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
+  const threadMetadataRef = useRef(/** @type {Record<string, any>} */ ({}));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
   const threadModel = thread?.model;
   const running = thread ? runningThreads.has(thread.threadId) : false;
@@ -61,6 +67,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       draftsRef.current = saved.drafts ?? {};
       draftAttachmentsRef.current = saved.draft_attachments ?? (saved.attachments ? { [saved.active_thread_id ?? "new"]: saved.attachments } : {});
       scrollPositionsRef.current = saved.scroll_positions ?? {};
+      threadMetadataRef.current = saved.thread_metadata ?? {};
+      setThreadMetadata(threadMetadataRef.current);
       setPrompt(saved.drafts?.[saved.active_thread_id ?? "new"] ?? saved.draft ?? "");
       setAttachments(draftAttachmentsRef.current[saved.active_thread_id ?? "new"] ?? []);
       if (!saved.active_thread_id || !saved.session_file) return;
@@ -86,9 +94,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   useEffect(() => {
     if (!thread || running) return;
-    const refresh = () => void request("refreshThread", {
-      cwd: workspace.path, threadId: thread.threadId, sessionFile: thread.sessionFile,
-    }).then((value) => setThread(/** @type {Thread} */ (value))).catch((cause) => setError(String(cause)));
+    const refresh = () => {
+      void request("refreshThread", {
+        cwd: workspace.path, threadId: thread.threadId, sessionFile: thread.sessionFile,
+      }).then((value) => setThread(/** @type {Thread} */ (value))).catch((cause) => setError(String(cause)));
+      void request("listThreads", { cwd: workspace.path }).then((value) => setThreads(/** @type {ThreadSummary[]} */ (value))).catch(() => {});
+    };
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
   }, [thread, running, workspace.path]);
@@ -165,9 +176,15 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         if (event.type === "runtimeNotice" && event.payload.type === "error" && selectedThreadRef.current === active.threadId) setError(event.payload.message);
       }, activeRunId));
       if (selectedThreadRef.current === active.threadId) setThread(completed);
-      setAttachments([]);
       draftAttachmentsRef.current[active.threadId] = [];
-      if (selectedThreadRef.current === active.threadId) void saveProjection(completed, "idle", "", []);
+      const refreshed = /** @type {ThreadSummary[]} */ (await request("listThreads", { cwd: workspace.path }));
+      setThreads(refreshed);
+      const summary = refreshed.find((item) => item.threadId === completed.threadId || item.sessionFile === completed.sessionFile);
+      if (selectedThreadRef.current === active.threadId) {
+        setAttachments([]);
+        if (summary) markRead(summary);
+        void saveProjection(completed, "idle", "", []);
+      }
       streamsRef.current.delete(active.threadId);
       if (selectedThreadRef.current === active.threadId) setStream("");
     } catch (cause) {
@@ -241,6 +258,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       draft, drafts: nextDrafts, run_status: status, revision: nextRevision,
       draft_attachments: nextAttachments,
       scroll_positions: scrollPositionsRef.current,
+      thread_metadata: threadMetadataRef.current,
     } });
   }
 
@@ -258,10 +276,29 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       setRuntimePrompt(pendingPrompt);
       setRuntimeValue(pendingPrompt?.options?.[0] ?? "");
       setQueue((await request("threadQueue", { threadId: opened.threadId })).items);
+      markRead(item);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
       setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
       await saveProjection(opened, "idle", draftsRef.current[opened.threadId] ?? "");
     } catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {ThreadSummary} item */
+  function markRead(item) {
+    const next = { ...threadMetadataRef.current, [item.sessionFile]: { ...threadMetadataRef.current[item.sessionFile], read_message_count: item.messageCount ?? 0 } };
+    setOrganization(next);
+  }
+
+  /** @param {Record<string, any>} next */
+  function setOrganization(next) {
+    threadMetadataRef.current = next;
+    setThreadMetadata(next);
+    void saveProjection();
+  }
+
+  /** @param {ThreadSummary} item */
+  function toggleArchive(item) {
+    setOrganization({ ...threadMetadataRef.current, [item.sessionFile]: { ...threadMetadataRef.current[item.sessionFile], archived: !threadMetadataRef.current[item.sessionFile]?.archived } });
   }
 
   async function newThread() {
@@ -291,6 +328,34 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     } catch (cause) { setError(String(cause)); }
   }
 
+  async function openTree() {
+    if (!thread) return;
+    try { const result = await request("getThreadTree", { threadId: thread.threadId }); setTree(result.nodes); setTreeOpen(true); }
+    catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {string} entryId */
+  async function forkAt(entryId) {
+    if (!thread) return;
+    try {
+      const forked = /** @type {Thread} */ (await request("forkThread", { threadId: thread.threadId, entryId, cwd: workspace.path }));
+      setThread(forked); setTreeOpen(false); setStream("");
+      setThreads(/** @type {ThreadSummary[]} */ (await request("listThreads", { cwd: workspace.path })));
+      await saveProjection(forked, "idle", draftsRef.current[forked.threadId] ?? "");
+    } catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {string} entryId @param {boolean} summarize */
+  async function navigateTo(entryId, summarize) {
+    if (!thread) return;
+    try {
+      const result = /** @type {Thread & {editorText?: string}} */ (await request("navigateThread", { threadId: thread.threadId, entryId, summarize }));
+      setThread(result); setTreeOpen(false); setStream("");
+      if (result.editorText != null) setPrompt(result.editorText);
+      await saveProjection(result, "idle", result.editorText ?? prompt);
+    } catch (cause) { setError(String(cause)); }
+  }
+
   /** @param {number} top */
   function rememberScroll(top) {
     const key = thread?.threadId ?? "new";
@@ -299,17 +364,26 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     scrollSaveTimer.current = setTimeout(() => void saveProjection(), 250);
   }
 
+  const organized = organizeThreads(threads, threadMetadata, query);
+
   return (
     <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
       <nav className="space-y-1" aria-label="Threads">
         <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
-        {threads.map((item) => <div className="flex" key={item.sessionFile}>
+        <Input aria-label="Search threads" className="h-8" placeholder="Search threads" type="search" value={query} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQuery(event.target.value)} />
+        {organized.active.map((item) => <div className="flex" key={item.sessionFile}>
           <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <span aria-label="Running" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
+          {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
+          <Button aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
+          {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
+          <Button aria-label={`Archive ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><ArchiveIcon /></Button>
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
         </div>)}
-        {threads.length === 0 && <p className="px-2 text-xs text-muted-foreground">No threads yet.</p>}
+        {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
+        {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 text-xs text-muted-foreground">No matching threads.</p>}
       </nav>
       <div className="min-w-0 space-y-3">
+      {thread && <div className="flex justify-end"><Button size="sm" variant="outline" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></div>}
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
@@ -367,9 +441,29 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           <DialogFooter className={undefined}><Button variant="outline" onClick={() => setRenameTarget(null)}>Cancel</Button><Button disabled={!renameValue.trim()} onClick={() => void renameActiveThread()}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={treeOpen} onOpenChange={setTreeOpen}>
+        <DialogContent className="max-h-[80vh] overflow-auto">
+          <DialogHeader className={undefined}><DialogTitle className={undefined}>Session tree</DialogTitle><DialogDescription className={undefined}>Navigate within this Pi session or fork a new session.</DialogDescription></DialogHeader>
+          <TreeNodes nodes={tree} onFork={forkAt} onNavigate={navigateTo} />
+        </DialogContent>
+      </Dialog>
       </div>
     </section>
   );
+}
+
+/** @param {{nodes: Array<any>, onFork: (id: string) => Promise<void>, onNavigate: (id: string, summarize: boolean) => Promise<void>, depth?: number}} props */
+function TreeNodes({ nodes, onFork, onNavigate, depth = 0 }) {
+  return <div className="space-y-1">{nodes.map((node) => <div key={node.entryId}>
+    <div className="flex items-center gap-1 rounded-md border p-2" style={{ marginLeft: `${Math.min(depth, 6) * 12}px` }}>
+      <Button className="min-w-0 flex-1 justify-start" size="sm" variant={node.active ? "secondary" : "ghost"} onClick={() => void onNavigate(node.entryId, false)}>
+        <span className="truncate">{node.role ?? node.type}: {node.preview || "Empty"}</span>
+      </Button>
+      <Button aria-label="Navigate and summarize abandoned branch" size="sm" variant="outline" onClick={() => void onNavigate(node.entryId, true)}>Summarize</Button>
+      {node.role === "assistant" && <Button aria-label="Fork from response" size="icon-sm" variant="ghost" onClick={() => void onFork(node.entryId)}><GitBranchIcon /></Button>}
+    </div>
+    {node.children?.length > 0 && <TreeNodes nodes={node.children} onFork={onFork} onNavigate={onNavigate} depth={depth + 1} />}
+  </div>)}</div>;
 }
 
 /** @param {Message[]} messages @param {Message} tool */

@@ -4,10 +4,9 @@
 
 **Blocked by:** 08 — Tool-call timeline; 18 — Thread naming
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Forking an assistant response creates and selects a distinct Pi session with the expected history.
-- [ ] The tree command is available only when a session exists and supports branch navigation.
-- [ ] Tool results in tree views use compact bounded previews.
-- [ ] Real-provider branch summarization returns to a usable thread state on success, cancellation, or failure.
-
+- [x] Forking an assistant response creates and selects a distinct Pi session with the expected history.
+- [x] The tree command is available only when a session exists and supports branch navigation.
+- [x] Tool results in tree views use compact bounded previews.
+- [x] Real-provider branch summarization returns to a usable thread state on success, cancellation, or failure.
