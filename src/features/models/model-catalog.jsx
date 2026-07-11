@@ -127,7 +127,9 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
           {availableModels.length === 0 && <Button asChild className="mt-2" size="sm" variant="outline"><a href="#provider-settings">Configure a provider</a></Button>}
         </div>
       )}
-      <div className="space-y-3" id="provider-settings">
+      <details className="rounded-md border p-3" id="provider-settings">
+        <summary className="cursor-pointer text-sm font-medium">Provider settings</summary>
+      <div className="mt-3 space-y-3">
         {catalog.providers.map((provider) => {
           const external = provider.source && provider.source !== "stored";
           return (
@@ -158,12 +160,13 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
             </div>
           );
         })}
-      </div>
       <CustomEndpoints
         endpoints={catalog.customEndpoints ?? []}
         onCatalog={(next) => setCatalog(/** @type {Catalog} */ (next))}
         onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))}
       />
+      </div>
+      </details>
       {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
       <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} />
     </div>

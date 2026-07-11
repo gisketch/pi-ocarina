@@ -8,7 +8,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
 import { TerminalPanel } from "@/features/terminal/terminal-panel";
-import { ThreadRunner } from "@/features/threads/thread-runner";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -24,7 +23,8 @@ import { Input } from "@/shared/ui/input";
 const emptyState = /** @type {WorkspaceState} */ ({ workspaces: [], selected_workspace: null });
 const folderName = (/** @type {Workspace} */ workspace) => workspace.path.split("/").filter(Boolean).at(-1) ?? workspace.path;
 
-export function WorkspaceCatalog() {
+/** @param {{ sidebarVisible?: boolean }} props */
+export function WorkspaceCatalog({ sidebarVisible = true }) {
   const windowLabel = getCurrentWindow().label;
   const [state, setState] = useState(emptyState);
   const [model, setModel] = useState(/** @type {{provider: string, id: string} | null} */ (null));
@@ -103,7 +103,8 @@ export function WorkspaceCatalog() {
   const selected = state.workspaces.find(({ id }) => id === selectedWorkspace) ?? null;
 
   return (
-    <div className="space-y-3">
+    <div className={sidebarVisible ? "grid h-full min-h-0 md:grid-cols-[20rem_minmax(0,1fr)]" : "h-full min-h-0"}>
+      {sidebarVisible && <aside className="min-h-0 overflow-y-auto border-r p-3">
       <div className="space-y-2">
         {state.workspaces.map((workspace, index) => (
           <div className="flex items-center gap-2" key={workspace.id}>
@@ -145,11 +146,12 @@ export function WorkspaceCatalog() {
           </div>
         ))}
       </div>
-      <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
-      <ModelCatalog onModelChange={setModel} workspace={selected} />
-      {selected && <ThreadRunner workspace={selected} models={[]} model={model} onModelChange={setModel} />}
-      {selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}
+      <Button className="mt-3 w-full" variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      </aside>}
+      <section className="min-h-0 min-w-0 overflow-y-auto p-4">
+        {selected ? <><ModelCatalog onModelChange={setModel} workspace={selected} />{selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}</> : <p className="text-sm text-muted-foreground">Select a workspace to begin.</p>}
+      </section>
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => !open && setRenameTarget(null)}>
         <DialogContent className={undefined}>
