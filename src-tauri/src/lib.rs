@@ -188,6 +188,7 @@ pub fn run() {
             workspace::reorder_workspace,
             workspace::remove_workspace,
             workspace::reveal_workspace,
+            workspace::reveal_skill,
             worktree::create_worktree,
             worktree::register_worktree,
             worktree::rollback_worktree,

@@ -85,6 +85,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
       else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
       else if (operation === "renameThread") result = renameThread(payload, sessions);
+      else if (operation === "reloadResources") result = await reloadResources(payload, sessions);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -334,7 +335,19 @@ function threadSnapshot(session) {
     commands: extensionCommands.map(({ invocationName, description }) => ({ name: invocationName, description, source: "extension" }))
       .concat((session.promptTemplates ?? []).map(({ name, description }) => ({ name, description, source: "prompt" })))
       .concat(skills.map(({ name, description }) => ({ name: `skill:${name}`, description, source: "skill" }))),
+    skills: skills.map(({ name, description, filePath, sourceInfo, disableModelInvocation }) => ({
+      name, description, path: filePath, source: sourceInfo?.source ?? "unknown",
+      scope: sourceInfo?.scope ?? "temporary", available: true,
+      aliases: [`skill:${name}`], disableModelInvocation,
+    })),
   };
+}
+
+async function reloadResources({ threadId } = {}, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  await session.reload();
+  return threadSnapshot(session);
 }
 
 async function withSchema(snapshot) {

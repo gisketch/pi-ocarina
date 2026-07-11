@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, PencilIcon } from "lucide-react";
+import { MessageSquarePlusIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -13,7 +13,7 @@ import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 /** @typedef {{ threadId?: string, sessionFile: string, title: string, modified?: string, messageCount?: number }} ThreadSummary */
 
 /** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
@@ -171,6 +171,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     catch (cause) { setError(String(cause)); }
   }
 
+  async function reloadResources() {
+    if (!thread) return;
+    try { setThread(/** @type {Thread} */ (await request("reloadResources", { threadId: thread.threadId }))); }
+    catch (cause) { setError(String(cause)); }
+  }
+
   function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt) {
     const key = active?.threadId ?? "new";
     const nextDrafts = { ...draftsRef.current, [key]: draft };
@@ -266,6 +272,16 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         onSend={() => void submit()} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
+      {thread && <details className="rounded-md border bg-card p-3 text-sm">
+        <summary className="cursor-pointer font-medium">Skills ({thread.skills?.length ?? 0})</summary>
+        <div className="mt-2 space-y-2">
+          {thread.skills?.map((skill) => <div className="flex items-start justify-between gap-3" key={skill.path}>
+            <div className="min-w-0"><p className="font-medium">/{skill.aliases[0]}</p><p className="text-muted-foreground">{skill.description}</p><p className="truncate text-xs text-muted-foreground">{skill.source} · {skill.path} · {skill.available ? "available" : "unavailable"}</p></div>
+            <Button size="sm" variant="outline" onClick={() => void invoke("reveal_skill", { workspace: workspace.path, path: skill.path }).catch((cause) => setError(String(cause)))}>Reveal</Button>
+          </div>)}
+          <Button size="sm" variant="ghost" onClick={() => void reloadResources()}><RefreshCwIcon />Reload</Button>
+        </div>
+      </details>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
         <DialogContent className={undefined}>

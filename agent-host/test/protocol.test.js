@@ -83,7 +83,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       setThinkingLevel(level) { this.thinkingLevel = level; },
       async setModel(model) { this.model = model; },
       promptTemplates: [{ name: "review", description: "Review changes" }],
-      resourceLoader: { getSkills: () => ({ skills: [{ name: "ship", description: "Ship it" }] }) },
+      resourceLoader: { getSkills: () => ({ skills: [{ name: "ship", description: "Ship it", filePath: "/tmp/workspace/.pi/skills/ship/SKILL.md", sourceInfo: { source: "project", scope: "project" }, disableModelInvocation: false }] }) },
+      async reload() {},
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text) {
         persisted.push({ role: "user", content: text });
@@ -122,6 +123,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("set-model", "setThreadModel", { threadId: "thread-1", provider: "test", modelId: "new" });
   send("set-thinking", "setThreadThinking", { threadId: "thread-1", thinkingLevel: "high" });
+  send("reload", "reloadResources", { threadId: "thread-1" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("list", "listThreads", { cwd: "/tmp/workspace" });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -146,6 +148,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.equal(events.find(({ requestId, type }) => requestId === "set-model" && type === "completed").payload.model.id, "new");
   assert.equal(events.find(({ requestId, type }) => requestId === "set-thinking" && type === "completed").payload.thinkingLevel, "high");
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "create" && type === "completed").payload.commands.map(({ name }) => name), ["deploy", "review", "skill:ship"]);
+  assert.deepEqual(events.find(({ requestId, type }) => requestId === "reload" && type === "completed").payload.skills[0], {
+    name: "ship", description: "Ship it", path: "/tmp/workspace/.pi/skills/ship/SKILL.md", source: "project", scope: "project", available: true, aliases: ["skill:ship"], disableModelInvocation: false,
+  });
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "list" && type === "completed").payload, [
     { sessionFile: "/tmp/thread-1.jsonl", title: "Empty thread" },
   ]);
