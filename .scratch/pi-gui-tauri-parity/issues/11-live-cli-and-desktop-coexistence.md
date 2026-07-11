@@ -4,10 +4,9 @@
 
 **Blocked by:** 10 — Restart and running-session recovery
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] CLI-created sessions and externally appended messages appear after bounded refresh triggers.
-- [ ] A single-writer lease prevents simultaneous active writers and permits safe stale-lease takeover.
-- [ ] External changes never overwrite an unsaved composer draft or app preference.
-- [ ] Sessions written by a newer unsupported Pi schema show a per-session dismissible warning and remain read-only when required.
-
+- [x] CLI-created sessions and externally appended messages appear after bounded refresh triggers.
+- [x] A single-writer lease prevents simultaneous active writers and permits safe stale-lease takeover.
+- [x] External changes never overwrite an unsaved composer draft or app preference.
+- [x] Sessions written by a newer unsupported Pi schema show a per-session dismissible warning and remain read-only when required.
