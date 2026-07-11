@@ -63,7 +63,7 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
     <div className="relative"><Textarea
       ref={setTextarea}
       aria-label="Message"
-      className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+      className="resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
       value={value}
       disabled={disabled}
       name="message"
@@ -86,8 +86,8 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
       <Tooltip><TooltipTrigger asChild><Button aria-label="Add attachment" type="button" size="icon-lg" variant="ghost" disabled={disabled} onClick={() => void open({ multiple: true, directory: false }).then((paths) => paths?.length ? prepareAttachments(paths) : []).then((items) => items.length && onAttachments([...attachments, ...items])).catch((cause) => onAttachmentError(String(cause)))}><Icon name="plus" /></Button></TooltipTrigger><TooltipContent className={undefined}>Add attachment</TooltipContent></Tooltip>
       <div className="min-w-4 flex-1" />
       {running && <MatrixSpinner size={3} gap={1} label="Agent working" className="mx-2 text-muted-foreground" />}
-      <DropdownMenu><DropdownMenuTrigger render={<Button type="button" variant="ghost" disabled={running} />}><span>{model?.name ?? "Choose model"}</span><Icon name="chevron-down" size={16} className="text-muted-foreground" /></DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={undefined}>{models.map((item) => <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => onModelChange(item)}>{item.name}</DropdownMenuItem>)}</DropdownMenuContent>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" disabled={running}><span>{model?.name ?? "Choose model"}</span><Icon name="chevron-down" size={16} className="text-muted-foreground" /></Button></DropdownMenuTrigger>
+        {models.length > 0 && <DropdownMenuContent align="end" sideOffset={8} className="z-[100]">{models.map((item) => <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onSelect={() => onModelChange(item)}>{item.name}</DropdownMenuItem>)}</DropdownMenuContent>}
       </DropdownMenu>
       {running
         ? <Tooltip><TooltipTrigger asChild><Button type="button" size="icon-lg" variant="ghost" aria-label="Queue message" disabled={!value.trim() && !attachments.length} onClick={onSend}><Icon name="send" /></Button></TooltipTrigger><TooltipContent className={undefined}>Queue message</TooltipContent></Tooltip>
