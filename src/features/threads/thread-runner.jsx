@@ -116,7 +116,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
     void listen("agent-host-event", ({ payload: event }) => {
       if (event.requestId !== requestId) return;
-      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText", "extensionDock", "compatibilityIssue"].includes(event.type)) onEvent(event);
+      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText", "extensionDock", "compatibilityIssue", "sessionChanged"].includes(event.type)) onEvent(event);
       if (!["completed", "failed", "cancelled"].includes(event.type)) return;
       stop();
       if (event.type === "completed") resolve(event.payload);
@@ -188,6 +188,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           const key = `${event.payload.extensionPath}::${event.payload.commandName}`;
           compatibilityRef.current = { ...compatibilityRef.current, [key]: event.payload };
           saveCompatibility(workspace.id, compatibilityRef.current);
+        }
+        if (event.type === "sessionChanged") {
+          selectedThreadRef.current = event.payload.threadId;
+          setThread(event.payload);
+          setThreads((items) => [{ threadId: event.payload.threadId, sessionFile: event.payload.sessionFile, title: event.payload.title ?? "New thread" }, ...items.filter((item) => item.threadId !== event.payload.threadId)]);
+          setPrompt(draftsRef.current[event.payload.threadId] ?? "");
         }
         if (event.type === "extensionDock") {
           const next = reduceDock(docksRef.current.get(active.threadId), event.payload);
@@ -263,9 +269,9 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   async function reloadResources() {
     if (!thread) return;
     try {
+      setDock(EMPTY_DOCK); docksRef.current.delete(thread.threadId);
       setThread(/** @type {Thread} */ (await request("reloadResources", { threadId: thread.threadId })));
       compatibilityRef.current = {}; saveCompatibility(workspace.id, {});
-      setDock(EMPTY_DOCK); docksRef.current.delete(thread.threadId);
     }
     catch (cause) { setError(String(cause)); }
   }

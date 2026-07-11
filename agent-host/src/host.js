@@ -325,6 +325,11 @@ async function promptThread({ threadId, prompt = "", attachments = [] } = {}, si
   try {
     const prepared = await preparePrompt(prompt, attachments);
     await session.prompt(prepared.text, { images: prepared.images });
+    if (session.sessionId !== threadId) {
+      sessions.delete(threadId);
+      sessions.set(session.sessionId, session);
+      publish("sessionChanged", { ...threadSnapshot(session), previousThreadId: threadId });
+    }
     return threadSnapshot(session);
   } finally {
     signal.removeEventListener("abort", abort);
@@ -402,21 +407,21 @@ function runtimeUi(threadId, prompts, publish, command) {
   const ask = (kind, title, message, options) => new Promise((resolve) => {
     const promptId = crypto.randomUUID();
     prompts.set(promptId, { threadId, resolve });
-    publish("runtimePrompt", { promptId, threadId, kind, title, message, options });
+    publish("runtimePrompt", { promptId, threadId, kind, title: boundedOptional(title, 4096), message: boundedOptional(message, 65_536), options: Array.isArray(options) ? options.slice(0, 100).map((value) => boundedText(value, 4096)).filter(Boolean) : undefined });
   });
   return {
     select: (title, options) => ask("select", title, undefined, options),
     confirm: async (title, message) => Boolean(await ask("confirm", title, message)),
     input: (title, placeholder) => ask("input", title, placeholder),
-    notify: (message, type = "info") => publish("runtimeNotice", { threadId, message: String(message), type }),
+    notify: (message, type = "info") => publish("runtimeNotice", { threadId, message: boundedText(message, 65_536) || "Extension notification", type: ["info", "warning", "error"].includes(type) ? type : "info" }),
     onTerminalInput: () => () => {},
-    setStatus: (key, value) => publish("extensionDock", { threadId, kind: "status", key, value: literalUi(value, "Status unavailable") }),
+    setStatus: (key, value) => publish("extensionDock", { threadId, kind: "status", key: boundedText(key, 256), value: literalUi(value, "Status unavailable") }),
     setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {}, setHiddenThinkingLabel() {},
-    setWidget: (key, value) => publish("extensionDock", { threadId, kind: "widget", key, value: literalUi(value, "Custom widget unavailable in desktop") }),
+    setWidget: (key, value) => publish("extensionDock", { threadId, kind: "widget", key: boundedText(key, 256), value: literalUi(value, "Custom widget unavailable in desktop") }),
     setFooter() {}, setHeader() {},
     setTitle: (value) => publish("extensionDock", { threadId, kind: "title", value: literalUi(value, "") }),
-    pasteToEditor: (text) => publish("editorText", { threadId, text, mode: "append" }),
-    setEditorText: (text) => publish("editorText", { threadId, text, mode: "replace" }),
+    pasteToEditor: (text) => publish("editorText", { threadId, text: boundedText(text, 262_144), mode: "append" }),
+    setEditorText: (text) => publish("editorText", { threadId, text: boundedText(text, 262_144), mode: "replace" }),
     getEditorText: () => "", editor: (title, prefill) => ask("editor", title, prefill),
     custom: async () => {
       const capability = "custom";
@@ -429,9 +434,19 @@ function runtimeUi(threadId, prompts, publish, command) {
 }
 
 function literalUi(value, fallback) {
-  if (value == null || typeof value === "string") return value;
-  if (Array.isArray(value) && value.every((line) => typeof line === "string")) return value;
+  if (value == null) return value;
+  if (typeof value === "string") return boundedText(value, 65_536);
+  if (Array.isArray(value) && value.every((line) => typeof line === "string")) return value.slice(0, 100).map((line) => boundedText(line, 4096));
   return fallback;
+}
+
+function boundedText(value, max) {
+  return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+function boundedOptional(value, max) {
+  const text = boundedText(value, max);
+  return text || undefined;
 }
 
 function safeError(error) {
