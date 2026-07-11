@@ -407,13 +407,23 @@ function runtimeUi(threadId, prompts, publish) {
     confirm: async (title, message) => Boolean(await ask("confirm", title, message)),
     input: (title, placeholder) => ask("input", title, placeholder),
     notify: (message, type = "info") => publish("runtimeNotice", { threadId, message, type }),
-    onTerminalInput: () => () => {}, setStatus() {}, setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {},
-    setHiddenThinkingLabel() {}, setWidget() {}, setFooter() {}, setHeader() {}, setTitle() {},
+    onTerminalInput: () => () => {},
+    setStatus: (key, value) => publish("extensionDock", { threadId, kind: "status", key, value: literalUi(value, "Status unavailable") }),
+    setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {}, setHiddenThinkingLabel() {},
+    setWidget: (key, value) => publish("extensionDock", { threadId, kind: "widget", key, value: literalUi(value, "Custom widget unavailable in desktop") }),
+    setFooter() {}, setHeader() {},
+    setTitle: (value) => publish("extensionDock", { threadId, kind: "title", value: literalUi(value, "") }),
     pasteToEditor: (text) => publish("editorText", { threadId, text, mode: "append" }),
     setEditorText: (text) => publish("editorText", { threadId, text, mode: "replace" }),
     getEditorText: () => "", editor: (title, prefill) => ask("input", title, prefill),
     custom: () => Promise.resolve(undefined), setAutocompleteProvider() {},
   };
+}
+
+function literalUi(value, fallback) {
+  if (value == null || typeof value === "string") return value;
+  if (Array.isArray(value) && value.every((line) => typeof line === "string")) return value;
+  return fallback;
 }
 
 function safeError(error) {

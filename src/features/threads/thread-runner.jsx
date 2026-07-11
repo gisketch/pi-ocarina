@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Composer } from "@/features/composer/composer";
 import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments } from "@/features/composer/attachments";
+import { ExtensionDock } from "@/features/extensions/extension-dock";
+import { EMPTY_DOCK, reduceDock } from "@/features/extensions/extension-dock.js";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
@@ -42,6 +44,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const runIdsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
   const streamsRef = useRef(/** @type {Map<string, string>} */ (new Map()));
   const runtimePromptsRef = useRef(/** @type {Map<string, any>} */ (new Map()));
+  const docksRef = useRef(/** @type {Map<string, typeof EMPTY_DOCK>} */ (new Map()));
+  const [dock, setDock] = useState(EMPTY_DOCK);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
@@ -108,7 +112,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
     void listen("agent-host-event", ({ payload: event }) => {
       if (event.requestId !== requestId) return;
-      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText"].includes(event.type)) onEvent(event);
+      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice", "editorText", "extensionDock"].includes(event.type)) onEvent(event);
       if (!["completed", "failed", "cancelled"].includes(event.type)) return;
       stop();
       if (event.type === "completed") resolve(event.payload);
@@ -174,6 +178,11 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         }
         if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
         if (event.type === "runtimeNotice" && event.payload.type === "error" && selectedThreadRef.current === active.threadId) setError(event.payload.message);
+        if (event.type === "extensionDock") {
+          const next = reduceDock(docksRef.current.get(active.threadId), event.payload);
+          docksRef.current.set(active.threadId, next);
+          if (selectedThreadRef.current === active.threadId) setDock(next);
+        }
       }, activeRunId));
       if (selectedThreadRef.current === active.threadId) setThread(completed);
       draftAttachmentsRef.current[active.threadId] = [];
@@ -275,6 +284,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       const pendingPrompt = runtimePromptsRef.current.get(opened.threadId) ?? null;
       setRuntimePrompt(pendingPrompt);
       setRuntimeValue(pendingPrompt?.options?.[0] ?? "");
+      setDock(docksRef.current.get(opened.threadId) ?? EMPTY_DOCK);
       setQueue((await request("threadQueue", { threadId: opened.threadId })).items);
       markRead(item);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
@@ -303,7 +313,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function newThread() {
     await saveProjection();
-    selectedThreadRef.current = null; setThread(null); setStream(""); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
+    selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   function stopRun() {
@@ -411,6 +421,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
+      <ExtensionDock dock={dock} />
       {queue.length > 0 && <div className="space-y-1 rounded-md border p-2" aria-label="Queued messages">{queue.map((item) => <div className="flex items-center gap-2 text-xs" key={item.id}><span className="rounded bg-muted px-1 font-medium">{item.mode === "steer" ? "Steer" : "Queued"}</span><Input aria-label={`Edit ${item.mode}`} className="h-7" type="text" value={item.prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQueue(queue.map((value) => value.id === item.id ? { ...value, prompt: event.target.value } : value))} onBlur={() => void replaceQueue(queue)} /><Button size="icon-xs" variant="ghost" aria-label="Remove queued message" onClick={() => void replaceQueue(queue.filter((value) => value.id !== item.id))}><XIcon /></Button></div>)}</div>}
       {thread && <details className="rounded-md border bg-card p-3 text-sm">
         <summary className="cursor-pointer font-medium">Skills ({thread.skills?.length ?? 0})</summary>
