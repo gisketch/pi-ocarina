@@ -69,6 +69,7 @@ section[aria-label="Thread"]:has(> .pb-sidebar) { display: grid; grid-template-c
 
 .pb-composer { padding: var(--pb-composer-padding); padding-bottom: var(--pb-composer-padding-bottom); background-color: var(--pb-noisy-surface-background); background-image: url("./shared/assets/noise.svg"); background-size: var(--pb-background-noise-size); }
 .pb-composer textarea { min-height: calc(var(--pb-content-line-height) * var(--pb-composer-min-lines)); overflow: visible; border-radius: 0; background: transparent; font-family: var(--pb-font-heading); font-size: var(--pb-content-font-size); line-height: var(--pb-content-line-height); caret-color: var(--pb-foreground); }
+.pb-composer textarea::selection { background: color-mix(in srgb, var(--pb-primary) 45%, transparent); color: var(--pb-foreground); }
 .pb-composer-footer, .pb-composer-footer button { font-size: var(--pb-content-font-size); }
 
 .pb-chat-message { display: flex; width: 100%; font-size: var(--pb-content-font-size); line-height: var(--pb-content-line-height); }

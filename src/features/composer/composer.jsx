@@ -45,6 +45,11 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
         void importAttachments(files).then((items) => onAttachments([...attachments, ...items])).catch((cause) => onAttachmentError(String(cause)));
       }}
       onKeyDown={(/** @type {React.KeyboardEvent<HTMLTextAreaElement>} */ event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+          event.preventDefault();
+          event.currentTarget.setSelectionRange(0, event.currentTarget.value.length);
+          return;
+        }
         if (event.key === "Escape" && running) { event.preventDefault(); onStop(); }
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.metaKey || event.ctrlKey ? onSteer() : onSend(); }
       }}
