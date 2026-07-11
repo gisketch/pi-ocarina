@@ -4,10 +4,9 @@
 
 **Blocked by:** 05 — Native workspace catalog; 12 — Workspace and thread navigation with drafts
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Rename and reorder persist across restart and update every relevant window.
-- [ ] Reveal opens the canonical workspace in Finder.
-- [ ] Remove deletes only the catalog entry after clear confirmation and leaves files, sessions, and worktrees intact.
-- [ ] Removing or selecting an empty workspace produces a valid fallback selection.
-
+- [x] Rename and reorder persist across restart and update every relevant window.
+- [x] Reveal opens the canonical workspace in Finder.
+- [x] Remove deletes only the catalog entry after clear confirmation and leaves files, sessions, and worktrees intact.
+- [x] Removing or selecting an empty workspace produces a valid fallback selection.

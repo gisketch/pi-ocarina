@@ -155,7 +155,11 @@ pub fn run() {
             set_workspace_projection,
             open_external_url,
             workspace::add_workspace,
-            workspace::select_workspace
+            workspace::select_workspace,
+            workspace::rename_workspace,
+            workspace::reorder_workspace,
+            workspace::remove_workspace,
+            workspace::reveal_workspace
         ]);
 
     #[cfg(debug_assertions)]
