@@ -24,6 +24,8 @@ pub struct AppState {
 pub struct Workspace {
     pub id: String,
     pub path: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -113,9 +115,19 @@ impl AppStateStore {
     }
 
     pub fn update(&self, change: impl FnOnce(&mut AppState)) -> Result<AppState, String> {
+        self.try_update(|state| {
+            change(state);
+            Ok(())
+        })
+    }
+
+    pub fn try_update(
+        &self,
+        change: impl FnOnce(&mut AppState) -> Result<(), String>,
+    ) -> Result<AppState, String> {
         let mut state = self.state.lock().map_err(|_| "app state lock poisoned")?;
         let mut next = state.clone();
-        change(&mut next);
+        change(&mut next)?;
         next.schema_version = SCHEMA_VERSION;
         write_atomic(&self.path, &next)?;
         *state = next.clone();
