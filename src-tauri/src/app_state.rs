@@ -18,6 +18,7 @@ pub struct AppState {
     pub selected_workspace: Option<String>,
     pub preferences: Preferences,
     pub windows: BTreeMap<String, WindowProjection>,
+    pub reviewed_files: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

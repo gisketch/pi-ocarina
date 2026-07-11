@@ -495,7 +495,7 @@ function ToolRow({ tool, onOpenFile }) {
   const content = preview(tool.output ?? tool.input);
   const path = typeof tool.input === "object" && tool.input && "path" in tool.input && typeof tool.input.path === "string" ? tool.input.path : "";
   return <details className="rounded-md border bg-card px-3 py-2 text-sm" data-testid="tool-call">
-    <summary className="cursor-pointer font-medium">{tool.toolName ?? "Tool"} · {tool.status}{path && <Button className="ml-2" size="sm" variant="ghost" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenFile(path); }}>Open in Changes</Button>}</summary>
+    <summary className="cursor-pointer font-medium">{tool.toolName ?? "Tool"} · {tool.status}{path && <Button className="ml-2" size="sm" variant="ghost" onClick={(/** @type {React.MouseEvent} */ event) => { event.preventDefault(); event.stopPropagation(); onOpenFile(path); }}>Open in Changes</Button>}</summary>
     {content && <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-muted-foreground">{content}</pre>}
   </details>;
 }

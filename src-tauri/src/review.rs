@@ -25,6 +25,22 @@ pub struct FileDiff {
     binary: bool,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceFile {
+    path: String,
+    reviewed: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileContent {
+    path: String,
+    content: String,
+    binary: bool,
+    reviewed: bool,
+}
+
 #[tauri::command]
 pub fn search_workspace_files(
     store: State<'_, AppStateStore>,
@@ -98,6 +114,84 @@ pub fn file_diff(
     })
 }
 
+#[tauri::command]
+pub fn workspace_files(
+    store: State<'_, AppStateStore>,
+    workspace_id: String,
+) -> Result<Vec<WorkspaceFile>, String> {
+    let workspace = workspace(&store, &workspace_id)?;
+    let mut paths = Vec::new();
+    visit(&workspace.path, &workspace.path, "", &mut paths)?;
+    let reviewed = store
+        .snapshot()
+        .reviewed_files
+        .get(&workspace_id)
+        .cloned()
+        .unwrap_or_default();
+    Ok(paths
+        .into_iter()
+        .map(|path| {
+            let current = fingerprint(&workspace.path.join(&path)).ok();
+            WorkspaceFile {
+                reviewed: current.as_ref() == reviewed.get(&path),
+                path,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn read_workspace_file(
+    store: State<'_, AppStateStore>,
+    workspace_id: String,
+    path: String,
+) -> Result<FileContent, String> {
+    let workspace = workspace(&store, &workspace_id)?;
+    let file = contained_file(&workspace.path, &safe_relative(&path)?)?;
+    let bytes = fs::read(&file).map_err(|error| format!("read workspace file: {error}"))?;
+    if bytes.len() > DIFF_LIMIT {
+        return Err("file is too large to preview".into());
+    }
+    let binary = bytes.contains(&0);
+    let reviewed = store
+        .snapshot()
+        .reviewed_files
+        .get(&workspace_id)
+        .and_then(|items| items.get(&path))
+        .is_some_and(|saved| fingerprint(&file).as_ref() == Ok(saved));
+    Ok(FileContent {
+        path,
+        content: if binary {
+            String::new()
+        } else {
+            String::from_utf8_lossy(&bytes).into_owned()
+        },
+        binary,
+        reviewed,
+    })
+}
+
+#[tauri::command]
+pub fn set_file_reviewed(
+    store: State<'_, AppStateStore>,
+    workspace_id: String,
+    path: String,
+    reviewed: bool,
+) -> Result<(), String> {
+    let workspace = workspace(&store, &workspace_id)?;
+    let file = contained_file(&workspace.path, &safe_relative(&path)?)?;
+    let marker = fingerprint(&file)?;
+    store.update(|state| {
+        let items = state.reviewed_files.entry(workspace_id).or_default();
+        if reviewed {
+            items.insert(path, marker);
+        } else {
+            items.remove(&path);
+        }
+    })?;
+    Ok(())
+}
+
 fn workspace(store: &AppStateStore, id: &str) -> Result<Workspace, String> {
     store
         .snapshot()
@@ -131,6 +225,17 @@ fn contained_file(root: &Path, relative: &Path) -> Result<PathBuf, String> {
         return Err("file must stay inside the workspace".into());
     }
     Ok(file)
+}
+
+fn fingerprint(path: &Path) -> Result<String, String> {
+    let metadata = fs::metadata(path).map_err(|error| format!("inspect file: {error}"))?;
+    let modified = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|value| value.as_nanos())
+        .unwrap_or(0);
+    Ok(format!("{}:{modified}", metadata.len()))
 }
 
 fn visit(
