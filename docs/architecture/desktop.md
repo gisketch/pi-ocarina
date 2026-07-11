@@ -23,6 +23,7 @@ The agent host exists because the Pi SDK is JavaScript while the trusted Tauri h
 - Rust starts, monitors, and stops the host.
 - Use one explicit request/event protocol over stdio unless a measured need proves another transport.
 - Each message carries a protocol version, request id, operation, and payload.
+- Protocol version 1 is newline-delimited JSON. Host events are `started`, `completed`, `cancelled`, or `failed`; each request emits at most one terminal event.
 - Validate untrusted process messages on both sides of the boundary.
 - The host adapts Pi SDK calls and events; it does not reinterpret Pi session semantics.
 - A host crash must fail the active run clearly without corrupting existing sessions.
