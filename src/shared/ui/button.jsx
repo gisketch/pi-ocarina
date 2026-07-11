@@ -12,9 +12,9 @@ const buttonVariants = cva("pb-button-interaction group/button inline-flex shrin
 }, defaultVariants: { variant: "default", size: "default" } });
 
 /** @param {React.ComponentProps<"button"> & { variant?: "default"|"destructive"|"outline"|"secondary"|"ghost"|"link", size?: "default"|"xs"|"sm"|"lg"|"icon"|"icon-xs"|"icon-sm"|"icon-lg", asChild?: boolean, effects?: "default"|"motion-only"|"row-highlight" }} props */
-function Button({ className, variant = "default", size = "default", asChild = false, effects = "default", children, onPointerEnter, ...props }) {
+function Button({ className, variant = "default", size = "default", asChild = false, effects = "default", children, onPointerEnter, ref, ...props }) {
   const Comp = asChild ? Slot.Root : "button";
-  const fieldRef = useButtonField(effects === "motion-only" ? false : effects === "row-highlight" ? "row" : "content");
+  const fieldRef = useButtonField(ref, effects === "motion-only" ? false : effects === "row-highlight" ? "row" : "content");
   const [revealing, setRevealing] = useState(false);
   return <Comp ref={fieldRef} data-slot="button" data-variant={variant} data-size={size} data-effects={effects} onPointerEnter={(event) => { if (effects === "default") setRevealing(true); onPointerEnter?.(event); }} className={cn(buttonVariants({ variant, size }), className)} {...props}>{!asChild && effects === "default" && revealing ? <StaggeredButtonText onComplete={() => setRevealing(false)}>{children}</StaggeredButtonText> : children}</Comp>;
 }

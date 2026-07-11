@@ -1,6 +1,7 @@
 // @ts-nocheck -- canvas CSS-mask renderer is runtime constrained by Button
 import { useCallback, useEffect, useState } from "react";
 const cache = new Map();
+function assignRef(ref, value) { if (typeof ref === "function") ref(value); else if (ref) ref.current = value; }
 const token = (styles, name, fallback) => Number.parseFloat(styles.getPropertyValue(name)) || fallback;
 function createField(element, mode) {
   const root = getComputedStyle(document.documentElement), style = getComputedStyle(element);
@@ -21,8 +22,9 @@ function createField(element, mode) {
   const mask = `url("${canvas.toDataURL()}")`; cache.set(key, mask); return { width, height, mask };
 }
 /** @param {"content" | "row" | false} [mode] */
-export function useButtonField(mode = "content") {
-  const [element, setElement] = useState(null); const ref = useCallback((node) => setElement(node), []);
+/** @param {React.Ref<HTMLElement> | undefined} forwardedRef @param {"content" | "row" | false} [mode] */
+export function useButtonField(forwardedRef, mode = "content") {
+  const [element, setElement] = useState(null); const ref = useCallback((node) => { setElement(node); assignRef(forwardedRef, node); }, [forwardedRef]);
   useEffect(() => { if (!element || !mode) return; const draw = () => { const field = createField(element, mode); element.style.setProperty("--pb-button-field-width", `${field.width}px`); element.style.setProperty("--pb-button-field-height", `${field.height}px`); element.style.setProperty("--pb-button-field-mask", field.mask); }; draw(); const observer = new ResizeObserver(draw); observer.observe(element); return () => observer.disconnect(); }, [element, mode]);
   return ref;
 }
