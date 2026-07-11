@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
+import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
@@ -41,6 +42,7 @@ export function App() {
           <CardDescription>A maintainable Tauri home for the Pi coding agent.</CardDescription>
         </CardHeader>
         <CardContent>
+          <WorkspaceCatalog />
           <p className="text-xs text-muted-foreground" data-testid="runtime-status">{runtime}</p>
         </CardContent>
       </Card>
