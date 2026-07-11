@@ -40,7 +40,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   const threadQueues = new Map();
   const leases = new Map();
   const baselines = new Map();
-  const orchestration = new OrchestrationRuntime();
+  const orchestration = new OrchestrationRuntime(join(getAgentDir(), "orchestration.json"));
   orchestration.setHandler(async (parent, action, payload) => {
     if (action === "list") return orchestration.list(parent);
     if (action === "create") {
@@ -49,19 +49,20 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       const child = await createThread(context, createSession, resolveModel, sessions, leases, baselines, orchestration);
       orchestration.link(parent, child.threadId);
       if (!payload.prompt) return { ...child, status: "waiting" };
-      orchestration.status.set(child.threadId, "running");
-      try { const value = await promptThread({ threadId: child.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.status.set(child.threadId, "completed"); return { ...value, status: "completed" }; }
-      catch (error) { orchestration.status.set(child.threadId, "failed"); throw error; }
+      orchestration.setStatus(child.threadId, "running");
+      try { const value = await promptThread({ threadId: child.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.setStatus(child.threadId, "completed"); return { ...value, status: "completed" }; }
+      catch (error) { orchestration.setStatus(child.threadId, "failed"); throw error; }
     }
     const session = sessions.get(payload.threadId);
     if (!session) throw new Error("Child thread is not open");
     if (action === "read") return { ...threadSnapshot(session), messages: threadSnapshot(session).messages.slice(-20), status: orchestration.status.get(payload.threadId) };
-    if (action === "cancel") { await session.abort(); orchestration.status.set(payload.threadId, "canceled"); return { threadId: payload.threadId, status: "canceled" }; }
+    if (action === "supervise") { if (payload.evidence) orchestration.supervision.evidence(payload.threadId, payload.evidenceType ?? "report", payload.evidence); return payload.gate ? orchestration.supervision.gate(payload.threadId, payload.gate) : orchestration.supervision.get(payload.threadId); }
+    if (action === "cancel") { await session.abort(); orchestration.setStatus(payload.threadId, "canceled"); return { threadId: payload.threadId, status: "canceled" }; }
     if (action === "message") {
       if (runningThreads.has(payload.threadId)) { await queueThread({ threadId: payload.threadId, prompt: payload.prompt, mode: "followUp" }, sessions, runningThreads, threadQueues); return { threadId: payload.threadId, status: "queued" }; }
-      orchestration.status.set(payload.threadId, "running");
-      try { const value = await promptThread({ threadId: payload.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.status.set(payload.threadId, "completed"); return { ...value, status: "completed" }; }
-      catch (error) { orchestration.status.set(payload.threadId, "failed"); throw error; }
+      orchestration.setStatus(payload.threadId, "running");
+      try { const value = await promptThread({ threadId: payload.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.setStatus(payload.threadId, "completed"); return { ...value, status: "completed" }; }
+      catch (error) { orchestration.setStatus(payload.threadId, "failed"); throw error; }
     }
     throw new Error("Unsupported child action");
   });
