@@ -68,8 +68,10 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const output = new PassThrough();
   const events = [];
   const persisted = [];
+  let emitSession = () => {};
   const makeSession = async () => {
     const listeners = new Set();
+    emitSession = (event) => listeners.forEach((listener) => listener(event));
     let ui;
     return { session: {
       sessionId: "thread-1",
@@ -114,6 +116,13 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("open", "openThread", { cwd: "/tmp/workspace", sessionFile: "/tmp/thread-1.jsonl" });
   await new Promise((resolve) => setTimeout(resolve, 5));
+  send("recover", "recoverThread", { cwd: "/tmp/workspace", threadId: "thread-1", sessionFile: "/tmp/thread-1.jsonl" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("watch", "watchThread", { threadId: "thread-1" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  emitSession({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "live" } });
+  send("cancel-watch", "cancel", { requestId: "watch" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
 
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
@@ -121,6 +130,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },
   ]);
+  assert.equal(events.find(({ requestId, type }) => requestId === "recover" && type === "completed").payload.runStatus, "idle");
+  assert.equal(events.find(({ requestId, type }) => requestId === "watch" && type === "messageDelta").payload.delta, "live");
 });
 
 test("real provider creates a persistent thread and answers", { skip: process.env.PI_OCARINA_REAL_PROVIDER !== "1" }, async () => {

@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SendIcon, StopCircleIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, messages: Message[] }} Thread */
 
-/** @param {{ workspace: { path: string }, model: { provider: string, id: string } }} props */
+/** @param {{ workspace: { id: string, path: string }, model: { provider: string, id: string } }} props */
 export function ThreadRunner({ workspace, model }) {
   const [thread, setThread] = useState(/** @type {Thread | null} */ (null));
   const [prompt, setPrompt] = useState("");
@@ -22,7 +22,31 @@ export function ThreadRunner({ workspace, model }) {
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
 
-  /** @param {string} operation @param {Record<string, unknown>} payload @param {(event: any) => void} [onEvent] */
+  useEffect(() => {
+    /** @type {string | undefined} */
+    let watchId;
+    void invoke("app_state_snapshot").then(async ({ state }) => {
+      const saved = state.windows?.main;
+      if (!saved || saved.workspace_id !== workspace.id) return;
+      setPrompt(saved.draft ?? "");
+      if (!saved.active_thread_id || !saved.session_file) return;
+      const recovered = /** @type {Thread & { runStatus?: string }} */ (await request("recoverThread", {
+        cwd: workspace.path, threadId: saved.active_thread_id, sessionFile: saved.session_file,
+      }));
+      setThread(recovered);
+      if (recovered.runStatus === "running") {
+        watchId = crypto.randomUUID();
+        void request("watchThread", { threadId: recovered.threadId }, (event) => {
+          if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
+          if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
+        }, watchId).catch(() => {});
+      }
+      if (["interrupted", "missing"].includes(recovered.runStatus ?? "")) setError(recovered.runStatus === "missing" ? "Saved session is missing. Start a new thread." : "The previous run was interrupted. You can continue this thread.");
+    }).catch((cause) => setError(String(cause)));
+    return () => { if (watchId) void request("cancel", { requestId: watchId }).catch(() => {}); };
+  }, [workspace.id, workspace.path]);
+
+  /** @param {string} operation @param {Record<string, unknown>} payload @param {(event: any) => void} [onEvent] @param {string} [requestId] */
   const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
     void listen("agent-host-event", ({ payload: event }) => {
       if (event.requestId !== requestId) return;
@@ -54,15 +78,17 @@ export function ThreadRunner({ workspace, model }) {
       const text = prompt;
       setPrompt("");
       setThread({ ...active, messages: [...active.messages, { role: "user", text }] });
+      void saveProjection(active, "running", "");
       const activeRunId = crypto.randomUUID();
       setRunId(activeRunId);
       const completed = /** @type {Thread} */ (await request("promptThread", { threadId: active.threadId, prompt: text }, (event) => {
         if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
         if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
-        if (event.type === "runtimePrompt") { setRuntimeValue(""); setRuntimePrompt(event.payload); }
+        if (event.type === "runtimePrompt") { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); }
         if (event.type === "runtimeNotice" && event.payload.type === "error") setError(event.payload.message);
       }, activeRunId));
       setThread(completed);
+      void saveProjection(completed, "idle", "");
       setStream("");
     } catch (cause) {
       setError(String(cause));
@@ -70,6 +96,13 @@ export function ThreadRunner({ workspace, model }) {
       setRunning(false);
       setRunId(null);
     }
+  }
+
+  function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt) {
+    return invoke("set_window_projection", { projection: {
+      workspace_id: workspace.id, active_thread_id: active?.threadId ?? null,
+      session_file: active?.sessionFile ?? null, draft, run_status: status,
+    } });
   }
 
   function stopRun() {
@@ -91,7 +124,7 @@ export function ThreadRunner({ workspace, model }) {
         {stream && <p className="mr-8 p-2 text-sm" data-testid="streaming-response">{stream}</p>}
       </div>
       <form className="flex gap-2" onSubmit={submit}>
-        <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} />
+        <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} onBlur={() => void saveProjection()} />
         {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim()}><SendIcon />Send</Button>}
       </form>
       {error && <p className="text-sm text-destructive">{error}</p>}

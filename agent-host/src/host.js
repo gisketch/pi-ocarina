@@ -32,6 +32,7 @@ export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] 
 export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession, resolveModel = resolveSelectedModel, listSessions = SessionManager.list) {
   const active = new Map();
   const sessions = new Map();
+  const runningThreads = new Set();
   const prompts = new Map();
   const send = (requestId, type, payload = {}) =>
     output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
@@ -67,7 +68,9 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
       else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions);
       else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions);
-      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, prompts, (type, event) => send(requestId, type, event));
+      else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads);
+      else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -138,34 +141,53 @@ async function openThread({ cwd, sessionFile, agentDir } = {}, createSession, li
   return threadSnapshot(session);
 }
 
-async function promptThread({ threadId, prompt } = {}, signal, sessions, prompts, publish) {
+async function recoverThread({ cwd, threadId, sessionFile, agentDir } = {}, createSession, listSessions, sessions, runningThreads) {
+  if (sessions.has(threadId)) return { ...threadSnapshot(sessions.get(threadId)), runStatus: runningThreads.has(threadId) ? "running" : "idle" };
+  try {
+    return { ...(await openThread({ cwd, sessionFile, agentDir }, createSession, listSessions, sessions)), runStatus: "interrupted" };
+  } catch {
+    return { threadId, sessionFile, messages: [], runStatus: "missing" };
+  }
+}
+
+async function promptThread({ threadId, prompt } = {}, signal, sessions, runningThreads, prompts, publish) {
   if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
-  const unsubscribe = session.subscribe((event) => {
-    if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-      publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
-    } else if (event.type === "tool_execution_start") {
-      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
-    } else if (event.type === "tool_execution_update") {
-      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
-    } else if (event.type === "tool_execution_end") {
-      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
-    }
-  });
-  const abort = () => session.abort();
+  const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
+  const abort = () => { void session.abort(); cancelThreadPrompts(threadId, prompts); };
   session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish));
   signal.addEventListener("abort", abort, { once: true });
+  runningThreads.add(threadId);
   try {
     await session.prompt(prompt.trim());
     return threadSnapshot(session);
   } finally {
     signal.removeEventListener("abort", abort);
-    for (const [id, pending] of prompts) {
-      if (pending.threadId === threadId) { prompts.delete(id); pending.resolve(undefined); }
-    }
+    runningThreads.delete(threadId);
+    cancelThreadPrompts(threadId, prompts);
     unsubscribe();
   }
+}
+
+function watchThread({ threadId } = {}, signal, sessions, publish) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  return new Promise((resolve) => {
+    const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
+    signal.addEventListener("abort", () => { unsubscribe(); resolve({ stopped: true }); }, { once: true });
+  });
+}
+
+function publishPiEvent(event, threadId, publish) {
+  if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
+  else if (event.type === "tool_execution_start") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
+  else if (event.type === "tool_execution_update") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
+  else if (event.type === "tool_execution_end") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
+}
+
+function cancelThreadPrompts(threadId, prompts) {
+  for (const [id, pending] of prompts) if (pending.threadId === threadId) { prompts.delete(id); pending.resolve(undefined); }
 }
 
 function runtimeUi(threadId, prompts, publish) {
