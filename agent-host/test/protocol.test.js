@@ -116,6 +116,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
         persisted.push({ role: "assistant", content: [{ type: "text", text: "hello" }] });
       },
       async abort() {},
+      async steer(text) { this.steering = [...(this.steering ?? []), text]; },
+      async followUp(text) { this.followUps = [...(this.followUps ?? []), text]; },
+      clearQueue() { this.steering = []; this.followUps = []; return { steering: [], followUp: [] }; },
       dispose() {},
       extensionRunner: {
         setUIContext(value) { ui = value; },
@@ -143,6 +146,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   send("prompt", "promptThread", { threadId: "thread-1", prompt: "hi" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("second-writer", "promptThread", { threadId: "thread-1", prompt: "race" });
+  send("queue", "queueThread", { threadId: "thread-1", prompt: "later", mode: "followUp" });
+  send("steer", "queueThread", { threadId: "thread-1", prompt: "now", mode: "steer" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   const runtimePrompt = events.find(({ requestId, type }) => requestId === "prompt" && type === "runtimePrompt");
   send("resolve", "resolveRuntimePrompt", { threadId: "thread-1", promptId: runtimePrompt.payload.promptId, value: "secret" });
@@ -167,6 +172,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.equal(events.find(({ requestId, type }) => requestId === "prompt" && type === "editorText").payload.threadId, "thread-1");
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
   assert.match(events.find(({ requestId, type }) => requestId === "second-writer" && type === "failed").payload.message, /already active/);
+  assert.equal(events.find(({ requestId, type }) => requestId === "queue" && type === "completed").payload.items[0].mode, "followUp");
+  assert.equal(events.find(({ requestId, type }) => requestId === "steer" && type === "completed").payload.items[1].mode, "steer");
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "open" && type === "completed").payload.messages, [
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },

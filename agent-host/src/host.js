@@ -36,6 +36,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   const sessions = new Map();
   const runningThreads = new Set();
   const prompts = new Map();
+  const threadQueues = new Map();
   const leases = new Map();
   const baselines = new Map();
   const heartbeat = setInterval(() => {
@@ -80,7 +81,10 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "refreshThread") result = await refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
-      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, threadQueues, (type, event) => send(requestId, type, event));
+      else if (operation === "queueThread") result = await queueThread(payload, sessions, runningThreads, threadQueues);
+      else if (operation === "replaceThreadQueue") result = await replaceThreadQueue(payload, sessions, runningThreads, threadQueues);
+      else if (operation === "threadQueue") result = { items: threadQueues.get(payload.threadId) ?? [] };
       else if (operation === "setThreadModel") result = await setThreadModel(payload, sessions, resolveModel);
       else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
       else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
@@ -252,7 +256,7 @@ async function fileMtime(path) {
   try { return (await stat(path)).mtimeMs; } catch { return undefined; }
 }
 
-async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, publish) {
+async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, queues, publish) {
   if ((typeof prompt !== "string") || (!prompt.trim() && !attachments.length)) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
@@ -270,9 +274,35 @@ async function promptThread({ threadId, prompt = "", attachments = [] } = {}, si
   } finally {
     signal.removeEventListener("abort", abort);
     runningThreads.delete(threadId);
+    queues.delete(threadId);
     cancelThreadPrompts(threadId, prompts);
     unsubscribe();
   }
+}
+
+async function queueThread({ threadId, prompt = "", attachments = [], mode = "followUp" } = {}, sessions, runningThreads, queues) {
+  const session = sessions.get(threadId);
+  if (!session || !runningThreads.has(threadId)) throw new Error("Session is not active");
+  if (!['steer', 'followUp'].includes(mode)) throw new Error("Invalid queue mode");
+  const prepared = await preparePrompt(prompt, attachments);
+  await session[mode](prepared.text, prepared.images);
+  const item = { id: crypto.randomUUID(), mode, prompt, attachments };
+  const items = [...(queues.get(threadId) ?? []), item];
+  queues.set(threadId, items);
+  return { items };
+}
+
+async function replaceThreadQueue({ threadId, items = [] } = {}, sessions, runningThreads, queues) {
+  const session = sessions.get(threadId);
+  if (!session || !runningThreads.has(threadId)) throw new Error("Session is not active");
+  if (!Array.isArray(items)) throw new Error("Invalid queue");
+  session.clearQueue();
+  for (const item of items) {
+    const prepared = await preparePrompt(item.prompt, item.attachments ?? []);
+    await session[item.mode](prepared.text, prepared.images);
+  }
+  queues.set(threadId, items);
+  return { items };
 }
 
 export async function preparePrompt(prompt, attachments) {

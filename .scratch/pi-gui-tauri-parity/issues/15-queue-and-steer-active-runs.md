@@ -4,10 +4,9 @@
 
 **Blocked by:** 07 — Create thread and stream a real run; 13 — Composer controls and runtime commands; 14 — Images and file attachments
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Enter queues a follow-up while the configured steering shortcut targets the active run.
-- [ ] Queued messages and submitted steers are visibly distinct in the timeline.
-- [ ] Users can edit or remove queued content without losing attachments.
-- [ ] Queue state survives session switches and terminates predictably after completion, cancellation, or failure.
-
+- [x] Enter queues a follow-up while the configured steering shortcut targets the active run.
+- [x] Queued messages and submitted steers are visibly distinct in the timeline.
+- [x] Users can edit or remove queued content without losing attachments.
+- [x] Queue state survives session switches and terminates predictably after completion, cancellation, or failure.

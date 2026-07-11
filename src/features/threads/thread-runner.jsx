@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, PencilIcon } from "lucide-react";
+import { MessageSquarePlusIcon, PencilIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -27,6 +27,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
   const [runId, setRunId] = useState(/** @type {string | null} */ (null));
+  const [queue, setQueue] = useState(/** @type {Array<any>} */ ([]));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
   const [newThinking, setNewThinking] = useState("medium");
@@ -64,6 +65,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       }));
       setThread(recovered);
       if (recovered.runStatus === "running") {
+        void request("threadQueue", { threadId: recovered.threadId }).then((result) => setQueue(result.items)).catch(() => {});
         watchId = crypto.randomUUID();
         void request("watchThread", { threadId: recovered.threadId }, (event) => {
           if (event.payload.threadId !== saved.active_thread_id) return;
@@ -102,7 +104,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   });
 
   async function submit() {
-    if ((!prompt.trim() && !attachments.length) || running) return;
+    if ((!prompt.trim() && !attachments.length)) return;
+    if (running) { await enqueue("followUp"); return; }
     const control = parseComposerControl(prompt);
     if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); return; }
     if (control?.type === "model") {
@@ -159,7 +162,24 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     } finally {
       setRunning(false);
       setRunId(null);
+      setQueue([]);
     }
+  }
+
+  /** @param {"steer" | "followUp"} mode */
+  async function enqueue(mode) {
+    if (!thread || (!prompt.trim() && !attachments.length)) return;
+    try {
+      const result = await request("queueThread", { threadId: thread.threadId, prompt, attachments, mode });
+      setQueue(result.items); setPrompt(""); setAttachments([]);
+    } catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {Array<any>} items */
+  async function replaceQueue(items) {
+    if (!thread) return;
+    try { setQueue((await request("replaceThreadQueue", { threadId: thread.threadId, items })).items); }
+    catch (cause) { setError(String(cause)); }
   }
 
   /** @param {{provider: string, id: string, name?: string}} nextModel */
@@ -202,6 +222,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     try {
       const opened = /** @type {Thread} */ (await request("openThread", { cwd: workspace.path, sessionFile: item.sessionFile }));
       setThread(opened);
+      setQueue((await request("threadQueue", { threadId: opened.threadId })).items);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
       setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
       await saveProjection(opened, "idle", draftsRef.current[opened.threadId] ?? "");
@@ -210,7 +231,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
 
   async function newThread() {
     await saveProjection();
-    setThread(null); setStream(""); setError(""); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
+    setThread(null); setStream(""); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   function stopRun() {
@@ -276,9 +297,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         commands={thread?.commands} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
         onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}
-        onSend={() => void submit()} onStop={stopRun}
+        onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
+      {queue.length > 0 && <div className="space-y-1 rounded-md border p-2" aria-label="Queued messages">{queue.map((item) => <div className="flex items-center gap-2 text-xs" key={item.id}><span className="rounded bg-muted px-1 font-medium">{item.mode === "steer" ? "Steer" : "Queued"}</span><Input aria-label={`Edit ${item.mode}`} className="h-7" type="text" value={item.prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQueue(queue.map((value) => value.id === item.id ? { ...value, prompt: event.target.value } : value))} onBlur={() => void replaceQueue(queue)} /><Button size="icon-xs" variant="ghost" aria-label="Remove queued message" onClick={() => void replaceQueue(queue.filter((value) => value.id !== item.id))}><XIcon /></Button></div>)}</div>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
         <DialogContent className={undefined}>

@@ -10,8 +10,8 @@ import { importAttachments, prepareAttachments } from "./attachments";
 
 const DEFAULT_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
-/** @param {{ value: string, running: boolean, disabled?: boolean, commands?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
-export function Composer({ value, running, disabled, commands = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onStop, onModelChange, onThinkingChange }) {
+/** @param {{ value: string, running: boolean, disabled?: boolean, commands?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
+export function Composer({ value, running, disabled, commands = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
   const suggestions = slashSuggestions(value, commands);
   return <div className="space-y-2" data-testid="composer">
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
@@ -34,7 +34,7 @@ export function Composer({ value, running, disabled, commands = [], models, mode
       }}
       onKeyDown={(/** @type {React.KeyboardEvent<HTMLTextAreaElement>} */ event) => {
         if (event.key === "Escape" && running) { event.preventDefault(); onStop(); }
-        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSend(); }
+        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.metaKey || event.ctrlKey ? onSteer() : onSend(); }
       }}
     />
     {attachments.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Attachments">{attachments.map((item) => <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs" key={item.path}>{item.name}<Button aria-label={`Remove ${item.name}`} size="icon-xs" variant="ghost" onClick={() => onAttachments(attachments.filter((value) => value.path !== item.path))}><XIcon /></Button></span>)}</div>}
@@ -48,7 +48,7 @@ export function Composer({ value, running, disabled, commands = [], models, mode
       </DropdownMenu>
       <span className="text-xs text-muted-foreground">Enter sends · Shift+Enter adds a line{running ? " · Esc stops" : ""}</span>
       {running
-        ? <Button className="ml-auto" type="button" variant="destructive" onClick={onStop}><StopCircleIcon />Stop</Button>
+        ? <><Button className="ml-auto" type="button" disabled={!value.trim() && !attachments.length} onClick={onSend}><SendIcon />Queue</Button><Button type="button" variant="destructive" onClick={onStop}><StopCircleIcon />Stop</Button></>
         : <Button className="ml-auto" type="button" disabled={disabled || (!value.trim() && !attachments.length) || !model} onClick={onSend}><SendIcon />Send</Button>}
     </div>
   </div>;
