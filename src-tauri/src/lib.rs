@@ -2,6 +2,7 @@ pub mod agent_host;
 pub mod app_state;
 pub mod attachment;
 pub mod model_scope;
+pub mod review;
 pub mod terminal;
 pub mod workspace;
 pub mod worktree;
@@ -179,6 +180,9 @@ pub fn run() {
             model_scope::model_selection,
             model_scope::set_model_scope,
             model_scope::set_model_preference,
+            review::search_workspace_files,
+            review::repository_changes,
+            review::file_diff,
             set_window_projection,
             set_workspace_projection,
             attachment::prepare_attachments,
