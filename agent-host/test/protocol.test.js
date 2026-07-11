@@ -144,6 +144,52 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.equal(events.find(({ requestId, type }) => requestId === "watch" && type === "messageDelta").payload.delta, "live");
 });
 
+test("manual thread name wins a delayed one-shot generated title", async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const events = [];
+  let name;
+  let resolveTitle;
+  let generated = 0;
+  const session = {
+    sessionId: "thread-name",
+    sessionFile: "/tmp/thread-name.jsonl",
+    messages: [],
+    get sessionName() { return name; },
+    setSessionName(value) { name = value; },
+    subscribe() { return () => {}; },
+    dispose() {},
+  };
+  serve(
+    input,
+    output,
+    async () => ({ session }),
+    () => ({ authStorage: {}, modelRegistry: {}, model: {} }),
+    async () => [{ id: "thread-name", path: "/tmp/thread-name.jsonl", name }],
+    () => { generated += 1; return new Promise((resolve) => { resolveTitle = resolve; }); },
+  );
+  output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
+  const send = (requestId, operation, payload) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
+
+  send("create-name", "createThread", { cwd: "/tmp/workspace", provider: "test", modelId: "test" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("auto-name", "generateThreadTitle", { threadId: "thread-name", prompt: "Generated title source" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("manual-name", "renameThread", { threadId: "thread-name", title: "  Manual title wins  " });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  resolveTitle("Ignored generated title");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("later-name", "generateThreadTitle", { threadId: "thread-name", prompt: "Later prompts do not rename" });
+  send("reopen-list", "listThreads", { cwd: "/tmp/workspace" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  assert.equal(name, "Manual title wins");
+  assert.equal(generated, 1);
+  assert.equal(events.find(({ requestId, type }) => requestId === "auto-name" && type === "completed").payload.applied, false);
+  assert.equal(events.filter(({ requestId, type }) => requestId === "auto-name" && type === "started").length, 1);
+  assert.equal(events.find(({ requestId, type }) => requestId === "reopen-list" && type === "completed").payload[0].title, "Manual title wins");
+});
+
 test("real provider creates a persistent thread and answers", { skip: process.env.PI_OCARINA_REAL_PROVIDER !== "1" }, async () => {
   const [provider, modelId] = (process.env.PI_OCARINA_REAL_MODEL ?? "").split("/");
   assert.ok(provider && modelId, "set PI_OCARINA_REAL_MODEL=provider/model");
