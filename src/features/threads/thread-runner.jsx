@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "@/shared/ui/icon";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -22,6 +22,7 @@ import { MatrixSpinner } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
+import { createCoalescedTask } from "./coalesced-task";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, skills?: Array<any>, extensions?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
@@ -61,6 +62,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
   const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
+  const draftPersistence = useRef(/** @type {ReturnType<typeof createCoalescedTask<() => Promise<void>>> | null} */ (null));
+  if (!draftPersistence.current) draftPersistence.current = createCoalescedTask((write) => write(), 300);
   const threadMetadataRef = useRef(/** @type {Record<string, any>} */ ({}));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
   const [changesOpen, setChangesOpen] = useState(false);
@@ -156,8 +159,9 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   useEffect(() => {
     let stop = () => {};
     void getCurrentWindow().onCloseRequested(async (event) => {
-      if (runtimePromptsRef.current.size === 0) return;
+      if (runtimePromptsRef.current.size === 0 && !draftPersistence.current?.pending()) return;
       event.preventDefault();
+      await draftPersistence.current?.flush();
       await Promise.all([...runtimePromptsRef.current.values()].map((item) => request("resolveRuntimePrompt", {
         promptId: item.promptId, threadId: item.threadId, cancelled: true,
       }).catch(() => {})));
@@ -196,15 +200,16 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
 
   async function submit() {
     if ((!prompt.trim() && !attachments.length)) return;
+    await flushDraftSave();
     const blocked = blockedCommand(prompt, thread?.commands, compatibilityRef.current);
     if (blocked) { setError(blocked.message); return; }
     if (running) { await enqueue("followUp"); return; }
     const control = parseComposerControl(prompt);
-    if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); return; }
+    if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); void saveProjection(thread, "idle", ""); return; }
     if (control?.type === "model") {
       const selected = models.find((item) => item.provider === control.provider && item.id === control.id);
       if (!selected) { setError("That model is unavailable. Choose an available model."); return; }
-      await applyModel(selected); setPrompt(""); return;
+      await applyModel(selected); setPrompt(""); void saveProjection(thread, "idle", ""); return;
     }
     if (!activeModel) { setError("Choose an available model to continue."); return; }
     setError("");
@@ -360,10 +365,22 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
     } });
   }
 
+  /** @param {string} value */
+  function scheduleDraftSave(value) {
+    const active = thread;
+    const status = running ? "running" : "idle";
+    const draftAttachment = attachments;
+    const key = active?.threadId ?? "new";
+    draftsRef.current = { ...draftsRef.current, [key]: value };
+    draftPersistence.current?.schedule(() => saveProjection(active, status, value, draftAttachment).catch((cause) => setError(String(cause))));
+  }
+
+  const flushDraftSave = () => draftPersistence.current?.flush() ?? Promise.resolve();
+
   /** @param {ThreadSummary} item */
   async function selectThread(item) {
     if (item.threadId === thread?.threadId) return;
-    await saveProjection();
+    await flushDraftSave();
     setError(""); setStream("");
     try {
       const opened = /** @type {Thread} */ (await request("openThread", { cwd: workspace.path, sessionFile: item.sessionFile }));
@@ -402,7 +419,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   }
 
   async function newThread() {
-    await saveProjection();
+    await flushDraftSave();
     selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
@@ -464,7 +481,13 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
     scrollSaveTimer.current = setTimeout(() => void saveProjection(), 250);
   }
 
-  const organized = organizeThreads(threads, threadMetadata, query);
+  const organized = useMemo(() => organizeThreads(threads, threadMetadata, query), [threads, threadMetadata, query]);
+  const messages = thread?.messages;
+  const transcriptItems = useMemo(() => messages?.map((message, index) => message.role === "tool"
+    ? <ToolRow key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} />
+    : message.role === "user"
+      ? <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-user"><p className="break-words">{message.text}</p></div>
+      : <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage>{message.text ?? ""}</MarkdownMessage></div>), [messages, setChangePath, setChangesOpen]);
 
   return (
     <section className={sidebarVisible ? "grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)]" : "flex min-h-0 flex-1"} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
@@ -498,11 +521,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         onPosition={rememberScroll}
       >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
-        {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} /> : (
-          message.role === "user"
-            ? <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-user"><p className="break-words">{message.text}</p></div>
-            : <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage>{message.text ?? ""}</MarkdownMessage></div>
-        ))}
+        {transcriptItems}
         {stream && <div className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></div>}
       </TranscriptViewport>
       <Composer
@@ -511,7 +530,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(thread, running ? "running" : "idle", prompt, items); }} onAttachmentError={(message) => setError(message)}
         commands={thread?.commands} extensions={thread?.extensions} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
-        onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}
+        onChange={(value) => { setPrompt(value); scheduleDraftSave(value); }} onDraftBlur={() => void flushDraftSave()}
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />

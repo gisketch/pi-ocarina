@@ -21,22 +21,29 @@ function ComposerCaret({ textarea }) {
     const mirror = document.createElement("div"), marker = document.createElement("span");
     mirror.style.cssText = "position:fixed;visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word";
     document.body.append(mirror);
-    const update = () => {
+    let frame = 0;
+    const syncMirrorStyle = () => {
       const style = getComputedStyle(textarea);
       Object.assign(mirror.style, { width: `${textarea.clientWidth}px`, font: style.font, letterSpacing: style.letterSpacing, lineHeight: style.lineHeight, padding: style.padding, border: style.border });
+    };
+    const measure = () => {
+      frame = 0;
       mirror.replaceChildren(document.createTextNode(textarea.value.slice(0, textarea.selectionStart)), marker);
       marker.textContent = textarea.value.slice(textarea.selectionStart, textarea.selectionStart + 1) || " ";
-      setPosition({ left: marker.offsetLeft - textarea.scrollLeft, top: marker.offsetTop - textarea.scrollTop, visible: document.activeElement === textarea });
+      const next = { left: marker.offsetLeft - textarea.scrollLeft, top: marker.offsetTop - textarea.scrollTop, visible: document.activeElement === textarea };
+      setPosition((current) => current.left === next.left && current.top === next.top && current.visible === next.visible ? current : next);
     };
-    const events = ["input", "keyup", "click", "select", "scroll", "focus", "blur"];
-    events.forEach((event) => textarea.addEventListener(event, update)); addEventListener("resize", update); update();
-    return () => { events.forEach((event) => textarea.removeEventListener(event, update)); removeEventListener("resize", update); mirror.remove(); };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    const resize = new ResizeObserver(() => { syncMirrorStyle(); schedule(); });
+    const events = ["input", "click", "select", "scroll", "focus", "blur"];
+    syncMirrorStyle(); resize.observe(textarea); events.forEach((event) => textarea.addEventListener(event, schedule)); schedule();
+    return () => { cancelAnimationFrame(frame); resize.disconnect(); events.forEach((event) => textarea.removeEventListener(event, schedule)); mirror.remove(); };
   }, [textarea]);
   return position.visible ? <CellMatrix cells="11" columns={2} rows={1} glow={false} toneSeed="composer-caret" className="pb-composer-caret absolute" style={{ left: position.left, top: position.top }} /> : null;
 }
 
-/** @param {{ workspaceId: string, value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
-export function Composer({ workspaceId, value, running, disabled, commands = [], extensions = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
+/** @param {{ workspaceId: string, value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onDraftBlur?: () => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
+export function Composer({ workspaceId, value, running, disabled, commands = [], extensions = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onDraftBlur, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
   const suggestions = slashSuggestions(value, commands);
   const mentions = extensionMentions(value, extensions);
   const [files, setFiles] = useState(/** @type {string[]} */ ([]));
@@ -59,6 +66,7 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
       disabled={disabled}
       placeholder="Ask Pi anything, use / for commands and skills"
       onChange={(/** @type {React.ChangeEvent<HTMLTextAreaElement>} */ event) => onChange(event.target.value)}
+      onBlur={onDraftBlur}
       onPaste={(/** @type {React.ClipboardEvent<HTMLTextAreaElement>} */ event) => {
         const files = Array.from(event.clipboardData.files);
         if (!files.length) return;

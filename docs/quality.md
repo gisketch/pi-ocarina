@@ -11,6 +11,7 @@
 | Frontend lint | `bun run lint` | After frontend or JavaScript tooling changes |
 | Frontend typecheck | `bun run typecheck` | After frontend JavaScript changes |
 | Frontend build | `bun run build` | Before frontend handoff |
+| Frontend focused unit tests | `bun run test:frontend-unit` | After shared UI or draft-persistence logic changes |
 | Full static/Rust check | `bun run check` | Before implementation handoff |
 | Rust build | `bun run rust:build` | After Rust or Tauri configuration changes |
 | Rust format | `bun run rust:fmt` | After Rust changes |

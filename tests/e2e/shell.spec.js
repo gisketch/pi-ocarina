@@ -19,6 +19,26 @@ describe("desktop shell", () => {
     await expect(browser.$('[data-testid="model-catalog"]')).toHaveText(expect.stringContaining("providers"));
   });
 
+  it("keeps rapid composer input responsive and coalesces durable draft writes", async () => {
+    await browser.execute(() => {
+      const original = window.__TAURI_INTERNALS__.invoke;
+      window.__draftWriteCount = 0;
+      window.__TAURI_INTERNALS__.invoke = (command, args, options) => {
+        if (command === "set_workspace_projection") window.__draftWriteCount += 1;
+        return original(command, args, options);
+      };
+    });
+    const composer = await browser.$('textarea[aria-label="Message"]');
+    const text = "responsive typing should not persist every individual character";
+    const started = Date.now();
+    await composer.setValue(text);
+    const elapsed = Date.now() - started;
+    await browser.pause(500);
+    await expect(composer).toHaveValue(text);
+    expect(elapsed).toBeLessThan(3000);
+    expect(await browser.execute(() => window.__draftWriteCount)).toBeLessThanOrEqual(2);
+  });
+
   it("opens an independent second Tauri window", async () => {
     await browser.execute(() => window.__TAURI__.core.invoke("open_app_window"));
     await browser.waitUntil(async () => (await browser.getWindowHandles()).length === 2);

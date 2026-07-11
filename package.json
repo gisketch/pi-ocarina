@@ -27,6 +27,7 @@
     "agent-host": "node_modules/node/bin/node agent-host/src/host.js",
     "test:agent-host": "node_modules/node/bin/node --test agent-host/test/*.test.js",
     "test:design-system": "node_modules/node/bin/node --test src/shared/ui/matrix.test.js"
+    ,"test:frontend-unit": "node_modules/node/bin/node --test src/features/threads/coalesced-task.test.js src/shared/ui/matrix.test.js"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

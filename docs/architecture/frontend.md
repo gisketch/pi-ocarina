@@ -47,6 +47,7 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 
 - Server/agent/session state comes from services and streamed events, not duplicated component caches.
 - Keep draft composer state local.
+- Composer keystrokes update local state immediately. Durable draft projections are coalesced and explicitly flushed on blur, submit, thread navigation, and window close; never invoke Tauri persistence per keystroke.
 - Derive presentation values instead of persisting duplicates.
 - Unsubscribe from Tauri events during component cleanup.
 - Bound rendered history; long sessions need incremental loading or virtualization when measurements justify it.

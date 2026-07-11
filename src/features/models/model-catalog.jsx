@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 /** @typedef {{ id: string, path: string }} Workspace */
 /** @param {{ workspace: Workspace | null, sidebarVisible?: boolean, sidebarHeader?: React.ReactNode, onModelChange?: (model: Model | null) => void }} props */
 export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, onModelChange = () => {} }) {
+  const workspaceId = workspace?.id;
   const [catalog, setCatalog] = useState(/** @type {Catalog} */ ({ providers: [], models: [], errors: [] }));
   const [selected, setSelected] = useState(/** @type {Model | null} */ (null));
   const [keys, setKeys] = useState(/** @type {Record<string, string>} */ ({}));
@@ -25,7 +26,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
   const [scope, setScope] = useState("global");
 
   useEffect(() => {
-    if (!workspace) return undefined;
+    if (!workspaceId) return undefined;
     const requestId = crypto.randomUUID();
     const listener = listen("agent-host-event", ({ payload }) => {
       if (payload.requestId === requestId && payload.type === "catalog") setCatalog(payload.payload);
@@ -33,7 +34,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
     void listener.then(async () => {
       await invoke("start_agent_host");
       await invoke("send_agent_request", {
-        request: { version: 1, requestId, operation: "watchCatalog", payload: { workspaceId: workspace.id } },
+        request: { version: 1, requestId, operation: "watchCatalog", payload: { workspaceId } },
       });
     }).catch((error) => setCatalog({ providers: [], models: [], errors: [String(error)] }));
     return () => {
@@ -47,15 +48,15 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
         },
       }).catch(() => {});
     };
-  }, [workspace]);
+  }, [workspaceId]);
 
   useEffect(() => {
-    if (!workspace) return;
-    void invoke("model_selection", { workspaceId: workspace.id }).then((preference) => {
+    if (!workspaceId) return;
+    void invoke("model_selection", { workspaceId }).then((preference) => {
       setScope(preference.scope);
       setSelected(preference.model);
     }).catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
-  }, [workspace]);
+  }, [workspaceId]);
 
   const availableModels = catalog.models.filter(({ available }) => available);
   const model = availableModels.find(({ provider, id }) => provider === selected?.provider && id === selected?.id) ?? null;
