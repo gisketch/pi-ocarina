@@ -1,7 +1,16 @@
 import { createInterface } from "node:readline";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { AuthStorage, ModelRegistry, discoverAndLoadExtensions } from "@mariozechner/pi-coding-agent";
+import {
+  AuthStorage,
+  ModelRegistry,
+  SessionManager,
+  createAgentSession,
+  discoverAndLoadExtensions,
+} from "@mariozechner/pi-coding-agent";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -18,7 +27,7 @@ export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] 
   };
 }
 
-export function serve(input = process.stdin, output = process.stdout) {
+export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession) {
   const active = new Map();
   const send = (requestId, type, payload = {}) =>
     output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
@@ -43,8 +52,11 @@ export function serve(input = process.stdin, output = process.stdout) {
     try {
       let result;
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
+      else if (operation === "createSession") result = await provePiSession(payload, createSession);
+      else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "wait") result = await wait(payload.ms, controller.signal);
       else throw new Error(`Unsupported operation: ${operation}`);
+      if (controller.signal.aborted) throw new Error("Cancelled");
       send(requestId, "completed", result);
     } catch (error) {
       send(requestId, controller.signal.aborted ? "cancelled" : "failed", {
@@ -68,6 +80,37 @@ export function serve(input = process.stdin, output = process.stdout) {
       send("unknown", "failed", { message: "Malformed JSON request" });
     }
   });
+}
+
+async function provePiSession(_payload, createSession) {
+  const root = await mkdtemp(join(tmpdir(), "pi-ocarina-sdk-proof-"));
+  try {
+    const { session } = await createSession({
+      cwd: root,
+      agentDir: join(root, "agent"),
+      noTools: "all",
+      sessionManager: SessionManager.inMemory(root),
+    });
+    session.dispose();
+    return { sdk: "@mariozechner/pi-coding-agent", session: "created" };
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+async function promptPi({ prompt, cwd = process.cwd(), agentDir } = {}, signal, createSession) {
+  if (typeof prompt !== "string" || !prompt) throw new Error("Prompt is required");
+  const { session } = await createSession({ cwd, agentDir, sessionManager: SessionManager.inMemory(cwd) });
+  const abort = () => session.abort();
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    if (signal.aborted) await session.abort();
+    await session.prompt(prompt);
+    return { completed: true };
+  } finally {
+    signal.removeEventListener("abort", abort);
+    session.dispose();
+  }
 }
 
 function wait(ms = 0, signal) {

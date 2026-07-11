@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "0.73.1",
+    "node": "20.19.5"
+  }
+}

@@ -1,4 +1,30 @@
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+
 export function App() {
+  const [runtime, setRuntime] = useState("Starting bundled Pi…");
+
+  useEffect(() => {
+    const requestId = crypto.randomUUID();
+    let unlisten = () => {};
+    void listen("agent-host-event", ({ payload }) => {
+      if (payload.requestId !== requestId || payload.type === "started") return;
+      setRuntime(payload.type === "completed" ? "Bundled Pi ready" : payload.payload.message);
+    }).then(async (stopListening) => {
+      unlisten = stopListening;
+      try {
+        await invoke("start_agent_host");
+        await invoke("send_agent_request", {
+          request: { version: 1, requestId, operation: "createSession", payload: {} },
+        });
+      } catch (error) {
+        setRuntime(String(error));
+      }
+    });
+    return () => unlisten();
+  }, []);
+
   return (
     <main
       className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-zinc-100"
@@ -12,6 +38,7 @@ export function App() {
         <p className="mt-4 max-w-md text-sm leading-6 text-zinc-400">
           A maintainable Tauri home for the Pi coding agent.
         </p>
+        <p className="mt-4 text-xs text-zinc-500" data-testid="runtime-status">{runtime}</p>
       </section>
     </main>
   );

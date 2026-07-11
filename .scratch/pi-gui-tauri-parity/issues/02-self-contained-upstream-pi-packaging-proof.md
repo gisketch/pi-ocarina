@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — Tauri shell and real-desktop test lane
 
-**Status:** in-progress
+**Status:** complete
 
 - [x] The agent host runs pinned @mariozechner/pi-coding-agent 0.73.1 on a bundled Node 20 runtime.
-- [ ] A locally packaged app starts the host and completes one real SDK request with no supported runtime on PATH.
+- [x] A locally packaged app starts the host and completes one real SDK request with no supported runtime on PATH.
 - [x] A dynamically discovered Pi extension loads from the normal upstream resource locations.
-- [ ] Missing or incompatible bundled runtime failures are explicit and leave user data untouched.
+- [x] Missing or incompatible bundled runtime failures are explicit and leave user data untouched.

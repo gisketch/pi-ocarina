@@ -41,6 +41,7 @@ pub struct AgentHost {
 
 impl AgentHost {
     pub fn start(app: AppHandle, node: &Path, script: &Path) -> io::Result<Self> {
+        validate_runtime(node, script)?;
         let mut child = Command::new(node)
             .arg(script)
             .stdin(Stdio::piped())
@@ -66,10 +67,8 @@ impl AgentHost {
                     .and_then(|line| HostEvent::parse(&line));
                 match event {
                     Ok(event) => {
-                        let terminal = matches!(
-                            event.kind.as_str(),
-                            "completed" | "cancelled" | "failed"
-                        );
+                        let terminal =
+                            matches!(event.kind.as_str(), "completed" | "cancelled" | "failed");
                         let mut pending = reader_pending.lock().unwrap();
                         let known = if terminal {
                             pending.remove(&event.request_id)
@@ -131,6 +130,30 @@ impl AgentHost {
     }
 }
 
+fn validate_runtime(node: &Path, script: &Path) -> io::Result<()> {
+    if !node.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("bundled Node runtime is missing: {}", node.display()),
+        ));
+    }
+    if !script.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("bundled agent host is missing: {}", script.display()),
+        ));
+    }
+    let output = Command::new(node).arg("--version").output()?;
+    let version = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() || !version.starts_with("v20.") {
+        return Err(io::Error::other(format!(
+            "bundled Node runtime is incompatible: expected Node 20, got {}",
+            version.trim()
+        )));
+    }
+    Ok(())
+}
+
 fn fail_pending(app: &AppHandle, pending: &Arc<Mutex<HashSet<String>>>, message: &str) {
     for request_id in pending.lock().unwrap().drain() {
         let _ = app.emit(
@@ -155,7 +178,7 @@ pub fn start_agent_host(app: AppHandle, state: State<'_, AgentHostState>) -> Res
         .resource_dir()
         .map_err(|error| error.to_string())?;
     let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let bundled_node = resources.join("node_modules/node/bin/node");
+    let bundled_node = resources.join("agent-host/node_modules/node/bin/node");
     let node = if bundled_node.exists() {
         bundled_node
     } else {
@@ -217,5 +240,16 @@ mod tests {
             r#"{"version":2,"requestId":"a","type":"completed","payload":{}}"#
         )
         .is_err());
+    }
+
+    #[test]
+    fn missing_bundled_runtime_fails_before_startup() {
+        let root = tempfile::tempdir().unwrap();
+        let error =
+            validate_runtime(&root.path().join("node"), &root.path().join("host.js")).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(error
+            .to_string()
+            .contains("bundled Node runtime is missing"));
     }
 }

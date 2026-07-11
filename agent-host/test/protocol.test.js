@@ -35,3 +35,27 @@ test("JSONL bridge validates, interleaves requests, and cancels once", async () 
   assert.equal(events.some(({ requestId, type }) => requestId === "cancel" && type === "completed"), true);
   assert.equal(events.some(({ requestId, type }) => requestId === "unknown" && type === "failed"), true);
 });
+
+test("cancellation reaches the active Pi session", async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const events = [];
+  let aborted = 0;
+  let finishPrompt;
+  const session = {
+    prompt: () => new Promise((resolve) => { finishPrompt = resolve; }),
+    abort: async () => { aborted += 1; finishPrompt(); },
+    dispose() {},
+  };
+  serve(input, output, async () => ({ session }),);
+  output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
+  const send = (value) => input.write(`${JSON.stringify(value)}\n`);
+
+  send({ version: 1, requestId: "run", operation: "prompt", payload: { prompt: "hello" } });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send({ version: 1, requestId: "cancel", operation: "cancel", payload: { requestId: "run" } });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  assert.equal(aborted, 1);
+  assert.deepEqual(events.filter(({ requestId }) => requestId === "run").map(({ type }) => type), ["started", "cancelled"]);
+});

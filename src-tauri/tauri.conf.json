@@ -26,6 +26,10 @@
     ]
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["app"],
+    "resources": {
+      "../agent-host": "agent-host"
+    }
   }
 }

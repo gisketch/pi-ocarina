@@ -4,5 +4,6 @@ describe("desktop shell", () => {
 
     await shell.waitForDisplayed();
     await expect(shell).toHaveText(expect.stringContaining("Pi Ocarina"));
+    await expect(browser.$('[data-testid="runtime-status"]')).toHaveText("Bundled Pi ready");
   });
 });
