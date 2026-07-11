@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Composer } from "@/features/composer/composer";
 import { parseComposerControl } from "@/features/composer/commands";
 import { MarkdownMessage } from "./markdown-message";
+import { TranscriptViewport } from "./transcript-viewport";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
@@ -31,6 +32,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [renameValue, setRenameValue] = useState("");
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
+  const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
+  const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
   const threadModel = thread?.model;
   const activeModel = thread
@@ -48,6 +51,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       if (!saved) return;
       revision.current = saved.revision ?? 0;
       draftsRef.current = saved.drafts ?? {};
+      scrollPositionsRef.current = saved.scroll_positions ?? {};
       setPrompt(saved.drafts?.[saved.active_thread_id ?? "new"] ?? saved.draft ?? "");
       if (!saved.active_thread_id || !saved.session_file) return;
       const recovered = /** @type {Thread & { runStatus?: string }} */ (await request("recoverThread", {
@@ -175,6 +179,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     return invoke("set_workspace_projection", { workspaceId: workspace.id, projection: {
       active_thread_id: active?.threadId ?? null, session_file: active?.sessionFile ?? null,
       draft, drafts: nextDrafts, run_status: status, revision: nextRevision,
+      scroll_positions: scrollPositionsRef.current,
     } });
   }
 
@@ -216,6 +221,14 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     } catch (cause) { setError(String(cause)); }
   }
 
+  /** @param {number} top */
+  function rememberScroll(top) {
+    const key = thread?.threadId ?? "new";
+    scrollPositionsRef.current[key] = top;
+    clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = setTimeout(() => void saveProjection(), 250);
+  }
+
   return (
     <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread">
       <nav className="space-y-1" aria-label="Threads">
@@ -231,7 +244,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
       </div>}
-      <div className="max-h-64 space-y-2 overflow-y-auto" data-testid="timeline">
+      <TranscriptViewport
+        threadKey={thread?.threadId ?? "new"}
+        savedTop={scrollPositionsRef.current[thread?.threadId ?? "new"]}
+        contentKey={`${thread?.messages.length ?? 0}:${stream.length}`}
+        onPosition={rememberScroll}
+      >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
         {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} /> : (
           message.role === "user"
@@ -239,7 +257,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
             : <MarkdownMessage key={`${message.role}-${index}`} className="mr-8 p-2">{message.text ?? ""}</MarkdownMessage>
         ))}
         {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
-      </div>
+      </TranscriptViewport>
       <Composer
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
         commands={thread?.commands} models={models} model={activeModel}

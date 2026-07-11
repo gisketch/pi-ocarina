@@ -52,6 +52,7 @@ pub struct WorkspaceView {
     pub drafts: BTreeMap<String, String>,
     pub run_status: String,
     pub revision: u64,
+    pub scroll_positions: BTreeMap<String, f64>,
 }
 
 impl AppState {
