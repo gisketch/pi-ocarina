@@ -26,6 +26,7 @@ The agent host exists because the Pi SDK is JavaScript while the trusted Tauri h
 - Validate untrusted process messages on both sides of the boundary.
 - The host adapts Pi SDK calls and events; it does not reinterpret Pi session semantics.
 - A host crash must fail the active run clearly without corrupting existing sessions.
+- The host runtime is pinned with the Pi dependency and invoked by absolute bundled-resource path in production; `PATH` is not a runtime dependency.
 
 ## Session Rule
 

@@ -23,6 +23,7 @@ bun run rust:build
 bun run rust:fmt
 bun run rust:lint
 bun run rust:test
+bun run test:agent-host
 ```
 
 Local development:
@@ -45,6 +46,7 @@ Normal builds do not grant the E2E capability or expose the WebdriverIO frontend
 - Use browser and language standard libraries before adding packages.
 - Reuse installed dependencies before adding alternatives.
 - Pin the Pi SDK package deliberately during scaffold; do not mix Pi forks or duplicate agent runtimes.
+- Invoke the agent host with `bun run agent-host`; the command uses the pinned Node 20 binary directly and never resolves Node, Bun, or Pi from `PATH`.
 - Document why every native Tauri plugin needs its capability.
 
 ## Configuration Rules
