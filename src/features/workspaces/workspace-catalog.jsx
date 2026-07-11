@@ -59,7 +59,7 @@ export function WorkspaceCatalog() {
         ))}
       </div>
       <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
-      <ModelCatalog workspaceId={state.selected_workspace} />
+      <ModelCatalog workspace={state.workspaces.find(({ id }) => id === state.selected_workspace) ?? null} />
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );

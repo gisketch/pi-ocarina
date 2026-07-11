@@ -29,8 +29,9 @@ export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] 
   };
 }
 
-export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession) {
+export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession, resolveModel = resolveSelectedModel, listSessions = SessionManager.list) {
   const active = new Map();
+  const sessions = new Map();
   const send = (requestId, type, payload = {}) =>
     output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
 
@@ -55,6 +56,9 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       let result;
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
+      else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions);
+      else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions);
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, (delta) => send(requestId, "messageDelta", delta));
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "wait") result = await wait(payload.ms, controller.signal);
@@ -83,6 +87,79 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       send("unknown", "failed", { message: "Malformed JSON request" });
     }
   });
+}
+
+async function createThread({ cwd, provider, modelId, agentDir } = {}, createSession, resolveModel, sessions) {
+  if (typeof cwd !== "string" || !cwd) throw new Error("Workspace is required");
+  const { authStorage, modelRegistry, model } = resolveModel({ provider, modelId, agentDir });
+  const { session } = await createSession({
+    cwd,
+    agentDir,
+    authStorage,
+    modelRegistry,
+    model,
+    sessionManager: SessionManager.create(cwd),
+  });
+  sessions.set(session.sessionId, session);
+  return threadSnapshot(session);
+}
+
+function resolveSelectedModel({ provider, modelId, agentDir }) {
+  if (typeof provider !== "string" || !provider || typeof modelId !== "string" || !modelId) {
+    throw new Error("Model is required");
+  }
+  const authStorage = agentDir ? AuthStorage.create(join(agentDir, "auth.json")) : AuthStorage.create();
+  const modelRegistry = agentDir
+    ? ModelRegistry.create(authStorage, join(agentDir, "models.json"))
+    : ModelRegistry.create(authStorage);
+  const model = modelRegistry.find(provider, modelId);
+  if (!model || !modelRegistry.hasConfiguredAuth(model)) throw new Error("Selected model is unavailable");
+  return { authStorage, modelRegistry, model };
+}
+
+async function openThread({ cwd, sessionFile, agentDir } = {}, createSession, listSessions, sessions) {
+  if (typeof cwd !== "string" || !cwd || typeof sessionFile !== "string" || !sessionFile) {
+    throw new Error("Workspace and session file are required");
+  }
+  const available = await listSessions(cwd);
+  if (!available.some(({ path }) => path === sessionFile)) throw new Error("Session does not belong to this workspace");
+  const { session } = await createSession({ cwd, agentDir, sessionManager: SessionManager.open(sessionFile) });
+  sessions.set(session.sessionId, session);
+  return threadSnapshot(session);
+}
+
+async function promptThread({ threadId, prompt } = {}, signal, sessions, publish) {
+  if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Prompt is required");
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  const unsubscribe = session.subscribe((event) => {
+    if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
+      publish({ threadId, delta: event.assistantMessageEvent.delta });
+    }
+  });
+  const abort = () => session.abort();
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    await session.prompt(prompt.trim());
+    return threadSnapshot(session);
+  } finally {
+    signal.removeEventListener("abort", abort);
+    unsubscribe();
+  }
+}
+
+function threadSnapshot(session) {
+  return {
+    threadId: session.sessionId,
+    sessionFile: session.sessionFile,
+    messages: session.messages.map(({ role, content }) => ({ role, text: messageText(content) })).filter(({ text }) => text),
+  };
+}
+
+function messageText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.filter((part) => part?.type === "text").map((part) => part.text).join("");
 }
 
 export function loadModelCatalog({ agentDir = getAgentDir() } = {}) {
