@@ -1,14 +1,17 @@
 // @ts-check
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { AppearanceControls } from "@/features/appearance/appearance-controls";
 import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 export function App() {
   const [runtime, setRuntime] = useState("Starting bundled Pi…");
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const syncSidebar = useCallback((/** @type {boolean} */ visible) => setSidebarVisible(visible), []);
 
   useEffect(() => {
     const requestId = crypto.randomUUID();
@@ -32,18 +35,21 @@ export function App() {
 
   return (
     <main
-      className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground"
+      className="flex min-h-screen items-center justify-center bg-background p-3 text-foreground sm:p-6"
       data-testid="app-ready"
     >
-      <Card className="w-full max-w-xl shadow-xl">
+      <Card className="w-full max-w-4xl shadow-xl">
         <CardHeader>
           <Badge variant="secondary" className="uppercase tracking-widest">Desktop foundation ready</Badge>
           <CardTitle className="text-4xl tracking-tight">Pi Ocarina</CardTitle>
           <CardDescription>A maintainable Tauri home for the Pi coding agent.</CardDescription>
+          <AppearanceControls onSidebarChange={syncSidebar} />
         </CardHeader>
-        <CardContent>
-          <WorkspaceCatalog />
-          <p className="text-xs text-muted-foreground" data-testid="runtime-status">{runtime}</p>
+        <CardContent className={sidebarVisible ? "grid gap-4 md:grid-cols-[minmax(14rem,18rem)_1fr]" : "block"}>
+          {sidebarVisible && <aside className="min-w-0 border-b pb-4 md:border-r md:border-b-0 md:pr-4"><WorkspaceCatalog /></aside>}
+          <section className="min-w-0">
+            <p className="text-xs text-muted-foreground" data-testid="runtime-status">{runtime}</p>
+          </section>
         </CardContent>
       </Card>
     </main>
