@@ -21,6 +21,7 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
   const [selected, setSelected] = useState(/** @type {Model | null} */ (null));
   const [keys, setKeys] = useState(/** @type {Record<string, string>} */ ({}));
   const [saving, setSaving] = useState("");
+  const [scope, setScope] = useState("global");
 
   useEffect(() => {
     if (!workspace) return undefined;
@@ -47,11 +48,19 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
     };
   }, [workspace]);
 
-  if (!workspace) return null;
+  useEffect(() => {
+    if (!workspace) return;
+    void invoke("model_selection", { workspaceId: workspace.id }).then((preference) => {
+      setScope(preference.scope);
+      setSelected(preference.model);
+    }).catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
+  }, [workspace]);
+
   const availableModels = catalog.models.filter(({ available }) => available);
-  const model = selected && availableModels.some(({ provider, id }) => provider === selected.provider && id === selected.id)
-    ? selected
-    : null;
+  const model = availableModels.find(({ provider, id }) => provider === selected?.provider && id === selected?.id) ?? null;
+  useEffect(() => { onModelChange(model); }, [model, onModelChange]);
+
+  if (!workspace) return null;
   /** @param {string} provider */
   const saveCredential = async (provider) => {
     const requestId = crypto.randomUUID();
@@ -85,12 +94,28 @@ export function ModelCatalog({ workspace, onModelChange = () => {} }) {
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span>{catalog.providers.length} providers</span>
         <Badge variant="secondary">{availableModels.length} available models</Badge>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{scope === "global" ? "Global model" : "Repository model"}</DropdownMenuTrigger>
+          <DropdownMenuContent className={undefined}>
+            {[["global", "Global model"], ["repository", "Repository model"]].map(([value, label]) => (
+              <DropdownMenuItem className={undefined} inset={false} key={value} onClick={() => {
+                void invoke("set_model_scope", { workspaceId: workspace.id, scope: value }).then((preference) => {
+                  setScope(preference.scope); setSelected(preference.model); onModelChange(preference.model);
+                }).catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
+              }}>{label}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         {availableModels.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{model?.name ?? "Choose a model"}</DropdownMenuTrigger>
             <DropdownMenuContent className={undefined}>
               {availableModels.map((item) => (
-                <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => { setSelected(item); onModelChange(item); }}>{item.name}</DropdownMenuItem>
+                <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => {
+                  void invoke("set_model_preference", { workspaceId: workspace.id, model: { provider: item.provider, id: item.id } })
+                    .then(() => { setSelected(item); onModelChange(item); })
+                    .catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
+                }}>{item.name}</DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>

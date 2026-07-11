@@ -39,6 +39,15 @@ pub struct Preferences {
     pub terminal_shell: String,
     pub transparency: bool,
     pub sidebar_visible: bool,
+    pub model_scope: String,
+    pub global_model: Option<ModelPreference>,
+    pub repository_models: BTreeMap<String, ModelPreference>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ModelPreference {
+    pub provider: String,
+    pub id: String,
 }
 
 impl Default for Preferences {
@@ -48,6 +57,9 @@ impl Default for Preferences {
             terminal_shell: String::new(),
             transparency: false,
             sidebar_visible: true,
+            model_scope: "global".into(),
+            global_model: None,
+            repository_models: BTreeMap::new(),
         }
     }
 }
