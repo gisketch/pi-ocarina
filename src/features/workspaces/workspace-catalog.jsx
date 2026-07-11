@@ -6,6 +6,7 @@ import { ArrowDownIcon, ArrowUpIcon, FolderGit2Icon, FolderOpenIcon, MoreHorizon
 import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
+import { TerminalPanel } from "@/features/terminal/terminal-panel";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -142,6 +143,7 @@ export function WorkspaceCatalog() {
       </div>
       <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
       <ModelCatalog onModelChange={setModel} workspace={selected} />
+      {state.selected_workspace && <TerminalPanel workspaceId={state.selected_workspace} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => !open && setRenameTarget(null)}>

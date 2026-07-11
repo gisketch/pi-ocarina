@@ -36,6 +36,7 @@ pub struct Workspace {
 #[serde(default)]
 pub struct Preferences {
     pub theme: String,
+    pub terminal_shell: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

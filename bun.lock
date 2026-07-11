@@ -8,6 +8,8 @@
         "@mariozechner/pi-coding-agent": "0.73.1",
         "@tauri-apps/api": "2.11.1",
         "@tauri-apps/plugin-dialog": "^2.7.1",
+        "@xterm/addon-fit": "^0.11.0",
+        "@xterm/xterm": "^6.0.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "lucide-react": "^1.24.0",
@@ -723,6 +725,10 @@
     "@wdio/utils": ["@wdio/utils@9.29.1", "", { "dependencies": { "@puppeteer/browsers": "^2.2.0", "@wdio/logger": "9.29.1", "@wdio/types": "9.29.1", "decamelize": "^6.0.0", "deepmerge-ts": "^7.0.3", "edgedriver": "^6.1.2", "geckodriver": "^6.1.0", "get-port": "^7.0.0", "import-meta-resolve": "^4.0.0", "locate-app": "^2.2.24", "mitt": "^3.0.1", "safaridriver": "^1.0.0", "split2": "^4.2.0", "wait-port": "^1.1.0" } }, "sha512-jyt6b6FfdYwVbMISVhuyGC1xQGZj6xM03KhTHozH7a9/zu9b++94KRdT9HRbwX8zefjW0YeIC5+qWSIf7WWHZg=="],
 
     "@wdio/xvfb": ["@wdio/xvfb@9.29.1", "", { "dependencies": { "@wdio/logger": "9.29.1" } }, "sha512-suC0EJcPVldpIyJA/UB9cV11PkW4sGgNmLHPhWU7NiASnbiFeHjK3EbevjzlwwBNYXx1KHO4jMY4Rep2wwVNuw=="],
+
+    "@xterm/addon-fit": ["@xterm/addon-fit@0.11.0", "", {}, "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g=="],
+
+    "@xterm/xterm": ["@xterm/xterm@6.0.0", "", {}, "sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg=="],
 
     "@zip.js/zip.js": ["@zip.js/zip.js@2.8.26", "", {}, "sha512-RQ4h9F6DOiHxpdocUDrOl6xBM+yOtz+LkUol47AVWcfebGBDpZ7w7Xvz9PS24JgXvLGiXXzSAfdCdVy1tPlaFA=="],
 
