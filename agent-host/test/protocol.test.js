@@ -111,6 +111,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("prompt", "promptThread", { threadId: "thread-1", prompt: "hi" });
   await new Promise((resolve) => setTimeout(resolve, 5));
+  send("second-writer", "promptThread", { threadId: "thread-1", prompt: "race" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   const runtimePrompt = events.find(({ requestId, type }) => requestId === "prompt" && type === "runtimePrompt");
   send("resolve", "resolveRuntimePrompt", { threadId: "thread-1", promptId: runtimePrompt.payload.promptId, value: "secret" });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -126,6 +128,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
 
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
+  assert.match(events.find(({ requestId, type }) => requestId === "second-writer" && type === "failed").payload.message, /already active/);
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "open" && type === "completed").payload.messages, [
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },

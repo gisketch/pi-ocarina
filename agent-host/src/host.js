@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { readFileSync, unwatchFile, watchFile } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,10 +9,12 @@ import {
   AuthStorage,
   ModelRegistry,
   SessionManager,
+  CURRENT_SESSION_VERSION,
   createAgentSession,
   discoverAndLoadExtensions,
   getAgentDir,
 } from "@mariozechner/pi-coding-agent";
+import { acquireLease, sessionSchema, shouldRefreshFromDisk } from "./session-coexistence.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -34,6 +36,12 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   const sessions = new Map();
   const runningThreads = new Set();
   const prompts = new Map();
+  const leases = new Map();
+  const baselines = new Map();
+  const heartbeat = setInterval(() => {
+    for (const sessionFile of leases.keys()) void acquireLease(sessionFile).catch(() => {});
+  }, 60_000).unref();
+  input.once("close", () => clearInterval(heartbeat));
   const send = (requestId, type, payload = {}) =>
     output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
 
@@ -66,9 +74,10 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       let result;
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
-      else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions);
-      else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions);
-      else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads);
+      else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions, leases, baselines);
+      else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions, leases, baselines);
+      else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
+      else if (operation === "refreshThread") result = await refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
       else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
@@ -104,7 +113,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   });
 }
 
-async function createThread({ cwd, provider, modelId, agentDir } = {}, createSession, resolveModel, sessions) {
+async function createThread({ cwd, provider, modelId, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines) {
   if (typeof cwd !== "string" || !cwd) throw new Error("Workspace is required");
   const { authStorage, modelRegistry, model } = resolveModel({ provider, modelId, agentDir });
   const { session } = await createSession({
@@ -116,7 +125,12 @@ async function createThread({ cwd, provider, modelId, agentDir } = {}, createSes
     sessionManager: SessionManager.create(cwd),
   });
   sessions.set(session.sessionId, session);
-  return threadSnapshot(session);
+  if (session.sessionFile) {
+    try { leases.set(session.sessionFile, await acquireLease(session.sessionFile)); }
+    catch (error) { sessions.delete(session.sessionId); session.dispose(); throw error; }
+    baselines.set(session.sessionFile, await fileMtime(session.sessionFile));
+  }
+  return withSchema(threadSnapshot(session));
 }
 
 function resolveSelectedModel({ provider, modelId, agentDir }) {
@@ -132,30 +146,56 @@ function resolveSelectedModel({ provider, modelId, agentDir }) {
   return { authStorage, modelRegistry, model };
 }
 
-async function openThread({ cwd, sessionFile, agentDir } = {}, createSession, listSessions, sessions) {
+async function openThread({ cwd, sessionFile, agentDir } = {}, createSession, listSessions, sessions, leases, baselines) {
   if (typeof cwd !== "string" || !cwd || typeof sessionFile !== "string" || !sessionFile) {
     throw new Error("Workspace and session file are required");
   }
   const available = await listSessions(cwd);
   if (!available.some(({ path }) => path === sessionFile)) throw new Error("Session does not belong to this workspace");
+  const existing = [...sessions.values()].find((session) => session.sessionFile === sessionFile);
+  if (existing) return withSchema(threadSnapshot(existing));
+  if (leases && !leases.has(sessionFile)) leases.set(sessionFile, await acquireLease(sessionFile));
   const { session } = await createSession({ cwd, agentDir, sessionManager: SessionManager.open(sessionFile) });
   sessions.set(session.sessionId, session);
-  return threadSnapshot(session);
+  baselines?.set(sessionFile, await fileMtime(sessionFile));
+  return withSchema(threadSnapshot(session));
 }
 
-async function recoverThread({ cwd, threadId, sessionFile, agentDir } = {}, createSession, listSessions, sessions, runningThreads) {
-  if (sessions.has(threadId)) return { ...threadSnapshot(sessions.get(threadId)), runStatus: runningThreads.has(threadId) ? "running" : "idle" };
+async function recoverThread({ cwd, threadId, sessionFile, agentDir } = {}, createSession, listSessions, sessions, runningThreads, leases, baselines) {
+  if (sessions.has(threadId)) return { ...(await withSchema(threadSnapshot(sessions.get(threadId)))), runStatus: runningThreads.has(threadId) ? "running" : "idle" };
   try {
-    return { ...(await openThread({ cwd, sessionFile, agentDir }, createSession, listSessions, sessions)), runStatus: "interrupted" };
-  } catch {
+    return { ...(await openThread({ cwd, sessionFile, agentDir }, createSession, listSessions, sessions, leases, baselines)), runStatus: "interrupted" };
+  } catch (error) {
+    if (/active/i.test(error instanceof Error ? error.message : String(error))) throw error;
     return { threadId, sessionFile, messages: [], runStatus: "missing" };
   }
+}
+
+async function refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines) {
+  if (runningThreads.has(payload.threadId)) return { ...(await withSchema(threadSnapshot(sessions.get(payload.threadId)))), runStatus: "running" };
+  const previous = sessions.get(payload.threadId);
+  if (!previous) return { ...(await openThread(payload, createSession, listSessions, sessions, leases, baselines)), runStatus: "idle" };
+  const diskMtime = await fileMtime(payload.sessionFile);
+  const baseline = baselines.get(payload.sessionFile);
+  if (!shouldRefreshFromDisk(diskMtime, baseline, false)) {
+    if (baseline === undefined && diskMtime !== undefined) baselines.set(payload.sessionFile, diskMtime);
+    return { ...(await withSchema(threadSnapshot(previous))), runStatus: "idle" };
+  }
+  previous?.dispose();
+  sessions.delete(payload.threadId);
+  return { ...(await openThread(payload, createSession, listSessions, sessions, leases, baselines)), runStatus: "idle" };
+}
+
+async function fileMtime(path) {
+  try { return (await stat(path)).mtimeMs; } catch { return undefined; }
 }
 
 async function promptThread({ threadId, prompt } = {}, signal, sessions, runningThreads, prompts, publish) {
   if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
+  if (runningThreads.has(threadId)) throw new Error("Session is already active");
+  if ((await sessionSchema(session.sessionFile, CURRENT_SESSION_VERSION)).newer) throw new Error("Session was written by a newer Pi version and is read-only");
   const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
   const abort = () => { void session.abort(); cancelThreadPrompts(threadId, prompts); };
   session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish));
@@ -212,7 +252,7 @@ function runtimeUi(threadId, prompts, publish) {
 
 function safeError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  if (/required|unavailable|not open|cancelled|unsupported|validation/i.test(message)) return message;
+  if (/required|unavailable|not open|cancelled|unsupported|validation|active|read-only/i.test(message)) return message;
   return "Agent run failed. Check provider settings and try again.";
 }
 
@@ -222,6 +262,10 @@ function threadSnapshot(session) {
     sessionFile: session.sessionFile,
     messages: session.messages.flatMap(({ role, content }) => transcriptItems(role, content)),
   };
+}
+
+async function withSchema(snapshot) {
+  return { ...snapshot, schema: await sessionSchema(snapshot.sessionFile, CURRENT_SESSION_VERSION) };
 }
 
 function transcriptItems(role, content) {

@@ -9,7 +9,7 @@ import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, messages: Message[] }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, messages: Message[], schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 
 /** @param {{ workspace: { id: string, path: string }, model: { provider: string, id: string } }} props */
 export function ThreadRunner({ workspace, model }) {
@@ -21,6 +21,7 @@ export function ThreadRunner({ workspace, model }) {
   const [runId, setRunId] = useState(/** @type {string | null} */ (null));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
+  const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
     /** @type {string | undefined} */
@@ -45,6 +46,15 @@ export function ThreadRunner({ workspace, model }) {
     }).catch((cause) => setError(String(cause)));
     return () => { if (watchId) void request("cancel", { requestId: watchId }).catch(() => {}); };
   }, [workspace.id, workspace.path]);
+
+  useEffect(() => {
+    if (!thread || running) return;
+    const refresh = () => void request("refreshThread", {
+      cwd: workspace.path, threadId: thread.threadId, sessionFile: thread.sessionFile,
+    }).then((value) => setThread(/** @type {Thread} */ (value))).catch((cause) => setError(String(cause)));
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [thread, running, workspace.path]);
 
   /** @param {string} operation @param {Record<string, unknown>} payload @param {(event: any) => void} [onEvent] @param {string} [requestId] */
   const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
@@ -117,6 +127,10 @@ export function ThreadRunner({ workspace, model }) {
 
   return (
     <section className="space-y-3 border-t pt-4" aria-label="Thread">
+      {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
+        <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
+        <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
+      </div>}
       <div className="max-h-64 space-y-2 overflow-y-auto" data-testid="timeline">
         {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} /> : (
           <p key={`${message.role}-${index}`} className={message.role === "user" ? "ml-8 rounded-md bg-muted p-2 text-sm" : "mr-8 p-2 text-sm"}>{message.text}</p>
@@ -125,7 +139,7 @@ export function ThreadRunner({ workspace, model }) {
       </div>
       <form className="flex gap-2" onSubmit={submit}>
         <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} onBlur={() => void saveProjection()} />
-        {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim()}><SendIcon />Send</Button>}
+        {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim() || thread?.schema?.newer}><SendIcon />Send</Button>}
       </form>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
