@@ -61,6 +61,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, (delta) => send(requestId, "messageDelta", delta));
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
+      else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
       else if (operation === "wait") result = await wait(payload.ms, controller.signal);
       else throw new Error(`Unsupported operation: ${operation}`);
       if (controller.signal.aborted) throw new Error("Cancelled");
@@ -183,6 +184,22 @@ export function loadModelCatalog({ agentDir = getAgentDir() } = {}) {
   if (authStorage.drainErrors().length) errors.push("auth.json could not be loaded; fix or remove the invalid file");
   if (registry.getError()) errors.push("models.json could not be loaded; fix or remove the invalid file");
   return { providers, models, errors };
+}
+
+export function saveProviderCredential({ provider, apiKey } = {}, agentDir = getAgentDir()) {
+  if (typeof provider !== "string" || !provider || typeof apiKey !== "string" || !apiKey.trim()) {
+    throw new Error("Provider and API key are required");
+  }
+  const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
+  const registry = ModelRegistry.create(authStorage, join(agentDir, "models.json"));
+  if (!registry.getAll().some((model) => model.provider === provider)) throw new Error("Unsupported provider");
+  const status = registry.getProviderAuthStatus(provider);
+  if (status.source && status.source !== "stored") {
+    throw new Error("This provider is managed externally");
+  }
+  authStorage.set(provider, { type: "api_key", key: apiKey.trim() });
+  if (authStorage.drainErrors().length) throw new Error("Credential could not be saved");
+  return loadModelCatalog({ agentDir });
 }
 
 function watchCatalog(payload, signal, publish) {
