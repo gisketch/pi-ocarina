@@ -4,10 +4,9 @@
 
 **Blocked by:** 06 — Shared Pi auth and model catalog
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Supported built-in provider credentials can be saved through upstream Pi auth storage without entering Rust state.
-- [ ] Environment and models-file providers are displayed as externally managed and are not overwritten.
-- [ ] Secrets are masked in UI, logs, events, tests, and errors.
-- [ ] Provider/model state refreshes immediately after a successful change.
-
+- [x] Supported built-in provider credentials can be saved through upstream Pi auth storage without entering Rust state.
+- [x] Environment and models-file providers are displayed as externally managed and are not overwritten.
+- [x] Secrets are masked in UI, logs, events, tests, and errors.
+- [x] Provider/model state refreshes immediately after a successful change.
