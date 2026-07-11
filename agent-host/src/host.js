@@ -31,7 +31,7 @@ export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] 
   };
 }
 
-export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession, resolveModel = resolveSelectedModel, listSessions = SessionManager.list) {
+export function serve(input = process.stdin, output = process.stdout, createSession = createAgentSession, resolveModel = resolveSelectedModel, listSessions = SessionManager.list, generateTitle = generateThreadTitle) {
   const active = new Map();
   const sessions = new Map();
   const runningThreads = new Set();
@@ -83,6 +83,8 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
       else if (operation === "setThreadModel") result = await setThreadModel(payload, sessions, resolveModel);
       else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
+      else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
+      else if (operation === "renameThread") result = renameThread(payload, sessions);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -114,6 +116,35 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       send("unknown", "failed", { message: "Malformed JSON request" });
     }
   });
+}
+
+async function autoNameThread({ threadId, prompt } = {}, sessions, generateTitle, signal) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  if (session.sessionName) return { threadId, title: session.sessionName, applied: false };
+  const title = normalizeTitle(await generateTitle(prompt, signal));
+  if (!title || signal.aborted || session.sessionName) return { threadId, title: session.sessionName, applied: false };
+  session.setSessionName(title);
+  return { threadId, title, applied: true };
+}
+
+function renameThread({ threadId, title } = {}, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  const normalized = normalizeTitle(title);
+  if (!normalized) throw new Error("Thread name is required");
+  session.setSessionName(normalized);
+  return { threadId, title: normalized };
+}
+
+async function generateThreadTitle(prompt, signal) {
+  if (signal.aborted || typeof prompt !== "string") return undefined;
+  return prompt.trim().split(/\s+/).slice(0, 5).join(" ");
+}
+
+function normalizeTitle(value) {
+  if (typeof value !== "string") return undefined;
+  return value.trim().replace(/\s+/g, " ").replace(/[.!?,;:]+$/u, "").slice(0, 60).trim() || undefined;
 }
 
 async function createThread({ cwd, provider, modelId, thinkingLevel, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines) {
@@ -295,6 +326,7 @@ function threadSnapshot(session) {
   return {
     threadId: session.sessionId,
     sessionFile: session.sessionFile,
+    title: session.sessionName,
     messages: session.messages.flatMap(({ role, content }) => transcriptItems(role, content)),
     model: session.model ? { provider: session.model.provider, id: session.model.id, name: session.model.name } : null,
     thinkingLevel: session.thinkingLevel ?? "off",

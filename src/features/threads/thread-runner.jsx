@@ -1,7 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon } from "lucide-react";
+import { MessageSquarePlusIcon, PencilIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -12,7 +12,7 @@ import { parseComposerControl } from "@/features/composer/commands";
 import { MarkdownMessage } from "./markdown-message";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, title?: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 /** @typedef {{ threadId?: string, sessionFile: string, title: string, modified?: string, messageCount?: number }} ThreadSummary */
 
 /** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
@@ -27,6 +27,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
   const [newThinking, setNewThinking] = useState("medium");
+  const [renameTarget, setRenameTarget] = useState(/** @type {ThreadSummary | null} */ (null));
+  const [renameValue, setRenameValue] = useState("");
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
@@ -113,7 +115,14 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       const text = prompt;
       setPrompt("");
       setThread({ ...active, messages: [...active.messages, { role: "user", text }] });
-      if (!thread) setThreads((items) => [{ threadId: active.threadId, sessionFile: active.sessionFile, title: text, messageCount: 1 }, ...items]);
+      if (!thread) {
+        setThreads((items) => [{ threadId: active.threadId, sessionFile: active.sessionFile, title: "New thread", messageCount: 1 }, ...items]);
+        void request("generateThreadTitle", { threadId: active.threadId, prompt: text }).then((result) => {
+          if (!result.title) return;
+          setThreads((items) => items.map((item) => item.threadId === active.threadId ? { ...item, title: result.title } : item));
+          setThread((value) => value?.threadId === active.threadId ? { ...value, title: result.title } : value);
+        }).catch(() => {});
+      }
       void saveProjection(active, "running", "");
       const activeRunId = crypto.randomUUID();
       setRunId(activeRunId);
@@ -197,11 +206,24 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     setRuntimePrompt(null);
   }
 
+  async function renameActiveThread() {
+    if (!renameTarget?.threadId || !renameValue.trim()) return;
+    try {
+      const result = await request("renameThread", { threadId: renameTarget.threadId, title: renameValue });
+      setThreads((items) => items.map((item) => item.threadId === renameTarget.threadId ? { ...item, title: result.title } : item));
+      setThread((value) => value && value.threadId === renameTarget.threadId ? { ...value, title: result.title } : value);
+      setRenameTarget(null);
+    } catch (cause) { setError(String(cause)); }
+  }
+
   return (
     <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread">
       <nav className="space-y-1" aria-label="Threads">
         <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
-        {threads.map((item) => <Button className="w-full justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} key={item.sessionFile} onClick={() => void selectThread(item)}>{item.title}</Button>)}
+        {threads.map((item) => <div className="flex" key={item.sessionFile}>
+          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{item.title}</Button>
+          <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
+        </div>)}
         {threads.length === 0 && <p className="px-2 text-xs text-muted-foreground">No threads yet.</p>}
       </nav>
       <div className="min-w-0 space-y-3">
@@ -232,6 +254,13 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
           <DialogHeader className={undefined}><DialogTitle className={undefined}>{runtimePrompt?.title}</DialogTitle><DialogDescription className={undefined}>{runtimePrompt?.message}</DialogDescription></DialogHeader>
           {runtimePrompt?.kind === "select" ? <select className="h-9 rounded-md border bg-background px-3" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLSelectElement>} */ event) => setRuntimeValue(event.target.value)}>{runtimePrompt.options?.map((/** @type {string} */ option) => <option key={option}>{option}</option>)}</select> : runtimePrompt?.kind !== "confirm" && <Input aria-label="Runtime input" className={undefined} type="text" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setRuntimeValue(event.target.value)} />}
           <DialogFooter className={undefined}><Button variant="outline" onClick={() => resolvePrompt(true)}>Cancel</Button><Button onClick={() => resolvePrompt(false)}>Continue</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) setRenameTarget(null); }}>
+        <DialogContent className={undefined}>
+          <DialogHeader className={undefined}><DialogTitle className={undefined}>Rename thread</DialogTitle><DialogDescription className={undefined}>This name is saved in the Pi session.</DialogDescription></DialogHeader>
+          <Input aria-label="Thread name" className={undefined} type="text" value={renameValue} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setRenameValue(event.target.value)} />
+          <DialogFooter className={undefined}><Button variant="outline" onClick={() => setRenameTarget(null)}>Cancel</Button><Button disabled={!renameValue.trim()} onClick={() => void renameActiveThread()}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       </div>
