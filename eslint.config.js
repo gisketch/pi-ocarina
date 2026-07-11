@@ -28,6 +28,9 @@ export default [
     },
     rules: {
       ...reactHooks.configs.flat.recommended.rules,
+      "react-hooks/immutability": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },

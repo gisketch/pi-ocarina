@@ -35,6 +35,28 @@ if (catalog.errors.length) process.exit(1);
 if (process.env.HOME && (await import("node:fs")).existsSync(`${process.env.HOME}/.pi/agent/auth.json`) && !catalog.providers.some((provider) => provider.configured)) process.exit(1);
 JS
 
+PATH="$(dirname "$node"):/usr/bin:/bin" "$node" --input-type=module - "$node" "$resources/src/host.js" "$workspace" <<'JS'
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
+const [node, host, cwd] = process.argv.slice(2);
+const catalog = (await import(pathToFileURL(host))).loadModelCatalog({});
+const model = catalog.models.find(({ available, provider, id }) => available && provider === "openai-codex" && id === "gpt-5.4-mini") ?? catalog.models.find(({ available }) => available);
+if (!model) throw new Error("packaged smoke requires one configured real Pi model");
+const child = spawn(node, [host], { stdio: ["pipe", "pipe", "inherit"] });
+let buffer = ""; const waiting = new Map();
+child.stdout.setEncoding("utf8");
+child.stdout.on("data", (chunk) => { buffer += chunk; for (;;) { const end = buffer.indexOf("\n"); if (end < 0) break; const event = JSON.parse(buffer.slice(0, end)); buffer = buffer.slice(end + 1); if (["completed", "failed", "cancelled"].includes(event.type)) waiting.get(event.requestId)?.(event); } });
+const send = (requestId, operation, payload) => new Promise((resolve) => { waiting.set(requestId, resolve); child.stdin.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`); });
+try {
+  const created = await send("create", "createThread", { cwd, provider: model.provider, modelId: model.id });
+  if (created.type !== "completed") throw new Error(created.payload.message);
+  const run = await send("run", "promptThread", { threadId: created.payload.threadId, prompt: "Reply exactly OK." });
+  if (run.type !== "completed" || !run.payload.messages.some(({ role, text }) => role === "assistant" && text)) throw new Error(run.payload.message ?? "real prompt returned no answer");
+  const reopened = await send("reopen", "openThread", { cwd, sessionFile: created.payload.sessionFile });
+  if (reopened.type !== "completed" || !reopened.payload.messages.some(({ role, text }) => role === "assistant" && text)) throw new Error(reopened.payload.message ?? "transcript did not reopen");
+} finally { child.kill(); }
+JS
+
 for launch in 1 2; do
   PATH=/usr/bin:/bin "$executable" >"$workspace/app.log" 2>&1 &
   pid=$!
