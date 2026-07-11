@@ -1,11 +1,12 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { SendIcon } from "lucide-react";
+import { SendIcon, StopCircleIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, messages: Message[] }} Thread */
@@ -17,13 +18,15 @@ export function ThreadRunner({ workspace, model }) {
   const [stream, setStream] = useState("");
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
+  const [runId, setRunId] = useState(/** @type {string | null} */ (null));
+  const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
+  const [runtimeValue, setRuntimeValue] = useState("");
 
   /** @param {string} operation @param {Record<string, unknown>} payload @param {(event: any) => void} [onEvent] */
-  const request = (operation, payload, onEvent = (_event) => {}) => new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID();
+  const request = (operation, payload, onEvent = (_event) => {}, requestId = crypto.randomUUID()) => new Promise((resolve, reject) => {
     void listen("agent-host-event", ({ payload: event }) => {
       if (event.requestId !== requestId) return;
-      if (["messageDelta", "toolCall"].includes(event.type)) onEvent(event);
+      if (["messageDelta", "toolCall", "runtimePrompt", "runtimeNotice"].includes(event.type)) onEvent(event);
       if (!["completed", "failed", "cancelled"].includes(event.type)) return;
       stop();
       if (event.type === "completed") resolve(event.payload);
@@ -51,17 +54,32 @@ export function ThreadRunner({ workspace, model }) {
       const text = prompt;
       setPrompt("");
       setThread({ ...active, messages: [...active.messages, { role: "user", text }] });
+      const activeRunId = crypto.randomUUID();
+      setRunId(activeRunId);
       const completed = /** @type {Thread} */ (await request("promptThread", { threadId: active.threadId, prompt: text }, (event) => {
         if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
         if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
-      }));
+        if (event.type === "runtimePrompt") { setRuntimeValue(""); setRuntimePrompt(event.payload); }
+        if (event.type === "runtimeNotice" && event.payload.type === "error") setError(event.payload.message);
+      }, activeRunId));
       setThread(completed);
       setStream("");
     } catch (cause) {
       setError(String(cause));
     } finally {
       setRunning(false);
+      setRunId(null);
     }
+  }
+
+  function stopRun() {
+    if (runId) void request("cancel", { requestId: runId }).catch((cause) => setError(String(cause)));
+  }
+
+  function resolvePrompt(cancelled = false) {
+    if (!runtimePrompt) return;
+    void request("resolveRuntimePrompt", { promptId: runtimePrompt.promptId, threadId: runtimePrompt.threadId, value: runtimePrompt.kind === "confirm" ? true : runtimeValue, cancelled });
+    setRuntimePrompt(null);
   }
 
   return (
@@ -73,10 +91,17 @@ export function ThreadRunner({ workspace, model }) {
         {stream && <p className="mr-8 p-2 text-sm" data-testid="streaming-response">{stream}</p>}
       </div>
       <form className="flex gap-2" onSubmit={submit}>
-        <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} disabled={running} />
-        <Button type="submit" disabled={!prompt.trim() || running}><SendIcon />Send</Button>
+        <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} />
+        {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim()}><SendIcon />Send</Button>}
       </form>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
+        <DialogContent className={undefined}>
+          <DialogHeader className={undefined}><DialogTitle className={undefined}>{runtimePrompt?.title}</DialogTitle><DialogDescription className={undefined}>{runtimePrompt?.message}</DialogDescription></DialogHeader>
+          {runtimePrompt?.kind === "select" ? <select className="h-9 rounded-md border bg-background px-3" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLSelectElement>} */ event) => setRuntimeValue(event.target.value)}>{runtimePrompt.options?.map((/** @type {string} */ option) => <option key={option}>{option}</option>)}</select> : runtimePrompt?.kind !== "confirm" && <Input aria-label="Runtime input" className={undefined} type="text" value={runtimeValue} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setRuntimeValue(event.target.value)} />}
+          <DialogFooter className={undefined}><Button variant="outline" onClick={() => resolvePrompt(true)}>Cancel</Button><Button onClick={() => resolvePrompt(false)}>Continue</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
