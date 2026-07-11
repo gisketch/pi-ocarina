@@ -1,5 +1,5 @@
 // @ts-check
-import { PaperclipIcon, SendIcon, StopCircleIcon, XIcon } from "@/shared/ui/icon";
+import { Icon, XIcon } from "@/shared/ui/icon";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
@@ -9,6 +9,8 @@ import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
 import { Textarea } from "@/shared/ui/textarea";
 import { CellMatrix } from "@/shared/ui/cell-matrix";
+import { MatrixSpinner } from "@/shared/ui/cell-matrix";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { importAttachments, prepareAttachments } from "./attachments";
 
 const DEFAULT_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh"];
@@ -50,7 +52,7 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
   const [textarea, setTextarea] = useState(/** @type {HTMLTextAreaElement | null} */ (null));
   const fileQuery = value.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   useEffect(() => { if (fileQuery == null || mentions.length) { setFiles([]); return; } const timer = setTimeout(() => void invoke("search_workspace_files", { workspaceId, query: fileQuery }).then(setFiles).catch(() => setFiles([])), 100); return () => clearTimeout(timer); }, [fileQuery, mentions.length, workspaceId]);
-  return <div className="pb-composer mx-auto w-full max-w-4xl space-y-2 rounded-md border bg-card" data-testid="composer">
+  return <form className="pb-composer pb-noisy-surface mx-auto w-full max-w-4xl rounded-md border border-border text-card-foreground" data-testid="composer" onSubmit={(event) => { event.preventDefault(); running ? onSteer() : onSend(); }}>
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
         <span>/{command.name}</span><span className="ml-2 truncate text-muted-foreground">{command.description}</span>
@@ -64,7 +66,8 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
       className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
       value={value}
       disabled={disabled}
-      placeholder="Ask Pi anything, use / for commands and skills"
+      name="message"
+      placeholder="Ask for follow-up changes"
       onChange={(/** @type {React.ChangeEvent<HTMLTextAreaElement>} */ event) => onChange(event.target.value)}
       onBlur={onDraftBlur}
       onPaste={(/** @type {React.ClipboardEvent<HTMLTextAreaElement>} */ event) => {
@@ -79,18 +82,17 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
       }}
     /><ComposerCaret textarea={textarea} /></div>
     {attachments.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Attachments">{attachments.map((item) => <span className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs" key={item.path}>{item.name}<Button aria-label={`Remove ${item.name}`} size="icon-xs" variant="ghost" onClick={() => onAttachments(attachments.filter((value) => value.path !== item.path))}><XIcon /></Button></span>)}</div>}
-    <div className="pb-composer-footer flex flex-wrap items-center gap-2">
-      <Button aria-label="Attach files" type="button" size="icon-sm" variant="outline" disabled={disabled} onClick={() => void open({ multiple: true, directory: false }).then((paths) => paths?.length ? prepareAttachments(paths) : []).then((items) => items.length && onAttachments([...attachments, ...items])).catch((cause) => onAttachmentError(String(cause)))}><PaperclipIcon /></Button>
-      <DropdownMenu><DropdownMenuTrigger render={<Button type="button" size="sm" variant="outline" disabled={running} />}>{model?.name ?? "Choose model"}</DropdownMenuTrigger>
-        <DropdownMenuContent className={undefined}>{models.map((item) => <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => onModelChange(item)}>{item.name}</DropdownMenuItem>)}</DropdownMenuContent>
+    <div className="pb-composer-footer mt-4 flex flex-wrap items-center gap-1">
+      <Tooltip><TooltipTrigger asChild><Button aria-label="Add attachment" type="button" size="icon-lg" variant="ghost" disabled={disabled} onClick={() => void open({ multiple: true, directory: false }).then((paths) => paths?.length ? prepareAttachments(paths) : []).then((items) => items.length && onAttachments([...attachments, ...items])).catch((cause) => onAttachmentError(String(cause)))}><Icon name="plus" /></Button></TooltipTrigger><TooltipContent className={undefined}>Add attachment</TooltipContent></Tooltip>
+      <div className="min-w-4 flex-1" />
+      {running && <MatrixSpinner size={3} gap={1} label="Agent working" className="mx-2 text-muted-foreground" />}
+      <DropdownMenu><DropdownMenuTrigger render={<Button type="button" variant="ghost" disabled={running} />}><span>{model?.name ?? "Choose model"}</span><Icon name="chevron-down" size={16} className="text-muted-foreground" /></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className={undefined}>{models.map((item) => <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => onModelChange(item)}>{item.name}</DropdownMenuItem>)}</DropdownMenuContent>
       </DropdownMenu>
-      <DropdownMenu><DropdownMenuTrigger render={<Button type="button" size="sm" variant="outline" disabled={running} />}>Thinking: {thinkingLevel}</DropdownMenuTrigger>
-        <DropdownMenuContent className={undefined}>{thinkingLevels.map((level) => <DropdownMenuItem className={undefined} inset={false} key={level} onClick={() => onThinkingChange(level)}>{level}</DropdownMenuItem>)}</DropdownMenuContent>
-      </DropdownMenu>
-      <span className="text-xs text-muted-foreground">Enter sends · Shift+Enter adds a line{running ? " · Esc stops" : ""}</span>
       {running
-        ? <><Button className="ml-auto" type="button" disabled={!value.trim() && !attachments.length} onClick={onSend}><SendIcon />Queue</Button><Button type="button" variant="destructive" onClick={onStop}><StopCircleIcon />Stop</Button></>
-        : <Button className="ml-auto" type="button" disabled={disabled || (!value.trim() && !attachments.length) || !model} onClick={onSend}><SendIcon />Send</Button>}
+        ? <Tooltip><TooltipTrigger asChild><Button type="button" size="icon-lg" variant="ghost" aria-label="Queue message" disabled={!value.trim() && !attachments.length} onClick={onSend}><Icon name="send" /></Button></TooltipTrigger><TooltipContent className={undefined}>Queue message</TooltipContent></Tooltip>
+        : <Tooltip><TooltipTrigger asChild><Button type="button" size="icon-lg" variant="ghost" aria-label="Voice input coming later" aria-disabled="true" onClick={() => textarea?.focus()}><Icon name="mic" /></Button></TooltipTrigger><TooltipContent className={undefined}>Voice input coming later</TooltipContent></Tooltip>}
+      <Tooltip><TooltipTrigger asChild><Button type={running ? "button" : "submit"} size="icon-lg" variant={running ? "destructive" : "default"} aria-label={running ? "Stop agent" : "Send message"} disabled={!running && (disabled || (!value.trim() && !attachments.length) || !model)} onClick={running ? onStop : undefined}><Icon name={running ? "stop" : "send"} /></Button></TooltipTrigger><TooltipContent className={undefined}>{running ? "Stop agent" : "Send message"}</TooltipContent></Tooltip>
     </div>
-  </div>;
+  </form>;
 }

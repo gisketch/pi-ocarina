@@ -6,6 +6,7 @@ import arrowDown from "pixelarticons/svg/arrow-down.svg";
 import arrowUp from "pixelarticons/svg/arrow-up.svg";
 import attachment from "pixelarticons/svg/attachment.svg";
 import check from "pixelarticons/svg/check.svg";
+import chevronDown from "pixelarticons/svg/chevron-down.svg";
 import chevronRight from "pixelarticons/svg/chevron-right.svg";
 import circle from "pixelarticons/svg/circle.svg";
 import close from "pixelarticons/svg/close.svg";
@@ -15,6 +16,7 @@ import folderOpen from "pixelarticons/svg/folder.svg";
 import gitBranch from "pixelarticons/svg/git-branch.svg";
 import grip from "pixelarticons/svg/menu.svg";
 import messagePlus from "pixelarticons/svg/message.svg";
+import mic from "pixelarticons/svg/mic.svg";
 import monitor from "pixelarticons/svg/monitor.svg";
 import moon from "pixelarticons/svg/moon.svg";
 import moreHorizontal from "pixelarticons/svg/more-horizontal.svg";
@@ -34,7 +36,7 @@ import trash from "pixelarticons/svg/trash.svg";
 import tree from "pixelarticons/svg/tree.svg";
 import fileDiff from "pixelarticons/svg/file.svg";
 
-const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-right": chevronRight, circle, close, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, send, settings, stop, sun, terminal, trash, tree };
+const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-down": chevronDown, "chevron-right": chevronRight, circle, close, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, mic, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, send, settings, stop, sun, terminal, trash, tree };
 
 /** @param {React.HTMLAttributes<HTMLSpanElement> & { name: keyof typeof icons, size?: number }} props */
 export function Icon({ name, size = 20, className, style, ...props }) {
