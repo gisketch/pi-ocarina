@@ -13,6 +13,7 @@ test("JSONL bridge validates, interleaves requests, and cancels once", async () 
   const send = (value) => input.write(`${JSON.stringify(value)}\n`);
 
   send({ version: 1, requestId: "slow", operation: "wait", payload: { ms: 100 } });
+  send({ version: 1, requestId: "slow", operation: "wait", payload: { ms: 1 } });
   send({ version: 1, requestId: "fast", operation: "wait", payload: { ms: 1 } });
   await new Promise((resolve) => setTimeout(resolve, 10));
   send({ version: 1, requestId: "cancel", operation: "cancel", payload: { requestId: "slow" } });
@@ -20,7 +21,17 @@ test("JSONL bridge validates, interleaves requests, and cancels once", async () 
   await new Promise((resolve) => setTimeout(resolve, 20));
 
   assert.deepEqual(events.filter(({ requestId }) => requestId === "fast").map(({ type }) => type), ["started", "completed"]);
-  assert.deepEqual(events.filter(({ requestId }) => requestId === "slow").map(({ type }) => type), ["started", "cancelled"]);
+  assert.deepEqual(
+    events.filter(({ requestId, type }) => requestId === "slow" && type !== "failed").map(({ type }) => type),
+    ["started", "cancelled"],
+  );
+  assert.equal(
+    events.some(
+      ({ requestId, type, payload }) =>
+        requestId === "slow" && type === "failed" && payload.message.includes("already active"),
+    ),
+    true,
+  );
   assert.equal(events.some(({ requestId, type }) => requestId === "cancel" && type === "completed"), true);
   assert.equal(events.some(({ requestId, type }) => requestId === "unknown" && type === "failed"), true);
 });

@@ -78,10 +78,12 @@ impl AppStateStore {
 
     pub fn update(&self, change: impl FnOnce(&mut AppState)) -> Result<AppState, String> {
         let mut state = self.state.lock().map_err(|_| "app state lock poisoned")?;
-        change(&mut state);
-        state.schema_version = SCHEMA_VERSION;
-        write_atomic(&self.path, &state)?;
-        Ok(state.clone())
+        let mut next = state.clone();
+        change(&mut next);
+        next.schema_version = SCHEMA_VERSION;
+        write_atomic(&self.path, &next)?;
+        *state = next.clone();
+        Ok(next)
     }
 }
 
@@ -135,16 +137,23 @@ fn write_atomic(path: &Path, state: &AppState) -> Result<(), String> {
     let temporary = path.with_extension("json.tmp");
     let backup = backup_path(path);
     let bytes = serde_json::to_vec_pretty(state).map_err(|error| error.to_string())?;
-    let mut file =
-        File::create(&temporary).map_err(|error| format!("create state temp: {error}"))?;
-    file.write_all(&bytes)
-        .and_then(|_| file.sync_all())
-        .map_err(|error| format!("write state temp: {error}"))?;
+    write_synced(&temporary, &bytes, "state")?;
     if path.exists() && decode(path).is_ok() {
-        fs::copy(path, &backup).map_err(|error| format!("backup app state: {error}"))?;
+        let backup_temporary = backup.with_extension("bak.tmp");
+        let primary = fs::read(path).map_err(|error| format!("read app state backup: {error}"))?;
+        write_synced(&backup_temporary, &primary, "backup")?;
+        fs::rename(&backup_temporary, &backup)
+            .map_err(|error| format!("replace app state backup: {error}"))?;
     }
     fs::rename(&temporary, path).map_err(|error| format!("replace app state: {error}"))?;
     Ok(())
+}
+
+fn write_synced(path: &Path, bytes: &[u8], label: &str) -> Result<(), String> {
+    let mut file = File::create(path).map_err(|error| format!("create {label} temp: {error}"))?;
+    file.write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(|error| format!("write {label} temp: {error}"))
 }
 
 fn backup_path(path: &Path) -> PathBuf {
@@ -214,5 +223,43 @@ mod tests {
             AppStateStore::open(future),
             Err(error) if error.contains("unsupported app-state schema 2")
         ));
+    }
+
+    #[test]
+    fn failed_write_does_not_change_the_authoritative_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let blocked = temp.path().join("blocked");
+        fs::write(&blocked, b"not a directory").unwrap();
+        let mut store = AppStateStore::open(temp.path().join("app-state.json")).unwrap();
+        store.path = blocked.join("app-state.json");
+
+        assert!(store
+            .update(|state| state.preferences.theme = "dark".into())
+            .is_err());
+        assert_eq!(store.snapshot().preferences.theme, "");
+    }
+
+    #[test]
+    fn failed_backup_replacement_preserves_primary_and_previous_backup() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("app-state.json");
+        let store = AppStateStore::open(path.clone()).unwrap();
+        store
+            .update(|state| state.preferences.theme = "light".into())
+            .unwrap();
+        store
+            .update(|state| state.preferences.theme = "dark".into())
+            .unwrap();
+        let backup = backup_path(&path);
+        let original_primary = fs::read(&path).unwrap();
+        let original_backup = fs::read(&backup).unwrap();
+        fs::create_dir(backup.with_extension("bak.tmp")).unwrap();
+
+        assert!(store
+            .update(|state| state.preferences.theme = "system".into())
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), original_primary);
+        assert_eq!(fs::read(&backup).unwrap(), original_backup);
+        assert_eq!(store.snapshot().preferences.theme, "dark");
     }
 }

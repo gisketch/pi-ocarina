@@ -35,6 +35,7 @@ export function serve(input = process.stdin, output = process.stdout) {
       send(requestId, "completed", { cancelled: payload.requestId });
       return;
     }
+    if (active.has(requestId)) throw new Error(`Request is already active: ${requestId}`);
 
     const controller = new AbortController();
     active.set(requestId, controller);
@@ -57,7 +58,12 @@ export function serve(input = process.stdin, output = process.stdout) {
   createInterface({ input }).on("line", (line) => {
     if (!line.trim()) return;
     try {
-      void run(JSON.parse(line)).catch((error) => send("unknown", "failed", { message: error.message }));
+      const request = JSON.parse(line);
+      void run(request).catch((error) =>
+        send(typeof request.requestId === "string" ? request.requestId : "unknown", "failed", {
+          message: error.message,
+        }),
+      );
     } catch {
       send("unknown", "failed", { message: "Malformed JSON request" });
     }

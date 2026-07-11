@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 pub const PROTOCOL_VERSION: u8 = 1;
@@ -33,6 +36,7 @@ pub struct AgentHost {
     child: Child,
     stdin: ChildStdin,
     pending: Arc<Mutex<HashSet<String>>>,
+    failed: Arc<AtomicBool>,
 }
 
 impl AgentHost {
@@ -41,7 +45,7 @@ impl AgentHost {
             .arg(script)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::inherit())
             .spawn()?;
         let stdin = child
             .stdin
@@ -53,6 +57,8 @@ impl AgentHost {
             .ok_or_else(|| io::Error::other("agent host stdout unavailable"))?;
         let pending = Arc::new(Mutex::new(HashSet::new()));
         let reader_pending = Arc::clone(&pending);
+        let failed = Arc::new(AtomicBool::new(false));
+        let reader_failed = Arc::clone(&failed);
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
                 let event = line
@@ -60,31 +66,53 @@ impl AgentHost {
                     .and_then(|line| HostEvent::parse(&line));
                 match event {
                     Ok(event) => {
-                        if matches!(event.kind.as_str(), "completed" | "cancelled" | "failed") {
-                            reader_pending.lock().unwrap().remove(&event.request_id);
+                        let terminal = matches!(
+                            event.kind.as_str(),
+                            "completed" | "cancelled" | "failed"
+                        );
+                        let mut pending = reader_pending.lock().unwrap();
+                        let known = if terminal {
+                            pending.remove(&event.request_id)
+                        } else {
+                            pending.contains(&event.request_id)
+                        };
+                        drop(pending);
+                        if !known {
+                            continue;
                         }
                         let _ = app.emit("agent-host-event", event);
                     }
-                    Err(message) => fail_pending(&app, &reader_pending, &message),
+                    Err(message) => {
+                        reader_failed.store(true, Ordering::Release);
+                        fail_pending(&app, &reader_pending, &message);
+                        break;
+                    }
                 }
             }
+            reader_failed.store(true, Ordering::Release);
             fail_pending(&app, &reader_pending, "Agent host stopped unexpectedly");
         });
         Ok(Self {
             child,
             stdin,
             pending,
+            failed,
         })
     }
 
     pub fn send(&mut self, request: serde_json::Value) -> Result<(), String> {
+        if self.failed.load(Ordering::Acquire) {
+            return Err("Agent host is unavailable and must be restarted".into());
+        }
         let version = request.get("version").and_then(|value| value.as_u64());
         let request_id = request.get("requestId").and_then(|value| value.as_str());
         if version != Some(PROTOCOL_VERSION.into()) || request_id.map_or(true, str::is_empty) {
             return Err("Unsupported or invalid agent-host protocol request".into());
         }
         let request_id = request_id.unwrap().to_owned();
-        self.pending.lock().unwrap().insert(request_id.clone());
+        if !self.pending.lock().unwrap().insert(request_id.clone()) {
+            return Err(format!("Agent request is already active: {request_id}"));
+        }
         if let Err(error) = writeln!(self.stdin, "{request}") {
             self.pending.lock().unwrap().remove(&request_id);
             return Err(format!("Agent host write failed: {error}"));
