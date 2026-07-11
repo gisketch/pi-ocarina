@@ -20,10 +20,12 @@ export function TerminalPanel({ workspaceId }) {
   const [visible, setVisible] = useState(false);
   const [shell, setShell] = useState("");
   const [error, setError] = useState("");
+  const [height, setHeight] = useState(256);
+  const [maximized, setMaximized] = useState(false);
   const terminals = useRef(/** @type {Map<string, TerminalEntry>} */ (new Map()));
 
   useEffect(() => {
-    void invoke("app_state_snapshot").then(({ state }) => setShell(state.preferences.terminal_shell || ""));
+    void invoke("app_state_snapshot").then(({ state }) => { setShell(state.preferences.terminal_shell || ""); setHeight(state.preferences.terminal_height || 256); setMaximized(Boolean(state.preferences.terminal_maximized)); });
     const listeners = Promise.all([
       listen("terminal://output", ({ payload }) => terminals.current.get(payload.terminalId)?.terminal.write(payload.data)),
       listen("terminal://error", ({ payload }) => setError(payload.message)),
@@ -93,6 +95,20 @@ export function TerminalPanel({ workspaceId }) {
     }
   }
 
+  /** @param {number} next */
+  function resizePanel(next) {
+    const bounded = Math.max(160, Math.min(900, next));
+    setHeight(bounded);
+    void invoke("set_panel_layout", { terminalHeight: bounded });
+    requestAnimationFrame(() => terminals.current.get(active)?.fit.fit());
+  }
+
+  function toggleMaximized() {
+    const next = !maximized;
+    setMaximized(next);
+    void invoke("set_panel_layout", { terminalMaximized: next });
+  }
+
   return (
     <section className="mt-4 border-t pt-3" aria-label="Integrated terminal">
       <div className="flex flex-wrap items-center gap-2">
@@ -100,6 +116,9 @@ export function TerminalPanel({ workspaceId }) {
           <TerminalIcon />{visible ? "Hide terminal" : "Show terminal"}
         </Button>
         <Button size="sm" variant="outline" onClick={addTab}><PlusIcon />New terminal</Button>
+        <Button aria-label="Decrease terminal height" size="sm" variant="ghost" onClick={() => resizePanel(height - 80)}>−</Button>
+        <Button aria-label="Increase terminal height" size="sm" variant="ghost" onClick={() => resizePanel(height + 80)}>+</Button>
+        <Button size="sm" variant="ghost" onClick={toggleMaximized}><Maximize2Icon />{maximized ? "Restore" : "Maximize"}</Button>
         <Input type="text" className="h-8 min-w-40 flex-1" aria-label="Shell path" placeholder="Default login shell" value={shell} onChange={(/** @type {import("react").ChangeEvent<HTMLInputElement>} */ event) => setShell(event.target.value)} />
         <Button size="sm" variant="outline" onClick={saveShell} disabled={!shell}>Save shell</Button>
       </div>
@@ -114,7 +133,7 @@ export function TerminalPanel({ workspaceId }) {
           {active && <Button size="icon-sm" variant="ghost" aria-label="Focus terminal" onClick={() => terminals.current.get(active)?.terminal.focus()}><Maximize2Icon /></Button>}
         </div>
         {tabs.length === 0 && <p className="py-4 text-sm text-muted-foreground">Open a terminal for this workspace.</p>}
-        {tabs.map((tab) => <div key={tab.id} ref={(node) => attachTerminal(tab.id, node)} className={active === tab.id ? "h-64 overflow-hidden rounded-md bg-terminal p-2" : "hidden"} />)}
+        {tabs.map((tab) => <div key={tab.id} ref={(node) => attachTerminal(tab.id, node)} style={{ height: maximized ? "min(70vh, 900px)" : `${height}px` }} className={active === tab.id ? "min-h-40 overflow-hidden rounded-md bg-terminal p-2" : "hidden"} />)}
       </div>
       {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </section>

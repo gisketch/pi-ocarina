@@ -43,6 +43,9 @@ pub struct Preferences {
     pub model_scope: String,
     pub global_model: Option<ModelPreference>,
     pub repository_models: BTreeMap<String, ModelPreference>,
+    pub reviewer_width: u32,
+    pub terminal_height: u32,
+    pub terminal_maximized: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -61,6 +64,9 @@ impl Default for Preferences {
             model_scope: "global".into(),
             global_model: None,
             repository_models: BTreeMap::new(),
+            reviewer_width: 560,
+            terminal_height: 256,
+            terminal_maximized: false,
         }
     }
 }
