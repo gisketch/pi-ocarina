@@ -4,10 +4,9 @@
 
 **Blocked by:** 06 — Shared Pi auth and model catalog; 26 — Worktree lifecycle
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Users can switch between global and per-repository model scope.
-- [ ] Repository choices persist without modifying unrelated Pi provider data.
-- [ ] Worktree threads inherit root repository settings unless an explicit supported override exists.
-- [ ] Invalid or removed models recover through the same onboarding flow as normal threads.
-
+- [x] Users can switch between global and per-repository model scope.
+- [x] Repository choices persist without modifying unrelated Pi provider data.
+- [x] Worktree threads inherit root repository settings unless an explicit supported override exists.
+- [x] Invalid or removed models recover through the same onboarding flow as normal threads.

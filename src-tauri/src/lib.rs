@@ -1,6 +1,7 @@
 pub mod agent_host;
 pub mod app_state;
 pub mod attachment;
+pub mod model_scope;
 pub mod terminal;
 pub mod workspace;
 pub mod worktree;
@@ -175,6 +176,9 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             appearance_support,
+            model_scope::model_selection,
+            model_scope::set_model_scope,
+            model_scope::set_model_preference,
             set_window_projection,
             set_workspace_projection,
             attachment::prepare_attachments,
