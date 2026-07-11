@@ -17,6 +17,8 @@ pub fn add_workspace(
                 id: id.clone(),
                 path: path.clone(),
                 name: None,
+                root_workspace_id: None,
+                branch: None,
             });
         }
         state.selected_workspace = Some(id);
@@ -164,6 +166,8 @@ mod tests {
             id: id.into(),
             path: PathBuf::from(format!("/{id}")),
             name: None,
+            root_workspace_id: None,
+            branch: None,
         }
     }
 

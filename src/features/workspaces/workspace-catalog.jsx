@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ArrowDownIcon, ArrowUpIcon, FolderOpenIcon, MoreHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
@@ -15,7 +15,7 @@ import {
 } from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
 
-/** @typedef {{ id: string, path: string, name?: string | null }} Workspace */
+/** @typedef {{ id: string, path: string, name?: string | null, root_workspace_id?: string | null, branch?: string | null }} Workspace */
 /** @typedef {{ workspaces: Workspace[], selected_workspace: string | null }} WorkspaceState */
 
 const emptyState = /** @type {WorkspaceState} */ ({ workspaces: [], selected_workspace: null });
@@ -23,6 +23,7 @@ const folderName = (/** @type {Workspace} */ workspace) => workspace.path.split(
 
 export function WorkspaceCatalog() {
   const [state, setState] = useState(emptyState);
+  const [model, setModel] = useState(/** @type {{provider: string, id: string} | null} */ (null));
   const [error, setError] = useState("");
   const [renameTarget, setRenameTarget] = useState(/** @type {Workspace | null} */ (null));
   const [removeTarget, setRemoveTarget] = useState(/** @type {Workspace | null} */ (null));
@@ -44,6 +45,28 @@ export function WorkspaceCatalog() {
     const path = await open({ directory: true, multiple: false, title: "Open Folder" });
     if (path) await run("add_workspace", { path });
   }, [run]);
+
+  /** @param {Workspace} root */
+  async function createWorktree(root) {
+    let created;
+    try {
+      created = await invoke("create_worktree", { rootWorkspaceId: root.id });
+      if (!model) throw new Error("Choose a model before creating a worktree.");
+      await createThread(created.workspace.path, model);
+      setState(await invoke("register_worktree", { workspace: created.workspace }));
+      setError("");
+    } catch (cause) {
+      if (created) await invoke("rollback_worktree", { workspace: created.workspace }).catch(() => {});
+      setError(String(cause));
+    }
+  }
+
+  /** @param {Workspace} workspace */
+  async function removeWorktree(workspace) {
+    if (!window.confirm(`Remove worktree ${workspace.branch}? Dirty or unmerged work will be preserved.`)) return;
+    try { setState(await invoke("remove_worktree", { workspaceId: workspace.id })); setError(""); }
+    catch (cause) { setError(String(cause)); }
+  }
 
   useEffect(() => {
     void invoke("app_state_snapshot").then(({ state: snapshot }) => setState(snapshot));
@@ -84,8 +107,12 @@ export function WorkspaceCatalog() {
               variant={workspace.id === state.selected_workspace ? "default" : "outline"}
               onClick={() => void run("select_workspace", { workspaceId: workspace.id })}
             >
+              {workspace.root_workspace_id && <FolderGit2Icon aria-label="Worktree" />}
               <span className="truncate">{workspace.name || folderName(workspace)}</span>
             </Button>
+            {workspace.root_workspace_id
+              ? <Button aria-label="Remove worktree" size="icon" variant="ghost" onClick={() => void removeWorktree(workspace)}><Trash2Icon /></Button>
+              : <Button aria-label="Create worktree" size="icon" disabled={!model} title={model ? "Create worktree" : "Choose a model first"} variant="ghost" onClick={() => void createWorktree(workspace)}><FolderGit2Icon /></Button>}
             <Button
               aria-label={`Move ${workspace.name || folderName(workspace)} up`}
               disabled={index === 0}
@@ -107,14 +134,14 @@ export function WorkspaceCatalog() {
               <DropdownMenuContent align="end" className={undefined}>
                 <DropdownMenuItem className={undefined} inset={undefined} onSelect={() => { setName(workspace.name || folderName(workspace)); setRenameTarget(workspace); }}>Rename</DropdownMenuItem>
                 <DropdownMenuItem className={undefined} inset={undefined} onSelect={() => void invoke("reveal_workspace", { workspaceId: workspace.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive" inset={undefined} onSelect={() => setRemoveTarget(workspace)}>Remove from list…</DropdownMenuItem>
+                {!workspace.root_workspace_id && <DropdownMenuItem className="text-destructive focus:text-destructive" inset={undefined} onSelect={() => setRemoveTarget(workspace)}>Remove from list…</DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         ))}
       </div>
       <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
-      <ModelCatalog workspace={selected} />
+      <ModelCatalog onModelChange={setModel} workspace={selected} />
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => !open && setRenameTarget(null)}>
@@ -133,4 +160,21 @@ export function WorkspaceCatalog() {
       </Dialog>
     </div>
   );
+}
+
+/** @param {string} cwd @param {{provider: string, id: string}} model */
+function createThread(cwd, model) {
+  const requestId = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    let stop = () => {};
+    void listen("agent-host-event", ({ payload }) => {
+      if (payload.requestId !== requestId || !["completed", "failed", "cancelled"].includes(payload.type)) return;
+      stop();
+      if (payload.type === "completed") resolve(payload.payload);
+      else reject(new Error(payload.payload.message ?? payload.type));
+    }).then((unlisten) => {
+      stop = unlisten;
+      return invoke("send_agent_request", { request: { version: 1, requestId, operation: "createThread", payload: { cwd, provider: model.provider, modelId: model.id } } });
+    }).catch((cause) => { stop(); reject(cause); });
+  });
 }

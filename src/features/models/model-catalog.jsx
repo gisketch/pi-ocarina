@@ -15,8 +15,8 @@ import { Input } from "@/shared/ui/input";
 /** @typedef {{ providers: Provider[], models: Model[], customEndpoints?: Array<{ id: string, name: string, baseUrl: string, credentialReference: string, models: Array<{id: string, name: string}> }>, errors: string[] }} Catalog */
 
 /** @typedef {{ id: string, path: string }} Workspace */
-/** @param {{ workspace: Workspace | null }} props */
-export function ModelCatalog({ workspace }) {
+/** @param {{ workspace: Workspace | null, onModelChange?: (model: Model | null) => void }} props */
+export function ModelCatalog({ workspace, onModelChange = () => {} }) {
   const [catalog, setCatalog] = useState(/** @type {Catalog} */ ({ providers: [], models: [], errors: [] }));
   const [selected, setSelected] = useState(/** @type {Model | null} */ (null));
   const [keys, setKeys] = useState(/** @type {Record<string, string>} */ ({}));
@@ -90,7 +90,7 @@ export function ModelCatalog({ workspace }) {
             <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{model?.name ?? "Choose a model"}</DropdownMenuTrigger>
             <DropdownMenuContent className={undefined}>
               {availableModels.map((item) => (
-                <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => setSelected(item)}>{item.name}</DropdownMenuItem>
+                <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => { setSelected(item); onModelChange(item); }}>{item.name}</DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>

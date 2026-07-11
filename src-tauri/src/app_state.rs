@@ -26,6 +26,10 @@ pub struct Workspace {
     pub path: PathBuf,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default)]
+    pub root_workspace_id: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

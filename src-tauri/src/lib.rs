@@ -1,6 +1,7 @@
 pub mod agent_host;
 pub mod app_state;
 pub mod workspace;
+pub mod worktree;
 
 use app_state::{
     AppState, AppStateStore, LoadStatus, Preferences, WindowProjection, WorkspaceView,
@@ -159,7 +160,12 @@ pub fn run() {
             workspace::rename_workspace,
             workspace::reorder_workspace,
             workspace::remove_workspace,
-            workspace::reveal_workspace
+            workspace::reveal_workspace,
+            worktree::create_worktree,
+            worktree::register_worktree,
+            worktree::rollback_worktree,
+            worktree::remove_worktree,
+            worktree::prune_orphaned_worktrees
         ]);
 
     #[cfg(debug_assertions)]
