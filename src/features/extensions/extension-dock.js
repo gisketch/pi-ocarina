@@ -1,8 +1,10 @@
 // @ts-check
 
+/** @typedef {{title: string, statuses: Record<string, string>, widgets: Record<string, string>}} DockState */
+/** @type {Readonly<DockState>} */
 export const EMPTY_DOCK = Object.freeze({ title: "", statuses: {}, widgets: {} });
 
-/** @param {typeof EMPTY_DOCK} state @param {{kind: string, key?: string, value?: unknown}} event */
+/** @param {DockState | Readonly<DockState>} state @param {{kind: string, key?: string, value?: unknown}} event */
 export function reduceDock(state = EMPTY_DOCK, event) {
   if (event.kind === "title") return { ...state, title: text(event.value) };
   if (!event.key || !["status", "widget"].includes(event.kind)) return state;
