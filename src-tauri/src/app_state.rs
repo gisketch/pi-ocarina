@@ -73,6 +73,15 @@ pub struct WorkspaceView {
     pub run_status: String,
     pub revision: u64,
     pub scroll_positions: BTreeMap<String, f64>,
+    pub thread_metadata: BTreeMap<String, ThreadMetadata>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ThreadMetadata {
+    pub pin_order: Option<u64>,
+    pub archived: bool,
+    pub read_message_count: u64,
 }
 
 impl AppState {
@@ -336,6 +345,40 @@ mod tests {
             reopened.windows["main"].workspace_views["two"].drafts["new"],
             "draft b"
         );
+    }
+
+    #[test]
+    fn thread_organization_survives_restart() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("app-state.json");
+        let store = AppStateStore::open(path.clone()).unwrap();
+        store
+            .update(|state| {
+                state.set_workspace_view(
+                    "main",
+                    "one".into(),
+                    WorkspaceView {
+                        thread_metadata: BTreeMap::from([(
+                            "session.jsonl".into(),
+                            ThreadMetadata {
+                                pin_order: Some(0),
+                                archived: true,
+                                read_message_count: 12,
+                            },
+                        )]),
+                        revision: 1,
+                        ..WorkspaceView::default()
+                    },
+                )
+            })
+            .unwrap();
+
+        let metadata = &AppStateStore::open(path).unwrap().snapshot().windows["main"]
+            .workspace_views["one"]
+            .thread_metadata["session.jsonl"];
+        assert_eq!(metadata.pin_order, Some(0));
+        assert!(metadata.archived);
+        assert_eq!(metadata.read_message_count, 12);
     }
 
     #[test]
