@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build the first maintainable vertical slice of a `pi-gui`-style desktop app using Tauri 2, React JavaScript, Tailwind CSS, and the Pi SDK/Pi coding agent.
+Build the first maintainable vertical slice of a `pi-gui`-style desktop app using Tauri 2, strict React TypeScript, Tailwind CSS, and the Pi SDK/Pi coding agent.
 
 ## Acceptance Criteria
 
@@ -10,8 +10,8 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 - Prompt and streamed Pi activity render in a timeline.
 - Restart recovers the thread from Pi-owned session data.
 - React uses narrow Tauri commands/events only.
-- Rust supervises a thin JavaScript Pi agent host.
-- Lint, JavaScript tests, Rust checks, build, and a real-desktop smoke pass.
+- Rust supervises a thin compiled TypeScript Pi agent host.
+- Lint, strict TypeScript tests, Rust checks, build, and a real-desktop smoke pass.
 
 ## Context Links
 
@@ -26,7 +26,7 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 
 - [ ] Inventory the exact `pi-gui` flows and portable code needed for the first slice.
 - [ ] Resolve and record the Pi SDK package/version and packaged agent-host strategy.
-- [x] Scaffold one Tauri 2 app with Bun, React JavaScript, Vite, and Tailwind.
+- [x] Scaffold one Tauri 2 app with Bun, React TypeScript, Vite, and Tailwind.
 - [ ] Define the smallest versioned command/event protocol.
 - [ ] Implement workspace open and Pi session discovery.
 - [ ] Implement prompt, streaming timeline, cancellation, and clear failures.
@@ -45,13 +45,14 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 
 - 2026-07-11: Use `../pi-gui` for product behavior, not Electron architecture.
 - 2026-07-11: Keep a single Tauri app; no monorepo until a second build unit exists.
-- 2026-07-11: Put Pi SDK integration in a JavaScript host supervised by Rust.
+- 2026-07-11: Put Pi SDK integration in a dedicated host supervised by Rust.
 - 2026-07-11: Keep Pi sessions authoritative and app indexes rebuildable.
 - 2026-07-11: Defer terminal, diffs, worktrees, orchestration, extensions, and packaging until the core slice works.
 
 ## Progress Log
 
 - 2026-07-12: Removed the prompt-typing persistence/event backlog with coalesced durable draft writes, stable catalog subscriptions, frame-coalesced matrix-caret measurement, and real-desktop regression coverage.
+- 2026-07-12: Migrated all authored JavaScript-family source, tests, and tooling to strict TypeScript; the agent host now compiles reproducibly for bundled Node 20.
 - 2026-07-12: Migrating the accepted `pixel-blocky-ui-complib` working-tree design system into Pi Ocarina as a dark-only, repo-owned shared UI foundation.
 - 2026-07-11: Harness initialized with product, architecture, testing, and quality rules.
 - 2026-07-11: Ticket 01 completed with the Tauri shell and real macOS WebdriverIO smoke lane.

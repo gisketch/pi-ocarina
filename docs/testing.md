@@ -6,10 +6,10 @@ Use risk-based tests. Prove process boundaries and critical desktop workflows; d
 
 ## Smallest Useful Check
 
-- JavaScript branch, parser, reducer, or protocol behavior: Bun test.
+- TypeScript branch, parser, reducer, or protocol behavior: `tsx --test`.
 - React user behavior: component test only when interaction logic exists.
 - Rust command/service logic: Cargo unit or integration test.
-- JavaScript host protocol: process-level contract test with a fake Pi adapter.
+- TypeScript host protocol: process-level contract test with a typed fake Pi adapter plus compiled Node 20 package smoke.
 - Critical user workflow: real Tauri desktop E2E test.
 
 ## Required Tests

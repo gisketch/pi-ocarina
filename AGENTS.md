@@ -31,7 +31,7 @@ Codex reads this file first. Keep it short. It is the map, not the manual.
 ## Current Project Facts
 
 - Kind: desktop coding-agent application
-- Stack: Tauri 2, Rust, React JavaScript, Vite, Tailwind CSS, Pi SDK/Pi coding agent
+- Stack: Tauri 2, Rust, strict React TypeScript, Vite, Tailwind CSS, Pi SDK/Pi coding agent
 - Package manager: bun
 - Default caveman mode: full
 - Agent targets: Codex, Copilot, Claude Code, Pi
@@ -50,7 +50,7 @@ Codex reads this file first. Keep it short. It is the map, not the manual.
 - `../pi-gui` is the behavioral and visual reference; do not copy its Electron architecture into Tauri.
 - Pi owns agent execution and session semantics. Keep the Pi SDK adapter thin.
 - React is UI-only. Native access crosses narrow Tauri commands and events.
-- Rust owns native capabilities and supervises the JavaScript agent host.
+- Rust owns native capabilities and supervises the compiled TypeScript agent host.
 - Build vertical feature slices; reuse shared UI only after reuse is real.
 
 <!-- sonata:block=integrations:start -->

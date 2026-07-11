@@ -7,9 +7,12 @@
 | Sonata structure | `./scripts/check-sonata.sh` | After harness, docs, or skill changes |
 | Placeholder sweep | `rg -n "undecided|generic app|Current stack: undecided|Create first useful version" AGENTS.md README.md docs/project-brief.md docs/architecture src tests config` | After stack or harness changes; expect no matches |
 | Context check | `./scripts/check-context.sh` | Before handoff when Pi context is expected |
-| Dependency install | `bun install` | After JavaScript dependency changes |
-| Frontend lint | `bun run lint` | After frontend or JavaScript tooling changes |
-| Frontend typecheck | `bun run typecheck` | After frontend JavaScript changes |
+| Dependency install | `bun install` | After TypeScript or runtime dependency changes |
+| TypeScript lint | `bun run lint` | After frontend, host, test, or tooling changes |
+| Strict typechecks | `bun run typecheck` | After authored TypeScript changes |
+| Frontend typecheck | `bun run typecheck:frontend` | After React or shared-contract changes |
+| Tooling typecheck | `bun run typecheck:tools` | After config, script, or E2E changes |
+| Agent-host typecheck | `bun run typecheck:agent-host` | After Pi adapter or protocol changes |
 | Frontend build | `bun run build` | Before frontend handoff |
 | Frontend focused unit tests | `bun run test:frontend-unit` | After shared UI or draft-persistence logic changes |
 | Full static/Rust check | `bun run check` | Before implementation handoff |

@@ -4,8 +4,8 @@
 
 - Package manager: Bun.
 - Desktop: Tauri 2 and Rust.
-- Frontend: React JavaScript, Vite, Tailwind CSS.
-- Agent runtime: Pi SDK/Pi coding agent through a JavaScript host process.
+- Frontend: strict React TypeScript, Vite, Tailwind CSS.
+- Agent runtime: Pi SDK/Pi coding agent through a strict TypeScript host compiled for Node 20.
 - Repository shape: one Tauri application until a real second package requires a workspace.
 
 ## Command Status
@@ -16,6 +16,9 @@ Verified:
 bun install
 bun run lint
 bun run typecheck
+bun run typecheck:frontend
+bun run typecheck:tools
+bun run typecheck:agent-host
 bun run check
 bun run test
 bun run build
@@ -47,6 +50,8 @@ Normal builds do not grant the E2E capability or expose the WebdriverIO frontend
 - Reuse installed dependencies before adding alternatives.
 - Pin the Pi SDK package deliberately during scaffold; do not mix Pi forks or duplicate agent runtimes.
 - Invoke the agent host with `bun run agent-host`; the command uses the pinned Node 20 binary directly and never resolves Node, Bun, or Pi from `PATH`.
+- `agent-host` exclusively owns Pi and Node runtime dependencies. Root frontend dependencies must not duplicate them.
+- Generated `agent-host/dist/*.js` is ignored and reproduced by `bun run build:agent-host` before development, builds, and packaging.
 - Document why every native Tauri plugin needs its capability.
 
 ## Configuration Rules

@@ -4,8 +4,8 @@
 
 - Product: Codex-style desktop application powered by Pi.
 - Desktop: Tauri 2 with a small Rust host.
-- Frontend: Bun + React JavaScript + Vite + Tailwind CSS.
-- Agent runtime: Pi SDK/Pi coding agent behind a JavaScript host process.
+- Frontend: Bun + strict React TypeScript + Vite + Tailwind CSS.
+- Agent runtime: Pi SDK/Pi coding agent behind a strict TypeScript host compiled for Node 20.
 - Reference: `../pi-gui` for behavior and visual flows, not Electron structure.
 
 ## Runtime Direction
@@ -15,7 +15,7 @@ React feature
   -> frontend service
   -> Tauri command/event contract
   -> Rust native capability
-  -> JavaScript agent host when Pi is needed
+  -> compiled TypeScript agent host when Pi is needed
   -> Pi SDK / Pi session files
 ```
 
@@ -57,7 +57,7 @@ Use the conventional single-app Tauri layout. Do not introduce a monorepo until 
 ## Modularity Rules
 
 - Organize by feature or responsibility, not arbitrary technical layers alone.
-- Keep public entry points obvious with small `index.js` or Rust module exports.
+- Keep public entry points obvious with small `index.ts` or Rust module exports.
 - Treat 250-350 lines as a review signal. Split only at a real ownership seam.
 - One concrete implementation does not need an interface or factory.
 - Shared code must have a real second consumer.

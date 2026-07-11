@@ -6,9 +6,9 @@ Use Tauri 2 as the desktop shell. Keep three runtime boundaries:
 
 1. React webview renders UI and owns temporary view state.
 2. Rust owns trusted native capabilities and process supervision.
-3. A JavaScript agent host owns the Pi SDK integration.
+3. A strict TypeScript agent host owns the Pi SDK integration and compiles to Node 20 JavaScript.
 
-The agent host exists because the Pi SDK is JavaScript while the trusted Tauri host is Rust. It is a narrow adapter, not a second backend.
+The agent host exists because the Pi SDK runs on Node while the trusted Tauri host is Rust. It is a narrow typed adapter, not a second backend.
 
 ## Tauri Contract
 
@@ -25,9 +25,10 @@ The agent host exists because the Pi SDK is JavaScript while the trusted Tauri h
 - Each message carries a protocol version, request id, operation, and payload.
 - Protocol version 1 is newline-delimited JSON. Host events are `started`, `completed`, `cancelled`, or `failed`; each request emits at most one terminal event.
 - Validate untrusted process messages on both sides of the boundary.
+- TypeBox validates newline-delimited host requests before operation dispatch; the frontend uses operation-keyed request/result types and discriminated events.
 - The host adapts Pi SDK calls and events; it does not reinterpret Pi session semantics.
 - A host crash must fail the active run clearly without corrupting existing sessions.
-- The host runtime is pinned with the Pi dependency and invoked by absolute bundled-resource path in production; `PATH` is not a runtime dependency.
+- The host runtime is pinned with the Pi dependency, compiled into `agent-host/dist`, and invoked by absolute bundled-resource path in production; `PATH` is not a runtime dependency.
 - `bun run package:macos` stages the pinned host dependencies and produces an unsigned local `.app`; credentials and Pi user resources stay in their normal home-directory locations.
 
 ## Session Rule
@@ -58,7 +59,7 @@ Never delete or rewrite user sessions, worktrees, credentials, or repositories w
 | Electron renderer | React feature slices |
 | Preload typed IPC | Tauri command/event modules |
 | Electron main process | Rust services and commands |
-| `pi-sdk-driver` | JavaScript agent host adapter |
+| `pi-sdk-driver` | compiled TypeScript agent host adapter |
 | JSONL sessions | Pi-owned authoritative sessions |
 | Electron builder/native helpers | Tauri build, plugins, and narrowly scoped Rust code |
 

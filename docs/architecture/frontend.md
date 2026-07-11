@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use React JavaScript, Vite, and Tailwind CSS. Stay with JavaScript as requested; use JSDoc and runtime validation where data crosses process or persistence boundaries.
+Use strict React TypeScript, Vite, and Tailwind CSS. External data starts as `unknown` and is runtime-validated where it crosses process or persistence boundaries.
 
 Use React state for local UI state. Add a state library only when a demonstrated cross-feature state problem cannot stay in a feature service or provider.
 
@@ -20,7 +20,7 @@ src/
   shared/
     ui/                 # Shadcn primitives generated through the CLI
     lib/                # small framework-neutral helpers
-    contracts/          # frontend view of Tauri contracts
+    contracts/          # typed and runtime-validated Tauri/Pi contracts
   styles/
 ```
 
@@ -33,7 +33,8 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 - Keep Shadcn primitives in `shared/ui` and feature composition inside its owning feature.
 - Import primitives through `@/shared/ui/<component>`; do not import Radix directly when Shadcn covers the behavior.
 - Leave generated primitives at accessible defaults until the product-wide customization pass.
-- Shadcn JavaScript output carries `@ts-nocheck`; authored application files opt into strict checks with `@ts-check`.
+- Shared Shadcn/Radix primitives are manually typed and preserve their current accessible APIs; do not regenerate customized components.
+- Features call typed Tauri/agent client seams rather than raw untyped process messages.
 - Feature-only UI stays local until a second real use proves it belongs in `shared/ui`.
 - Preserve keyboard access, focus visibility, semantics, and reduced-motion behavior.
 - Pi Ocarina owns its design system in `src/shared`; the sibling component-library prototype is migration input, never a runtime dependency.

@@ -11,8 +11,8 @@ Cross-platform desktop coding-agent application.
 ## Stack
 
 - Desktop shell: Tauri 2 with a small Rust host.
-- Frontend: React JavaScript, Vite, and Tailwind CSS.
-- Agent runtime: Pi SDK and Pi coding agent in a dedicated JavaScript host process.
+- Frontend: strict React TypeScript, Vite, and Tailwind CSS.
+- Agent runtime: Pi SDK and Pi coding agent in a dedicated TypeScript host compiled to Node 20 JavaScript.
 - Package manager: Bun.
 - Native responsibilities: Rust owns Tauri commands, process lifecycle, filesystem access, git/worktrees, PTY integration, notifications, and secure settings.
 
@@ -51,7 +51,7 @@ Diffs, integrated terminal, worktrees, orchestration, extension management, them
 
 - User can open a workspace, run Pi, see streamed output, and reopen the resulting thread.
 - React has no direct filesystem, shell, git, credential, or process access.
-- Rust exposes narrow commands/events and supervises the JavaScript agent host.
+- Rust exposes narrow commands/events and supervises the compiled TypeScript agent host.
 - The agent host is a thin adapter over the Pi SDK; Pi session data stays authoritative.
 - Features live in focused responsibility slices with obvious entry points.
 - Setup, architecture, testing, and quality docs match runnable commands before implementation handoff.
@@ -59,7 +59,7 @@ Diffs, integrated terminal, worktrees, orchestration, extension management, them
 ## Constraints
 
 - Package manager: Bun only unless a verified dependency requires otherwise.
-- Runtime: Tauri 2/Rust desktop host, webview React UI, JavaScript Pi agent host.
+- Runtime: Tauri 2/Rust desktop host, webview React TypeScript UI, compiled TypeScript Pi agent host.
 - Data: Pi session files are authoritative; app-owned preferences and indexes must be rebuildable.
 - Security: least-privilege Tauri capabilities; no broad shell/filesystem access from React; secrets remain in Pi or OS-backed stores.
 - Performance: stream incrementally; avoid loading complete session histories or repository trees when a bounded view is enough.
@@ -69,7 +69,5 @@ Diffs, integrated terminal, worktrees, orchestration, extension management, them
 
 ## Open Questions
 
-- Exact upstream Pi SDK package/version to pin during scaffold.
-- Whether the JavaScript agent host ships as a Bun-compiled sidecar or another packaged runtime after a packaging spike.
 - Initial desktop platform targets beyond macOS.
-- Which `pi-gui` visual theme becomes the first implementation baseline.
+- Which hidden beta-parity surfaces return to the incremental two-column UI first.
