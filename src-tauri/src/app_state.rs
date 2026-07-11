@@ -37,6 +37,9 @@ pub struct Preferences {
 pub struct WindowProjection {
     pub workspace_id: Option<String>,
     pub active_thread_id: Option<String>,
+    pub session_file: Option<String>,
+    pub draft: String,
+    pub run_status: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -177,6 +180,7 @@ mod tests {
                     WindowProjection {
                         workspace_id: Some("workspace-1".into()),
                         active_thread_id: None,
+                        ..WindowProjection::default()
                     },
                 );
             })
@@ -184,6 +188,7 @@ mod tests {
 
         let reopened = AppStateStore::open(path).unwrap();
         assert_eq!(reopened.snapshot().preferences.theme, "dark");
+        assert_eq!(reopened.snapshot().windows["main"].workspace_id.as_deref(), Some("workspace-1"));
     }
 
     #[test]

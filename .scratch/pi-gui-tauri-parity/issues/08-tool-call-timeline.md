@@ -4,10 +4,9 @@
 
 **Blocked by:** 07 — Create thread and stream a real run
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Tool start, progress, success, and failure events reconcile into one stable row.
-- [ ] Rows expose compact previews and accessible expand/collapse behavior.
-- [ ] Large or structured results stay bounded while preserving useful content.
-- [ ] A real Pi tool invocation is covered end to end.
-
+- [x] Tool start, progress, success, and failure events reconcile into one stable row.
+- [x] Rows expose compact previews and accessible expand/collapse behavior.
+- [x] Large or structured results stay bounded while preserving useful content.
+- [x] A real Pi tool invocation is covered end to end (opt-in real-provider check; deterministic protocol coverage by default).

@@ -4,10 +4,9 @@
 
 **Blocked by:** 07 — Create thread and stream a real run
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Stop cancels the intended run and the composer becomes usable again.
-- [ ] Provider, tool, host, and validation failures render actionable states without leaking secrets.
-- [ ] Supported runtime input/login dialogs resolve or reject only the requesting session.
-- [ ] Closing or canceling a prompt cannot block unrelated sessions or corrupt the transcript.
-
+- [x] Stop cancels the intended run and the composer becomes usable again.
+- [x] Provider, tool, host, and validation failures render actionable states without leaking secrets.
+- [x] Supported runtime input/login dialogs resolve or reject only the requesting session.
+- [x] Closing or canceling a prompt cannot block unrelated sessions or corrupt the transcript.

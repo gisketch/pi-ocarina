@@ -68,8 +68,11 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const output = new PassThrough();
   const events = [];
   const persisted = [];
+  let emitSession = () => {};
   const makeSession = async () => {
     const listeners = new Set();
+    emitSession = (event) => listeners.forEach((listener) => listener(event));
+    let ui;
     return { session: {
       sessionId: "thread-1",
       sessionFile: "/tmp/thread-1.jsonl",
@@ -77,6 +80,10 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text) {
         persisted.push({ role: "user", content: text });
+        listeners.forEach((listener) => listener({ type: "tool_execution_start", toolCallId: "call-1", toolName: "read", args: { path: "README.md" } }));
+        listeners.forEach((listener) => listener({ type: "tool_execution_update", toolCallId: "call-1", toolName: "read", partialResult: "partial" }));
+        listeners.forEach((listener) => listener({ type: "tool_execution_end", toolCallId: "call-1", toolName: "read", result: "done", isError: false }));
+        await ui.input("Login", "Token");
         for (const delta of ["hel", "lo"]) {
           listeners.forEach((listener) => listener({
             type: "message_update",
@@ -87,6 +94,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       },
       async abort() {},
       dispose() {},
+      extensionRunner: { setUIContext(value) { ui = value; } },
     } };
   };
   serve(
@@ -103,14 +111,27 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("prompt", "promptThread", { threadId: "thread-1", prompt: "hi" });
   await new Promise((resolve) => setTimeout(resolve, 5));
+  const runtimePrompt = events.find(({ requestId, type }) => requestId === "prompt" && type === "runtimePrompt");
+  send("resolve", "resolveRuntimePrompt", { threadId: "thread-1", promptId: runtimePrompt.payload.promptId, value: "secret" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   send("open", "openThread", { cwd: "/tmp/workspace", sessionFile: "/tmp/thread-1.jsonl" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("recover", "recoverThread", { cwd: "/tmp/workspace", threadId: "thread-1", sessionFile: "/tmp/thread-1.jsonl" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("watch", "watchThread", { threadId: "thread-1" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  emitSession({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: "live" } });
+  send("cancel-watch", "cancel", { requestId: "watch" });
   await new Promise((resolve) => setTimeout(resolve, 5));
 
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
+  assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "open" && type === "completed").payload.messages, [
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },
   ]);
+  assert.equal(events.find(({ requestId, type }) => requestId === "recover" && type === "completed").payload.runStatus, "idle");
+  assert.equal(events.find(({ requestId, type }) => requestId === "watch" && type === "messageDelta").payload.delta, "live");
 });
 
 test("real provider creates a persistent thread and answers", { skip: process.env.PI_OCARINA_REAL_PROVIDER !== "1" }, async () => {
