@@ -17,6 +17,7 @@
 | Rust lint | `bun run rust:lint` | After Rust changes |
 | Rust tests | `bun run rust:test` | After Rust behavior changes |
 | Real macOS desktop smoke | `bun run test:e2e` | After shell, Tauri, or E2E harness changes |
+| Agent host contract | `bun run test:agent-host` | After bundled runtime, Pi adapter, or bridge changes |
 
 ## Planned Stack Checks
 

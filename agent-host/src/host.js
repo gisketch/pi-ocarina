@@ -1,0 +1,77 @@
+import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
+
+import { AuthStorage, ModelRegistry, discoverAndLoadExtensions } from "@mariozechner/pi-coding-agent";
+
+export const PROTOCOL_VERSION = 1;
+
+export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] } = {}) {
+  const authStorage = AuthStorage.create();
+  const models = new ModelRegistry(authStorage).getAvailable();
+  const extensions = await discoverAndLoadExtensions(extensionPaths, cwd);
+
+  return {
+    node: process.versions.node,
+    models: models.length,
+    extensions: extensions.extensions.map(({ path }) => path),
+    errors: extensions.errors.map(({ error }) => error),
+  };
+}
+
+export function serve(input = process.stdin, output = process.stdout) {
+  const active = new Map();
+  const send = (requestId, type, payload = {}) =>
+    output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
+
+  const run = async (request) => {
+    const { version, requestId, operation, payload = {} } = request;
+    if (version !== PROTOCOL_VERSION || typeof requestId !== "string" || !requestId || typeof operation !== "string") {
+      throw new Error("Invalid protocol request");
+    }
+    if (operation === "cancel") {
+      const target = active.get(payload.requestId);
+      if (!target) throw new Error(`Request is not active: ${payload.requestId}`);
+      target.abort();
+      send(requestId, "completed", { cancelled: payload.requestId });
+      return;
+    }
+
+    const controller = new AbortController();
+    active.set(requestId, controller);
+    send(requestId, "started");
+    try {
+      let result;
+      if (operation === "inspectRuntime") result = await inspectRuntime(payload);
+      else if (operation === "wait") result = await wait(payload.ms, controller.signal);
+      else throw new Error(`Unsupported operation: ${operation}`);
+      send(requestId, "completed", result);
+    } catch (error) {
+      send(requestId, controller.signal.aborted ? "cancelled" : "failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      active.delete(requestId);
+    }
+  };
+
+  createInterface({ input }).on("line", (line) => {
+    if (!line.trim()) return;
+    try {
+      void run(JSON.parse(line)).catch((error) => send("unknown", "failed", { message: error.message }));
+    } catch {
+      send("unknown", "failed", { message: "Malformed JSON request" });
+    }
+  });
+}
+
+function wait(ms = 0, signal) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve({ waited: ms }), ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(new Error("Cancelled"));
+    }, { once: true });
+  });
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) serve();
