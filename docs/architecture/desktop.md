@@ -35,6 +35,13 @@ Pi-owned session files are authoritative. The app may keep workspace metadata, U
 
 Never delete or rewrite user sessions, worktrees, credentials, or repositories without explicit confirmation.
 
+## App State
+
+- Rust persists only workspace metadata, selections, preferences, and per-window projections in `app-state.json`.
+- Writes replace the primary file atomically and retain the last valid primary as `app-state.json.bak`.
+- Startup reports whether state was new, loaded, migrated, or recovered from backup; unsupported future schemas fail closed.
+- Rust broadcasts immutable snapshots to window consumers. Renderers never own or replace durable state.
+
 ## `pi-gui` Translation Map
 
 | `../pi-gui` responsibility | pi-ocarina owner |

@@ -53,3 +53,4 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 
 - 2026-07-11: Harness initialized with product, architecture, testing, and quality rules.
 - 2026-07-11: Ticket 01 completed with the Tauri shell and real macOS WebdriverIO smoke lane.
+- 2026-07-11: Ticket 04 added the Rust-owned atomic app-state store, backup recovery, schema migration, and multi-window projections.
