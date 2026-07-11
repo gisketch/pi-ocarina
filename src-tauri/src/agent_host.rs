@@ -198,8 +198,14 @@ pub struct AgentHost {
 impl AgentHost {
     pub fn start(app: AppHandle, node: &Path, script: &Path) -> io::Result<Self> {
         validate_runtime(node, script)?;
+        let mut paths: Vec<_> = node.parent().into_iter().map(Path::to_path_buf).collect();
+        if let Some(existing) = std::env::var_os("PATH") {
+            paths.extend(std::env::split_paths(&existing));
+        }
+        let path = std::env::join_paths(paths).map_err(io::Error::other)?;
         let mut child = Command::new(node)
             .arg(script)
+            .env("PATH", path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())

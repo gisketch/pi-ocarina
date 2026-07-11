@@ -35,20 +35,26 @@ if (catalog.errors.length) process.exit(1);
 if (process.env.HOME && (await import("node:fs")).existsSync(`${process.env.HOME}/.pi/agent/auth.json`) && !catalog.providers.some((provider) => provider.configured)) process.exit(1);
 JS
 
-PATH=/usr/bin:/bin "$executable" >"$workspace/app.log" 2>&1 &
-pid=$!
-for _ in {1..40}; do
-  child="$(pgrep -P "$pid" | head -1 || true)"
-  if test -n "$child" && ps -p "$child" -o command= | grep -q "$node"; then
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
-    pid=""
-    echo "packaged macOS app passed Finder-PATH runtime smoke"
-    exit 0
-  fi
-  sleep 0.25
+for launch in 1 2; do
+  PATH=/usr/bin:/bin "$executable" >"$workspace/app.log" 2>&1 &
+  pid=$!
+  ready=""
+  for _ in {1..40}; do
+    child="$(pgrep -P "$pid" | head -1 || true)"
+    if test -n "$child" && ps -p "$child" -o command= | grep -q "$node"; then ready=1; break; fi
+    sleep 0.25
+  done
+  test -n "$ready" || break
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  pid=""
 done
 
+if test -n "${ready:-}" && test "$launch" = 2; then
+  echo "packaged macOS app passed Finder-PATH launch and relaunch smoke"
+  exit 0
+fi
+
 cat "$workspace/app.log" >&2
-echo "packaged app did not start its bundled agent host" >&2
+echo "packaged app did not start its bundled agent host on launch $launch" >&2
 exit 1
