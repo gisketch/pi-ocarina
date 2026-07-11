@@ -244,6 +244,8 @@ mod tests {
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     use std::io::{Read, Write};
     use std::path::Path;
+    use std::sync::mpsc;
+    use std::time::Duration;
 
     #[test]
     fn shell_must_be_absolute_executable_file() {
@@ -264,19 +266,38 @@ mod tests {
             })
             .unwrap();
         let mut command = CommandBuilder::new("/bin/sh");
-        command.args(["-c", "pwd; stty -echo; head -c 131072 | wc -c"]);
+        command.args([
+            "-c",
+            "pwd; stty raw -echo; printf 'READY\\n'; head -c 131072 | wc -c",
+        ]);
         command.cwd(temp.path());
         let mut child = pair.slave.spawn_command(command).unwrap();
         drop(pair.slave);
         let mut reader = pair.master.try_clone_reader().unwrap();
+        let (ready_tx, ready_rx) = mpsc::channel();
         let output = std::thread::spawn(move || {
-            let mut output = String::new();
-            reader.read_to_string(&mut output).unwrap();
-            output
+            let mut output = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            let mut ready = Some(ready_tx);
+            loop {
+                let count = reader.read(&mut buffer).unwrap();
+                if count == 0 {
+                    break;
+                }
+                output.extend_from_slice(&buffer[..count]);
+                if output.windows(5).any(|bytes| bytes == b"READY") {
+                    if let Some(sender) = ready.take() {
+                        let _ = sender.send(());
+                    }
+                }
+            }
+            String::from_utf8_lossy(&output).into_owned()
         });
+        ready_rx.recv_timeout(Duration::from_secs(2)).unwrap();
         let mut writer = pair.master.take_writer().unwrap();
         writer.write_all(&vec![b'x'; 131_072]).unwrap();
         drop(writer);
+        drop(pair.master);
         child.wait().unwrap();
         let output = output.join().unwrap().replace('\r', "");
         assert!(output.contains(temp.path().to_str().unwrap()));
