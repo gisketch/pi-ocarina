@@ -64,6 +64,17 @@ fn appearance_support() -> AppearanceSupport {
 }
 
 #[tauri::command]
+fn open_notification_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("/usr/bin/open")
+        .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("open notification settings: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
 fn set_panel_layout(
     app: tauri::AppHandle,
     store: State<'_, AppStateStore>,
@@ -189,6 +200,7 @@ fn update_and_emit(
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(agent_host::AgentHostState::default())
         .manage(terminal::TerminalState::default())
@@ -224,6 +236,7 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             appearance_support,
+            open_notification_settings,
             set_panel_layout,
             open_app_window,
             model_scope::model_selection,

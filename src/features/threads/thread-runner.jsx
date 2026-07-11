@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -15,6 +16,7 @@ import { importAttachments } from "@/features/composer/attachments";
 import { ExtensionDock } from "@/features/extensions/extension-dock-panel";
 import { EMPTY_DOCK, reduceDock } from "@/features/extensions/extension-dock.js";
 import { blockedCommand, loadCompatibility, saveCompatibility } from "@/features/extensions/compatibility.js";
+import { notificationCategories, shouldNotify, shouldRequestPermission } from "@/features/notifications/notification-policy.js";
 import { Textarea } from "@/shared/ui/textarea";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
@@ -34,6 +36,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [stream, setStream] = useState("");
   const [error, setError] = useState("");
   const [runningThreads, setRunningThreads] = useState(/** @type {Set<string>} */ (new Set()));
+  const [attentionThreads, setAttentionThreads] = useState(/** @type {Set<string>} */ (new Set()));
   const [queue, setQueue] = useState(/** @type {Array<any>} */ ([]));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
@@ -71,6 +74,32 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
+
+  useEffect(() => {
+    const backgrounded = () => {
+      if (runningThreads.size === 0) return;
+      const permission = Notification.permission;
+      if (shouldRequestPermission({ backgrounded: true, running: true, categories: notificationCategories(), permission })) void requestPermission();
+    };
+    addEventListener("blur", backgrounded); document.addEventListener("visibilitychange", backgrounded);
+    return () => { removeEventListener("blur", backgrounded); document.removeEventListener("visibilitychange", backgrounded); };
+  }, [runningThreads]);
+
+  useEffect(() => {
+    const clearSelected = () => selectedThreadRef.current && setAttentionThreads((items) => { const next = new Set(items); next.delete(selectedThreadRef.current ?? ""); return next; });
+    addEventListener("focus", clearSelected); return () => removeEventListener("focus", clearSelected);
+  }, []);
+
+  /** @param {string} threadId @param {"completed" | "failed" | "attention"} category @param {string} title */
+  function signalAttention(threadId, category, title) {
+    const selected = selectedThreadRef.current === threadId;
+    const focused = document.hasFocus();
+    if (focused && selected) return;
+    setAttentionThreads((items) => new Set(items).add(threadId));
+    const categories = notificationCategories();
+    if (!shouldNotify({ focused, selected, category, categories })) return;
+    if (Notification.permission === "granted") sendNotification({ title, body: `Thread ${category}` });
+  }
 
   useEffect(() => {
     /** @type {string | undefined} */
@@ -217,7 +246,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
             return next;
           });
         }
-        if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
+        if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); signalAttention(active.threadId, "attention", active.title ?? "Pi Ocarina"); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
         if (event.type === "runtimeNotice" && selectedThreadRef.current === active.threadId) event.payload.type === "error" ? setError(event.payload.message) : setNotice(event.payload.message);
         if (event.type === "compatibilityIssue") {
           const key = `${event.payload.extensionPath}::${event.payload.commandName}`;
@@ -237,6 +266,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         }
       }, activeRunId));
       if (selectedThreadRef.current === active.threadId) setThread(completed);
+      signalAttention(active.threadId, "completed", completed.title ?? "Pi Ocarina");
       draftAttachmentsRef.current[active.threadId] = [];
       const refreshed = /** @type {ThreadSummary[]} */ (await request("listThreads", { cwd: workspace.path }));
       setThreads(refreshed);
@@ -249,6 +279,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       streamsRef.current.delete(active.threadId);
       if (selectedThreadRef.current === active.threadId) setStream("");
     } catch (cause) {
+      if (startedThreadId) signalAttention(startedThreadId, "failed", thread?.title ?? "Pi Ocarina");
       if (!startedThreadId || selectedThreadRef.current === startedThreadId) setError(String(cause));
     } finally {
       const completedThreadId = activeRunId ? [...runIdsRef.current].find(([, id]) => id === activeRunId)?.[0] : undefined;
@@ -336,6 +367,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       const opened = /** @type {Thread} */ (await request("openThread", { cwd: workspace.path, sessionFile: item.sessionFile }));
       setThread(opened);
       selectedThreadRef.current = opened.threadId;
+      setAttentionThreads((items) => { const next = new Set(items); next.delete(opened.threadId); return next; });
       setStream(streamsRef.current.get(opened.threadId) ?? "");
       const pendingPrompt = runtimePromptsRef.current.get(opened.threadId) ?? null;
       setRuntimePrompt(pendingPrompt);
@@ -438,7 +470,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
         <Input aria-label="Search threads" className="h-8" placeholder="Search threads" type="search" value={query} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQuery(event.target.value)} />
         {organized.active.map((item) => <div className="flex" key={item.sessionFile}>
-          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <span aria-label="Running" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
+          <Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "secondary" : "ghost"} onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <span aria-label="Running" className="size-2 shrink-0 rounded-full bg-primary" />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
           {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppearanceControls } from "@/features/appearance/appearance-controls";
+import { NotificationControls } from "@/features/notifications/notification-controls";
 import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -45,6 +46,7 @@ export function App() {
           <CardTitle className="text-4xl tracking-tight">Pi Ocarina</CardTitle>
           <CardDescription>A maintainable Tauri home for the Pi coding agent.</CardDescription>
           <AppearanceControls onSidebarChange={syncSidebar} />
+          <NotificationControls />
           <Button className="w-fit" variant="outline" onClick={() => void invoke("open_app_window")}>New Window</Button>
         </CardHeader>
         <CardContent className={sidebarVisible ? "grid gap-4 md:grid-cols-[minmax(14rem,18rem)_1fr]" : "block"}>
