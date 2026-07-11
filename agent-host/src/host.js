@@ -81,6 +81,8 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "refreshThread") result = await refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
       else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
+      else if (operation === "setThreadModel") result = await setThreadModel(payload, sessions, resolveModel);
+      else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -114,7 +116,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   });
 }
 
-async function createThread({ cwd, provider, modelId, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines) {
+async function createThread({ cwd, provider, modelId, thinkingLevel, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines) {
   if (typeof cwd !== "string" || !cwd) throw new Error("Workspace is required");
   const { authStorage, modelRegistry, model } = resolveModel({ provider, modelId, agentDir });
   const { session } = await createSession({
@@ -123,6 +125,7 @@ async function createThread({ cwd, provider, modelId, agentDir } = {}, createSes
     authStorage,
     modelRegistry,
     model,
+    ...(thinkingLevel ? { thinkingLevel } : {}),
     sessionManager: SessionManager.create(cwd),
   });
   sessions.set(session.sessionId, session);
@@ -132,6 +135,22 @@ async function createThread({ cwd, provider, modelId, agentDir } = {}, createSes
     baselines.set(session.sessionFile, await fileMtime(session.sessionFile));
   }
   return withSchema(threadSnapshot(session));
+}
+
+async function setThreadModel({ threadId, provider, modelId, agentDir } = {}, sessions, resolveModel) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  const { model } = resolveModel({ provider, modelId, agentDir });
+  await session.setModel(model);
+  return threadSnapshot(session);
+}
+
+function setThreadThinking({ threadId, thinkingLevel } = {}, sessions) {
+  const session = sessions.get(threadId);
+  if (!session) throw new Error("Thread is not open");
+  if (!session.getAvailableThinkingLevels().includes(thinkingLevel)) throw new Error("Thinking level is unavailable for this model");
+  session.setThinkingLevel(thinkingLevel);
+  return threadSnapshot(session);
 }
 
 async function listThreads({ cwd } = {}, listSessions) {
@@ -271,10 +290,18 @@ function safeError(error) {
 }
 
 function threadSnapshot(session) {
+  const extensionCommands = session.extensionRunner?.getRegisteredCommands?.() ?? [];
+  const skills = session.resourceLoader?.getSkills?.().skills ?? [];
   return {
     threadId: session.sessionId,
     sessionFile: session.sessionFile,
     messages: session.messages.flatMap(({ role, content }) => transcriptItems(role, content)),
+    model: session.model ? { provider: session.model.provider, id: session.model.id, name: session.model.name } : null,
+    thinkingLevel: session.thinkingLevel ?? "off",
+    thinkingLevels: session.getAvailableThinkingLevels?.() ?? ["off"],
+    commands: extensionCommands.map(({ invocationName, description }) => ({ name: invocationName, description, source: "extension" }))
+      .concat((session.promptTemplates ?? []).map(({ name, description }) => ({ name, description, source: "prompt" })))
+      .concat(skills.map(({ name, description }) => ({ name: `skill:${name}`, description, source: "skill" }))),
   };
 }
 

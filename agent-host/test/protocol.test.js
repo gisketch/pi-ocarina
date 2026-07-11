@@ -77,6 +77,13 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       sessionId: "thread-1",
       sessionFile: "/tmp/thread-1.jsonl",
       messages: persisted,
+      model: { provider: "test", id: "old", name: "Old" },
+      thinkingLevel: "low",
+      getAvailableThinkingLevels: () => ["off", "low", "high"],
+      setThinkingLevel(level) { this.thinkingLevel = level; },
+      async setModel(model) { this.model = model; },
+      promptTemplates: [{ name: "review", description: "Review changes" }],
+      resourceLoader: { getSkills: () => ({ skills: [{ name: "ship", description: "Ship it" }] }) },
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text) {
         persisted.push({ role: "user", content: text });
@@ -95,20 +102,26 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       },
       async abort() {},
       dispose() {},
-      extensionRunner: { setUIContext(value) { ui = value; } },
+      extensionRunner: {
+        setUIContext(value) { ui = value; },
+        getRegisteredCommands: () => [{ invocationName: "deploy", description: "Deploy" }],
+      },
     } };
   };
   serve(
     input,
     output,
     makeSession,
-    () => ({ authStorage: {}, modelRegistry: {}, model: {} }),
+    ({ provider, modelId }) => ({ authStorage: {}, modelRegistry: {}, model: { provider, id: modelId, name: modelId } }),
     async () => [{ path: "/tmp/thread-1.jsonl" }],
   );
   output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
   const send = (requestId, operation, payload) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
 
   send("create", "createThread", { cwd: "/tmp/workspace", provider: "test", modelId: "test" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("set-model", "setThreadModel", { threadId: "thread-1", provider: "test", modelId: "new" });
+  send("set-thinking", "setThreadThinking", { threadId: "thread-1", thinkingLevel: "high" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("list", "listThreads", { cwd: "/tmp/workspace" });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -130,6 +143,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
 
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
+  assert.equal(events.find(({ requestId, type }) => requestId === "set-model" && type === "completed").payload.model.id, "new");
+  assert.equal(events.find(({ requestId, type }) => requestId === "set-thinking" && type === "completed").payload.thinkingLevel, "high");
+  assert.deepEqual(events.find(({ requestId, type }) => requestId === "create" && type === "completed").payload.commands.map(({ name }) => name), ["deploy", "review", "skill:ship"]);
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "list" && type === "completed").payload, [
     { sessionFile: "/tmp/thread-1.jsonl", title: "Empty thread" },
   ]);
