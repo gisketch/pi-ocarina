@@ -18,7 +18,7 @@ src/
     composer/
     settings/
   shared/
-    ui/                 # components with real reuse
+    ui/                 # Shadcn primitives generated through the CLI
     lib/                # small framework-neutral helpers
     contracts/          # frontend view of Tauri contracts
   styles/
@@ -28,8 +28,12 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 
 ## Component Rules
 
-- Reuse project components first, native HTML second, then add the smallest needed component.
+- Reuse project components first. When a new primitive is needed, run `shadcn add <component>` before building one.
 - Tailwind theme tokens are the visual source of truth; avoid scattered hardcoded colors.
+- Keep Shadcn primitives in `shared/ui` and feature composition inside its owning feature.
+- Import primitives through `@/shared/ui/<component>`; do not import Radix directly when Shadcn covers the behavior.
+- Leave generated primitives at accessible defaults until the product-wide customization pass.
+- Shadcn JavaScript output carries `@ts-nocheck`; authored application files opt into strict checks with `@ts-check`.
 - Feature-only UI stays local until a second real use proves it belongs in `shared/ui`.
 - Preserve keyboard access, focus visibility, semantics, and reduced-motion behavior.
 - Copy `pi-gui` interaction behavior only after tracing the full flow and translating native calls to Tauri.

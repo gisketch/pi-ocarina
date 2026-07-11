@@ -1,7 +1,9 @@
+// @ts-check
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App.jsx";
+import { TooltipProvider } from "@/shared/ui/tooltip";
 import "./styles.css";
 
 if (import.meta.env.VITE_E2E === "true") {
@@ -16,6 +18,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <TooltipProvider>
+      <App />
+    </TooltipProvider>
   </StrictMode>,
 );
