@@ -4,10 +4,11 @@
 
 **Blocked by:** 29 — Provider credential settings
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] New-thread UI explains the missing-provider state and links directly to the relevant settings.
-- [ ] Selecting a usable model dismisses onboarding for that thread scope.
-- [ ] Refresh after provider configuration discovers and enables supported models without app restart.
-- [ ] Stale enabled-model indicators disappear when no provider supports them.
+- [x] New-thread UI explains the missing-provider state and links directly to the relevant settings.
+- [x] Selecting a usable model dismisses onboarding for that thread scope.
+- [x] Refresh after provider configuration discovers and enables supported models without app restart.
+- [x] Stale enabled-model indicators disappear when no provider supports them.
 
+**Checks:** F048 and F050–F052 are covered by the live catalog derivation, focused availability recovery test, frontend checks, and desktop smoke.

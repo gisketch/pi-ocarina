@@ -98,3 +98,21 @@ test("custom endpoints validate ownership and preserve unrelated providers", asy
   assert.deepEqual(catalog.customEndpoints, []);
   assert.equal(catalog.providers.some(({ id }) => id === "legacy"), true);
 });
+
+test("catalog refresh removes stale availability and discovers configured models", async () => {
+  const agentDir = await mkdtemp(join(tmpdir(), "pi-ocarina-onboarding-"));
+  const prior = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    let catalog = loadModelCatalog({ agentDir });
+    assert.equal(catalog.models.some(({ provider, available }) => provider === "anthropic" && available), false);
+    catalog = saveProviderCredential({ provider: "anthropic", apiKey: "TEST_ONLY" }, agentDir);
+    assert.equal(catalog.models.some(({ provider, available }) => provider === "anthropic" && available), true);
+    await writeFile(join(agentDir, "auth.json"), "{}");
+    catalog = loadModelCatalog({ agentDir });
+    assert.equal(catalog.models.some(({ provider, available }) => provider === "anthropic" && available), false);
+  } finally {
+    if (prior === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = prior;
+  }
+});
