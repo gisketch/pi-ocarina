@@ -1,20 +1,22 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { MessageSquarePlusIcon, SendIcon, StopCircleIcon } from "lucide-react";
+import { MessageSquarePlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Composer } from "@/features/composer/composer";
+import { parseComposerControl } from "@/features/composer/commands";
 import { MarkdownMessage } from "./markdown-message";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
-/** @typedef {{ threadId: string, sessionFile: string, messages: Message[], schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
+/** @typedef {{ threadId: string, sessionFile: string, messages: Message[], model?: {provider: string, id: string, name: string} | null, thinkingLevel?: string, thinkingLevels?: string[], commands?: Array<any>, schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
 /** @typedef {{ threadId?: string, sessionFile: string, title: string, modified?: string, messageCount?: number }} ThreadSummary */
 
-/** @param {{ workspace: { id: string, path: string }, model: { provider: string, id: string } | null }} props */
-export function ThreadRunner({ workspace, model }) {
+/** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
+export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [thread, setThread] = useState(/** @type {Thread | null} */ (null));
   const [threads, setThreads] = useState(/** @type {ThreadSummary[]} */ ([]));
   const [prompt, setPrompt] = useState("");
@@ -24,9 +26,14 @@ export function ThreadRunner({ workspace, model }) {
   const [runId, setRunId] = useState(/** @type {string | null} */ (null));
   const [runtimePrompt, setRuntimePrompt] = useState(/** @type {any} */ (null));
   const [runtimeValue, setRuntimeValue] = useState("");
+  const [newThinking, setNewThinking] = useState("medium");
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
+  const threadModel = thread?.model;
+  const activeModel = thread
+    ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
+    : model;
 
   useEffect(() => {
     /** @type {string | undefined} */
@@ -83,19 +90,25 @@ export function ThreadRunner({ workspace, model }) {
     let stop = () => {};
   });
 
-  /** @param {React.FormEvent<HTMLFormElement>} event */
-  async function submit(event) {
-    event.preventDefault();
+  async function submit() {
     if (!prompt.trim() || running) return;
-    if (!thread && !model) { setError("Choose a model to start a thread."); return; }
+    const control = parseComposerControl(prompt);
+    if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); return; }
+    if (control?.type === "model") {
+      const selected = models.find((item) => item.provider === control.provider && item.id === control.id);
+      if (!selected) { setError("That model is unavailable. Choose an available model."); return; }
+      await applyModel(selected); setPrompt(""); return;
+    }
+    if (!activeModel) { setError("Choose an available model to continue."); return; }
     setRunning(true);
     setError("");
     setStream("");
     try {
       const active = thread ?? /** @type {Thread} */ (await request("createThread", {
         cwd: workspace.path,
-        provider: model?.provider,
-        modelId: model?.id,
+        provider: activeModel.provider,
+        modelId: activeModel.id,
+        thinkingLevel: newThinking,
       }));
       const text = prompt;
       setPrompt("");
@@ -126,6 +139,23 @@ export function ThreadRunner({ workspace, model }) {
       setRunning(false);
       setRunId(null);
     }
+  }
+
+  /** @param {{provider: string, id: string, name?: string}} nextModel */
+  async function applyModel(nextModel) {
+    setError("");
+    onModelChange(nextModel);
+    if (!thread) return;
+    try { setThread(/** @type {Thread} */ (await request("setThreadModel", { threadId: thread.threadId, provider: nextModel.provider, modelId: nextModel.id }))); }
+    catch (cause) { setError(String(cause)); }
+  }
+
+  /** @param {string} level */
+  async function applyThinking(level) {
+    setError("");
+    if (!thread) { setNewThinking(level); return; }
+    try { setThread(/** @type {Thread} */ (await request("setThreadThinking", { threadId: thread.threadId, thinkingLevel: level }))); }
+    catch (cause) { setError(String(cause)); }
   }
 
   function saveProjection(active = thread, status = running ? "running" : "idle", draft = prompt) {
@@ -188,10 +218,14 @@ export function ThreadRunner({ workspace, model }) {
         ))}
         {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
       </div>
-      <form className="flex gap-2" onSubmit={submit}>
-        <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => { setPrompt(event.target.value); void saveProjection(thread, running ? "running" : "idle", event.target.value); }} />
-        {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim() || (!thread && !model) || thread?.schema?.newer}><SendIcon />Send</Button>}
-      </form>
+      <Composer
+        value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
+        commands={thread?.commands} models={models} model={activeModel}
+        thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
+        onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}
+        onSend={() => void submit()} onStop={stopRun}
+        onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
+      />
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Dialog open={Boolean(runtimePrompt)} onOpenChange={(/** @type {boolean} */ open) => { if (!open) resolvePrompt(true); }}>
         <DialogContent className={undefined}>

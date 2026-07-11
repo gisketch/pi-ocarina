@@ -140,7 +140,7 @@ export function ModelCatalog({ workspace }) {
         onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))}
       />
       {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
-      <ThreadRunner key={workspace.id} workspace={workspace} model={model} />
+      <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} />
     </div>
   );
 }
