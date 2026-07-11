@@ -15,6 +15,8 @@ pub fn add_workspace(
             state.workspaces.push(Workspace {
                 id: id.clone(),
                 path: path.clone(),
+                root_workspace_id: None,
+                branch: None,
             });
         }
         state.selected_workspace = Some(id);

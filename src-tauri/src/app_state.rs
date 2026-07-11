@@ -24,6 +24,10 @@ pub struct AppState {
 pub struct Workspace {
     pub id: String,
     pub path: PathBuf,
+    #[serde(default)]
+    pub root_workspace_id: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
