@@ -4,10 +4,11 @@
 
 **Blocked by:** 28 — Parallel session runs; 33 — Extension discovery and management
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Create-child produces a valid isolated Pi session associated with the parent.
-- [ ] List and read return only threads visible to the requesting orchestrator scope.
-- [ ] Messages and follow-ups reach the intended child and report queued, running, waiting, completed, failed, or canceled status.
-- [ ] Canceling a parent handles active children according to one safe documented policy.
+- [x] Create-child produces a valid isolated Pi session associated with the parent.
+- [x] List and read return only threads visible to the requesting orchestrator scope.
+- [x] Messages and follow-ups reach the intended child and report queued, running, waiting, completed, failed, or canceled status.
+- [x] Canceling a parent cancels its active children; completed and waiting children remain intact.
 
+**Check:** `node_modules/node/bin/node --test agent-host/test/orchestration.test.js agent-host/test/protocol.test.js`.

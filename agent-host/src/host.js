@@ -15,6 +15,7 @@ import {
   getAgentDir,
 } from "@mariozechner/pi-coding-agent";
 import { acquireLease, sessionSchema, shouldRefreshFromDisk } from "./session-coexistence.js";
+import { OrchestrationRuntime } from "./orchestration.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -39,6 +40,31 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   const threadQueues = new Map();
   const leases = new Map();
   const baselines = new Map();
+  const orchestration = new OrchestrationRuntime();
+  orchestration.setHandler(async (parent, action, payload) => {
+    if (action === "list") return orchestration.list(parent);
+    if (action === "create") {
+      const context = orchestration.contexts.get(parent);
+      if (!context) throw new Error("Parent thread is not open");
+      const child = await createThread(context, createSession, resolveModel, sessions, leases, baselines, orchestration);
+      orchestration.link(parent, child.threadId);
+      if (!payload.prompt) return { ...child, status: "waiting" };
+      orchestration.status.set(child.threadId, "running");
+      try { const value = await promptThread({ threadId: child.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.status.set(child.threadId, "completed"); return { ...value, status: "completed" }; }
+      catch (error) { orchestration.status.set(child.threadId, "failed"); throw error; }
+    }
+    const session = sessions.get(payload.threadId);
+    if (!session) throw new Error("Child thread is not open");
+    if (action === "read") return { ...threadSnapshot(session), messages: threadSnapshot(session).messages.slice(-20), status: orchestration.status.get(payload.threadId) };
+    if (action === "cancel") { await session.abort(); orchestration.status.set(payload.threadId, "canceled"); return { threadId: payload.threadId, status: "canceled" }; }
+    if (action === "message") {
+      if (runningThreads.has(payload.threadId)) { await queueThread({ threadId: payload.threadId, prompt: payload.prompt, mode: "followUp" }, sessions, runningThreads, threadQueues); return { threadId: payload.threadId, status: "queued" }; }
+      orchestration.status.set(payload.threadId, "running");
+      try { const value = await promptThread({ threadId: payload.threadId, prompt: payload.prompt }, new AbortController().signal, sessions, runningThreads, prompts, threadQueues, () => {}, orchestration); orchestration.status.set(payload.threadId, "completed"); return { ...value, status: "completed" }; }
+      catch (error) { orchestration.status.set(payload.threadId, "failed"); throw error; }
+    }
+    throw new Error("Unsupported child action");
+  });
   const heartbeat = setInterval(() => {
     for (const sessionFile of leases.keys()) void acquireLease(sessionFile).catch(() => {});
   }, 60_000).unref();
@@ -75,13 +101,13 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       let result;
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
-      else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions, leases, baselines);
+      else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions, leases, baselines, orchestration);
       else if (operation === "listThreads") result = await listThreads(payload, listSessions);
       else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions, leases, baselines);
       else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "refreshThread") result = await refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
-      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, threadQueues, (type, event) => send(requestId, type, event));
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, threadQueues, (type, event) => send(requestId, type, event), orchestration);
       else if (operation === "queueThread") result = await queueThread(payload, sessions, runningThreads, threadQueues);
       else if (operation === "replaceThreadQueue") result = await replaceThreadQueue(payload, sessions, runningThreads, threadQueues);
       else if (operation === "threadQueue") result = { items: threadQueues.get(payload.threadId) ?? [] };
@@ -204,9 +230,10 @@ function normalizeTitle(value) {
   return value.trim().replace(/\s+/g, " ").replace(/[.!?,;:]+$/u, "").slice(0, 60).trim() || undefined;
 }
 
-async function createThread({ cwd, provider, modelId, thinkingLevel, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines) {
+async function createThread({ cwd, provider, modelId, thinkingLevel, agentDir } = {}, createSession, resolveModel, sessions, leases, baselines, orchestration) {
   if (typeof cwd !== "string" || !cwd) throw new Error("Workspace is required");
   const { authStorage, modelRegistry, model } = resolveModel({ provider, modelId, agentDir });
+  const parent = { current: "" };
   const { session } = await createSession({
     cwd,
     agentDir,
@@ -214,8 +241,11 @@ async function createThread({ cwd, provider, modelId, thinkingLevel, agentDir } 
     modelRegistry,
     model,
     ...(thinkingLevel ? { thinkingLevel } : {}),
+    ...(orchestration ? { customTools: orchestration.tools(parent) } : {}),
     sessionManager: SessionManager.create(cwd),
   });
+  parent.current = session.sessionId;
+  orchestration?.contexts.set(session.sessionId, { cwd, provider, modelId, thinkingLevel, agentDir });
   sessions.set(session.sessionId, session);
   if (session.sessionFile) {
     try { leases.set(session.sessionFile, await acquireLease(session.sessionFile)); }
@@ -309,14 +339,14 @@ async function fileMtime(path) {
   try { return (await stat(path)).mtimeMs; } catch { return undefined; }
 }
 
-async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, queues, publish) {
+async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, queues, publish, orchestration) {
   if ((typeof prompt !== "string") || (!prompt.trim() && !attachments.length)) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
   if (runningThreads.has(threadId)) throw new Error("Session is already active");
   if ((await sessionSchema(session.sessionFile, CURRENT_SESSION_VERSION)).newer) throw new Error("Session was written by a newer Pi version and is read-only");
   const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
-  const abort = () => { void session.abort(); cancelThreadPrompts(threadId, prompts); };
+  const abort = () => { void session.abort(); void orchestration?.cancelChildren(threadId); cancelThreadPrompts(threadId, prompts); };
   const commandName = prompt.trim().match(/^\/([^\s]+)/)?.[1];
   const command = session.extensionRunner?.getRegisteredCommands?.().find(({ invocationName }) => invocationName === commandName);
   session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish, command));

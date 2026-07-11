@@ -3,6 +3,7 @@
   "type": "module",
   "dependencies": {
     "@mariozechner/pi-coding-agent": "0.73.1",
+    "@sinclair/typebox": "^0.34.51",
     "node": "20.19.5"
   }
 }
