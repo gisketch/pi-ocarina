@@ -1,6 +1,8 @@
 // @ts-check
 import { PaperclipIcon, SendIcon, StopCircleIcon, XIcon } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 
 import { extensionMentions, slashSuggestions } from "./commands";
 import { Button } from "@/shared/ui/button";
@@ -10,10 +12,13 @@ import { importAttachments, prepareAttachments } from "./attachments";
 
 const DEFAULT_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
-/** @param {{ value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
-export function Composer({ value, running, disabled, commands = [], extensions = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
+/** @param {{ workspaceId: string, value: string, running: boolean, disabled?: boolean, commands?: Array<any>, extensions?: Array<any>, models: Array<any>, model: any, attachments?: Array<any>, onAttachments: (value: Array<any>) => void, onAttachmentError: (message: string) => void, thinkingLevel?: string, thinkingLevels?: string[], onChange: (value: string) => void, onSend: () => void, onSteer: () => void, onStop: () => void, onModelChange: (model: any) => void, onThinkingChange: (level: string) => void }} props */
+export function Composer({ workspaceId, value, running, disabled, commands = [], extensions = [], models, model, attachments = [], onAttachments, onAttachmentError, thinkingLevel = "medium", thinkingLevels = DEFAULT_THINKING, onChange, onSend, onSteer, onStop, onModelChange, onThinkingChange }) {
   const suggestions = slashSuggestions(value, commands);
   const mentions = extensionMentions(value, extensions);
+  const [files, setFiles] = useState(/** @type {string[]} */ ([]));
+  const fileQuery = value.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
+  useEffect(() => { if (fileQuery == null || mentions.length) { setFiles([]); return; } const timer = setTimeout(() => void invoke("search_workspace_files", { workspaceId, query: fileQuery }).then(setFiles).catch(() => setFiles([])), 100); return () => clearTimeout(timer); }, [fileQuery, mentions.length, workspaceId]);
   return <div className="space-y-2" data-testid="composer">
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
@@ -21,6 +26,7 @@ export function Composer({ value, running, disabled, commands = [], extensions =
       </Button>)}
     </div>}
     {mentions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Extension mentions">{mentions.map((extension) => <Button className="w-full justify-start" key={extension.source} type="button" variant="ghost" role="option" onClick={() => onChange(value.replace(/@[^\s]*$/, `@${extension.source} `))}>@{extension.label}</Button>)}</div>}
+    {mentions.length === 0 && files.length > 0 && <div className="max-h-48 overflow-auto rounded-md border bg-popover p-1" role="listbox" aria-label="File mentions">{files.map((path) => <Button className="w-full justify-start" key={path} type="button" variant="ghost" role="option" onClick={() => onChange(value.replace(/@[^\s]*$/, `@${path} `))}>@{path}</Button>)}</div>}
     <Textarea
       aria-label="Message"
       className={undefined}

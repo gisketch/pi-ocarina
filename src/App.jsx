@@ -38,7 +38,7 @@ export function App() {
       className="flex min-h-screen items-center justify-center bg-background p-3 text-foreground sm:p-6"
       data-testid="app-ready"
     >
-      <Card className="w-full max-w-4xl shadow-xl">
+      <Card className="w-full max-w-7xl shadow-xl">
         <CardHeader>
           <Badge variant="secondary" className="uppercase tracking-widest">Desktop foundation ready</Badge>
           <CardTitle className="text-4xl tracking-tight">Pi Ocarina</CardTitle>

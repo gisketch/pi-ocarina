@@ -2,6 +2,7 @@ pub mod agent_host;
 pub mod app_state;
 pub mod attachment;
 pub mod model_scope;
+pub mod review;
 pub mod terminal;
 pub mod workspace;
 pub mod worktree;
@@ -59,6 +60,41 @@ fn set_preferences(
 fn appearance_support() -> AppearanceSupport {
     AppearanceSupport {
         transparency: cfg!(target_os = "macos"),
+    }
+}
+
+#[tauri::command]
+fn set_panel_layout(
+    app: tauri::AppHandle,
+    store: State<'_, AppStateStore>,
+    reviewer_width: Option<u32>,
+    terminal_height: Option<u32>,
+    terminal_maximized: Option<bool>,
+) -> Result<AppState, String> {
+    validate_panel_layout(reviewer_width, terminal_height)?;
+    update_and_emit(&app, &store, |state| {
+        if let Some(value) = reviewer_width {
+            state.preferences.reviewer_width = value;
+        }
+        if let Some(value) = terminal_height {
+            state.preferences.terminal_height = value;
+        }
+        if let Some(value) = terminal_maximized {
+            state.preferences.terminal_maximized = value;
+        }
+    })
+}
+
+fn validate_panel_layout(
+    reviewer_width: Option<u32>,
+    terminal_height: Option<u32>,
+) -> Result<(), String> {
+    if reviewer_width.is_some_and(|value| !(320..=1200).contains(&value))
+        || terminal_height.is_some_and(|value| !(160..=900).contains(&value))
+    {
+        Err("panel dimensions are outside usable bounds".into())
+    } else {
+        Ok(())
     }
 }
 
@@ -176,9 +212,16 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             appearance_support,
+            set_panel_layout,
             model_scope::model_selection,
             model_scope::set_model_scope,
             model_scope::set_model_preference,
+            review::search_workspace_files,
+            review::repository_changes,
+            review::file_diff,
+            review::workspace_files,
+            review::read_workspace_file,
+            review::set_file_reviewed,
             set_window_projection,
             set_workspace_projection,
             attachment::prepare_attachments,
@@ -215,7 +258,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod external_url_tests {
-    use super::validate_external_url;
+    use super::{validate_external_url, validate_panel_layout};
 
     #[test]
     fn accepts_only_absolute_web_urls() {
@@ -234,5 +277,12 @@ mod external_url_tests {
                 "accepted {unsafe_url}"
             );
         }
+    }
+
+    #[test]
+    fn panel_layout_stays_usable() {
+        assert!(validate_panel_layout(Some(320), Some(160)).is_ok());
+        assert!(validate_panel_layout(Some(319), None).is_err());
+        assert!(validate_panel_layout(None, Some(901)).is_err());
     }
 }

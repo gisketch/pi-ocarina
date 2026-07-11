@@ -4,10 +4,9 @@
 
 **Blocked by:** 22 — Mentions and changes panel
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Files mode browses only the selected workspace and reads supported files safely.
-- [ ] Syntax highlighting follows the active theme and unknown extensions remain plain.
-- [ ] Reviewed markers and counters persist, prune when files change, and never alter repository files.
-- [ ] Switching Files and Changes preserves the selected workspace and responsive layout.
-
+- [x] Files mode browses only the selected workspace and reads supported files safely.
+- [x] Syntax highlighting follows the active theme and unknown extensions remain plain.
+- [x] Reviewed markers and counters persist, prune when files change, and never alter repository files.
+- [x] Switching Files and Changes preserves the selected workspace and responsive layout.

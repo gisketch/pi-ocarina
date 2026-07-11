@@ -4,10 +4,9 @@
 
 **Blocked by:** 22 — Mentions and changes panel; 24 — Integrated terminal
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Opening or maximizing the terminal does not hide or corrupt the Changes surface.
-- [ ] Panel resizing has accessible controls, sensible minimums, and persisted dimensions.
-- [ ] Narrow windows avoid overlapping composer, terminal, and reviewer controls.
-- [ ] Layout restoration after restart produces a usable bounded configuration.
-
+- [x] Opening or maximizing the terminal does not hide or corrupt the Changes surface.
+- [x] Panel resizing has accessible controls, sensible minimums, and persisted dimensions.
+- [x] Narrow windows avoid overlapping composer, terminal, and reviewer controls.
+- [x] Layout restoration after restart produces a usable bounded configuration.

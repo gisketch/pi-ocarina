@@ -1,13 +1,14 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Composer } from "@/features/composer/composer";
+import { ChangesPanel } from "@/features/review/changes-panel";
 import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments } from "@/features/composer/attachments";
 import { MarkdownMessage } from "./markdown-message";
@@ -48,6 +49,13 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const threadMetadataRef = useRef(/** @type {Record<string, any>} */ ({}));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [changePath, setChangePath] = useState("");
+  useEffect(() => {
+    const openChanges = (/** @type {KeyboardEvent} */ event) => { if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "g") { event.preventDefault(); setChangesOpen(true); } };
+    window.addEventListener("keydown", openChanges);
+    return () => window.removeEventListener("keydown", openChanges);
+  }, []);
   const threadModel = thread?.model;
   const running = thread ? runningThreads.has(thread.threadId) : false;
   const activeModel = thread
@@ -383,7 +391,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 text-xs text-muted-foreground">No matching threads.</p>}
       </nav>
       <div className="min-w-0 space-y-3">
-      {thread && <div className="flex justify-end"><Button size="sm" variant="outline" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></div>}
+      <div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <Button size="sm" variant="outline" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button>}</div>
+      <ChangesPanel workspaceId={workspace.id} open={changesOpen} selectedPath={changePath} onClose={() => setChangesOpen(false)} />
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
@@ -395,7 +404,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         onPosition={rememberScroll}
       >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
-        {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} /> : (
+        {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} /> : (
           message.role === "user"
             ? <p key={`${message.role}-${index}`} className="ml-8 break-words rounded-md bg-muted p-2 text-sm">{message.text}</p>
             : <MarkdownMessage key={`${message.role}-${index}`} className="mr-8 p-2">{message.text ?? ""}</MarkdownMessage>
@@ -403,6 +412,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
       </TranscriptViewport>
       <Composer
+        workspaceId={workspace.id}
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
         attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(thread, running ? "running" : "idle", prompt, items); }} onAttachmentError={(message) => setError(message)}
         commands={thread?.commands} extensions={thread?.extensions} models={models} model={activeModel}
@@ -480,11 +490,12 @@ function preview(value) {
   return text.length > 4000 ? `${text.slice(0, 4000)}\n…` : text;
 }
 
-/** @param {{ tool: Message }} props */
-function ToolRow({ tool }) {
+/** @param {{ tool: Message, onOpenFile: (path: string) => void }} props */
+function ToolRow({ tool, onOpenFile }) {
   const content = preview(tool.output ?? tool.input);
+  const path = typeof tool.input === "object" && tool.input && "path" in tool.input && typeof tool.input.path === "string" ? tool.input.path : "";
   return <details className="rounded-md border bg-card px-3 py-2 text-sm" data-testid="tool-call">
-    <summary className="cursor-pointer font-medium">{tool.toolName ?? "Tool"} · {tool.status}</summary>
+    <summary className="cursor-pointer font-medium">{tool.toolName ?? "Tool"} · {tool.status}{path && <Button className="ml-2" size="sm" variant="ghost" onClick={(/** @type {React.MouseEvent} */ event) => { event.preventDefault(); event.stopPropagation(); onOpenFile(path); }}>Open in Changes</Button>}</summary>
     {content && <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-muted-foreground">{content}</pre>}
   </details>;
 }
