@@ -12,7 +12,7 @@ use app_state::{
 use serde::Serialize;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
-    Emitter, Manager, State, WebviewWindow,
+    Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
@@ -60,6 +60,18 @@ fn appearance_support() -> AppearanceSupport {
     AppearanceSupport {
         transparency: cfg!(target_os = "macos"),
     }
+}
+
+#[tauri::command]
+fn open_app_window(app: tauri::AppHandle) -> Result<String, String> {
+    let label = format!("window-{}", uuid::Uuid::new_v4());
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title("Pi Ocarina")
+        .inner_size(1080.0, 720.0)
+        .min_inner_size(720.0, 480.0)
+        .build()
+        .map_err(|error| format!("open app window: {error}"))?;
+    Ok(label)
 }
 
 #[tauri::command]
@@ -176,6 +188,7 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             appearance_support,
+            open_app_window,
             model_scope::model_selection,
             model_scope::set_model_scope,
             model_scope::set_model_preference,

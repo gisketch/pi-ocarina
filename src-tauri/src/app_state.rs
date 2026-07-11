@@ -117,10 +117,30 @@ impl AppState {
             .entry(window.into())
             .or_default()
             .workspace_views
-            .entry(workspace)
+            .entry(workspace.clone())
             .or_default();
-        if projection.revision >= current.revision {
-            *current = projection;
+        if projection.revision < current.revision {
+            return;
+        }
+        *current = projection.clone();
+        if let Some(thread_id) = projection.active_thread_id.as_ref() {
+            let draft = projection
+                .drafts
+                .get(thread_id)
+                .cloned()
+                .unwrap_or_default();
+            for (label, window_projection) in &mut self.windows {
+                if label == window {
+                    continue;
+                }
+                let Some(view) = window_projection.workspace_views.get_mut(&workspace) else {
+                    continue;
+                };
+                if view.active_thread_id.as_ref() == Some(thread_id) {
+                    view.drafts.insert(thread_id.clone(), draft.clone());
+                    view.draft = draft.clone();
+                }
+            }
         }
     }
 }
@@ -325,6 +345,45 @@ mod tests {
         assert_eq!(
             store.snapshot().windows["main"].workspace_views["workspace-1"].draft,
             "new"
+        );
+    }
+
+    #[test]
+    fn mirrors_same_thread_draft_without_changing_window_selection() {
+        let mut state = AppState::default();
+        for label in ["main", "second"] {
+            state
+                .windows
+                .entry(label.into())
+                .or_default()
+                .workspace_views
+                .insert(
+                    "one".into(),
+                    WorkspaceView {
+                        active_thread_id: Some("thread-a".into()),
+                        drafts: BTreeMap::from([("thread-a".into(), String::new())]),
+                        ..Default::default()
+                    },
+                );
+        }
+        state.windows.get_mut("second").unwrap().workspace_id = Some("two".into());
+
+        state.set_workspace_view(
+            "main",
+            "one".into(),
+            WorkspaceView {
+                active_thread_id: Some("thread-a".into()),
+                draft: "shared".into(),
+                drafts: BTreeMap::from([("thread-a".into(), "shared".into())]),
+                revision: 1,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(state.windows["second"].workspace_id.as_deref(), Some("two"));
+        assert_eq!(
+            state.windows["second"].workspace_views["one"].draft,
+            "shared"
         );
     }
 
