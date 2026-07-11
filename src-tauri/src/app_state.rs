@@ -70,9 +70,18 @@ pub struct WorkspaceView {
     pub session_file: Option<String>,
     pub draft: String,
     pub drafts: BTreeMap<String, String>,
+    pub draft_attachments: BTreeMap<String, Vec<DraftAttachment>>,
     pub run_status: String,
     pub revision: u64,
     pub scroll_positions: BTreeMap<String, f64>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct DraftAttachment {
+    pub path: PathBuf,
+    pub name: String,
+    pub size: u64,
+    pub kind: String,
 }
 
 impl AppState {

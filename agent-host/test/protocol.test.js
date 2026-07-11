@@ -5,7 +5,56 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { serve } from "../src/host.js";
+import { preparePrompt, serve } from "../src/host.js";
+
+test("attachments become Pi image content and file context", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-attachments-"));
+  try {
+    const image = join(root, "tiny.png");
+    const file = join(root, "notes.txt");
+    await import("node:fs/promises").then(({ writeFile }) => Promise.all([writeFile(image, "image"), writeFile(file, "notes")]));
+    const prepared = await preparePrompt("review", [
+      { path: image, name: "tiny.png", kind: "image" },
+      { path: file, name: "notes.txt", kind: "file" },
+    ]);
+    assert.equal(prepared.images[0].mimeType, "image/png");
+    assert.match(prepared.text, /notes\.txt/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("two Pi sessions run concurrently without event bleed", async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const events = [];
+  let count = 0;
+  const sessions = [];
+  const createSession = async () => {
+    const listeners = new Set();
+    const id = `parallel-${++count}`;
+    const session = {
+      sessionId: id, messages: [], model: null, thinkingLevel: "off",
+      getAvailableThinkingLevels: () => ["off"],
+      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+      prompt: () => new Promise((resolve) => { session.finish = () => { listeners.forEach((listener) => listener({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: id } })); resolve(); }; }),
+      async abort() { session.finish?.(); }, dispose() {},
+    };
+    sessions.push(session);
+    return { session };
+  };
+  serve(input, output, createSession, () => ({ authStorage: {}, modelRegistry: {}, model: {} }));
+  output.on("data", (chunk) => events.push(...chunk.toString().trim().split("\n").map(JSON.parse)));
+  const send = (requestId, operation, payload) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
+  send("create-a", "createThread", { cwd: "/tmp", provider: "x", modelId: "x" });
+  send("create-b", "createThread", { cwd: "/tmp", provider: "x", modelId: "x" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  send("run-a", "promptThread", { threadId: "parallel-1", prompt: "a" });
+  send("run-b", "promptThread", { threadId: "parallel-2", prompt: "b" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  sessions[1].finish(); sessions[0].finish();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(events.find(({ requestId, type }) => requestId === "run-a" && type === "messageDelta").payload.threadId, "parallel-1");
+  assert.equal(events.find(({ requestId, type }) => requestId === "run-b" && type === "messageDelta").payload.threadId, "parallel-2");
+});
 
 test("JSONL bridge validates, interleaves requests, and cancels once", async () => {
   const input = new PassThrough();
@@ -101,6 +150,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
         persisted.push({ role: "assistant", content: [{ type: "text", text: "hello" }] });
       },
       async abort() {},
+      async steer(text) { this.steering = [...(this.steering ?? []), text]; },
+      async followUp(text) { this.followUps = [...(this.followUps ?? []), text]; },
+      clearQueue() { this.steering = []; this.followUps = []; return { steering: [], followUp: [] }; },
       dispose() {},
       extensionRunner: {
         setUIContext(value) { ui = value; },
@@ -128,6 +180,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   send("prompt", "promptThread", { threadId: "thread-1", prompt: "hi" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   send("second-writer", "promptThread", { threadId: "thread-1", prompt: "race" });
+  send("queue", "queueThread", { threadId: "thread-1", prompt: "later", mode: "followUp" });
+  send("steer", "queueThread", { threadId: "thread-1", prompt: "now", mode: "steer" });
   await new Promise((resolve) => setTimeout(resolve, 5));
   const runtimePrompt = events.find(({ requestId, type }) => requestId === "prompt" && type === "runtimePrompt");
   send("resolve", "resolveRuntimePrompt", { threadId: "thread-1", promptId: runtimePrompt.payload.promptId, value: "secret" });
@@ -152,6 +206,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.equal(events.find(({ requestId, type }) => requestId === "prompt" && type === "editorText").payload.threadId, "thread-1");
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
   assert.match(events.find(({ requestId, type }) => requestId === "second-writer" && type === "failed").payload.message, /already active/);
+  assert.equal(events.find(({ requestId, type }) => requestId === "queue" && type === "completed").payload.items[0].mode, "followUp");
+  assert.equal(events.find(({ requestId, type }) => requestId === "steer" && type === "completed").payload.items[1].mode, "steer");
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "open" && type === "completed").payload.messages, [
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },

@@ -4,10 +4,9 @@
 
 **Blocked by:** 10 — Restart and running-session recovery; 15 — Queue and steer active runs
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] At least two sessions stream concurrently with isolated transcripts and status.
-- [ ] Switching among running sessions stays responsive and does not pause background work.
-- [ ] Stop, queue, steer, dialogs, and failures target only the intended session.
-- [ ] Completion ordering cannot overwrite newer selected-thread state.
-
+- [x] At least two sessions stream concurrently with isolated transcripts and status.
+- [x] Switching among running sessions stays responsive and does not pause background work.
+- [x] Stop, queue, steer, dialogs, and failures target only the intended session.
+- [x] Completion ordering cannot overwrite newer selected-thread state.

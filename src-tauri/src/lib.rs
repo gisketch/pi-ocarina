@@ -1,5 +1,6 @@
 pub mod agent_host;
 pub mod app_state;
+pub mod attachment;
 pub mod terminal;
 pub mod workspace;
 pub mod worktree;
@@ -176,6 +177,8 @@ pub fn run() {
             appearance_support,
             set_window_projection,
             set_workspace_projection,
+            attachment::prepare_attachments,
+            attachment::import_attachment,
             open_external_url,
             terminal::open_terminal,
             terminal::write_terminal,

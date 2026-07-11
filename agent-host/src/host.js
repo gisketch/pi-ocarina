@@ -36,6 +36,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
   const sessions = new Map();
   const runningThreads = new Set();
   const prompts = new Map();
+  const threadQueues = new Map();
   const leases = new Map();
   const baselines = new Map();
   const heartbeat = setInterval(() => {
@@ -80,7 +81,10 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "refreshThread") result = await refreshThread(payload, createSession, listSessions, sessions, runningThreads, leases, baselines);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
-      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, (type, event) => send(requestId, type, event));
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, runningThreads, prompts, threadQueues, (type, event) => send(requestId, type, event));
+      else if (operation === "queueThread") result = await queueThread(payload, sessions, runningThreads, threadQueues);
+      else if (operation === "replaceThreadQueue") result = await replaceThreadQueue(payload, sessions, runningThreads, threadQueues);
+      else if (operation === "threadQueue") result = { items: threadQueues.get(payload.threadId) ?? [] };
       else if (operation === "setThreadModel") result = await setThreadModel(payload, sessions, resolveModel);
       else if (operation === "setThreadThinking") result = setThreadThinking(payload, sessions);
       else if (operation === "generateThreadTitle") result = await autoNameThread(payload, sessions, generateTitle, controller.signal);
@@ -252,8 +256,8 @@ async function fileMtime(path) {
   try { return (await stat(path)).mtimeMs; } catch { return undefined; }
 }
 
-async function promptThread({ threadId, prompt } = {}, signal, sessions, runningThreads, prompts, publish) {
-  if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Prompt is required");
+async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, queues, publish) {
+  if ((typeof prompt !== "string") || (!prompt.trim() && !attachments.length)) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
   if (runningThreads.has(threadId)) throw new Error("Session is already active");
@@ -264,14 +268,59 @@ async function promptThread({ threadId, prompt } = {}, signal, sessions, running
   signal.addEventListener("abort", abort, { once: true });
   runningThreads.add(threadId);
   try {
-    await session.prompt(prompt.trim());
+    const prepared = await preparePrompt(prompt, attachments);
+    await session.prompt(prepared.text, { images: prepared.images });
     return threadSnapshot(session);
   } finally {
     signal.removeEventListener("abort", abort);
     runningThreads.delete(threadId);
+    queues.delete(threadId);
     cancelThreadPrompts(threadId, prompts);
     unsubscribe();
   }
+}
+
+async function queueThread({ threadId, prompt = "", attachments = [], mode = "followUp" } = {}, sessions, runningThreads, queues) {
+  const session = sessions.get(threadId);
+  if (!session || !runningThreads.has(threadId)) throw new Error("Session is not active");
+  if (!['steer', 'followUp'].includes(mode)) throw new Error("Invalid queue mode");
+  const prepared = await preparePrompt(prompt, attachments);
+  await session[mode](prepared.text, prepared.images);
+  const item = { id: crypto.randomUUID(), mode, prompt, attachments };
+  const items = [...(queues.get(threadId) ?? []), item];
+  queues.set(threadId, items);
+  return { items };
+}
+
+async function replaceThreadQueue({ threadId, items = [] } = {}, sessions, runningThreads, queues) {
+  const session = sessions.get(threadId);
+  if (!session || !runningThreads.has(threadId)) throw new Error("Session is not active");
+  if (!Array.isArray(items)) throw new Error("Invalid queue");
+  session.clearQueue();
+  for (const item of items) {
+    if (!item || !["steer", "followUp"].includes(item.mode)) throw new Error("Invalid queue mode");
+    const prepared = await preparePrompt(item.prompt, item.attachments ?? []);
+    await session[item.mode](prepared.text, prepared.images);
+  }
+  queues.set(threadId, items);
+  return { items };
+}
+
+export async function preparePrompt(prompt, attachments) {
+  if (!Array.isArray(attachments) || attachments.length > 20) throw new Error("Invalid attachments");
+  const images = [];
+  const files = [];
+  for (const item of attachments) {
+    if (!item || typeof item.path !== "string" || typeof item.name !== "string") throw new Error("Invalid attachment");
+    const info = await stat(item.path);
+    if (!info.isFile() || info.size > 25 * 1024 * 1024) throw new Error("Invalid attachment");
+    const extension = item.path.split(".").at(-1)?.toLowerCase();
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension)) {
+      const mimeType = extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension}`;
+      images.push({ type: "image", data: (await readFile(item.path)).toString("base64"), mimeType });
+    } else files.push(`Attached file available to tools: ${item.path}`);
+  }
+  return { text: [prompt.trim(), ...files].filter(Boolean).join("\n\n") || "Review the attached image.", images };
 }
 
 function watchThread({ threadId } = {}, signal, sessions, publish) {
