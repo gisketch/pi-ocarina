@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppearanceControls } from "@/features/appearance/appearance-controls";
 import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 export function App() {
@@ -44,6 +45,7 @@ export function App() {
           <CardTitle className="text-4xl tracking-tight">Pi Ocarina</CardTitle>
           <CardDescription>A maintainable Tauri home for the Pi coding agent.</CardDescription>
           <AppearanceControls onSidebarChange={syncSidebar} />
+          <Button className="w-fit" variant="outline" onClick={() => void invoke("open_app_window")}>New Window</Button>
         </CardHeader>
         <CardContent className={sidebarVisible ? "grid gap-4 md:grid-cols-[minmax(14rem,18rem)_1fr]" : "block"}>
           {sidebarVisible && <aside className="min-w-0 border-b pb-4 md:border-r md:border-b-0 md:pr-4"><WorkspaceCatalog /></aside>}

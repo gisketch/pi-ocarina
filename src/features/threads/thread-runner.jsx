@@ -1,6 +1,7 @@
 // @ts-check
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,6 +26,7 @@ import { movePinned, organizeThreads, togglePinned } from "./thread-organization
 
 /** @param {{ workspace: { id: string, path: string }, models: Array<{ provider: string, id: string, name: string }>, model: { provider: string, id: string, name?: string } | null, onModelChange: (model: any) => void }} props */
 export function ThreadRunner({ workspace, models, model, onModelChange }) {
+  const windowLabel = getCurrentWindow().label;
   const [thread, setThread] = useState(/** @type {Thread | null} */ (null));
   const [threads, setThreads] = useState(/** @type {ThreadSummary[]} */ ([]));
   const [prompt, setPrompt] = useState("");
@@ -74,7 +76,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     /** @type {string | undefined} */
     let watchId;
     void invoke("app_state_snapshot").then(async ({ state }) => {
-      const legacy = state.windows?.main;
+      const legacy = state.windows?.[windowLabel];
       const saved = legacy?.workspace_views?.[workspace.id] ?? (legacy?.workspace_id === workspace.id ? legacy : null);
       const available = /** @type {ThreadSummary[]} */ (await request("listThreads", { cwd: workspace.path }));
       setThreads(available);
@@ -107,6 +109,31 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     }).catch((cause) => setError(String(cause)));
     return () => { if (watchId) void request("cancel", { requestId: watchId }).catch(() => {}); };
   }, [workspace.id, workspace.path]);
+
+  useEffect(() => {
+    let stop = () => {};
+    void listen("app-state://changed", ({ payload: state }) => {
+      const saved = state.windows?.[windowLabel]?.workspace_views?.[workspace.id];
+      const threadId = selectedThreadRef.current;
+      if (!threadId || saved?.active_thread_id !== threadId) return;
+      const draft = saved.drafts?.[threadId] ?? saved.draft ?? "";
+      setPrompt((current) => current === draft ? current : draft);
+    }).then((unlisten) => { stop = unlisten; });
+    return () => stop();
+  }, [windowLabel, workspace.id]);
+
+  useEffect(() => {
+    let stop = () => {};
+    void getCurrentWindow().onCloseRequested(async (event) => {
+      if (runtimePromptsRef.current.size === 0) return;
+      event.preventDefault();
+      await Promise.all([...runtimePromptsRef.current.values()].map((item) => request("resolveRuntimePrompt", {
+        promptId: item.promptId, threadId: item.threadId, cancelled: true,
+      }).catch(() => {})));
+      await getCurrentWindow().destroy();
+    }).then((unlisten) => { stop = unlisten; });
+    return () => stop();
+  }, []);
 
   useEffect(() => {
     if (!thread || running) return;

@@ -18,10 +18,11 @@
 | Rust tests | `bun run rust:test` | After Rust behavior changes |
 | Real macOS desktop smoke | `bun run test:e2e` | After shell, Tauri, or E2E harness changes |
 | Agent host contract | `bun run test:agent-host` | After bundled runtime, Pi adapter, or bridge changes |
+| Local macOS package | `bun run package:macos && bun run test:packaged` | After release-resource or packaging changes |
 
 ## Planned Stack Checks
 
-Add release packaging checks when Ticket 42 makes `bun run tauri build` a supported artifact path.
+The supported local artifact is the unsigned `.app` produced by `bun run package:macos`.
 
 ## Quality Bar
 

@@ -1,11 +1,12 @@
 use crate::app_state::{AppState, AppStateStore, Workspace};
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
 use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 pub fn add_workspace(
     app: AppHandle,
+    window: WebviewWindow,
     store: State<'_, AppStateStore>,
     path: PathBuf,
 ) -> Result<AppState, String> {
@@ -21,7 +22,11 @@ pub fn add_workspace(
                 branch: None,
             });
         }
-        state.selected_workspace = Some(id);
+        state
+            .windows
+            .entry(window.label().into())
+            .or_default()
+            .workspace_id = Some(id);
     })?;
     app.emit("app-state://changed", &snapshot)
         .map_err(|error| format!("broadcast workspace state: {error}"))?;
@@ -133,11 +138,17 @@ fn remove(state: &mut AppState, workspace_id: &str) -> Result<(), String> {
         .position(|workspace| workspace.id == workspace_id)
         .ok_or("workspace is not in the catalog")?;
     state.workspaces.remove(index);
+    let fallback = state
+        .workspaces
+        .get(index.min(state.workspaces.len().saturating_sub(1)))
+        .map(|workspace| workspace.id.clone());
     if state.selected_workspace.as_deref() == Some(workspace_id) {
-        state.selected_workspace = state
-            .workspaces
-            .get(index.min(state.workspaces.len().saturating_sub(1)))
-            .map(|workspace| workspace.id.clone());
+        state.selected_workspace = fallback.clone();
+    }
+    for window in state.windows.values_mut() {
+        if window.workspace_id.as_deref() == Some(workspace_id) {
+            window.workspace_id = fallback.clone();
+        }
     }
     Ok(())
 }
@@ -150,6 +161,7 @@ fn emit(app: &AppHandle, snapshot: &AppState) -> Result<(), String> {
 #[tauri::command]
 pub fn select_workspace(
     app: AppHandle,
+    window: WebviewWindow,
     store: State<'_, AppStateStore>,
     workspace_id: String,
 ) -> Result<AppState, String> {
@@ -161,7 +173,13 @@ pub fn select_workspace(
     {
         return Err("workspace is not in the catalog".into());
     }
-    let snapshot = store.update(|state| state.selected_workspace = Some(workspace_id))?;
+    let snapshot = store.update(|state| {
+        state
+            .windows
+            .entry(window.label().into())
+            .or_default()
+            .workspace_id = Some(workspace_id);
+    })?;
     app.emit("app-state://changed", &snapshot)
         .map_err(|error| format!("broadcast workspace state: {error}"))?;
     Ok(snapshot)

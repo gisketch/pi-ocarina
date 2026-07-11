@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ArrowDownIcon, ArrowUpIcon, FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -18,12 +19,13 @@ import {
 import { Input } from "@/shared/ui/input";
 
 /** @typedef {{ id: string, path: string, name?: string | null, root_workspace_id?: string | null, branch?: string | null }} Workspace */
-/** @typedef {{ workspaces: Workspace[], selected_workspace: string | null }} WorkspaceState */
+/** @typedef {{ workspaces: Workspace[], selected_workspace: string | null, windows?: Record<string, {workspace_id?: string | null}> }} WorkspaceState */
 
 const emptyState = /** @type {WorkspaceState} */ ({ workspaces: [], selected_workspace: null });
 const folderName = (/** @type {Workspace} */ workspace) => workspace.path.split("/").filter(Boolean).at(-1) ?? workspace.path;
 
 export function WorkspaceCatalog() {
+  const windowLabel = getCurrentWindow().label;
   const [state, setState] = useState(emptyState);
   const [model, setModel] = useState(/** @type {{provider: string, id: string} | null} */ (null));
   const [error, setError] = useState("");
@@ -97,7 +99,8 @@ export function WorkspaceCatalog() {
     );
   }
 
-  const selected = state.workspaces.find(({ id }) => id === state.selected_workspace) ?? null;
+  const selectedWorkspace = state.windows?.[windowLabel]?.workspace_id ?? null;
+  const selected = state.workspaces.find(({ id }) => id === selectedWorkspace) ?? null;
 
   return (
     <div className="space-y-3">
@@ -106,7 +109,7 @@ export function WorkspaceCatalog() {
           <div className="flex items-center gap-2" key={workspace.id}>
             <Button
               className="min-w-0 flex-1 justify-start"
-              variant={workspace.id === state.selected_workspace ? "default" : "outline"}
+              variant={workspace.id === selectedWorkspace ? "default" : "outline"}
               onClick={() => void run("select_workspace", { workspaceId: workspace.id })}
             >
               {workspace.root_workspace_id && <FolderGit2Icon aria-label="Worktree" />}
@@ -145,7 +148,7 @@ export function WorkspaceCatalog() {
       <Button variant="outline" onClick={openWorkspace}><FolderOpenIcon />Open another folder</Button>
       <ModelCatalog onModelChange={setModel} workspace={selected} />
       {selected && <ThreadRunner workspace={selected} models={[]} model={model} onModelChange={setModel} />}
-      {state.selected_workspace && <TerminalPanel workspaceId={state.selected_workspace} />}
+      {selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(/** @type {boolean} */ open) => !open && setRenameTarget(null)}>

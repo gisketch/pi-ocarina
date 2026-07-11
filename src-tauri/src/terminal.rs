@@ -10,7 +10,7 @@ use std::{
         Mutex,
     },
 };
-use tauri::{Emitter, State};
+use tauri::{Emitter, State, WebviewWindow};
 
 struct Terminal {
     writer: Box<dyn Write + Send>,
@@ -67,6 +67,7 @@ pub fn set_terminal_shell(
 #[tauri::command]
 pub fn open_terminal(
     app: tauri::AppHandle,
+    window: WebviewWindow,
     store: State<'_, AppStateStore>,
     terminals: State<'_, TerminalState>,
     workspace_id: String,
@@ -126,13 +127,15 @@ pub fn open_terminal(
         );
 
     let terminal_id = id.clone();
+    let window_label = window.label().to_string();
     std::thread::spawn(move || {
         let mut buffer = [0_u8; 8192];
         loop {
             match std::io::Read::read(&mut reader, &mut buffer) {
                 Ok(0) => break,
                 Ok(count) => {
-                    let _ = app.emit(
+                    let _ = app.emit_to(
+                        &window_label,
                         "terminal://output",
                         TerminalEvent {
                             terminal_id: terminal_id.clone(),
@@ -142,7 +145,8 @@ pub fn open_terminal(
                     );
                 }
                 Err(error) => {
-                    let _ = app.emit(
+                    let _ = app.emit_to(
+                        &window_label,
                         "terminal://error",
                         TerminalEvent {
                             terminal_id: terminal_id.clone(),
@@ -154,7 +158,8 @@ pub fn open_terminal(
                 }
             }
         }
-        let _ = app.emit(
+        let _ = app.emit_to(
+            &window_label,
             "terminal://closed",
             TerminalEvent {
                 terminal_id,
