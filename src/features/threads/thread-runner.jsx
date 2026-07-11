@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { MarkdownMessage } from "./markdown-message";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, messages: Message[] }} Thread */
@@ -119,9 +120,11 @@ export function ThreadRunner({ workspace, model }) {
     <section className="space-y-3 border-t pt-4" aria-label="Thread">
       <div className="max-h-64 space-y-2 overflow-y-auto" data-testid="timeline">
         {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} /> : (
-          <p key={`${message.role}-${index}`} className={message.role === "user" ? "ml-8 rounded-md bg-muted p-2 text-sm" : "mr-8 p-2 text-sm"}>{message.text}</p>
+          message.role === "user"
+            ? <p key={`${message.role}-${index}`} className="ml-8 break-words rounded-md bg-muted p-2 text-sm">{message.text}</p>
+            : <MarkdownMessage key={`${message.role}-${index}`} className="mr-8 p-2">{message.text ?? ""}</MarkdownMessage>
         ))}
-        {stream && <p className="mr-8 p-2 text-sm" data-testid="streaming-response">{stream}</p>}
+        {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
       </div>
       <form className="flex gap-2" onSubmit={submit}>
         <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setPrompt(event.target.value)} onBlur={() => void saveProjection()} />

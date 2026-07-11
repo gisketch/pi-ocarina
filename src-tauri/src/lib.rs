@@ -8,6 +8,8 @@ use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     Emitter, Manager, State, WebviewWindow,
 };
+use tauri_plugin_opener::OpenerExt;
+use url::Url;
 
 #[derive(Serialize)]
 struct AppStateSnapshot {
@@ -47,6 +49,38 @@ fn set_window_projection(
     })
 }
 
+#[tauri::command]
+fn open_external_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let url = validate_external_url(&url)?;
+    app.opener()
+        .open_url(url.as_str(), None::<&str>)
+        .map_err(|error| format!("open external URL: {error}"))
+}
+
+fn validate_external_url(value: &str) -> Result<Url, String> {
+    let scheme_len = if value
+        .get(..7)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("http://"))
+    {
+        7
+    } else if value
+        .get(..8)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+    {
+        8
+    } else {
+        return Err("only HTTP and HTTPS links are supported".into());
+    };
+    if value[scheme_len..].starts_with('/') || value.chars().any(char::is_whitespace) {
+        return Err("invalid external URL".into());
+    }
+    let url = Url::parse(value).map_err(|_| "invalid external URL".to_string())?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err("only HTTP and HTTPS links are supported".into());
+    }
+    Ok(url)
+}
+
 fn update_and_emit(
     app: &tauri::AppHandle,
     store: &AppStateStore,
@@ -61,6 +95,7 @@ fn update_and_emit(
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(agent_host::AgentHostState::default())
         .setup(|app| {
             let state_path = app.path().app_data_dir()?.join("app-state.json");
@@ -94,6 +129,7 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             set_window_projection,
+            open_external_url,
             workspace::add_workspace,
             workspace::select_workspace
         ]);
@@ -106,4 +142,28 @@ pub fn run() {
     builder
         .run(tauri::generate_context!())
         .expect("error while running Pi Ocarina");
+}
+
+#[cfg(test)]
+mod external_url_tests {
+    use super::validate_external_url;
+
+    #[test]
+    fn accepts_only_absolute_web_urls() {
+        assert!(validate_external_url("https://example.com/docs?q=1").is_ok());
+        assert!(validate_external_url("http://localhost:3000").is_ok());
+        for unsafe_url in [
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "mailto:a@b.test",
+            "/relative",
+            "not a url",
+            "https:///missing-host",
+        ] {
+            assert!(
+                validate_external_url(unsafe_url).is_err(),
+                "accepted {unsafe_url}"
+            );
+        }
+    }
 }
