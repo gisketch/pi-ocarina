@@ -58,7 +58,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
       else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions);
       else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions);
-      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, (delta) => send(requestId, "messageDelta", delta));
+      else if (operation === "promptThread") result = await promptThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
       else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "saveProviderCredential") result = saveProviderCredential(payload);
@@ -135,7 +135,13 @@ async function promptThread({ threadId, prompt } = {}, signal, sessions, publish
   if (!session) throw new Error("Thread is not open");
   const unsubscribe = session.subscribe((event) => {
     if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-      publish({ threadId, delta: event.assistantMessageEvent.delta });
+      publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
+    } else if (event.type === "tool_execution_start") {
+      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
+    } else if (event.type === "tool_execution_update") {
+      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
+    } else if (event.type === "tool_execution_end") {
+      publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
     }
   });
   const abort = () => session.abort();
@@ -153,8 +159,19 @@ function threadSnapshot(session) {
   return {
     threadId: session.sessionId,
     sessionFile: session.sessionFile,
-    messages: session.messages.map(({ role, content }) => ({ role, text: messageText(content) })).filter(({ text }) => text),
+    messages: session.messages.flatMap(({ role, content }) => transcriptItems(role, content)),
   };
+}
+
+function transcriptItems(role, content) {
+  const text = messageText(content);
+  const items = text ? [{ role, text }] : [];
+  if (!Array.isArray(content)) return items;
+  for (const part of content) {
+    if (part?.type === "toolCall") items.push({ role: "tool", toolCallId: part.id, toolName: part.name, status: "running", input: part.arguments });
+    if (part?.type === "toolResult") items.push({ role: "tool", toolCallId: part.toolCallId, toolName: part.toolName, status: part.isError ? "failed" : "completed", output: part.content });
+  }
+  return items;
 }
 
 function messageText(content) {

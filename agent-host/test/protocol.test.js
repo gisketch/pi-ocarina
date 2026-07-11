@@ -77,6 +77,9 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text) {
         persisted.push({ role: "user", content: text });
+        listeners.forEach((listener) => listener({ type: "tool_execution_start", toolCallId: "call-1", toolName: "read", args: { path: "README.md" } }));
+        listeners.forEach((listener) => listener({ type: "tool_execution_update", toolCallId: "call-1", toolName: "read", partialResult: "partial" }));
+        listeners.forEach((listener) => listener({ type: "tool_execution_end", toolCallId: "call-1", toolName: "read", result: "done", isError: false }));
         for (const delta of ["hel", "lo"]) {
           listeners.forEach((listener) => listener({
             type: "message_update",
@@ -107,6 +110,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   await new Promise((resolve) => setTimeout(resolve, 5));
 
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
+  assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
   assert.deepEqual(events.find(({ requestId, type }) => requestId === "open" && type === "completed").payload.messages, [
     { role: "user", text: "hi" },
     { role: "assistant", text: "hello" },
