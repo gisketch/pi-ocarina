@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 
 import { ThreadRunner } from "@/features/threads/thread-runner";
+import { CustomEndpoints } from "@/features/models/custom-endpoints";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
@@ -11,7 +12,7 @@ import { Input } from "@/shared/ui/input";
 
 /** @typedef {{ id: string, name: string, configured: boolean, source?: string, label?: string }} Provider */
 /** @typedef {{ provider: string, id: string, name: string, available: boolean }} Model */
-/** @typedef {{ providers: Provider[], models: Model[], errors: string[] }} Catalog */
+/** @typedef {{ providers: Provider[], models: Model[], customEndpoints?: Array<{ id: string, name: string, baseUrl: string, credentialReference: string, models: Array<{id: string, name: string}> }>, errors: string[] }} Catalog */
 
 /** @typedef {{ id: string, path: string }} Workspace */
 /** @param {{ workspace: Workspace | null }} props */
@@ -127,6 +128,11 @@ export function ModelCatalog({ workspace }) {
           );
         })}
       </div>
+      <CustomEndpoints
+        endpoints={catalog.customEndpoints ?? []}
+        onCatalog={(next) => setCatalog(/** @type {Catalog} */ (next))}
+        onError={(message) => setCatalog((current) => ({ ...current, errors: [message] }))}
+      />
       {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
       {model && <ThreadRunner key={`${workspace.id}/${model.provider}/${model.id}`} workspace={workspace} model={model} />}
     </div>

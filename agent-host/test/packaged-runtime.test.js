@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { inspectRuntime, loadModelCatalog, saveProviderCredential } from "../src/host.js";
+import { deleteCustomEndpoint, inspectRuntime, loadModelCatalog, saveCustomEndpoint, saveProviderCredential } from "../src/host.js";
 
 test("pinned runtime imports upstream Pi and discovers a workspace extension", async () => {
   assert.match(process.versions.node, /^20\./);
@@ -77,4 +77,24 @@ test("credentials use Pi storage while external providers remain read-only", asy
     if (prior === undefined) delete process.env.ANTHROPIC_API_KEY;
     else process.env.ANTHROPIC_API_KEY = prior;
   }
+});
+
+test("custom endpoints validate ownership and preserve unrelated providers", async () => {
+  const agentDir = await mkdtemp(join(tmpdir(), "pi-ocarina-endpoints-"));
+  await writeFile(join(agentDir, "models.json"), JSON.stringify({
+    providers: { legacy: { baseUrl: "https://legacy.example/v1", api: "openai-completions", apiKey: "LEGACY_KEY", models: [{ id: "legacy" }] } },
+  }));
+  const endpoint = {
+    id: "team-proxy", name: "Team Proxy", baseUrl: "https://proxy.example/v1/",
+    credentialReference: "TEAM_PROXY_KEY", models: [{ id: "code-model", name: "Code Model" }],
+  };
+  let catalog = await saveCustomEndpoint(endpoint, agentDir);
+  assert.deepEqual(catalog.customEndpoints.map(({ id }) => id), ["team-proxy"]);
+  assert.equal(JSON.stringify(catalog).includes("TEAM_PROXY_KEY"), true);
+  await assert.rejects(() => saveCustomEndpoint({ ...endpoint, id: "legacy" }, agentDir), /already in use/);
+  await assert.rejects(() => saveCustomEndpoint({ ...endpoint, id: "remote-http", baseUrl: "http://example.com/v1" }, agentDir), /HTTPS/);
+  await assert.rejects(() => deleteCustomEndpoint({ id: "legacy" }, agentDir), /not managed/);
+  catalog = await deleteCustomEndpoint({ id: "team-proxy" }, agentDir);
+  assert.deepEqual(catalog.customEndpoints, []);
+  assert.equal(catalog.providers.some(({ id }) => id === "legacy"), true);
 });
