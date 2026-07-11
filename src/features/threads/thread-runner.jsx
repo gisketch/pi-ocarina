@@ -139,6 +139,7 @@ export function ThreadRunner({ workspace, model }) {
     } });
   }
 
+  /** @param {ThreadSummary} item */
   async function selectThread(item) {
     if (item.threadId === thread?.threadId) return;
     await saveProjection();
