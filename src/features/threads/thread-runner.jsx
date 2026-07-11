@@ -9,6 +9,7 @@ import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Composer } from "@/features/composer/composer";
 import { parseComposerControl } from "@/features/composer/commands";
+import { importAttachments } from "@/features/composer/attachments";
 import { MarkdownMessage } from "./markdown-message";
 import { TranscriptViewport } from "./transcript-viewport";
 
@@ -21,6 +22,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [thread, setThread] = useState(/** @type {Thread | null} */ (null));
   const [threads, setThreads] = useState(/** @type {ThreadSummary[]} */ ([]));
   const [prompt, setPrompt] = useState("");
+  const [attachments, setAttachments] = useState(/** @type {Array<any>} */ ([]));
   const [stream, setStream] = useState("");
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
@@ -32,6 +34,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   const [renameValue, setRenameValue] = useState("");
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
+  const draftAttachmentsRef = useRef(/** @type {Record<string, Array<any>>} */ ({}));
   const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
   const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
@@ -51,8 +54,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       if (!saved) return;
       revision.current = saved.revision ?? 0;
       draftsRef.current = saved.drafts ?? {};
+      draftAttachmentsRef.current = saved.draft_attachments ?? (saved.attachments ? { [saved.active_thread_id ?? "new"]: saved.attachments } : {});
       scrollPositionsRef.current = saved.scroll_positions ?? {};
       setPrompt(saved.drafts?.[saved.active_thread_id ?? "new"] ?? saved.draft ?? "");
+      setAttachments(draftAttachmentsRef.current[saved.active_thread_id ?? "new"] ?? []);
       if (!saved.active_thread_id || !saved.session_file) return;
       const recovered = /** @type {Thread & { runStatus?: string }} */ (await request("recoverThread", {
         cwd: workspace.path, threadId: saved.active_thread_id, sessionFile: saved.session_file,
@@ -97,7 +102,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   });
 
   async function submit() {
-    if (!prompt.trim() || running) return;
+    if ((!prompt.trim() && !attachments.length) || running) return;
     const control = parseComposerControl(prompt);
     if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); return; }
     if (control?.type === "model") {
@@ -117,8 +122,9 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         thinkingLevel: newThinking,
       }));
       const text = prompt;
+      const submittedAttachments = attachments;
       setPrompt("");
-      setThread({ ...active, messages: [...active.messages, { role: "user", text }] });
+      setThread({ ...active, messages: [...active.messages, { role: "user", text: text || submittedAttachments.map((item) => item.name).join(", ") }] });
       if (!thread) {
         setThreads((items) => [{ threadId: active.threadId, sessionFile: active.sessionFile, title: "New thread", messageCount: 1 }, ...items]);
         void request("generateThreadTitle", { threadId: active.threadId, prompt: text }).then((result) => {
@@ -130,7 +136,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       void saveProjection(active, "running", "");
       const activeRunId = crypto.randomUUID();
       setRunId(activeRunId);
-      const completed = /** @type {Thread} */ (await request("promptThread", { threadId: active.threadId, prompt: text }, (event) => {
+      const completed = /** @type {Thread} */ (await request("promptThread", { threadId: active.threadId, prompt: text, attachments: submittedAttachments }, (event) => {
         if (event.type === "messageDelta") setStream((value) => value + event.payload.delta);
         if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
         if (event.type === "editorText" && event.payload.threadId === active.threadId) {
@@ -144,6 +150,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
         if (event.type === "runtimeNotice" && event.payload.type === "error") setError(event.payload.message);
       }, activeRunId));
       setThread(completed);
+      setAttachments([]);
+      draftAttachmentsRef.current[active.threadId] = [];
       void saveProjection(completed, "idle", "");
       setStream("");
     } catch (cause) {
@@ -175,10 +183,13 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
     const key = active?.threadId ?? "new";
     const nextDrafts = { ...draftsRef.current, [key]: draft };
     draftsRef.current = nextDrafts;
+    const nextAttachments = { ...draftAttachmentsRef.current, [key]: attachments };
+    draftAttachmentsRef.current = nextAttachments;
     const nextRevision = ++revision.current;
     return invoke("set_workspace_projection", { workspaceId: workspace.id, projection: {
       active_thread_id: active?.threadId ?? null, session_file: active?.sessionFile ?? null,
       draft, drafts: nextDrafts, run_status: status, revision: nextRevision,
+      draft_attachments: nextAttachments,
       scroll_positions: scrollPositionsRef.current,
     } });
   }
@@ -192,13 +203,14 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       const opened = /** @type {Thread} */ (await request("openThread", { cwd: workspace.path, sessionFile: item.sessionFile }));
       setThread(opened);
       setPrompt(draftsRef.current[opened.threadId] ?? "");
+      setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
       await saveProjection(opened, "idle", draftsRef.current[opened.threadId] ?? "");
     } catch (cause) { setError(String(cause)); }
   }
 
   async function newThread() {
     await saveProjection();
-    setThread(null); setStream(""); setError(""); setPrompt(draftsRef.current.new ?? "");
+    setThread(null); setStream(""); setError(""); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   function stopRun() {
@@ -230,7 +242,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
   }
 
   return (
-    <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread">
+    <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(); }).catch((cause) => setError(String(cause))); }}>
       <nav className="space-y-1" aria-label="Threads">
         <Button className="w-full justify-start" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
         {threads.map((item) => <div className="flex" key={item.sessionFile}>
@@ -260,6 +272,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange }) {
       </TranscriptViewport>
       <Composer
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
+        attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(); }} onAttachmentError={(message) => setError(message)}
         commands={thread?.commands} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} thinkingLevels={thread?.thinkingLevels}
         onChange={(value) => { setPrompt(value); void saveProjection(thread, running ? "running" : "idle", value); }}

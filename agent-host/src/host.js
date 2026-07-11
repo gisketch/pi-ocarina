@@ -252,8 +252,8 @@ async function fileMtime(path) {
   try { return (await stat(path)).mtimeMs; } catch { return undefined; }
 }
 
-async function promptThread({ threadId, prompt } = {}, signal, sessions, runningThreads, prompts, publish) {
-  if (typeof prompt !== "string" || !prompt.trim()) throw new Error("Prompt is required");
+async function promptThread({ threadId, prompt = "", attachments = [] } = {}, signal, sessions, runningThreads, prompts, publish) {
+  if ((typeof prompt !== "string") || (!prompt.trim() && !attachments.length)) throw new Error("Prompt is required");
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
   if (runningThreads.has(threadId)) throw new Error("Session is already active");
@@ -264,7 +264,8 @@ async function promptThread({ threadId, prompt } = {}, signal, sessions, running
   signal.addEventListener("abort", abort, { once: true });
   runningThreads.add(threadId);
   try {
-    await session.prompt(prompt.trim());
+    const prepared = await preparePrompt(prompt, attachments);
+    await session.prompt(prepared.text, { images: prepared.images });
     return threadSnapshot(session);
   } finally {
     signal.removeEventListener("abort", abort);
@@ -272,6 +273,23 @@ async function promptThread({ threadId, prompt } = {}, signal, sessions, running
     cancelThreadPrompts(threadId, prompts);
     unsubscribe();
   }
+}
+
+export async function preparePrompt(prompt, attachments) {
+  if (!Array.isArray(attachments) || attachments.length > 20) throw new Error("Invalid attachments");
+  const images = [];
+  const files = [];
+  for (const item of attachments) {
+    if (!item || typeof item.path !== "string" || typeof item.name !== "string") throw new Error("Invalid attachment");
+    const info = await stat(item.path);
+    if (!info.isFile() || info.size > 25 * 1024 * 1024) throw new Error("Invalid attachment");
+    if (item.kind === "image") {
+      const extension = item.path.split(".").at(-1)?.toLowerCase();
+      const mimeType = extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension}`;
+      images.push({ type: "image", data: (await readFile(item.path)).toString("base64"), mimeType });
+    } else files.push(`Attached file available to tools: ${item.path}`);
+  }
+  return { text: [prompt.trim(), ...files].filter(Boolean).join("\n\n") || "Review the attached image.", images };
 }
 
 function watchThread({ threadId } = {}, signal, sessions, publish) {

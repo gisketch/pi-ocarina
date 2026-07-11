@@ -5,7 +5,22 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { serve } from "../src/host.js";
+import { preparePrompt, serve } from "../src/host.js";
+
+test("attachments become Pi image content and file context", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pi-attachments-"));
+  try {
+    const image = join(root, "tiny.png");
+    const file = join(root, "notes.txt");
+    await import("node:fs/promises").then(({ writeFile }) => Promise.all([writeFile(image, "image"), writeFile(file, "notes")]));
+    const prepared = await preparePrompt("review", [
+      { path: image, name: "tiny.png", kind: "image" },
+      { path: file, name: "notes.txt", kind: "file" },
+    ]);
+    assert.equal(prepared.images[0].mimeType, "image/png");
+    assert.match(prepared.text, /notes\.txt/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test("JSONL bridge validates, interleaves requests, and cancels once", async () => {
   const input = new PassThrough();

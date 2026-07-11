@@ -4,10 +4,9 @@
 
 **Blocked by:** 13 — Composer controls and runtime commands
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Native picker, paste, and drag/drop create the same validated attachment model in both composer surfaces.
-- [ ] Attachment previews can be removed and clear after successful submission.
-- [ ] Draft attachments persist separately from general UI state and migrate safely from legacy inline state when encountered.
-- [ ] A live Pi run receives attached files and images as usable context.
-
+- [x] Native picker, paste, and drag/drop create the same validated attachment model in both composer surfaces.
+- [x] Attachment previews can be removed and clear after successful submission.
+- [x] Draft attachments persist separately from general UI state and migrate safely from legacy inline state when encountered.
+- [x] A live Pi run receives attached files and images as usable context.
