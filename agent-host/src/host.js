@@ -67,6 +67,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
       else if (operation === "createThread") result = await createThread(payload, createSession, resolveModel, sessions);
+      else if (operation === "listThreads") result = await listThreads(payload, listSessions);
       else if (operation === "openThread") result = await openThread(payload, createSession, listSessions, sessions);
       else if (operation === "recoverThread") result = await recoverThread(payload, createSession, listSessions, sessions, runningThreads);
       else if (operation === "watchThread") result = await watchThread(payload, controller.signal, sessions, (type, event) => send(requestId, type, event));
@@ -117,6 +118,17 @@ async function createThread({ cwd, provider, modelId, agentDir } = {}, createSes
   });
   sessions.set(session.sessionId, session);
   return threadSnapshot(session);
+}
+
+async function listThreads({ cwd } = {}, listSessions) {
+  if (typeof cwd !== "string" || !cwd) throw new Error("Workspace is required");
+  return (await listSessions(cwd)).map(({ id, path, name, firstMessage, modified, messageCount }) => ({
+    threadId: id,
+    sessionFile: path,
+    title: name || firstMessage || "Empty thread",
+    modified: modified instanceof Date ? modified.toISOString() : modified,
+    messageCount,
+  }));
 }
 
 function resolveSelectedModel({ provider, modelId, agentDir }) {
@@ -205,7 +217,9 @@ function runtimeUi(threadId, prompts, publish) {
     notify: (message, type = "info") => publish("runtimeNotice", { threadId, message, type }),
     onTerminalInput: () => () => {}, setStatus() {}, setWorkingMessage() {}, setWorkingVisible() {}, setWorkingIndicator() {},
     setHiddenThinkingLabel() {}, setWidget() {}, setFooter() {}, setHeader() {}, setTitle() {},
-    pasteToEditor() {}, setEditorText() {}, getEditorText: () => "", editor: (title, prefill) => ask("input", title, prefill),
+    pasteToEditor: (text) => publish("editorText", { threadId, text, mode: "append" }),
+    setEditorText: (text) => publish("editorText", { threadId, text, mode: "replace" }),
+    getEditorText: () => "", editor: (title, prefill) => ask("input", title, prefill),
     custom: () => Promise.resolve(undefined), setAutocompleteProvider() {},
   };
 }

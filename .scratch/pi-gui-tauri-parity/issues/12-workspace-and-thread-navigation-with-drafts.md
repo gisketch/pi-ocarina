@@ -4,10 +4,11 @@
 
 **Blocked by:** 05 — Native workspace catalog; 10 — Restart and running-session recovery
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Sidebar navigation republishes the intended transcript without cross-session state bleed.
-- [ ] Drafts survive fast switches and restart and ignore stale persistence acknowledgements.
-- [ ] Host-requested editor replacements target only the correct visible session.
-- [ ] Empty workspaces and threads have clear navigable states.
+**Flows:** F004, F005, F006, F038, F039, F040
 
+- [x] Sidebar navigation republishes the intended transcript without cross-session state bleed.
+- [x] Drafts survive fast switches and restart and ignore stale persistence acknowledgements.
+- [x] Host-requested editor replacements target only the correct visible session.
+- [x] Empty workspaces and threads have clear navigable states.
