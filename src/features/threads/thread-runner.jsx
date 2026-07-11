@@ -469,6 +469,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   return (
     <section className={sidebarVisible ? "grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)]" : "flex min-h-0 flex-1"} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
       {sidebarVisible && <nav className="pb-sidebar min-h-0 space-y-1 overflow-y-auto border-r p-3" aria-label="Threads">
+        <h1 className="px-2 pb-4 pt-1 font-heading text-base">Pi Ocarina</h1>
         {sidebarHeader}
         <Button data-sidebar-row className="w-full justify-start" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
         <Input aria-label="Search threads" className="h-8" placeholder="Search threads" type="search" value={query} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQuery(event.target.value)} />
@@ -483,8 +484,8 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
         {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 text-xs text-muted-foreground">No matching threads.</p>}
       </nav>}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
-      <div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8">
+      <div hidden><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
       <ChangesPanel workspaceId={workspace.id} open={changesOpen} selectedPath={changePath} onClose={() => setChangesOpen(false)} />
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
@@ -514,9 +515,9 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
-      <ExtensionDock dock={dock} />
+      <div hidden><ExtensionDock dock={dock} /></div>
       {notice && <p className="rounded-md border bg-muted p-2 text-sm" role="status">{notice}<Button className="ml-2" size="sm" variant="ghost" onClick={() => setNotice("")}>Dismiss</Button></p>}
-      {queue.length > 0 && <div className="space-y-1 rounded-md border p-2" aria-label="Queued messages">{queue.map((item) => <div className="flex items-center gap-2 text-xs" key={item.id}><span className="rounded bg-muted px-1 font-medium">{item.mode === "steer" ? "Steer" : "Queued"}</span><Input aria-label={`Edit ${item.mode}`} className="h-7" type="text" value={item.prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => setQueue(queue.map((value) => value.id === item.id ? { ...value, prompt: event.target.value } : value))} onBlur={() => void replaceQueue(queue)} /><Button size="icon-xs" variant="ghost" aria-label="Remove queued message" onClick={() => void replaceQueue(queue.filter((value) => value.id !== item.id))}><XIcon /></Button></div>)}</div>}
+      {queue.length > 0 && <div hidden aria-label="Queued messages" />}
       {thread && <Dialog open={resourcesOpen} onOpenChange={setResourcesOpen}><DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto"><DialogHeader className={undefined}><DialogTitle className={undefined}>Resources</DialogTitle><DialogDescription className={undefined}>Skills and extensions available to this thread.</DialogDescription></DialogHeader><section className="rounded-md border bg-card p-3 text-sm">
         <h3 className="font-medium">Skills ({thread.skills?.length ?? 0})</h3>
         <div className="mt-2 space-y-2">

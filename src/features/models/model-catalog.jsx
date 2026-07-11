@@ -92,7 +92,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="model-catalog">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3 text-sm">
+      <div hidden className="flex h-12 shrink-0 items-center gap-2 border-b px-3 text-sm">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>{scope === "global" ? "Global model" : "Repository model"}</DropdownMenuTrigger>
           <DropdownMenuContent className={undefined}>
@@ -134,11 +134,11 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
         </Dialog>
       </div>
       {!model && availableModels.length === 0 && (
-        <div className="rounded-lg border border-dashed p-3 text-sm" data-testid="model-onboarding">
+        <div hidden className="rounded-lg border border-dashed p-3 text-sm" data-testid="model-onboarding">
           <p>{availableModels.length > 0 ? "Choose a model to start this thread." : "No usable model is configured for this workspace."}</p>
         </div>
       )}
-      {catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}
+      <div hidden>{catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}</div>
       <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} />
     </div>
   );

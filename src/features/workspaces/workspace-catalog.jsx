@@ -7,7 +7,6 @@ import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Ico
 import { useCallback, useEffect, useState } from "react";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
-import { TerminalPanel } from "@/features/terminal/terminal-panel";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -113,7 +112,7 @@ export function WorkspaceCatalog({ sidebarVisible = true }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {selected ? <><ModelCatalog onModelChange={setModel} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} />{selectedWorkspace && <TerminalPanel workspaceId={selectedWorkspace} />}</> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
+        {selected ? <ModelCatalog onModelChange={setModel} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} /> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
         {error && <p className="px-3 text-xs text-destructive">{error}</p>}
       </section>
 

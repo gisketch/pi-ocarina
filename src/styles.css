@@ -61,6 +61,9 @@
 .pb-sidebar :is(h1,h2,h3,[data-sidebar-heading]) { font-family: var(--pb-font-heading); font-weight: 400; }
 .pb-sidebar [data-sidebar-row] { width: 100%; justify-content: flex-start; }
 .pb-sidebar [data-sidebar-row][aria-current="page"] { color: var(--pb-primary); }
+.pb-sidebar :is([aria-label="Open workspace"],[aria-label="Workspace actions"]) { display: none; }
+.pb-sidebar .group > button:not(:first-child), .pb-sidebar details { display: none; }
+section[aria-label="Thread"]:has(> .pb-sidebar) { display: grid; grid-template-columns: 18rem minmax(0,1fr); }
 [data-slot="dialog-content"], [data-slot="dropdown-menu-content"], [data-slot="card"] { background-image: url("./shared/assets/noise.svg"); background-size: var(--pb-background-noise-size); }
 [data-slot="dialog-title"], [data-slot="card-title"] { font-family: var(--pb-font-heading); font-weight: 400; }
 
