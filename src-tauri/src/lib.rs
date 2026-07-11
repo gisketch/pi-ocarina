@@ -21,6 +21,11 @@ struct AppStateSnapshot {
     load_status: LoadStatus,
 }
 
+#[derive(Serialize)]
+struct AppearanceSupport {
+    transparency: bool,
+}
+
 #[tauri::command]
 fn app_state_snapshot(store: State<'_, AppStateStore>) -> AppStateSnapshot {
     AppStateSnapshot {
@@ -38,7 +43,21 @@ fn set_preferences(
     if !matches!(preferences.theme.as_str(), "system" | "light" | "dark") {
         return Err("theme must be system, light, or dark".into());
     }
-    update_and_emit(&app, &store, |state| state.preferences = preferences)
+    if preferences.transparency && !cfg!(target_os = "macos") {
+        return Err("window transparency is not supported on this platform".into());
+    }
+    update_and_emit(&app, &store, |state| {
+        let terminal_shell = std::mem::take(&mut state.preferences.terminal_shell);
+        state.preferences = preferences;
+        state.preferences.terminal_shell = terminal_shell;
+    })
+}
+
+#[tauri::command]
+fn appearance_support() -> AppearanceSupport {
+    AppearanceSupport {
+        transparency: cfg!(target_os = "macos"),
+    }
 }
 
 #[tauri::command]
@@ -154,6 +173,7 @@ pub fn run() {
             agent_host::send_agent_request,
             app_state_snapshot,
             set_preferences,
+            appearance_support,
             set_window_projection,
             set_workspace_projection,
             open_external_url,

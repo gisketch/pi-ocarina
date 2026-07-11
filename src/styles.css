@@ -122,6 +122,21 @@
   body {
     @apply m-0 min-h-screen min-w-80 bg-background font-sans text-foreground antialiased;
   }
+
+  html.transparent body,
+  html.transparent #root,
+  html.transparent [data-testid="app-ready"] {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {

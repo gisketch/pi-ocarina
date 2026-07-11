@@ -32,11 +32,24 @@ pub struct Workspace {
     pub branch: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
     pub theme: String,
     pub terminal_shell: String,
+    pub transparency: bool,
+    pub sidebar_visible: bool,
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            theme: "system".into(),
+            terminal_shell: String::new(),
+            transparency: false,
+            sidebar_visible: true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -225,6 +238,8 @@ mod tests {
         store
             .update(|state| {
                 state.preferences.theme = "dark".into();
+                state.preferences.transparency = true;
+                state.preferences.sidebar_visible = false;
                 state.windows.insert(
                     "main".into(),
                     WindowProjection {
@@ -238,6 +253,8 @@ mod tests {
 
         let reopened = AppStateStore::open(path).unwrap();
         assert_eq!(reopened.snapshot().preferences.theme, "dark");
+        assert!(reopened.snapshot().preferences.transparency);
+        assert!(!reopened.snapshot().preferences.sidebar_visible);
         assert_eq!(
             reopened.snapshot().windows["main"].workspace_id.as_deref(),
             Some("workspace-1")
@@ -371,7 +388,7 @@ mod tests {
         assert!(store
             .update(|state| state.preferences.theme = "dark".into())
             .is_err());
-        assert_eq!(store.snapshot().preferences.theme, "");
+        assert_eq!(store.snapshot().preferences.theme, "system");
     }
 
     #[test]
