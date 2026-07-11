@@ -21,12 +21,53 @@ pub struct HostEvent {
     pub payload: serde_json::Value,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[allow(dead_code)]
+struct CatalogPayload {
+    providers: Vec<CatalogProvider>,
+    models: Vec<CatalogModel>,
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[allow(dead_code)]
+struct CatalogProvider {
+    id: String,
+    name: String,
+    configured: bool,
+    source: Option<String>,
+    label: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[allow(dead_code)]
+struct CatalogModel {
+    provider: String,
+    id: String,
+    name: String,
+    available: bool,
+    input: Vec<String>,
+    reasoning: bool,
+}
+
 impl HostEvent {
     pub fn parse(line: &str) -> Result<Self, String> {
         let event: Self = serde_json::from_str(line)
             .map_err(|error| format!("Malformed agent-host output: {error}"))?;
         if event.version != PROTOCOL_VERSION || event.request_id.is_empty() {
             return Err("Unsupported or invalid agent-host protocol event".into());
+        }
+        if event.kind == "catalog" {
+            let catalog: CatalogPayload = serde_json::from_value(event.payload.clone())
+                .map_err(|error| format!("Invalid agent-host catalog payload: {error}"))?;
+            let _ = (
+                catalog.providers.len(),
+                catalog.models.len(),
+                catalog.errors.len(),
+            );
         }
         Ok(event)
     }
@@ -128,6 +169,10 @@ impl AgentHost {
         }
         Ok(())
     }
+
+    fn is_available(&mut self) -> bool {
+        !self.failed.load(Ordering::Acquire) && matches!(self.child.try_wait(), Ok(None))
+    }
 }
 
 fn validate_runtime(node: &Path, script: &Path) -> io::Result<()> {
@@ -192,6 +237,9 @@ pub fn start_agent_host(app: AppHandle, state: State<'_, AgentHostState>) -> Res
     };
     let mut host = state.0.lock().unwrap();
     if let Some(active) = host.as_mut() {
+        if active.is_available() {
+            return Ok(());
+        }
         active.shutdown().map_err(|error| error.to_string())?;
     }
     *host = Some(AgentHost::start(app, &node, &script).map_err(|error| {
@@ -238,6 +286,10 @@ mod tests {
             .contains("Malformed"));
         assert!(HostEvent::parse(
             r#"{"version":2,"requestId":"a","type":"completed","payload":{}}"#
+        )
+        .is_err());
+        assert!(HostEvent::parse(
+            r#"{"version":1,"requestId":"a","type":"catalog","payload":{"providers":[],"models":[],"errors":[],"apiKey":"secret"}}"#
         )
         .is_err());
     }

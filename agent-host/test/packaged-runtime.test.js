@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { inspectRuntime } from "../src/host.js";
+import { inspectRuntime, loadModelCatalog } from "../src/host.js";
 
 test("pinned runtime imports upstream Pi and discovers a workspace extension", async () => {
   assert.match(process.versions.node, /^20\./);
@@ -18,4 +18,22 @@ test("pinned runtime imports upstream Pi and discovers a workspace extension", a
   assert.equal(result.node.startsWith("20."), true);
   assert.equal(result.extensions.includes(extensionPath), true);
   assert.deepEqual(result.errors, []);
+});
+
+test("model catalog uses upstream config without exposing credential values", async () => {
+  const agentDir = await mkdtemp(join(tmpdir(), "pi-ocarina-agent-"));
+  await writeFile(join(agentDir, "auth.json"), JSON.stringify({
+    anthropic: { type: "api_key", key: "NEVER_EXPOSE_THIS" },
+  }));
+
+  const catalog = loadModelCatalog({ agentDir });
+  const anthropic = catalog.providers.find(({ id }) => id === "anthropic");
+  assert.equal(anthropic.configured, true);
+  assert.equal(anthropic.source, "stored");
+  assert.equal(JSON.stringify(catalog).includes("NEVER_EXPOSE_THIS"), false);
+
+  await writeFile(join(agentDir, "models.json"), "not json");
+  assert.deepEqual(loadModelCatalog({ agentDir }).errors, [
+    "models.json could not be loaded; fix or remove the invalid file",
+  ]);
 });

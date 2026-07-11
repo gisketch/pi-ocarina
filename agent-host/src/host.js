@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline";
 import { mkdtemp, rm } from "node:fs/promises";
+import { unwatchFile, watchFile } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -10,6 +11,7 @@ import {
   SessionManager,
   createAgentSession,
   discoverAndLoadExtensions,
+  getAgentDir,
 } from "@mariozechner/pi-coding-agent";
 
 export const PROTOCOL_VERSION = 1;
@@ -54,6 +56,7 @@ export function serve(input = process.stdin, output = process.stdout, createSess
       if (operation === "inspectRuntime") result = await inspectRuntime(payload);
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
       else if (operation === "prompt") result = await promptPi(payload, controller.signal, createSession);
+      else if (operation === "watchCatalog") result = await watchCatalog(payload, controller.signal, (catalog) => send(requestId, "catalog", catalog));
       else if (operation === "wait") result = await wait(payload.ms, controller.signal);
       else throw new Error(`Unsupported operation: ${operation}`);
       if (controller.signal.aborted) throw new Error("Cancelled");
@@ -79,6 +82,43 @@ export function serve(input = process.stdin, output = process.stdout, createSess
     } catch {
       send("unknown", "failed", { message: "Malformed JSON request" });
     }
+  });
+}
+
+export function loadModelCatalog({ agentDir = getAgentDir() } = {}) {
+  const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
+  const registry = ModelRegistry.create(authStorage, join(agentDir, "models.json"));
+  const models = registry.getAll().map((model) => ({
+    provider: model.provider,
+    id: model.id,
+    name: model.name,
+    available: registry.hasConfiguredAuth(model),
+    input: model.input,
+    reasoning: model.reasoning,
+  }));
+  const providerIds = [...new Set([...models.map(({ provider }) => provider), ...authStorage.list()])].sort();
+  const providers = providerIds.map((id) => ({
+    id,
+    name: registry.getProviderDisplayName(id),
+    ...registry.getProviderAuthStatus(id),
+  }));
+  const errors = [];
+  if (authStorage.drainErrors().length) errors.push("auth.json could not be loaded; fix or remove the invalid file");
+  if (registry.getError()) errors.push("models.json could not be loaded; fix or remove the invalid file");
+  return { providers, models, errors };
+}
+
+function watchCatalog(payload, signal, publish) {
+  const agentDir = payload.agentDir ?? getAgentDir();
+  const paths = [join(agentDir, "auth.json"), join(agentDir, "models.json")];
+  publish(loadModelCatalog({ agentDir }));
+  return new Promise((resolve) => {
+    const refresh = () => publish(loadModelCatalog({ agentDir }));
+    paths.forEach((path) => watchFile(path, { interval: 500 }, refresh));
+    signal.addEventListener("abort", () => {
+      paths.forEach((path) => unwatchFile(path, refresh));
+      resolve({ stopped: true });
+    }, { once: true });
   });
 }
 

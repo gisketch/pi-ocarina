@@ -16,5 +16,6 @@ describe("desktop shell", () => {
     await browser.execute((path) => window.__TAURI__.core.invoke("add_workspace", { path }), workspace);
 
     await expect(browser.$(`button*=${workspace.split("/").at(-1)}`)).toBeDisplayed();
+    await expect(browser.$('[data-testid="model-catalog"]')).toHaveText(expect.stringContaining("providers"));
   });
 });

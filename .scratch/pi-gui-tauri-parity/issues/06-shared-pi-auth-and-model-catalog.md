@@ -4,10 +4,9 @@
 
 **Blocked by:** 03 — Versioned Rust-agent-host bridge; 05 — Native workspace catalog
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] The host reads upstream Pi auth.json, models.json, environment credentials, and built-in models using official SDK services.
-- [ ] No credential value is copied into Rust state or exposed to React.
-- [ ] Provider/model state refreshes when the first workspace opens and when upstream configuration changes.
-- [ ] Unavailable or invalid upstream configuration produces actionable non-secret errors.
-
+- [x] The host reads upstream Pi auth.json, models.json, environment credentials, and built-in models using official SDK services.
+- [x] No credential value is copied into Rust state or exposed to React.
+- [x] Provider/model state refreshes when the first workspace opens and when upstream configuration changes.
+- [x] Unavailable or invalid upstream configuration produces actionable non-secret errors.
