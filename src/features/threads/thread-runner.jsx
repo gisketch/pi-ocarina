@@ -8,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { MarkdownMessage } from "./markdown-message";
+import { TranscriptViewport } from "./transcript-viewport";
 
 /** @typedef {{ role: string, text?: string, toolCallId?: string, toolName?: string, status?: string, input?: unknown, output?: unknown }} Message */
 /** @typedef {{ threadId: string, sessionFile: string, messages: Message[], schema?: { fileVersion?: number, runtimeVersion: number, newer: boolean } }} Thread */
@@ -26,6 +27,8 @@ export function ThreadRunner({ workspace, model }) {
   const [runtimeValue, setRuntimeValue] = useState("");
   const revision = useRef(0);
   const draftsRef = useRef(/** @type {Record<string, string>} */ ({}));
+  const scrollPositionsRef = useRef(/** @type {Record<string, number>} */ ({}));
+  const scrollSaveTimer = useRef(/** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined));
   const [dismissedSkew, setDismissedSkew] = useState(/** @type {string | null} */ (null));
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function ThreadRunner({ workspace, model }) {
       if (!saved) return;
       revision.current = saved.revision ?? 0;
       draftsRef.current = saved.drafts ?? {};
+      scrollPositionsRef.current = saved.scroll_positions ?? {};
       setPrompt(saved.drafts?.[saved.active_thread_id ?? "new"] ?? saved.draft ?? "");
       if (!saved.active_thread_id || !saved.session_file) return;
       const recovered = /** @type {Thread & { runStatus?: string }} */ (await request("recoverThread", {
@@ -136,6 +140,7 @@ export function ThreadRunner({ workspace, model }) {
     return invoke("set_workspace_projection", { workspaceId: workspace.id, projection: {
       active_thread_id: active?.threadId ?? null, session_file: active?.sessionFile ?? null,
       draft, drafts: nextDrafts, run_status: status, revision: nextRevision,
+      scroll_positions: scrollPositionsRef.current,
     } });
   }
 
@@ -167,6 +172,14 @@ export function ThreadRunner({ workspace, model }) {
     setRuntimePrompt(null);
   }
 
+  /** @param {number} top */
+  function rememberScroll(top) {
+    const key = thread?.threadId ?? "new";
+    scrollPositionsRef.current[key] = top;
+    clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = setTimeout(() => void saveProjection(), 250);
+  }
+
   return (
     <section className="grid gap-3 border-t pt-4 md:grid-cols-[10rem_1fr]" aria-label="Thread">
       <nav className="space-y-1" aria-label="Threads">
@@ -179,7 +192,12 @@ export function ThreadRunner({ workspace, model }) {
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
       </div>}
-      <div className="max-h-64 space-y-2 overflow-y-auto" data-testid="timeline">
+      <TranscriptViewport
+        threadKey={thread?.threadId ?? "new"}
+        savedTop={scrollPositionsRef.current[thread?.threadId ?? "new"]}
+        contentKey={`${thread?.messages.length ?? 0}:${stream.length}`}
+        onPosition={rememberScroll}
+      >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
         {thread?.messages.map((message, index) => message.role === "tool" ? <ToolRow key={message.toolCallId ?? index} tool={message} /> : (
           message.role === "user"
@@ -187,7 +205,7 @@ export function ThreadRunner({ workspace, model }) {
             : <MarkdownMessage key={`${message.role}-${index}`} className="mr-8 p-2">{message.text ?? ""}</MarkdownMessage>
         ))}
         {stream && <MarkdownMessage className="mr-8 p-2" data-testid="streaming-response">{stream}</MarkdownMessage>}
-      </div>
+      </TranscriptViewport>
       <form className="flex gap-2" onSubmit={submit}>
         <Input aria-label="Message" className={undefined} type="text" value={prompt} onChange={(/** @type {React.ChangeEvent<HTMLInputElement>} */ event) => { setPrompt(event.target.value); void saveProjection(thread, running ? "running" : "idle", event.target.value); }} />
         {running ? <Button type="button" variant="destructive" onClick={stopRun}><StopCircleIcon />Stop</Button> : <Button type="submit" disabled={!prompt.trim() || (!thread && !model) || thread?.schema?.newer}><SendIcon />Send</Button>}

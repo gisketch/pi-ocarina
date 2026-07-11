@@ -1,0 +1,46 @@
+// @ts-check
+import { useLayoutEffect, useRef } from "react";
+
+import { isBottomPinned } from "./transcript-scroll";
+
+/** @param {{ threadKey: string, savedTop?: number, contentKey: unknown, onPosition: (top: number) => void, children: React.ReactNode }} props */
+export function TranscriptViewport({ threadKey, savedTop, contentKey, onPosition, children }) {
+  const viewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const contentRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const pinnedRef = useRef(savedTop == null);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    viewport.style.visibility = "hidden";
+    viewport.scrollTop = savedTop ?? viewport.scrollHeight;
+    pinnedRef.current = savedTop == null || isBottomPinned(viewport);
+    viewport.style.visibility = "visible";
+  }, [threadKey, savedTop]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (viewport && pinnedRef.current) viewport.scrollTop = viewport.scrollHeight;
+  }, [contentKey]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+    const observer = new ResizeObserver(() => {
+      if (pinnedRef.current) viewport.scrollTop = viewport.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [threadKey]);
+
+  return <div
+    className="max-h-64 overflow-y-auto [overflow-anchor:none]"
+    data-testid="timeline"
+    ref={viewportRef}
+    onScroll={(event) => {
+      pinnedRef.current = isBottomPinned(event.currentTarget);
+      onPosition(event.currentTarget.scrollTop);
+    }}
+  ><div className="space-y-2 [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_5rem]" ref={contentRef}>{children}</div></div>;
+}

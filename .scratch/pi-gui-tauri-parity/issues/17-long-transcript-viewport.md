@@ -4,10 +4,9 @@
 
 **Blocked by:** 16 — Markdown and safe external links
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Large transcripts render through bounded or virtualized rows without losing message order.
-- [ ] Bottom-pinned threads follow streaming deltas and composer height changes.
-- [ ] Off-bottom positions survive thread switches and restart without jumping.
-- [ ] Opening or reopening a long thread lands stably without visible smooth-scroll travel from the top.
-
+- [x] Large transcripts render through bounded or virtualized rows without losing message order.
+- [x] Bottom-pinned threads follow streaming deltas and composer height changes.
+- [x] Off-bottom positions survive thread switches and restart without jumping.
+- [x] Opening or reopening a long thread lands stably without visible smooth-scroll travel from the top.
