@@ -2,7 +2,9 @@ pub mod agent_host;
 pub mod app_state;
 pub mod workspace;
 
-use app_state::{AppState, AppStateStore, LoadStatus, Preferences, WindowProjection};
+use app_state::{
+    AppState, AppStateStore, LoadStatus, Preferences, WindowProjection, WorkspaceView,
+};
 use serde::Serialize;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -44,6 +46,27 @@ fn set_window_projection(
 ) -> Result<AppState, String> {
     update_and_emit(&app, &store, |state| {
         state.windows.insert(window.label().into(), projection);
+    })
+}
+
+#[tauri::command]
+fn set_workspace_projection(
+    app: tauri::AppHandle,
+    window: WebviewWindow,
+    store: State<'_, AppStateStore>,
+    workspace_id: String,
+    projection: WorkspaceView,
+) -> Result<AppState, String> {
+    if !store
+        .snapshot()
+        .workspaces
+        .iter()
+        .any(|workspace| workspace.id == workspace_id)
+    {
+        return Err("workspace is not in the catalog".into());
+    }
+    update_and_emit(&app, &store, |state| {
+        state.set_workspace_view(window.label(), workspace_id, projection);
     })
 }
 
@@ -94,6 +117,7 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             set_window_projection,
+            set_workspace_projection,
             workspace::add_workspace,
             workspace::select_workspace
         ]);

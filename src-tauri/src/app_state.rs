@@ -40,6 +40,38 @@ pub struct WindowProjection {
     pub session_file: Option<String>,
     pub draft: String,
     pub run_status: String,
+    pub workspace_views: BTreeMap<String, WorkspaceView>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorkspaceView {
+    pub active_thread_id: Option<String>,
+    pub session_file: Option<String>,
+    pub draft: String,
+    pub drafts: BTreeMap<String, String>,
+    pub run_status: String,
+    pub revision: u64,
+}
+
+impl AppState {
+    pub fn set_workspace_view(
+        &mut self,
+        window: &str,
+        workspace: String,
+        projection: WorkspaceView,
+    ) {
+        let current = self
+            .windows
+            .entry(window.into())
+            .or_default()
+            .workspace_views
+            .entry(workspace)
+            .or_default();
+        if projection.revision >= current.revision {
+            *current = projection;
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -188,7 +220,87 @@ mod tests {
 
         let reopened = AppStateStore::open(path).unwrap();
         assert_eq!(reopened.snapshot().preferences.theme, "dark");
-        assert_eq!(reopened.snapshot().windows["main"].workspace_id.as_deref(), Some("workspace-1"));
+        assert_eq!(
+            reopened.snapshot().windows["main"].workspace_id.as_deref(),
+            Some("workspace-1")
+        );
+    }
+
+    #[test]
+    fn stale_workspace_projection_cannot_replace_a_newer_draft() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = AppStateStore::open(temp.path().join("app-state.json")).unwrap();
+        store
+            .update(|state| {
+                state.set_workspace_view(
+                    "main",
+                    "workspace-1".into(),
+                    WorkspaceView {
+                        draft: "new".into(),
+                        revision: 2,
+                        ..WorkspaceView::default()
+                    },
+                )
+            })
+            .unwrap();
+        store
+            .update(|state| {
+                state.set_workspace_view(
+                    "main",
+                    "workspace-1".into(),
+                    WorkspaceView {
+                        draft: "stale".into(),
+                        revision: 1,
+                        ..WorkspaceView::default()
+                    },
+                )
+            })
+            .unwrap();
+
+        assert_eq!(
+            store.snapshot().windows["main"].workspace_views["workspace-1"].draft,
+            "new"
+        );
+    }
+
+    #[test]
+    fn workspace_and_thread_drafts_survive_restart_without_bleeding() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("app-state.json");
+        let store = AppStateStore::open(path.clone()).unwrap();
+        store
+            .update(|state| {
+                state.set_workspace_view(
+                    "main",
+                    "one".into(),
+                    WorkspaceView {
+                        active_thread_id: Some("thread-a".into()),
+                        drafts: BTreeMap::from([("thread-a".into(), "draft a".into())]),
+                        revision: 1,
+                        ..WorkspaceView::default()
+                    },
+                );
+                state.set_workspace_view(
+                    "main",
+                    "two".into(),
+                    WorkspaceView {
+                        drafts: BTreeMap::from([("new".into(), "draft b".into())]),
+                        revision: 1,
+                        ..WorkspaceView::default()
+                    },
+                );
+            })
+            .unwrap();
+
+        let reopened = AppStateStore::open(path).unwrap().snapshot();
+        assert_eq!(
+            reopened.windows["main"].workspace_views["one"].drafts["thread-a"],
+            "draft a"
+        );
+        assert_eq!(
+            reopened.windows["main"].workspace_views["two"].drafts["new"],
+            "draft b"
+        );
     }
 
     #[test]
