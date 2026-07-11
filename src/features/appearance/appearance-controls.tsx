@@ -1,10 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { PanelLeftIcon } from "@/shared/ui/icon";
 import { useEffect, useState } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
-import type { AppStateSnapshot, Preferences } from "@/shared/contracts/app";
+import type { Preferences } from "@/shared/contracts/app";
 
 const defaults: Preferences = { theme: "dark", transparency: false, sidebar_visible: true };
 
@@ -20,7 +19,7 @@ export function AppearanceControls({ onSidebarChange }: { onSidebarChange: (visi
 
   const save = async (change: Partial<Preferences>) => {
     const next: Preferences = { ...preferences, ...change, theme: "dark" };
-    const state = await invoke<{ preferences: Preferences }>("set_preferences", { preferences: next });
+    const state = await invokeTauri("set_preferences", { preferences: next });
     setPreferences(state.preferences);
   };
 
@@ -31,9 +30,9 @@ export function AppearanceControls({ onSidebarChange }: { onSidebarChange: (visi
       applyAppearance(value);
       onSidebarChange(value.sidebar_visible);
     };
-    void invoke<{ transparency: boolean }>("appearance_support").then(({ transparency }) => setSupportsTransparency(transparency));
-    void invoke<AppStateSnapshot>("app_state_snapshot").then(({ state }) => sync(state.preferences));
-    const listener = listen<AppStateSnapshot["state"]>("app-state://changed", ({ payload }) => sync(payload.preferences));
+    void invokeTauri("appearance_support").then(({ transparency }) => setSupportsTransparency(transparency));
+    void invokeTauri("app_state_snapshot").then(({ state }) => sync(state.preferences));
+    const listener = listenTauri("app-state://changed", ({ payload }) => sync(payload.preferences));
     return () => void listener.then((stop) => stop());
   }, [onSidebarChange]);
 

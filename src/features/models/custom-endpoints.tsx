@@ -1,6 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useState, type ChangeEvent } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -17,7 +16,7 @@ export function CustomEndpoints({ endpoints, onCatalog, onError }: { endpoints: 
   const request = async (operation: "saveCustomEndpoint" | "deleteCustomEndpoint", payload: Record<string, unknown>) => {
     const requestId = crypto.randomUUID();
     setSaving(true);
-    const stop = await listen<unknown>("agent-host-event", ({ payload }) => {
+    const stop = await listenTauri("agent-host-event", ({ payload }) => {
       const event = parseAgentHostEvent(payload);
       if (event.requestId !== requestId || !["completed", "failed"].includes(event.type)) return;
       stop();
@@ -29,7 +28,7 @@ export function CustomEndpoints({ endpoints, onCatalog, onError }: { endpoints: 
       else if (event.type === "failed" || event.type === "cancelled") onError(event.payload.message ?? event.type);
     });
     try {
-      await invoke("send_agent_request", { request: { version: 1, requestId, operation, payload } });
+      await invokeTauri("send_agent_request", { request: { version: 1, requestId, operation, payload } });
     } catch (error) {
       stop(); setSaving(false); onError(String(error));
     }

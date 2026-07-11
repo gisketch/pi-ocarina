@@ -1,6 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { ThreadRunner } from "@/features/threads/thread-runner";
 import { CustomEndpoints } from "@/features/models/custom-endpoints";
@@ -29,19 +28,19 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
   useEffect(() => {
     if (!workspaceId) return undefined;
     const requestId = crypto.randomUUID();
-    const listener = listen<unknown>("agent-host-event", ({ payload }) => {
+    const listener = listenTauri("agent-host-event", ({ payload }) => {
       const event = parseAgentHostEvent(payload);
       if (event.requestId === requestId && event.type === "catalog") setCatalog(event.payload);
     });
     void listener.then(async () => {
-      await invoke("start_agent_host");
-      await invoke("send_agent_request", {
+      await invokeTauri("start_agent_host");
+      await invokeTauri("send_agent_request", {
         request: { version: 1, requestId, operation: "watchCatalog", payload: { workspaceId } },
       });
     }).catch((error) => setCatalog({ providers: [], models: [], errors: [String(error)] }));
     return () => {
       void listener.then((stop) => stop());
-      void invoke("send_agent_request", {
+      void invokeTauri("send_agent_request", {
         request: {
           version: 1,
           requestId: crypto.randomUUID(),
@@ -54,7 +53,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
 
   useEffect(() => {
     if (!workspaceId) return;
-    void invoke<{ scope: string; model: Model | null }>("model_selection", { workspaceId }).then((preference) => {
+    void invokeTauri("model_selection", { workspaceId }).then((preference) => {
       setScope(preference.scope);
       setSelected(preference.model);
     }).catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
@@ -69,7 +68,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
   const saveCredential = async (provider: string) => {
     const requestId = crypto.randomUUID();
     setSaving(provider);
-    const stop = await listen<unknown>("agent-host-event", ({ payload }) => {
+    const stop = await listenTauri("agent-host-event", ({ payload }) => {
       const event = parseAgentHostEvent(payload);
       if (event.requestId !== requestId || !["completed", "failed"].includes(event.type)) return;
       stop();
@@ -80,7 +79,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
       } else setCatalog((current) => ({ ...current, errors: [event.type === "failed" || event.type === "cancelled" ? event.payload.message ?? event.type : "Invalid model catalog response"] }));
     });
     try {
-      await invoke("send_agent_request", {
+      await invokeTauri("send_agent_request", {
         request: {
           version: 1,
           requestId,
@@ -102,7 +101,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
           <DropdownMenuContent className={undefined}>
             {[["global", "Global model"], ["repository", "Repository model"]].map(([value, label]) => (
               <DropdownMenuItem className={undefined} inset={false} key={value} onClick={() => {
-                void invoke<{ scope: string; model: Model | null }>("set_model_scope", { workspaceId: workspace.id, scope: value }).then((preference) => {
+                void invokeTauri("set_model_scope", { workspaceId: workspace.id, scope: value ?? "global" }).then((preference) => {
                   setScope(preference.scope); setSelected(preference.model); onModelChange(preference.model);
                 }).catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
               }}>{label}</DropdownMenuItem>
@@ -115,7 +114,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
             <DropdownMenuContent className={undefined}>
               {availableModels.map((item) => (
                 <DropdownMenuItem className={undefined} inset={false} key={`${item.provider}/${item.id}`} onClick={() => {
-                  void invoke<{ scope: string; model: Model | null }>("set_model_preference", { workspaceId: workspace.id, model: { provider: item.provider, id: item.id } })
+                  void invokeTauri("set_model_preference", { workspaceId: workspace.id, model: { provider: item.provider, id: item.id } })
                     .then(() => { setSelected(item); onModelChange(item); })
                     .catch((error) => setCatalog((current) => ({ ...current, errors: [String(error)] })));
                 }}>{item.name}</DropdownMenuItem>

@@ -1,9 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "@/shared/ui/icon";
 import { useCallback, useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { ModelCatalog } from "@/features/models/model-catalog";
 import { Button } from "@/shared/ui/button";
@@ -15,7 +14,8 @@ import {
 } from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
 import { parseAgentHostEvent } from "@/shared/contracts/agent";
-import type { AppStateSnapshot, Model, Workspace, WorkspaceState } from "@/shared/contracts/app";
+import type { Model, Workspace, WorkspaceState } from "@/shared/contracts/app";
+import type { TauriCommandMap } from "@/shared/contracts/tauri";
 
 /** @typedef {{ id: string, path: string, name?: string | null, root_workspace_id?: string | null, branch?: string | null }} Workspace */
 /** @typedef {{ workspaces: Workspace[], selected_workspace: string | null, windows?: Record<string, {workspace_id?: string | null}> }} WorkspaceState */
@@ -33,9 +33,10 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
   const [removeTarget, setRemoveTarget] = useState<Workspace | null>(null);
   const [name, setName] = useState("");
 
-  const run = useCallback(async (command: string, args: Record<string, unknown>) => {
+  type WorkspaceMutation = "add_workspace" | "select_workspace" | "rename_workspace" | "remove_workspace";
+  const run = useCallback(async <K extends WorkspaceMutation>(command: K, args: TauriCommandMap[K]["args"]) => {
     try {
-      const next = await invoke<WorkspaceState>(command, args);
+      const next = await invokeTauri(command, args);
       setState(next);
       setError("");
       return true;
@@ -54,13 +55,13 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
   async function createWorktree(root: Workspace) {
     let created: { workspace: Workspace } | undefined;
     try {
-      created = await invoke<{ workspace: Workspace }>("create_worktree", { rootWorkspaceId: root.id });
+      created = await invokeTauri("create_worktree", { rootWorkspaceId: root.id });
       if (!model) throw new Error("Choose a model before creating a worktree.");
       await createThread(created.workspace.path, model);
-      setState(await invoke<WorkspaceState>("register_worktree", { workspace: created.workspace }));
+      setState(await invokeTauri("register_worktree", { workspace: created.workspace }));
       setError("");
     } catch (cause) {
-      if (created) await invoke("rollback_worktree", { workspace: created.workspace }).catch(() => {});
+      if (created) await invokeTauri("rollback_worktree", { workspace: created.workspace }).catch(() => {});
       setError(String(cause));
     }
   }
@@ -68,15 +69,15 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
   /** @param {Workspace} workspace */
   async function removeWorktree(workspace: Workspace) {
     if (!window.confirm(`Remove worktree ${workspace.branch}? Dirty or unmerged work will be preserved.`)) return;
-    try { setState(await invoke<WorkspaceState>("remove_worktree", { workspaceId: workspace.id })); setError(""); }
+    try { setState(await invokeTauri("remove_worktree", { workspaceId: workspace.id })); setError(""); }
     catch (cause) { setError(String(cause)); }
   }
 
   useEffect(() => {
-    void invoke<AppStateSnapshot>("app_state_snapshot").then(({ state: snapshot }) => setState(snapshot));
+    void invokeTauri("app_state_snapshot").then(({ state: snapshot }) => setState(snapshot));
     const listeners = Promise.all([
-      listen<WorkspaceState>("app-state://changed", ({ payload }) => setState(payload)),
-      listen("workspace://open-picker", openWorkspace),
+      listenTauri("app-state://changed", ({ payload }) => setState(payload)),
+      listenTauri("workspace://open-picker", openWorkspace),
     ]);
     return () => void listeners.then((stops) => stops.forEach((stop) => stop()));
   }, [openWorkspace]);
@@ -107,7 +108,7 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
       <DropdownMenuContent align="start" className="min-w-64">{state.workspaces.map((workspace) => <DropdownMenuItem className={undefined} key={workspace.id} onSelect={() => void run("select_workspace", { workspaceId: workspace.id })}>{workspace.root_workspace_id && <FolderGit2Icon />}{workspace.name || folderName(workspace)}</DropdownMenuItem>)}</DropdownMenuContent>
     </DropdownMenu>
     <Button aria-label="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button>
-    {selected && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Workspace actions" size="icon-sm" variant="ghost"><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className={undefined}><DropdownMenuItem className={undefined} onSelect={() => { setName(selected.name || folderName(selected)); setRenameTarget(selected); }}>Rename</DropdownMenuItem><DropdownMenuItem className={undefined} onSelect={() => void invoke("reveal_workspace", { workspaceId: selected.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>{selected.root_workspace_id ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => void removeWorktree(selected)}><Trash2Icon />Remove worktree</DropdownMenuItem> : <><DropdownMenuItem className={undefined} disabled={!model} onSelect={() => void createWorktree(selected)}><FolderGit2Icon />Create worktree</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setRemoveTarget(selected)}>Remove from list…</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu>}
+    {selected && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Workspace actions" size="icon-sm" variant="ghost"><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className={undefined}><DropdownMenuItem className={undefined} onSelect={() => { setName(selected.name || folderName(selected)); setRenameTarget(selected); }}>Rename</DropdownMenuItem><DropdownMenuItem className={undefined} onSelect={() => void invokeTauri("reveal_workspace", { workspaceId: selected.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>{selected.root_workspace_id ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => void removeWorktree(selected)}><Trash2Icon />Remove worktree</DropdownMenuItem> : <><DropdownMenuItem className={undefined} disabled={!model} onSelect={() => void createWorktree(selected)}><FolderGit2Icon />Create worktree</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setRemoveTarget(selected)}>Remove from list…</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu>}
   </div>;
 
   return (
@@ -140,7 +141,7 @@ function createThread(cwd: string, model: Pick<Model, "provider" | "id">) {
   const requestId = crypto.randomUUID();
   return new Promise((resolve, reject) => {
     let stop = () => {};
-    void listen<unknown>("agent-host-event", ({ payload }) => {
+    void listenTauri("agent-host-event", ({ payload }) => {
       const event = parseAgentHostEvent(payload);
       if (event.requestId !== requestId || !["completed", "failed", "cancelled"].includes(event.type)) return;
       stop();
@@ -148,7 +149,7 @@ function createThread(cwd: string, model: Pick<Model, "provider" | "id">) {
       else if (event.type === "failed" || event.type === "cancelled") reject(new Error(event.payload.message ?? event.type));
     }).then((unlisten) => {
       stop = unlisten;
-      return invoke("send_agent_request", { request: { version: 1, requestId, operation: "createThread", payload: { cwd, provider: model.provider, modelId: model.id } } });
+      return invokeTauri("send_agent_request", { request: { version: 1, requestId, operation: "createThread", payload: { cwd, provider: model.provider, modelId: model.id } } });
     }).catch((cause) => { stop(); reject(cause); });
   });
 }

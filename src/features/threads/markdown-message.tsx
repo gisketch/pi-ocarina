@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { HTMLAttributes } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import { invokeTauri } from "@/shared/lib/tauri-client";
 
 /** @param {React.HTMLAttributes<HTMLDivElement> & { children: string }} props */
 export function MarkdownMessage({ children, className = "", ...props }: Omit<HTMLAttributes<HTMLDivElement>, "children"> & { children: string }) {
@@ -15,7 +15,7 @@ export function MarkdownMessage({ children, className = "", ...props }: Omit<HTM
               href={href}
               onClick={(event) => {
                 event.preventDefault();
-                if (href) void invoke("open_external_url", { url: href }).catch(() => {});
+                if (href) void invokeTauri("open_external_url", { url: href }).catch(() => {});
               }}
             >
               {label}

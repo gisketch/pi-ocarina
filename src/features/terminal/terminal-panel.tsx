@@ -1,14 +1,12 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { Maximize2Icon, PlusIcon, TerminalIcon, XIcon } from "@/shared/ui/icon";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import type { AppStateSnapshot } from "@/shared/contracts/app";
 
 /** @typedef {{ id: string, title: string }} Tab */
 /** @typedef {{ terminal: Terminal, fit: FitAddon, opened: boolean }} TerminalEntry */
@@ -28,17 +26,17 @@ export function TerminalPanel({ workspaceId }: { workspaceId: string }) {
   const terminals = useRef(new Map<string, TerminalEntry>());
 
   useEffect(() => {
-    void invoke<AppStateSnapshot>("app_state_snapshot").then(({ state }) => { setShell(state.preferences.terminal_shell || ""); setHeight(state.preferences.terminal_height || 256); setMaximized(Boolean(state.preferences.terminal_maximized)); });
+    void invokeTauri("app_state_snapshot").then(({ state }) => { setShell(state.preferences.terminal_shell || ""); setHeight(state.preferences.terminal_height || 256); setMaximized(Boolean(state.preferences.terminal_maximized)); });
     const listeners = Promise.all([
-      listen<{ terminalId: string; data: string }>("terminal://output", ({ payload }) => terminals.current.get(payload.terminalId)?.terminal.write(payload.data)),
-      listen<{ message: string }>("terminal://error", ({ payload }) => setError(payload.message)),
-      listen<{ terminalId: string }>("terminal://closed", ({ payload }) => terminals.current.get(payload.terminalId)?.terminal.write("\r\n[process exited]\r\n")),
+      listenTauri("terminal://output", ({ payload }) => terminals.current.get(payload.terminalId)?.terminal.write(payload.data)),
+      listenTauri("terminal://error", ({ payload }) => setError(payload.message)),
+      listenTauri("terminal://closed", ({ payload }) => terminals.current.get(payload.terminalId)?.terminal.write("\r\n[process exited]\r\n")),
     ]);
     const current = terminals.current;
     return () => {
       void listeners.then((stops) => stops.forEach((stop) => stop()));
       for (const [id, entry] of current) {
-        void invoke("close_terminal", { terminalId: id }).catch(() => {});
+        void invokeTauri("close_terminal", { terminalId: id }).catch(() => {});
         entry.terminal.dispose();
       }
     };
@@ -56,7 +54,7 @@ export function TerminalPanel({ workspaceId }: { workspaceId: string }) {
       const terminal = new Terminal({ convertEol: true, cursorBlink: true, theme: { background: "#00000000" } });
       const fit = new FitAddon();
       terminal.loadAddon(fit);
-      const id = await invoke<string>("open_terminal", { workspaceId, cols: 80, rows: 24 });
+      const id = await invokeTauri("open_terminal", { workspaceId, cols: 80, rows: 24 });
       terminals.current.set(id, { terminal, fit, opened: false });
       const next = { id, title: `Terminal ${tabs.length + 1}` };
       setTabs((items) => [...items, next]);
@@ -70,7 +68,7 @@ export function TerminalPanel({ workspaceId }: { workspaceId: string }) {
 
   /** @param {string} id */
   async function closeTab(id: string) {
-    await invoke("close_terminal", { terminalId: id }).catch(() => {});
+    await invokeTauri("close_terminal", { terminalId: id }).catch(() => {});
     terminals.current.get(id)?.terminal.dispose();
     terminals.current.delete(id);
     const remaining = tabs.filter((tab) => tab.id !== id);
@@ -85,13 +83,13 @@ export function TerminalPanel({ workspaceId }: { workspaceId: string }) {
     entry.opened = true;
     entry.terminal.open(node);
     entry.fit.fit();
-    entry.terminal.onData((data) => void invoke("write_terminal", { terminalId: id, data }).catch((cause) => setError(String(cause))));
-    entry.terminal.onResize(({ cols, rows }) => void invoke("resize_terminal", { terminalId: id, cols, rows }));
+    entry.terminal.onData((data) => void invokeTauri("write_terminal", { terminalId: id, data }).catch((cause) => setError(String(cause))));
+    entry.terminal.onResize(({ cols, rows }) => void invokeTauri("resize_terminal", { terminalId: id, cols, rows }));
   }
 
   async function saveShell() {
     try {
-      await invoke("set_terminal_shell", { shell });
+      await invokeTauri("set_terminal_shell", { shell });
       setError("");
     } catch (cause) {
       setError(String(cause));
@@ -102,14 +100,14 @@ export function TerminalPanel({ workspaceId }: { workspaceId: string }) {
   function resizePanel(next: number) {
     const bounded = Math.max(160, Math.min(900, next));
     setHeight(bounded);
-    void invoke("set_panel_layout", { terminalHeight: bounded });
+    void invokeTauri("set_panel_layout", { terminalHeight: bounded });
     requestAnimationFrame(() => terminals.current.get(active)?.fit.fit());
   }
 
   function toggleMaximized() {
     const next = !maximized;
     setMaximized(next);
-    void invoke("set_panel_layout", { terminalMaximized: next });
+    void invokeTauri("set_panel_layout", { terminalMaximized: next });
   }
 
   return (

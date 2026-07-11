@@ -1,9 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type ReactNode } from "react";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -24,7 +23,7 @@ import { movePinned, organizeThreads, togglePinned } from "./thread-organization
 import { createCoalescedTask } from "./coalesced-task";
 import { requestAgent } from "@/shared/lib/agent-client";
 import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
-import type { AppStateSnapshot, Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
+import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
 
 export function ThreadRunner({ workspace, models, model, onModelChange, sidebarVisible = true, sidebarHeader }: { workspace: Workspace; models: Model[]; model: Model | null; onModelChange: (model: Model | null) => void; sidebarVisible?: boolean; sidebarHeader?: ReactNode }) {
   const windowLabel = getCurrentWindow().label;
@@ -106,7 +105,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   useEffect(() => {
     /** @type {string | undefined} */
     let watchId: string | undefined;
-    void invoke<AppStateSnapshot>("app_state_snapshot").then(async ({ state }) => {
+    void invokeTauri("app_state_snapshot").then(async ({ state }) => {
       const legacy = state.windows?.[windowLabel];
       const saved = legacy?.workspace_views?.[workspace.id] ?? (legacy?.workspace_id === workspace.id ? legacy : null);
       const available = await requestAgent("listThreads", { cwd: workspace.path });
@@ -143,7 +142,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
 
   useEffect(() => {
     let stop = () => {};
-    void listen<AppStateSnapshot["state"]>("app-state://changed", ({ payload: state }) => {
+    void listenTauri("app-state://changed", ({ payload: state }) => {
       const saved = state.windows?.[windowLabel]?.workspace_views?.[workspace.id];
       const threadId = selectedThreadRef.current;
       if (!threadId || saved?.active_thread_id !== threadId) return;
@@ -334,7 +333,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
     const nextAttachments = { ...draftAttachmentsRef.current, [key]: draftAttachment };
     draftAttachmentsRef.current = nextAttachments;
     const nextRevision = ++revision.current;
-    return invoke<void>("set_workspace_projection", { workspaceId: workspace.id, projection: {
+    return invokeTauri("set_workspace_projection", { workspaceId: workspace.id, projection: {
       active_thread_id: active?.threadId ?? null, session_file: active?.sessionFile ?? null,
       draft, drafts: nextDrafts, run_status: status, revision: nextRevision,
       draft_attachments: nextAttachments,
@@ -519,7 +518,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
         <div className="mt-2 space-y-2">
           {thread.skills?.map((skill) => <div className="flex items-start justify-between gap-3" key={skill.path}>
             <div className="min-w-0"><p className="font-medium">/{skill.aliases[0]}</p><p className="text-muted-foreground">{skill.description}</p><p className="truncate text-xs text-muted-foreground">{skill.source} · {skill.path} · {skill.available ? "available" : "unavailable"}</p></div>
-            <Button size="sm" variant="outline" onClick={() => void invoke("reveal_skill", { workspace: workspace.path, path: skill.path }).catch((cause) => setError(String(cause)))}>Reveal</Button>
+            <Button size="sm" variant="outline" onClick={() => void invokeTauri("reveal_skill", { workspace: workspace.path, path: skill.path }).catch((cause) => setError(String(cause)))}>Reveal</Button>
           </div>)}
           <Button size="sm" variant="ghost" onClick={() => void reloadResources()}><RefreshCwIcon />Reload</Button>
         </div>

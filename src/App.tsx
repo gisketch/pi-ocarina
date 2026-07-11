@@ -1,9 +1,8 @@
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { MatrixBackground } from "@/shared/ui/matrix-background";
 import { parseAgentHostEvent } from "@/shared/contracts/agent";
+import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 export function App() {
   const [runtime, setRuntime] = useState("Starting bundled Pi…");
@@ -11,15 +10,15 @@ export function App() {
   useEffect(() => {
     const requestId = crypto.randomUUID();
     let unlisten = () => {};
-    void listen<unknown>("agent-host-event", ({ payload }) => {
+    void listenTauri("agent-host-event", ({ payload }) => {
       const event = parseAgentHostEvent(payload);
       if (event.requestId !== requestId || event.type === "started") return;
       setRuntime(event.type === "completed" ? "Bundled Pi ready" : event.type === "failed" || event.type === "cancelled" ? event.payload.message ?? event.type : event.type);
     }).then(async (stopListening) => {
       unlisten = stopListening;
       try {
-        await invoke("start_agent_host");
-        await invoke("send_agent_request", {
+        await invokeTauri("start_agent_host");
+        await invokeTauri("send_agent_request", {
           request: { version: 1, requestId, operation: "createSession", payload: {} },
         });
       } catch (error) {

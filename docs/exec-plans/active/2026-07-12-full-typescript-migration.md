@@ -18,6 +18,7 @@ Migrate every authored JavaScript-family file to strict TypeScript without chang
 - [x] Add strict frontend, tools, agent-host, and build TypeScript configs.
 - [x] Convert React source, shared UI, feature tests, configs, E2E, and scripts.
 - [x] Add typed frontend contracts and validated agent client.
+- [x] Add `TauriCommandMap`/`TauriEventMap`, runtime guards, and one shared native client; feature code has no raw `invoke` or `listen` calls.
 - [x] Convert the Pi host and validate JSONL payloads with TypeBox.
 - [x] Compile the host into ignored Node 20-compatible output.
 - [x] Update Rust supervision and packaged resource paths.

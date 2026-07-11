@@ -66,5 +66,11 @@ export type QueueItem = { prompt?: string; attachments?: Attachment[]; mode?: "s
 export type ThreadTreeNode = { entryId: string; parentId?: string; type: string; role?: string; preview?: string; active?: boolean; children: ThreadTreeNode[] };
 
 export const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+export function isWorkspaceState(value: unknown): value is WorkspaceState {
+  return isRecord(value) && Array.isArray(value.workspaces) && value.workspaces.every((workspace) => isRecord(workspace) && typeof workspace.id === "string" && typeof workspace.path === "string") && (value.selected_workspace === null || typeof value.selected_workspace === "string");
+}
+export function isAppStateSnapshot(value: unknown): value is AppStateSnapshot {
+  return isRecord(value) && isWorkspaceState(value.state) && isRecord(value.state.preferences) && value.state.preferences.theme === "dark";
+}
 export function isThread(value: unknown): value is Thread { return isRecord(value) && typeof value.threadId === "string" && typeof value.sessionFile === "string" && Array.isArray(value.messages); }
 export function isThreadSummary(value: unknown): value is ThreadSummary { return isRecord(value) && typeof value.sessionFile === "string" && typeof value.title === "string"; }

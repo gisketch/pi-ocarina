@@ -69,6 +69,7 @@ export function parseAgentHostEvent(value: unknown): AgentHostEvent {
 }
 
 export type AgentOperationMap = {
+  createSession: { payload: Record<string, never>; result: Record<string, unknown> };
   cancel: { payload: { requestId: string }; result: { cancelled: string } };
   createThread: { payload: { cwd: string; provider: string; modelId: string; thinkingLevel?: string }; result: Thread };
   listThreads: { payload: { cwd: string }; result: ThreadSummary[] };
@@ -90,11 +91,21 @@ export type AgentOperationMap = {
   forkThread: { payload: { threadId: string; entryId: string; cwd: string }; result: Thread };
   navigateThread: { payload: { threadId: string; entryId: string; summarize: boolean }; result: Thread };
   resolveRuntimePrompt: { payload: { promptId: string; threadId: string; value?: unknown; cancelled: boolean }; result: { resolved: string } };
+  watchCatalog: { payload: { workspaceId?: string }; result: Record<string, unknown> };
+  saveProviderCredential: { payload: { provider: string; apiKey?: string }; result: ModelCatalog };
+  saveCustomEndpoint: { payload: Record<string, unknown>; result: ModelCatalog };
+  deleteCustomEndpoint: { payload: Record<string, unknown>; result: ModelCatalog };
 };
 
 export type AgentOperation = keyof AgentOperationMap;
 export type AgentPayload<K extends AgentOperation> = AgentOperationMap[K]["payload"];
 export type AgentResult<K extends AgentOperation> = AgentOperationMap[K]["result"];
+export type AgentHostRequest<K extends AgentOperation = AgentOperation> = {
+  version: 1;
+  requestId: string;
+  operation: K;
+  payload: AgentPayload<K>;
+};
 
 export function parseAgentResult<K extends AgentOperation>(operation: K, value: unknown): AgentResult<K> {
   const threadOperations: AgentOperation[] = ["createThread", "openThread", "recoverThread", "refreshThread", "promptThread", "setThreadModel", "setThreadThinking", "reloadResources", "setExtensionEnabled", "forkThread", "navigateThread"];
