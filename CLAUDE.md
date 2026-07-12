@@ -1,15 +1,9 @@
-# Claude Code Instructions
+# Claude Code Map
 
-Read [AGENTS.md](AGENTS.md) first. It is the map.
+Read `AGENTS.md` first. It is the canonical agent map.
 
-Default behavior:
-
-- Caveman style for chat: terse, exact, no filler.
-- Harness engineering always: repo-local context, execution plans, checks, and doc updates.
-- Prefer small, focused files. Aim for 100-200 lines when practical; treat 500+ lines as a design smell.
-- Use `init-sonata` for project-context initialization.
-- Use `retrofit-sonata` for existing project cleanup, doc migration, and harness normalization.
-- Use `caveman-sonata` for implementation work.
-- Use normal prose for safety warnings, irreversible actions, or user confusion.
-
-Do not expand this file into a manual. Put durable project knowledge in `docs/`.
+- Durable context lives under `docs/`.
+- Mirrored Sonata skills live under `.claude/skills/`.
+- Treat 250–350 lines as a healthy range; above 350 is a smell.
+- Use risk-based checks from `docs/quality.md`.
+- Preserve project-owned files and decisions.

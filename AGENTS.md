@@ -12,8 +12,8 @@ Codex reads this file first. Keep it short. It is the map, not the manual.
 - Read [docs/index.md](docs/index.md) before large changes.
 - Default to caveman style for chat: terse, exact, no filler. Use normal prose only for safety, irreversible actions, or user confusion.
 - Stay inside harness engineering: repo-local context, small maps, execution plans, checks, and doc updates.
-- For new product context, use `/init-sonata` and update [docs/project-brief.md](docs/project-brief.md).
-- For existing project cleanup or migration, use `/retrofit-sonata` before feature work.
+- For project context and command setup, use `$sonata-setup`.
+- For existing project cleanup or migration, use `$sonata-retrofit` before feature work.
 - For multi-step work, create or update an execution plan in [docs/exec-plans/active](docs/exec-plans/active).
 - Run checks from [docs/quality.md](docs/quality.md) before final handoff.
 - If an agent struggles twice on the same class of issue, add a doc, script, test, fixture, or rule.
@@ -26,7 +26,6 @@ Codex reads this file first. Keep it short. It is the map, not the manual.
 - [docs/quality.md](docs/quality.md): validation commands.
 - [docs/exec-plans/README.md](docs/exec-plans/README.md): planning workflow.
 - [docs/references/harness-engineering.md](docs/references/harness-engineering.md): harness principles.
-- [docs/references/caveman.md](docs/references/caveman.md): compression rules.
 
 ## Current Project Facts
 
@@ -53,8 +52,18 @@ Codex reads this file first. Keep it short. It is the map, not the manual.
 - Rust owns native capabilities and supervises the compiled TypeScript agent host.
 - Build vertical feature slices; reuse shared UI only after reuse is real.
 
-<!-- sonata:block=integrations:start -->
-## Sonata Integrations
+<!-- sonata:block=workflow:start -->
+## Sonata Workflow
 
-- Pi is enabled. Project skills live in `.pi/skills/`; prompt templates live in `.pi/prompts/`. For Serena in Pi, install `pi-serena-tools` only after reviewing the package.
-<!-- sonata:block=integrations:end -->
+- `sonata-work`: route any request through the smallest sufficient workflow and complete it.
+- `sonata-fix`: diagnose broken behavior from evidence and fix its root cause.
+- `sonata-setup`: configure project context, commands, and optional tracker workflow.
+- `sonata-retrofit`: deeply inspect and ground an established codebase before interviewing.
+- `sonata-upgrade`: safely apply Sonata updates, then refresh stale docs only.
+- Setup, spec, tickets, and implementation use `.sonata/manifest.json` readiness; run `$sonata-setup` while pending.
+- `sonata-grill`: resolve one design decision at a time before implementation.
+- `sonata-spec`: write concise canonical specs under `docs/specs/`.
+- `sonata-tickets`: create vertical slices with explicit blockers.
+- `sonata-implement`: implement one slice using risk-based validation.
+- `sonata-review`: review Standards, Spec, and Behavior separately.
+<!-- sonata:block=workflow:end -->

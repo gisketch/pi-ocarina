@@ -35,6 +35,14 @@ Local development:
 bun run tauri dev
 ```
 
+Component catalog:
+
+```bash
+bun run cosmos
+```
+
+Static catalog verification uses `bun run cosmos:export`.
+
 The real macOS desktop smoke uses an embedded WebDriver server and an E2E-only Tauri config:
 
 ```bash

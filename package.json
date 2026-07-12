@@ -7,6 +7,8 @@
     "@wdio/native-utils": "2.5.0"
   },
   "scripts": {
+    "cosmos": "cosmos",
+    "cosmos:export": "cosmos-export",
     "dev": "bun run build:agent-host && vite",
     "build": "bun run build:agent-host && vite build",
     "build:agent-host": "tsc -p agent-host/tsconfig.build.json",
@@ -72,6 +74,8 @@
     "eslint-plugin-react-refresh": "0.5.3",
     "globals": "17.7.0",
     "jiti": "^2.7.0",
+    "react-cosmos": "^7.3.0",
+    "react-cosmos-plugin-vite": "^7.3.0",
     "tailwindcss": "4.3.2",
     "tsx": "^4.23.0",
     "typescript": "5.9.3",

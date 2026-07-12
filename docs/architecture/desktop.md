@@ -47,6 +47,7 @@ Never delete or rewrite user sessions, worktrees, credentials, or repositories w
 ## UI Composition
 
 - The desktop shell has one thread sidebar and one conversation surface.
+- On macOS the main window uses Tauri's `titleBarStyle: "Overlay"` with native decorations retained. React renders a narrow drag region and sidebar toggle beneath the native traffic lights; the titlebar height is intentionally kept in CSS rather than assuming one OS version's inset.
 - Workspace switching composes into the sidebar header; it is not a second permanent navigation column.
 - The transcript owns flexible height and the composer stays pinned beneath it.
 - Provider, appearance, notification, skill, and extension management live in dialogs instead of competing with the daily conversation flow.

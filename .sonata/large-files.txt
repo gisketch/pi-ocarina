@@ -1,0 +1,8 @@
+# repo-relative path<TAB>reason; keep exceptions narrow
+src-tauri/target/release/agent-host/src/host.js	Ignored generated release resource from a prior build.
+src-tauri/target/debug/agent-host/src/host.js	Ignored generated debug resource from a prior build.
+src-tauri/src/app_state.rs	Cohesive persisted-state service with migrations and focused tests; split only when state ownership separates.
+src-tauri/src/agent_host.rs	Cohesive process protocol and supervision boundary; split when transport and lifecycle gain independent owners.
+agent-host/test/protocol.test.ts	Single end-to-end protocol contract suite; preserve chronological bridge coverage.
+agent-host/src/host.ts	Migrated Pi SDK adapter and protocol dispatcher; split only at a proven SDK ownership seam.
+src/features/threads/thread-runner.tsx	Existing thread workflow coordinator; incremental UI slices will extract proven feature seams.

@@ -10,15 +10,16 @@ Codex is the default path. It should read [AGENTS.md](../AGENTS.md), then follow
 
 Local Codex skills live in `.codex/skills/<name>/SKILL.md`. These should appear in Codex CLI's skill picker after starting or refreshing a session in the project root.
 
-Use these task labels in prompts:
+Use these project skills:
 
-- `init-sonata:` to convert rough intent into repo context.
-- `caveman-sonata:` to implement with terse, harness-aware output.
-- `retrofit-sonata:` to migrate existing projects into Sonata harness standard.
+- `$sonata-work` routes ordinary work.
+- `$sonata-setup` configures readiness and project context.
+- `$sonata-retrofit` grounds established codebases.
+- `$sonata-spec`, `$sonata-tickets`, `$sonata-implement`, and `$sonata-review` handle the delivery lifecycle.
 
 ## Copilot
 
-When enabled, Copilot receives [copilot-instructions](../.github/copilot-instructions.md), local skills, and prompt files under `.github/`.
+When enabled, Copilot receives [copilot-instructions](../.github/copilot-instructions.md) and the root workflow map.
 
 ## Claude Code
 
@@ -28,7 +29,7 @@ When enabled, Claude Code receives [CLAUDE.md](../CLAUDE.md) and copied skills u
 
 When enabled, Pi receives project settings, local skills, and prompt templates under `.pi/`.
 
-Pi reads `AGENTS.md`, so keep the root map agent-neutral and short. Use Pi skill commands as `/skill:init-sonata`, `/skill:caveman-sonata`, and `/skill:retrofit-sonata`. Prompt templates are available as `/init-sonata`, `/caveman-sonata`, and `/retrofit-sonata`.
+Pi reads `AGENTS.md`, so keep the root map agent-neutral and short. Project skills are available as `/skill:sonata-work`, `/skill:sonata-setup`, `/skill:sonata-retrofit`, and the other `sonata-*` workflow skills.
 
 ## Non-Negotiables
 

@@ -30,6 +30,7 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 
 - Reuse project components first. When a new primitive is needed, run `shadcn add <component>` before building one.
 - Tailwind theme tokens are the visual source of truth; avoid scattered hardcoded colors.
+- `--pb-content-font-size` and `--pb-content-line-height` feed Tailwind's standard `text-sm` and `text-base` utilities, so existing and newly generated Shadcn components inherit normal typography without component-specific overrides.
 - Keep Shadcn primitives in `shared/ui` and feature composition inside its owning feature.
 - Import primitives through `@/shared/ui/<component>`; do not import Radix directly when Shadcn covers the behavior.
 - Leave generated primitives at accessible defaults until the product-wide customization pass.

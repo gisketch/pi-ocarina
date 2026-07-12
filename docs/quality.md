@@ -14,6 +14,7 @@
 | Tooling typecheck | `bun run typecheck:tools` | After config, script, or E2E changes |
 | Agent-host typecheck | `bun run typecheck:agent-host` | After Pi adapter or protocol changes |
 | Frontend build | `bun run build` | Before frontend handoff |
+| Cosmos catalog export | `bun run cosmos:export` | After shared UI or fixture changes |
 | Frontend focused unit tests | `bun run test:frontend-unit` | After shared UI or draft-persistence logic changes |
 | Full static/Rust check | `bun run check` | Before implementation handoff |
 | Rust build | `bun run rust:build` | After Rust or Tauri configuration changes |
@@ -40,7 +41,7 @@ The supported local artifact is the unsigned `.app` produced by `bun run package
 
 ## Retrofit Checks
 
-When `/retrofit-sonata` runs, verify:
+When `$sonata-retrofit` runs, verify:
 
 - Existing markdown was preserved, moved, linked, or summarized.
 - `AGENTS.md` stayed short.

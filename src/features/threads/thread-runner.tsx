@@ -1,7 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
@@ -18,6 +18,7 @@ import { notificationCategories, shouldNotify, shouldRequestPermission } from "@
 import { Textarea } from "@/shared/ui/textarea";
 import { MatrixSpinner } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
+import { ChatBubble, ToolCall } from "./chat-message";
 import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
 import { createCoalescedTask } from "./coalesced-task";
@@ -45,7 +46,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   const [renameValue, setRenameValue] = useState("");
   const [tree, setTree] = useState<ThreadTreeNode[]>([]);
   const [treeOpen, setTreeOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query] = useState("");
   const [threadMetadata, setThreadMetadata] = useState<ThreadMetadata>({});
   const revision = useRef(0);
   const selectedThreadRef = useRef<string | null>(null);
@@ -460,18 +461,19 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   const organized = useMemo(() => organizeThreads(threads, threadMetadata, query), [threads, threadMetadata, query]);
   const messages = thread?.messages;
   const transcriptItems = useMemo(() => messages?.map((message, index) => message.role === "tool"
-    ? <ToolRow key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} />
+    ? <ToolCall key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} />
     : message.role === "user"
-      ? <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-user"><p className="break-words">{message.text}</p></div>
-      : <div key={`${message.role}-${index}`} className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage>{message.text ?? ""}</MarkdownMessage></div>), [messages, setChangePath, setChangesOpen]);
+      ? <ChatBubble key={`${message.role}-${index}`} role="user">{message.text}</ChatBubble>
+      : <ChatBubble key={`${message.role}-${index}`} role="assistant">{message.text ?? ""}</ChatBubble>), [messages, setChangePath, setChangesOpen]);
 
   return (
     <section className={sidebarVisible ? "grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)]" : "flex min-h-0 flex-1"} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
-      {sidebarVisible && <nav className="pb-sidebar min-h-0 space-y-1 overflow-y-auto border-r p-3" aria-label="Threads">
-        <h1 className="px-2 pb-4 pt-1 font-heading text-base">Pi Ocarina</h1>
-        {sidebarHeader}
+      {sidebarVisible && <nav className="pb-sidebar flex min-h-0 flex-col overflow-hidden border-r p-3" aria-label="Threads">
+        <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span className="text-primary">Ocarina</span></h1>
+        <div hidden>{sidebarHeader}</div>
         <Button data-sidebar-row className="w-full justify-start" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
-        <Input aria-label="Search threads" className="h-8" placeholder="Search threads" type="search" value={query} onChange={(event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)} />
+        <h2 className="px-2 pb-1 pt-5 text-xs text-muted-foreground" data-sidebar-heading>Projects</h2>
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {organized.active.map((item) => <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
           <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="min-w-0 flex-1 justify-start truncate" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <MatrixSpinner size={2} gap={1} label={`${item.title} running`} />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
           {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
@@ -481,9 +483,10 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
         </div>)}
         {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
-        {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 text-xs text-muted-foreground">No matching threads.</p>}
+        {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
+        </div>
       </nav>}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8">
+      <div className="pb-main-surface flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8">
       <div hidden><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
       <ChangesPanel workspaceId={workspace.id} open={changesOpen} {...(changePath ? { selectedPath: changePath } : {})} onClose={() => setChangesOpen(false)} />
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
@@ -498,7 +501,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
       >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
         {transcriptItems}
-        {stream && <div className="pb-chat-message pb-chat-message-assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></div>}
+        {stream && <ChatBubble role="assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></ChatBubble>}
       </TranscriptViewport>
       <Composer
         workspaceId={workspace.id}
@@ -571,21 +574,4 @@ function reconcileTool(messages: Message[], tool: ToolCallPayload): Message[] {
   const index = messages.findIndex((message) => message.role === "tool" && message.toolCallId === tool.toolCallId);
   if (index < 0) return [...messages, { ...tool, role: "tool" }];
   return messages.map((message, position) => position === index ? { ...message, ...tool } : message);
-}
-
-/** @param {unknown} value */
-function preview(value: unknown) {
-  if (value == null) return "";
-  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  return text.length > 4000 ? `${text.slice(0, 4000)}\n…` : text;
-}
-
-/** @param {{ tool: Message, onOpenFile: (path: string) => void }} props */
-function ToolRow({ tool, onOpenFile }: { tool: Message; onOpenFile: (path: string) => void }) {
-  const content = preview(tool.output ?? tool.input);
-  const path = typeof tool.input === "object" && tool.input && "path" in tool.input && typeof tool.input.path === "string" ? tool.input.path : "";
-  return <details className="rounded-md border bg-card px-3 py-2 text-sm" data-testid="tool-call">
-    <summary className="cursor-pointer font-medium">{tool.toolName ?? "Tool"} · {tool.status}{path && <Button className="ml-2" size="sm" variant="ghost" onClick={(event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); onOpenFile(path); }}>Open in Changes</Button>}</summary>
-    {content && <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-muted-foreground">{content}</pre>}
-  </details>;
 }

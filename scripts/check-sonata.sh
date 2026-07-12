@@ -1,91 +1,64 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "$script_dir/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-required_files=(
-  "AGENTS.md"
-  "README.md"
-  ".gitignore"
-  ".sonata/manifest.json"
-  "docs/index.md"
-  "docs/core-beliefs.md"
-  "docs/agent-targets.md"
-  "docs/project-brief.md"
-  "docs/quality.md"
-  "docs/architecture/index.md"
-  "docs/exec-plans/README.md"
-  "docs/references/harness-engineering.md"
-  "docs/references/caveman.md"
-  ".codex/prompts/init-sonata.md"
-  ".codex/prompts/caveman-sonata.md"
-  ".codex/prompts/retrofit-sonata.md"
-  ".codex/skills/init-sonata/SKILL.md"
-  ".codex/skills/caveman-sonata/SKILL.md"
-  ".codex/skills/retrofit-sonata/SKILL.md"
-  ".github/skills/init-sonata/SKILL.md"
-  ".github/skills/caveman-sonata/SKILL.md"
-  ".github/skills/retrofit-sonata/SKILL.md"
-  ".github/prompts/init-sonata.prompt.md"
-  ".github/prompts/caveman-sonata.prompt.md"
-  ".github/prompts/retrofit-sonata.prompt.md"
-  ".github/prompts/review-sonata.prompt.md"
-  "src/README.md"
-  "tests/README.md"
-  "config/README.md"
+skills=()
+for skill_dir in .agents/skills/sonata-*; do skills+=("${skill_dir##*/}"); done
+required=(
+  AGENTS.md README.md .gitignore .sonata/manifest.json .sonata/large-files.txt
+  docs/index.md docs/project-brief.md docs/core-beliefs.md docs/quality.md
+  docs/architecture/index.md docs/specs/README.md docs/exec-plans/README.md
+  scripts/check-sonata.sh scripts/check-file-size.sh
 )
 
-manifest_has() {
-  grep -q "\"$1\"" .sonata/manifest.json 2>/dev/null
-}
+for skill in "${skills[@]}"; do
+  required+=(".agents/skills/$skill/SKILL.md")
+done
 
-if manifest_has "pi" || [[ -d ".pi" ]]; then
-  required_files+=(
-    ".pi/settings.json"
-    ".pi/skills/init-sonata/SKILL.md"
-    ".pi/skills/caveman-sonata/SKILL.md"
-    ".pi/skills/retrofit-sonata/SKILL.md"
-    ".pi/prompts/init-sonata.md"
-    ".pi/prompts/caveman-sonata.md"
-    ".pi/prompts/retrofit-sonata.md"
-  )
+manifest_has() { grep -q "\"$1\"" .sonata/manifest.json 2>/dev/null; }
+
+if manifest_has codex; then
+  for skill in "${skills[@]}"; do required+=(".codex/skills/$skill/SKILL.md"); done
 fi
-
-if manifest_has "graphify"; then
-  required_files+=(
-    "docs/context/graphify.md"
-    ".graphifyignore"
-  )
+if manifest_has copilot; then
+  required+=(.github/copilot-instructions.md)
 fi
-
-if manifest_has "serena"; then
-  required_files+=("docs/context/serena.md")
+if manifest_has claude; then
+  required+=(CLAUDE.md)
+  for skill in "${skills[@]}"; do required+=(".claude/skills/$skill/SKILL.md"); done
 fi
-
-if manifest_has "lean-ctx"; then
-  required_files+=("docs/context/lean-ctx.md")
-fi
-
-if manifest_has "pi" || manifest_has "serena" || manifest_has "graphify" || manifest_has "lean-ctx"; then
-  required_files+=(
-    "scripts/setup-context.sh"
-    "scripts/check-context.sh"
-  )
+if manifest_has pi; then
+  required+=(.pi/settings.json)
+  for skill in "${skills[@]}"; do required+=(".pi/skills/$skill/SKILL.md"); done
 fi
 
 missing=0
-
-for file in "${required_files[@]}"; do
+for file in "${required[@]}"; do
   if [[ ! -s "$file" ]]; then
     printf 'missing or empty: %s\n' "$file"
     missing=1
   fi
 done
+(( missing == 0 )) || exit 1
 
-if [[ $missing -ne 0 ]]; then
+grep -q '"schema": 2' .sonata/manifest.json || {
+  printf 'manifest schema must be 2\n'
   exit 1
+}
+
+./scripts/check-file-size.sh
+
+if [[ "${1:-}" == "--ready" ]]; then
+  node -e '
+    const fs = require("fs");
+    const manifest = JSON.parse(fs.readFileSync(".sonata/manifest.json", "utf8"));
+    if (manifest.setup?.status !== "ready") {
+      console.error("Sonata setup is incomplete. Run $sonata-setup first.");
+      process.exit(1);
+    }
+  '
 fi
 
 printf 'sonata ok\n'

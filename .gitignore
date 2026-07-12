@@ -7,11 +7,7 @@ dist/
 agent-host/dist/
 build/
 coverage/
+cosmos-export/
 src-tauri/target/
 src-tauri/gen/
 .serena/
-
-# sonata:block=context-tools:start
-# Local agent/runtime noise
-.pi/sessions/
-# sonata:block=context-tools:end
