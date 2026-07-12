@@ -23,6 +23,10 @@ type EventPayload = {
   thinkingLevel: string;
   threadId: string;
   title: string;
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+  output: unknown;
 } & Array<{ title: string }>;
 type WireEvent = { requestId: string; type: string; payload: EventPayload };
 type SessionListener = (event: unknown) => void;
@@ -200,9 +204,22 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
         persisted.push({ role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "README.md" } }] });
         persisted.push({ role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "README content" }], isError: false });
         ui?.setEditorText("host replacement");
+        listeners.forEach((listener) => listener({
+          type: "message_update",
+          message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "READ" } }] },
+          assistantMessageEvent: { type: "toolcall_delta", delta: "READ" },
+        }));
+        listeners.forEach((listener) => listener({
+          type: "message_update",
+          message: { role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "README.md" } }] },
+          assistantMessageEvent: { type: "toolcall_delta", delta: "ME.md" },
+        }));
         listeners.forEach((listener) => listener({ type: "tool_execution_start", toolCallId: "call-1", toolName: "read", args: { path: "README.md" } }));
         listeners.forEach((listener) => listener({ type: "tool_execution_update", toolCallId: "call-1", toolName: "read", partialResult: "partial" }));
         listeners.forEach((listener) => listener({ type: "tool_execution_end", toolCallId: "call-1", toolName: "read", result: "done", isError: false }));
+        const interrupted = { role: "assistant", content: [{ type: "toolCall", id: "call-2", name: "write", arguments: { path: "cancelled.txt", content: "draft" } }], stopReason: "aborted", errorMessage: "Cancelled" };
+        listeners.forEach((listener) => listener({ type: "message_update", message: interrupted, assistantMessageEvent: { type: "toolcall_delta", delta: "draft" } }));
+        listeners.forEach((listener) => listener({ type: "message_end", message: interrupted }));
         await ui?.input("Login", "Token");
         for (const delta of ["hel", "lo"]) {
           listeners.forEach((listener) => listener({
@@ -276,7 +293,10 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
     { sessionFile: "/tmp/thread-1.jsonl", title: "Empty thread" },
   ]);
   assert.equal(requiredEvent(events, "prompt", "editorText").payload.threadId, "thread-1");
-  assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "toolCall").map(({ payload }) => payload.status), ["running", "running", "completed"]);
+  const toolEvents = events.filter(({ requestId, type, payload }) => requestId === "prompt" && type === "toolCall" && payload.toolCallId === "call-1").map(({ payload }) => payload);
+  assert.deepEqual(toolEvents.map(({ status }) => status), ["preparing", "running", "running", "completed"]);
+  assert.deepEqual(toolEvents[0]?.input, { path: "README.md" });
+  assert.deepEqual(events.filter(({ requestId, type, payload }) => requestId === "prompt" && type === "toolCall" && payload.toolCallId === "call-2").map(({ payload }) => payload.status), ["preparing", "failed"]);
   assert.match(requiredEvent(events, "second-writer", "failed").payload.message, /already active/);
   assert.equal(requiredEvent(events, "queue", "completed").payload.items[0]?.mode, "followUp");
   assert.equal(requiredEvent(events, "steer", "completed").payload.items[1]?.mode, "steer");

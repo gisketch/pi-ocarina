@@ -10,6 +10,7 @@ import chevronDown from "pixelarticons/svg/chevron-down.svg";
 import chevronRight from "pixelarticons/svg/chevron-right.svg";
 import circle from "pixelarticons/svg/circle.svg";
 import close from "pixelarticons/svg/close.svg";
+import copy from "pixelarticons/svg/copy.svg";
 import expand from "pixelarticons/svg/expand.svg";
 import folder from "pixelarticons/svg/folder.svg";
 import folderOpen from "pixelarticons/svg/folder.svg";
@@ -37,7 +38,7 @@ import trash from "pixelarticons/svg/trash.svg";
 import tree from "pixelarticons/svg/tree.svg";
 import fileDiff from "pixelarticons/svg/file.svg";
 
-const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-down": chevronDown, "chevron-right": chevronRight, circle, close, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, mic, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, search, send, settings, stop, sun, terminal, trash, tree };
+const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-down": chevronDown, "chevron-right": chevronRight, circle, close, copy, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, mic, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, search, send, settings, stop, sun, terminal, trash, tree };
 
 export type IconName = keyof typeof icons;
 export interface IconProps extends HTMLAttributes<HTMLSpanElement> { name: IconName; size?: number; glow?: boolean }
@@ -58,6 +59,7 @@ export const ArrowUpIcon = named("arrow-up");
 export const CheckIcon = named("check");
 export const ChevronRightIcon = named("chevron-right");
 export const CircleIcon = named("circle");
+export const CopyIcon = named("copy");
 export const FileDiffIcon = named("file-diff");
 export const FolderGit2Icon = named("git-branch");
 export const FolderOpenIcon = named("folder-open");

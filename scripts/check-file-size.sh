@@ -13,7 +13,7 @@ is_allowed_large_file() {
 
 while IFS= read -r -d '' file; do
   case "$file" in
-    */.git/*|*/node_modules/*|*/vendor/*|*/dist/*|*/build/*|*/coverage/*|*/migrations/*|*/.tmp-sonata-*/*|*.generated.*|*.g.cs) continue ;;
+    */.git/*|*/node_modules/*|*/vendor/*|*/dist/*|*/build/*|*/coverage/*|*/cosmos-export/*|*/migrations/*|*/.tmp-sonata-*/*|*.generated.*|*.g.cs) continue ;;
   esac
   if is_allowed_large_file "$file"; then continue; fi
   lines="$(wc -l < "$file" | tr -d ' ')"

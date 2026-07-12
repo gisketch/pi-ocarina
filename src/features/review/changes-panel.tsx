@@ -21,7 +21,7 @@ export function ChangesPanel({ workspaceId, open, selectedPath, onClose }: { wor
   const [width, setWidth] = useState(560);
   useEffect(() => { void invokeTauri("app_state_snapshot").then(({ state }) => setWidth(state.preferences.reviewer_width || 560)); }, []);
   const resize = (next: number) => { const bounded = Math.max(320, Math.min(1200, next)); setWidth(bounded); void invokeTauri("set_panel_layout", { reviewerWidth: bounded }); };
-  useEffect(() => { if (!open) return; setError(""); void invokeTauri("repository_changes", { workspaceId }).then((items) => { setFiles(items); setSelected(selectedPath && items.some((item) => item.path === selectedPath) ? selectedPath : items[0]?.path ?? ""); }).catch((cause) => setError(String(cause))); }, [open, selectedPath, workspaceId]);
+  useEffect(() => { if (!open) return; if (selectedPath) setMode("changes"); setError(""); void invokeTauri("repository_changes", { workspaceId }).then((items) => { setFiles(items); setSelected(selectedPath && items.some((item) => item.path === selectedPath) ? selectedPath : items[0]?.path ?? ""); }).catch((cause) => setError(String(cause))); }, [open, selectedPath, workspaceId]);
   useEffect(() => { if (!selected) { setDiff(null); return; } setDiff(null); void invokeTauri("file_diff", { workspaceId, path: selected }).then(setDiff).catch((cause) => setError(String(cause))); }, [selected, workspaceId]);
   useEffect(() => { if (!open || mode !== "files") return; void invokeTauri("workspace_files", { workspaceId }).then(setWorkspaceFiles).catch((cause) => setError(String(cause))); }, [mode, open, workspaceId]);
   const openFile = (path: string) => void invokeTauri("read_workspace_file", { workspaceId, path }).then(setFile).catch((cause) => setError(String(cause)));

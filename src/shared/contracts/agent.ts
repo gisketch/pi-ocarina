@@ -1,6 +1,7 @@
 import { isModelCatalog, isRecord, isThread, isThreadSummary, type Attachment, type ModelCatalog, type QueueItem, type Thread, type ThreadSummary, type ThreadTreeNode } from "./app";
 
-export type ToolCallPayload = { threadId: string; toolCallId?: string | undefined; toolName?: string | undefined; status?: string | undefined; input?: unknown; output?: unknown };
+export type ToolLifecycleStatus = "preparing" | "running" | "completed" | "failed";
+export type ToolCallPayload = { threadId: string; toolCallId?: string | undefined; toolName?: string | undefined; status?: ToolLifecycleStatus | undefined; input?: unknown; output?: unknown };
 export type RuntimePromptPayload = { threadId: string; promptId: string; kind: "select" | "confirm" | "input" | "editor"; title?: string | undefined; message?: string | undefined; options?: string[] | undefined };
 export type AgentStreamEvent =
   | { version: 1; requestId: string; type: "messageDelta"; payload: { threadId: string; delta: string } }
@@ -25,6 +26,12 @@ const string = (record: Record<string, unknown>, key: string) => {
   return value;
 };
 const optionalString = (record: Record<string, unknown>, key: string) => typeof record[key] === "string" ? record[key] as string : undefined;
+const optionalToolStatus = (record: Record<string, unknown>) => {
+  const status = optionalString(record, "status");
+  if (status === undefined) return undefined;
+  if (!["preparing", "running", "completed", "failed"].includes(status)) throw new Error("Invalid agent-host tool status");
+  return status as ToolLifecycleStatus;
+};
 
 export function parseAgentHostEvent(value: unknown): AgentHostEvent {
   if (!isRecord(value) || value.version !== 1 || typeof value.requestId !== "string" || typeof value.type !== "string") throw new Error("Invalid agent-host event envelope");
@@ -45,7 +52,10 @@ export function parseAgentHostEvent(value: unknown): AgentHostEvent {
   const threadId = string(payload, "threadId");
   switch (value.type) {
     case "messageDelta": return { ...base, type: value.type, payload: { threadId, delta: string(payload, "delta") } };
-    case "toolCall": return { ...base, type: value.type, payload: { threadId, ...(optionalString(payload, "toolCallId") ? { toolCallId: optionalString(payload, "toolCallId") } : {}), ...(optionalString(payload, "toolName") ? { toolName: optionalString(payload, "toolName") } : {}), ...(optionalString(payload, "status") ? { status: optionalString(payload, "status") } : {}), input: payload.input, output: payload.output } };
+    case "toolCall": {
+      const status = optionalToolStatus(payload);
+      return { ...base, type: value.type, payload: { threadId, ...(optionalString(payload, "toolCallId") ? { toolCallId: optionalString(payload, "toolCallId") } : {}), ...(optionalString(payload, "toolName") ? { toolName: optionalString(payload, "toolName") } : {}), ...(status ? { status } : {}), input: payload.input, output: payload.output } };
+    }
     case "runtimePrompt": {
       const kind = string(payload, "kind");
       if (!["select", "confirm", "input", "editor"].includes(kind)) throw new Error("Invalid runtime prompt kind");

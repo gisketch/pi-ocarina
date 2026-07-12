@@ -26,7 +26,7 @@ import { createCoalescedTask } from "./coalesced-task";
 import { cachedThreadSummaries, cachedWorkspaceThreads, cacheThreadSummaries } from "./thread-summary-cache";
 import { pendingThreadFile as pendingThreadHandoff } from "./thread-navigation";
 import { requestAgent } from "@/shared/lib/agent-client";
-import { reconcileToolMessages } from "./tool-presentation";
+import { reconcileToolMessages, settleActiveToolMessages } from "./tool-presentation";
 import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
 import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
 
@@ -317,7 +317,10 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       if (selectedThreadRef.current === active.threadId) setStream("");
     } catch (cause) {
       if (startedThreadId) signalAttention(startedThreadId, "failed", thread?.title ?? "Pi Ocarina");
-      if (!startedThreadId || selectedThreadRef.current === startedThreadId) setError(String(cause));
+      if (!startedThreadId || selectedThreadRef.current === startedThreadId) {
+        setError(String(cause));
+        setThread((value) => value && ({ ...value, messages: settleActiveToolMessages(value.messages, String(cause)) }));
+      }
     } finally {
       const completedThreadId = activeRunId ? [...runIdsRef.current].find(([, id]) => id === activeRunId)?.[0] : undefined;
       if (completedThreadId) {

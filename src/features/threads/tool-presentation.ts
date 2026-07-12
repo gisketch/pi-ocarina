@@ -1,6 +1,6 @@
 import type { ThreadMessage } from "@/shared/contracts/app";
 
-export type ToolStatus = "running" | "completed" | "failed";
+export type ToolStatus = "preparing" | "running" | "completed" | "failed";
 export type ToolDetail =
   | { kind: "terminal"; command: string; content: string; truncated: boolean }
   | { kind: "code"; path: string; content: string; truncated: boolean }
@@ -34,19 +34,46 @@ export function reconcileToolMessages(messages: ThreadMessage[], tool: ThreadMes
   if (!tool.toolCallId) return [...messages, { ...tool, role: "tool" }];
   const index = messages.findIndex((message) => message.role === "tool" && message.toolCallId === tool.toolCallId);
   if (index < 0) return [...messages, { ...tool, role: "tool" }];
-  return messages.map((message, position) => position === index ? { ...message, ...tool, input: tool.input === undefined ? message.input : tool.input, output: tool.output === undefined ? message.output : tool.output } : message);
+  return messages.map((message, position) => position === index ? {
+    ...message,
+    ...tool,
+    status: reconcileStatus(message.status, tool.status),
+    input: mergeInput(message.input, tool.input),
+    output: tool.output === undefined ? message.output : tool.output,
+  } : message);
+}
+
+export function settleActiveToolMessages(messages: ThreadMessage[], output = "Tool interrupted"): ThreadMessage[] {
+  return messages.map((message) => message.role === "tool" && (message.status === "preparing" || message.status === "running")
+    ? { ...message, status: "failed", output: message.output ?? output }
+    : message);
+}
+
+export function diffStats(lines: Extract<ToolDetail, { kind: "diff" }>["lines"]) {
+  return lines.reduce((counts, line) => ({ additions: counts.additions + Number(line.kind === "add"), deletions: counts.deletions + Number(line.kind === "remove") }), { additions: 0, deletions: 0 });
+}
+
+export function numberDiffLines(lines: Extract<ToolDetail, { kind: "diff" }>["lines"]) {
+  let oldLine = 1;
+  let newLine = 1;
+  return lines.map((line) => {
+    if (line.kind === "remove") return { ...line, oldLine: oldLine++, newLine: null };
+    if (line.kind === "add") return { ...line, oldLine: null, newLine: newLine++ };
+    if (line.text === "⋯") return { ...line, oldLine: null, newLine: null };
+    return { ...line, oldLine: oldLine++, newLine: newLine++ };
+  });
 }
 
 function bash(input: Record<string, unknown> | undefined, output: string, status: ToolStatus): ToolPresentation | undefined {
   const command = string(input?.command);
   if (!command) return undefined;
-  return { name: "bash", status, verb: status === "running" ? "Running" : "Ran", subject: summary(command), detail: { kind: "terminal", command, ...bounded(output) } };
+  return { name: "bash", status, verb: status === "preparing" ? "Preparing" : status === "running" ? "Running" : "Ran", subject: summary(command), detail: { kind: "terminal", command, ...bounded(output) } };
 }
 
 function read(input: Record<string, unknown> | undefined, output: string, status: ToolStatus): ToolPresentation | undefined {
   const path = string(input?.path) ?? string(input?.file_path);
   if (!path) return undefined;
-  return { name: "read", status, verb: status === "running" ? "Reading" : "Read", subject: path, path, detail: { kind: "code", path, ...bounded(output) } };
+  return { name: "read", status, verb: active(status) ? "Reading" : "Read", subject: path, path, detail: { kind: "code", path, ...bounded(output) } };
 }
 
 function edit(input: Record<string, unknown> | undefined, status: ToolStatus): ToolPresentation | undefined {
@@ -65,14 +92,14 @@ function edit(input: Record<string, unknown> | undefined, status: ToolStatus): T
   }
   if (!lines.length) return undefined;
   const visible = lines.slice(0, 500);
-  return { name: "edit", status, verb: status === "running" ? "Editing" : "Edited", subject: path, path, detail: { kind: "diff", path, lines: visible, truncated: visible.length < lines.length } };
+  return { name: "edit", status, verb: status === "preparing" ? "Preparing changes to" : status === "running" ? "Editing" : "Edited", subject: path, path, detail: { kind: "diff", path, lines: visible, truncated: visible.length < lines.length } };
 }
 
 function write(input: Record<string, unknown> | undefined, output: string, status: ToolStatus): ToolPresentation | undefined {
   const path = string(input?.path);
   const content = string(input?.content);
   if (!path || content === undefined) return undefined;
-  const verb = status === "running" ? "Writing" : /\bcreated\b/i.test(output) ? "Created" : /\bupdated\b/i.test(output) ? "Updated" : "Wrote";
+  const verb = status === "preparing" ? "Drafting" : status === "running" ? "Writing" : /\bcreated\b/i.test(output) ? "Created" : /\bupdated\b/i.test(output) ? "Updated" : "Wrote";
   const lines = content.split("\n");
   const visible = lines.slice(0, 500).map((text) => ({ kind: "add" as const, text }));
   return { name: "write", status, verb, subject: path, path, detail: { kind: "diff", path, lines: visible, truncated: visible.length < lines.length } };
@@ -81,7 +108,7 @@ function write(input: Record<string, unknown> | undefined, output: string, statu
 function discovery(runningVerb: string, completedVerb: string, name: string, input: Record<string, unknown> | undefined, output: string, status: ToolStatus, subjectKey: string): ToolPresentation | undefined {
   if (!input) return undefined;
   const subject = string(input[subjectKey]) ?? (subjectKey !== "path" ? string(input.path) : undefined) ?? ".";
-  return { name, status, verb: status === "running" ? runningVerb : completedVerb, subject: summary(subject), detail: { kind: "list", ...bounded(output) } };
+  return { name, status, verb: active(status) ? runningVerb : completedVerb, subject: summary(subject), detail: { kind: "list", ...bounded(output) } };
 }
 
 function generic(name: string, input: Record<string, unknown> | undefined, output: string, status: ToolStatus): ToolPresentation {
@@ -89,7 +116,7 @@ function generic(name: string, input: Record<string, unknown> | undefined, outpu
     const formatted = primitive(value);
     return formatted === undefined ? [] : [{ label: humanize(label), value: formatted }];
   }).slice(0, 8) : [];
-  return { name, status, verb: status === "running" ? `Running ${humanize(name)}` : `Used ${humanize(name)}`, subject: fields[0]?.value ?? "", detail: fields.length || output ? { kind: "fields", fields, ...bounded(output) } : { kind: "none" } };
+  return { name, status, verb: status === "preparing" ? `Preparing ${humanize(name)}` : status === "running" ? `Running ${humanize(name)}` : `Used ${humanize(name)}`, subject: fields[0]?.value ?? "", detail: fields.length || output ? { kind: "fields", fields, ...bounded(output) } : { kind: "none" } };
 }
 
 function outputText(value: unknown, depth = 0): string {
@@ -106,7 +133,20 @@ function outputText(value: unknown, depth = 0): string {
 }
 
 function bounded(value: string) { return value.length > detailLimit ? { content: value.slice(0, detailLimit), truncated: true } : { content: value, truncated: false }; }
-function normalizeStatus(status: string | undefined): ToolStatus { return status === "running" ? "running" : status === "failed" ? "failed" : "completed"; }
+function normalizeStatus(status: string | undefined): ToolStatus { return status === "preparing" ? "preparing" : status === "running" ? "running" : status === "failed" ? "failed" : "completed"; }
+function active(status: ToolStatus) { return status === "preparing" || status === "running"; }
+function reconcileStatus(previous: string | undefined, next: string | undefined) {
+  if (next === undefined) return previous;
+  const rank = (status: string | undefined) => status === "completed" || status === "failed" ? 2 : status === "running" ? 1 : status === "preparing" ? 0 : -1;
+  return rank(next) < rank(previous) ? previous : next;
+}
+function mergeInput(previous: unknown, next: unknown) {
+  if (next === undefined) return previous;
+  const before = record(previous);
+  const after = record(next);
+  if (before && after) return { ...before, ...after };
+  return before && !after ? previous : next;
+}
 function record(value: unknown): Record<string, unknown> | undefined { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
 function string(value: unknown) { return typeof value === "string" ? value : undefined; }
 function summary(value: string) { return value.length > summaryLimit ? `${value.slice(0, summaryLimit - 1)}…` : value; }

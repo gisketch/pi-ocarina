@@ -41,6 +41,8 @@ type SessionMap = Map<string, AgentSession>;
 type LeaseMap = Map<string, string>;
 type BaselineMap = Map<string, number>;
 type Publish = (type: string, payload: Record<string, unknown>) => void;
+type ToolPublishPayload = { threadId: string; toolCallId?: string; toolName?: string; status: "preparing" | "running" | "completed" | "failed"; input?: unknown; output?: unknown };
+type PendingToolPublish = { payload: ToolPublishPayload; timer: ReturnType<typeof setTimeout> };
 type PromptPending = { threadId: string; resolve: (value: unknown) => void };
 type PromptMap = Map<string, PromptPending>;
 type Attachment = { path: string; name: string; size?: number; kind?: string };
@@ -529,11 +531,70 @@ function watchThread({ threadId }: ThreadPayload, signal: AbortSignal, sessions:
   });
 }
 
+const pendingToolPublishes = new WeakMap<Publish, Map<string, PendingToolPublish>>();
+
+function publishToolCall(publish: Publish, payload: ToolPublishPayload, deferred = false) {
+  const key = payload.toolCallId;
+  if (!deferred || !key) {
+    flushToolCall(publish, key);
+    publish("toolCall", payload);
+    return;
+  }
+  const pending = pendingToolPublishes.get(publish) ?? new Map<string, PendingToolPublish>();
+  pendingToolPublishes.set(publish, pending);
+  const current = pending.get(key);
+  if (current) {
+    current.payload = { ...current.payload, ...payload, input: payload.input ?? current.payload.input };
+    return;
+  }
+  const timer = setTimeout(() => flushToolCall(publish, key), 16);
+  timer.unref();
+  pending.set(key, { payload, timer });
+}
+
+function flushToolCall(publish: Publish, key?: string) {
+  const pending = pendingToolPublishes.get(publish);
+  if (!pending) return;
+  const keys = key ? [key] : [...pending.keys()];
+  for (const itemKey of keys) {
+    const item = pending.get(itemKey);
+    if (!item) continue;
+    clearTimeout(item.timer);
+    pending.delete(itemKey);
+    publish("toolCall", item.payload);
+  }
+  if (pending.size === 0) pendingToolPublishes.delete(publish);
+}
+
+function partialToolCalls(message: unknown) {
+  if (!message || typeof message !== "object" || Array.isArray(message)) return [];
+  const record = message as Record<string, unknown>;
+  if (record.role !== "assistant" || !Array.isArray(record.content)) return [];
+  return record.content.flatMap((part) => {
+    if (!part || typeof part !== "object" || Array.isArray(part)) return [];
+    const value = part as Record<string, unknown>;
+    if (value.type !== "toolCall" || typeof value.id !== "string" || typeof value.name !== "string") return [];
+    return [{ toolCallId: value.id, toolName: value.name, input: value.arguments }];
+  });
+}
+
 function publishPiEvent(event: AgentSessionEvent, threadId: string, publish: Publish) {
-  if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
-  else if (event.type === "tool_execution_start") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
-  else if (event.type === "tool_execution_update") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
-  else if (event.type === "tool_execution_end") publish("toolCall", { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
+  if (event.type === "message_update") {
+    if (event.assistantMessageEvent.type === "text_delta") publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
+    for (const tool of partialToolCalls(event.message)) publishToolCall(publish, { threadId, ...tool, status: "preparing" }, true);
+    return;
+  }
+  if (event.type === "message_end") {
+    flushToolCall(publish);
+    const message = event.message as unknown;
+    if (message && typeof message === "object" && !Array.isArray(message) && ["error", "aborted"].includes(String((message as Record<string, unknown>).stopReason))) {
+      for (const tool of partialToolCalls(message)) publishToolCall(publish, { threadId, ...tool, status: "failed", output: (message as Record<string, unknown>).errorMessage ?? "Tool preparation interrupted" });
+    }
+    return;
+  }
+  if (event.type === "tool_execution_start") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
+  else if (event.type === "tool_execution_update") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
+  else if (event.type === "tool_execution_end") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
 }
 
 function cancelThreadPrompts(threadId: string, prompts: PromptMap) {

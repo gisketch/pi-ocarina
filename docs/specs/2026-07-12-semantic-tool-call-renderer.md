@@ -34,6 +34,9 @@ Tool calls should read like concise activity: `Edited filename.ts`, `Read filena
 - Status changes reconcile in place by tool-call ID without creating duplicate rows or losing the original input.
 - Expanding `edit` or `write` shows a bounded, syntax-aware editor-style diff with additions and deletions visually distinct.
 - Expanding `read` shows bounded read-only source content with preserved whitespace and horizontal scrolling where needed.
+- Expanded file details align with transcript Markdown, show the filename and copy control in their header, and show `+N`/`-N` totals for diffs.
+- Diff rows show old/new line numbers, carry their tint across the full horizontally scrollable row, and contain overscroll without elastic chaining.
+- Hovering a file-detail filename underlines it; activating it opens that path in the review workbench's Changes tab without a separate action row.
 - Expanding `bash` shows the command and bounded terminal-style output with preserved line breaks; long lines scroll instead of wrapping into unreadable prose.
 - Known search/list tools present their meaningful query, path, and results without serialized wrappers.
 - Unknown extension tools receive a humanized name, meaningful primitive input fields, and formatted string/list output. Nested unsupported values are summarized safely rather than dumped as JSON.

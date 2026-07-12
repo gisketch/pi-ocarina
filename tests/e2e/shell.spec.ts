@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,16 +15,32 @@ describe("desktop shell", () => {
     const shell = await browser.$('[data-testid="app-ready"]');
 
     await shell.waitForDisplayed();
-    await expect(shell).toHaveText(expect.stringContaining("Pi Ocarina"));
+    await expect(shell).toHaveText(expect.stringContaining("PiOcarina"));
     await expect(browser.$('[data-testid="runtime-status"]')).toHaveText("Bundled Pi ready");
   });
 
   it("adds and selects a canonical workspace through the Rust catalog", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "pi-ocarina-workspace-"));
-    await browser.execute((path) => window.__TAURI__.core.invoke("add_workspace", { path }), workspace);
-
-    await expect(browser.$(`button*=${workspace.split("/").at(-1)}`)).toBeDisplayed();
-    await expect(browser.$('[data-testid="model-catalog"]')).toHaveText(expect.stringContaining("providers"));
+    let workspaceId = "";
+    try {
+      workspaceId = await browser.execute(async (path) => {
+        const state = await window.__TAURI__.core.invoke("add_workspace", { path }) as { workspaces: Array<{ id: string; path: string }> };
+        const folder = path.split("/").filter(Boolean).at(-1);
+        const id = state.workspaces.find((item) => item.path.split("/").filter(Boolean).at(-1) === folder)?.id;
+        if (!id) throw new Error("Added workspace missing from catalog");
+        await window.__TAURI__.core.invoke("select_workspace", { workspaceId: id });
+        return id;
+      }, workspace);
+      const selected = await browser.execute(async (id) => {
+        const snapshot = await window.__TAURI__.core.invoke("app_state_snapshot") as { state: { workspaces: Array<{ id: string }>; windows: Record<string, { workspace_id?: string }> } };
+        return snapshot.state.workspaces.some((item) => item.id === id) && Object.values(snapshot.state.windows).some((item) => item.workspace_id === id);
+      }, workspaceId);
+      expect(selected).toBe(true);
+      await expect(browser.$('[data-testid="model-catalog"]')).toHaveText(expect.stringContaining("providers"));
+    } finally {
+      if (workspaceId) await browser.execute((id) => window.__TAURI__.core.invoke("remove_workspace", { workspaceId: id }), workspaceId);
+      await rm(workspace, { recursive: true, force: true });
+    }
   });
 
   it("keeps rapid composer input responsive and coalesces durable draft writes", async () => {
