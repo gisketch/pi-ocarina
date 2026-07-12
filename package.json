@@ -38,6 +38,7 @@
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.2.6",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-notification": "^2.3.3",
@@ -45,6 +46,7 @@
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "highlight.js": "11.11.1",
     "pixelarticons": "^2.2.0",
     "radix-ui": "^1.6.2",
     "react": "19.2.7",

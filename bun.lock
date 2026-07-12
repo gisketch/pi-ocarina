@@ -7,6 +7,7 @@
       "dependencies": {
         "@fontsource-variable/atkinson-hyperlegible-next": "^5.2.6",
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
+        "@fontsource-variable/space-grotesk": "^5.2.10",
         "@tauri-apps/api": "2.11.1",
         "@tauri-apps/plugin-dialog": "^2.7.1",
         "@tauri-apps/plugin-notification": "^2.3.3",
@@ -14,6 +15,7 @@
         "@xterm/xterm": "^6.0.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "highlight.js": "11.11.1",
         "pixelarticons": "^2.2.0",
         "radix-ui": "^1.6.2",
         "react": "19.2.7",
@@ -175,6 +177,8 @@
     "@fontsource-variable/atkinson-hyperlegible-next": ["@fontsource-variable/atkinson-hyperlegible-next@5.2.6", "", {}, "sha512-D0Z8peFkRGYACvmWp8Sl8YPGYLBEJbzqapugtsMEYSUUtpQDiZVDHjk9s7bqB4hSCRYCrKuW6V1V+mnHybVnPw=="],
 
     "@fontsource-variable/jetbrains-mono": ["@fontsource-variable/jetbrains-mono@5.2.8", "", {}, "sha512-WBA9elru6Jdp5df2mES55wuOO0WIrn3kpXnI4+W2ek5u3ZgLS9XS4gmIlcQhiZOWEKl95meYdvK7xI+ETLCq/Q=="],
+
+    "@fontsource-variable/space-grotesk": ["@fontsource-variable/space-grotesk@5.2.10", "", {}, "sha512-yJQO/o35/hAP3CFnpdFTwQku2yzJOae2HIpBmqkOVoxhhXJaQP3g+b6Jrz7u+eI7A5ZdCIf88uMWpBJdFiGr5w=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
