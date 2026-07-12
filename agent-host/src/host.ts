@@ -601,7 +601,7 @@ function threadSnapshot(session: AgentSession) {
     threadId: session.sessionId,
     sessionFile,
     title: session.sessionName,
-    messages: session.messages.flatMap((message) => "role" in message && "content" in message ? transcriptItems(message.role, message.content) : []),
+    messages: transcriptMessages(session.messages),
     model: session.model ? { provider: session.model.provider, id: session.model.id, name: session.model.name } : null,
     thinkingLevel: session.thinkingLevel ?? "off",
     thinkingLevels: session.getAvailableThinkingLevels?.() ?? ["off"],
@@ -692,6 +692,23 @@ async function withSchema<T extends { sessionFile: string }>(snapshot: T) {
 }
 
 type TranscriptItem = { role: string; text?: string; toolCallId?: string; toolName?: string; status?: string; input?: unknown; output?: unknown };
+function transcriptMessages(messages: readonly unknown[]): TranscriptItem[] {
+  const items: TranscriptItem[] = [];
+  const tools = new Map<string, number>();
+  for (const message of messages) {
+    if (!message || typeof message !== "object" || !("role" in message) || !("content" in message)) continue;
+    for (const item of transcriptItems(String(message.role), message.content)) {
+      const index = item.toolCallId ? tools.get(item.toolCallId) ?? -1 : -1;
+      if (index < 0) {
+        if (item.toolCallId) tools.set(item.toolCallId, items.length);
+        items.push(item);
+      }
+      else items[index] = { ...items[index], ...item, input: item.input ?? items[index]?.input, output: item.output ?? items[index]?.output };
+    }
+  }
+  return items;
+}
+
 function transcriptItems(role: string, content: unknown): TranscriptItem[] {
   const text = messageText(content);
   const items: TranscriptItem[] = text ? [{ role, text }] : [];

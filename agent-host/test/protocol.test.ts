@@ -197,6 +197,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       subscribe(listener: SessionListener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text: string) {
         persisted.push({ role: "user", content: text });
+        persisted.push({ role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "README.md" } }] });
+        persisted.push({ role: "tool", content: [{ type: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "README content" }], isError: false }] });
         ui?.setEditorText("host replacement");
         listeners.forEach((listener) => listener({ type: "tool_execution_start", toolCallId: "call-1", toolName: "read", args: { path: "README.md" } }));
         listeners.forEach((listener) => listener({ type: "tool_execution_update", toolCallId: "call-1", toolName: "read", partialResult: "partial" }));
@@ -280,6 +282,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.equal(requiredEvent(events, "steer", "completed").payload.items[1]?.mode, "steer");
   assert.deepEqual(requiredEvent(events, "open", "completed").payload.messages, [
     { role: "user", text: "hi" },
+    { role: "tool", toolCallId: "call-1", toolName: "read", status: "completed", input: { path: "README.md" }, output: [{ type: "text", text: "README content" }] },
     { role: "assistant", text: "hello" },
   ]);
   assert.equal(requiredEvent(events, "recover", "completed").payload.runStatus, "idle");

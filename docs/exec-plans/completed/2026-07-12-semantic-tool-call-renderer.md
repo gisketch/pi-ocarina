@@ -74,6 +74,8 @@ Replace protocol-shaped tool-call JSON with compact semantic activity rows and e
 
 ## Progress Log
 
-- [ ] Ticket 1: Semantic tool row and extension fallback.
-- [ ] Ticket 2: File tool presentations.
-- [ ] Ticket 3: Command and discovery tool presentations.
+- [x] Ticket 1: Semantic tool row and extension fallback.
+- [x] Ticket 2: File tool presentations.
+- [x] Ticket 3: Command and discovery tool presentations.
+
+- 2026-07-12: Full repository check, Cosmos export, and browser visual QA passed.

@@ -24,6 +24,7 @@ import { TranscriptViewport } from "./transcript-viewport";
 import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
 import { createCoalescedTask } from "./coalesced-task";
 import { requestAgent } from "@/shared/lib/agent-client";
+import { reconcileToolMessages } from "./tool-presentation";
 import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
 import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
 
@@ -611,8 +612,4 @@ function TreeNodes({ nodes, onFork, onNavigate, depth = 0 }: { nodes: ThreadTree
 }
 
 /** @param {Message[]} messages @param {Message} tool */
-function reconcileTool(messages: Message[], tool: ToolCallPayload): Message[] {
-  const index = messages.findIndex((message) => message.role === "tool" && message.toolCallId === tool.toolCallId);
-  if (index < 0) return [...messages, { ...tool, role: "tool" }];
-  return messages.map((message, position) => position === index ? { ...message, ...tool } : message);
-}
+function reconcileTool(messages: Message[], tool: ToolCallPayload): Message[] { return reconcileToolMessages(messages, { ...tool, role: "tool" }); }
