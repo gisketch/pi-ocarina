@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { WorkspaceCatalog } from "@/features/workspaces/workspace-catalog";
 import { MatrixBackground } from "@/shared/ui/matrix-background";
-import { PanelLeftIcon } from "@/shared/ui/icon";
+import { MessageSquarePlusIcon, PanelLeftIcon } from "@/shared/ui/icon";
 import { Button } from "@/shared/ui/button";
 import { parseAgentHostEvent } from "@/shared/contracts/agent";
 import type { Preferences } from "@/shared/contracts/app";
@@ -11,6 +11,7 @@ export function App() {
   const [runtime, setRuntime] = useState("Starting bundled Pi…");
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const [threadTitle, setThreadTitle] = useState("New thread");
 
   useEffect(() => {
     const sync = (next: Preferences) => { setPreferences(next); setSidebarVisible(next.sidebar_visible); };
@@ -52,13 +53,13 @@ export function App() {
       className="h-screen overflow-hidden bg-transparent text-foreground"
       data-testid="app-ready"
     >
-      <MatrixBackground />
+      <MatrixBackground sidebarVisible={sidebarVisible} />
       <span className="sr-only" data-testid="runtime-status">{runtime}</span>
       <header className={`pb-titlebar${sidebarVisible ? " pb-titlebar-sidebar-visible" : ""}`} data-tauri-drag-region aria-label="Window toolbar">
         <div className="pb-titlebar-sidebar"><Button aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"} aria-pressed={sidebarVisible} size="icon-sm" variant="ghost" onClick={toggleSidebar}><PanelLeftIcon /></Button></div>
-        <div className="pb-titlebar-main" data-tauri-drag-region>Pi Ocarina</div>
+        <div className="pb-titlebar-main" data-tauri-drag-region><MessageSquarePlusIcon /><span className="truncate">{threadTitle}</span></div>
       </header>
-      <div className="pb-app-layer h-full min-h-0"><WorkspaceCatalog sidebarVisible={sidebarVisible} /></div>
+      <div className="pb-app-layer h-full min-h-0"><WorkspaceCatalog sidebarVisible={sidebarVisible} onThreadTitleChange={setThreadTitle} /></div>
     </main>
   );
 }

@@ -11,4 +11,4 @@ Supports **emphasis**, lists, links, and highlighted code.
 const answer: string = "smallest complete slice";
 \`\`\``;
 
-export default <div className="mx-auto max-w-4xl"><MarkdownMessage>{markdown}</MarkdownMessage></div>;
+export default <div className="mx-auto max-w-3xl"><MarkdownMessage>{markdown}</MarkdownMessage></div>;

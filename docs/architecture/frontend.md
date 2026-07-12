@@ -39,7 +39,7 @@ Each feature owns its components, hooks, state, service calls, and tests. Export
 - Feature-only UI stays local until a second real use proves it belongs in `shared/ui`.
 - Preserve keyboard access, focus visibility, semantics, and reduced-motion behavior.
 - Pi Ocarina owns its design system in `src/shared`; the sibling component-library prototype is migration input, never a runtime dependency.
-- The shipped appearance is dark-only. Space Grotesk is body text, Departure Mono is headings/composer input, and JetBrains Mono is buttons/code.
+- The shipped appearance is dark-only. Atkinson Hyperlegible Next is body text, Departure Mono is headings/composer input, and JetBrains Mono is buttons/code.
 - Application icons use the shared Pixelarticons wrapper rather than importing icon packages directly.
 - The current shell intentionally exposes only two columns: sidebar and chat. See [UI Increment Map](ui-increments.md) before restoring secondary surfaces.
 - Copy `pi-gui` interaction behavior only after tracing the full flow and translating native calls to Tauri.

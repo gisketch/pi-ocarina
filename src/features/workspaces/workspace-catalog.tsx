@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FolderGit2Icon, FolderOpenIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "@/shared/ui/icon";
+import { FolderGit2Icon, FolderOpenIcon, MessageSquarePlusIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "@/shared/ui/icon";
 import { useCallback, useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
@@ -24,7 +24,7 @@ const emptyState: WorkspaceState = { workspaces: [], selected_workspace: null };
 const folderName = (workspace: Workspace) => workspace.path.split("/").filter(Boolean).at(-1) ?? workspace.path;
 
 /** @param {{ sidebarVisible?: boolean }} props */
-export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: boolean }) {
+export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }: { sidebarVisible?: boolean; onThreadTitleChange: (title: string) => void }) {
   const windowLabel = getCurrentWindow().label;
   const [state, setState] = useState(emptyState);
   const [model, setModel] = useState<Model | null>(null);
@@ -92,11 +92,16 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
 
   if (state.workspaces.length === 0) {
     return (
-      <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-muted-foreground">Open a local folder to begin.</p>
-        <Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-      </div>
+      <section className="pb-thread-shell grid h-full min-h-0" data-sidebar-visible={sidebarVisible}>
+        <nav className="pb-sidebar flex min-h-0 min-w-0 flex-col overflow-hidden border-r p-3" aria-hidden={!sidebarVisible} inert={!sidebarVisible} aria-label="Threads">
+          <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span className="text-primary">Ocarina</span></h1>
+          <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" disabled size="sm" variant="ghost"><MessageSquarePlusIcon /><span>New thread</span></Button>
+          <div className="flex items-center px-2 pb-3 pt-6" data-workspace-header><h2 className="flex-1 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button></div>
+        </nav>
+        <div className="pb-main-surface grid min-h-0 place-items-center px-6 pb-4">
+          <div className="flex flex-col items-center gap-3"><p className="text-sm text-muted-foreground">Open a local folder to begin.</p><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button>{error && <p className="text-sm text-destructive">{error}</p>}</div>
+        </div>
+      </section>
     );
   }
 
@@ -114,7 +119,7 @@ export function WorkspaceCatalog({ sidebarVisible = true }: { sidebarVisible?: b
   return (
     <div className="flex h-full min-h-0 flex-col">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {selected ? <ModelCatalog onModelChange={setModel} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} /> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
+        {selected ? <ModelCatalog onModelChange={setModel} onThreadTitleChange={onThreadTitleChange} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} workspaces={state.workspaces} onOpenWorkspace={openWorkspace} onSelectWorkspace={(workspaceId) => run("select_workspace", { workspaceId })} /> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
         {error && <p className="px-3 text-xs text-destructive">{error}</p>}
       </section>
 

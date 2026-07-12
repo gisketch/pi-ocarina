@@ -41,5 +41,5 @@ export function TranscriptViewport({ threadKey, savedTop, contentKey, onPosition
       pinnedRef.current = isBottomPinned(event.currentTarget);
       onPosition(event.currentTarget.scrollTop);
     }}
-  ><div className="mx-auto w-full max-w-4xl space-y-3 px-2 py-4 [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_5rem]" ref={contentRef}>{children}</div></div>;
+  ><div className="mx-auto w-full max-w-3xl space-y-3 px-2 py-4 [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_5rem]" ref={contentRef}>{children}</div></div>;
 }

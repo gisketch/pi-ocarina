@@ -17,7 +17,7 @@ import { isModelCatalog, type Model, type ModelCatalog as Catalog, type Workspac
 
 /** @typedef {{ id: string, path: string }} Workspace */
 /** @param {{ workspace: Workspace | null, sidebarVisible?: boolean, sidebarHeader?: React.ReactNode, onModelChange?: (model: Model | null) => void }} props */
-export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, onModelChange = () => {} }: { workspace: Workspace | null; sidebarVisible?: boolean; sidebarHeader?: ReactNode; onModelChange?: (model: Model | null) => void }) {
+export function ModelCatalog({ workspace, workspaces = [], sidebarVisible = true, sidebarHeader, onModelChange = () => {}, onThreadTitleChange, onOpenWorkspace = () => {}, onSelectWorkspace = async () => false }: { workspace: Workspace | null; workspaces?: Workspace[]; sidebarVisible?: boolean; sidebarHeader?: ReactNode; onModelChange?: (model: Model | null) => void; onThreadTitleChange: (title: string) => void; onOpenWorkspace?: () => void; onSelectWorkspace?: (workspaceId: string) => Promise<boolean> }) {
   const workspaceId = workspace?.id;
   const [catalog, setCatalog] = useState<Catalog>({ providers: [], models: [], errors: [] });
   const [selected, setSelected] = useState<Model | null>(null);
@@ -142,7 +142,7 @@ export function ModelCatalog({ workspace, sidebarVisible = true, sidebarHeader, 
         </div>
       )}
       <div hidden>{catalog.errors.map((error) => <p key={error} className="text-sm text-destructive">{error}</p>)}</div>
-      <ThreadRunner key={workspace.id} workspace={workspace} models={availableModels} model={model} onModelChange={setSelected} {...(sidebarHeader === undefined ? {} : { sidebarHeader })} sidebarVisible={sidebarVisible} />
+      <ThreadRunner key={workspace.id} workspace={workspace} workspaces={workspaces} models={availableModels} model={model} onModelChange={setSelected} onThreadTitleChange={onThreadTitleChange} onOpenWorkspace={onOpenWorkspace} onSelectWorkspace={onSelectWorkspace} {...(sidebarHeader === undefined ? {} : { sidebarHeader })} sidebarVisible={sidebarVisible} />
     </div>
   );
 }

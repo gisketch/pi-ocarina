@@ -150,7 +150,13 @@ export function serve(input: NodeJS.ReadableStream = process.stdin, output: Node
   const heartbeat = setInterval(() => {
     for (const sessionFile of leases.keys()) void acquireLease(sessionFile).catch(() => {});
   }, 60_000).unref();
-  input.once("close", () => clearInterval(heartbeat));
+  input.once("close", () => {
+    clearInterval(heartbeat);
+    if (input !== process.stdin) return;
+    for (const session of sessions.values()) session.dispose();
+    void Promise.all([...leases.values()].map((path) => rm(path, { force: true })))
+      .finally(() => process.exit(0));
+  });
   const send = (requestId: string, type: string, payload: unknown = {}) =>
     output.write(`${JSON.stringify({ version: PROTOCOL_VERSION, requestId, type, payload })}\n`);
 

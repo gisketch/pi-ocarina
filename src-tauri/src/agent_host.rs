@@ -345,13 +345,13 @@ pub fn start_agent_host(app: AppHandle, state: State<'_, AgentHostState>) -> Res
         .map_err(|error| error.to_string())?;
     let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let bundled_node = resources.join("agent-host/node_modules/node/bin/node");
-    let node = if bundled_node.exists() {
+    let node = if !cfg!(debug_assertions) && bundled_node.exists() {
         bundled_node
     } else {
         source_root.join("agent-host/node_modules/node/bin/node")
     };
     let bundled_script = resources.join("agent-host/dist/host.js");
-    let script = if bundled_script.exists() {
+    let script = if !cfg!(debug_assertions) && bundled_script.exists() {
         bundled_script
     } else {
         source_root.join("agent-host/dist/host.js")

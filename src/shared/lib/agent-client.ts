@@ -18,7 +18,9 @@ export function requestAgent<K extends AgentOperation>(operation: K, payload: Ag
       } else reject(new Error(event.payload.message ?? event.type));
     }).then((unlisten) => {
       stop = unlisten;
-      return invokeTauri("send_agent_request", { request: { version: 1, requestId, operation, payload } });
+      return invokeTauri("start_agent_host").then(() =>
+        invokeTauri("send_agent_request", { request: { version: 1, requestId, operation, payload } }),
+      );
     }).catch((error) => { stop(); reject(error); });
   });
 }

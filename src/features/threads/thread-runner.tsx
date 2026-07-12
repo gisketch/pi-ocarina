@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
-import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
+import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, FolderOpenIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
@@ -26,10 +26,11 @@ import { requestAgent } from "@/shared/lib/agent-client";
 import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
 import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
 
-export function ThreadRunner({ workspace, models, model, onModelChange, sidebarVisible = true, sidebarHeader }: { workspace: Workspace; models: Model[]; model: Model | null; onModelChange: (model: Model | null) => void; sidebarVisible?: boolean; sidebarHeader?: ReactNode }) {
+export function ThreadRunner({ workspace, workspaces, models, model, onModelChange, onThreadTitleChange, onOpenWorkspace, onSelectWorkspace, sidebarVisible = true, sidebarHeader }: { workspace: Workspace; workspaces: Workspace[]; models: Model[]; model: Model | null; onModelChange: (model: Model | null) => void; onThreadTitleChange: (title: string) => void; onOpenWorkspace: () => void; onSelectWorkspace: (workspaceId: string) => Promise<boolean>; sidebarVisible?: boolean; sidebarHeader?: ReactNode }) {
   const windowLabel = getCurrentWindow().label;
   const [thread, setThread] = useState<Thread | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [workspaceThreads, setWorkspaceThreads] = useState<Record<string, ThreadSummary[]>>({});
   const [prompt, setPrompt] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [stream, setStream] = useState("");
@@ -76,6 +77,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
+  useEffect(() => onThreadTitleChange(thread?.title ?? "New thread"), [onThreadTitleChange, thread?.title]);
 
   useEffect(() => {
     const backgrounded = () => {
@@ -111,13 +113,31 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
       const saved = legacy?.workspace_views?.[workspace.id] ?? (legacy?.workspace_id === workspace.id ? legacy : null);
       const available = await requestAgent("listThreads", { cwd: workspace.path });
       setThreads(available);
-      if (!saved) return;
-      revision.current = saved.revision ?? 0;
-      draftsRef.current = saved.drafts ?? {};
-      draftAttachmentsRef.current = saved.draft_attachments ?? (saved.attachments ? { [saved.active_thread_id ?? "new"]: saved.attachments } : {});
-      scrollPositionsRef.current = saved.scroll_positions ?? {};
-      threadMetadataRef.current = saved.thread_metadata ?? {};
+      setWorkspaceThreads((current) => ({ ...current, [workspace.id]: available }));
+      revision.current = saved?.revision ?? 0;
+      draftsRef.current = saved?.drafts ?? {};
+      draftAttachmentsRef.current = saved?.draft_attachments ?? (saved?.attachments ? { [saved.active_thread_id ?? "new"]: saved.attachments } : {});
+      scrollPositionsRef.current = saved?.scroll_positions ?? {};
+      threadMetadataRef.current = saved?.thread_metadata ?? {};
       setThreadMetadata(threadMetadataRef.current);
+      const requested = sessionStorage.getItem("pi-ocarina:open-thread");
+      if (requested) {
+        const target = JSON.parse(requested) as { workspaceId: string; sessionFile: string };
+        const item = target.workspaceId === workspace.id ? available.find(({ sessionFile }) => sessionFile === target.sessionFile) : undefined;
+        if (item) {
+          sessionStorage.removeItem("pi-ocarina:open-thread");
+          const opened = await requestAgent("openThread", { cwd: workspace.path, sessionFile: item.sessionFile });
+          setThread(opened); selectedThreadRef.current = opened.threadId;
+          setPrompt(draftsRef.current[opened.threadId] ?? "");
+          setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
+          await invokeTauri("set_workspace_projection", { workspaceId: workspace.id, projection: {
+            ...saved, active_thread_id: opened.threadId, session_file: opened.sessionFile,
+            revision: ++revision.current, run_status: "idle",
+          } });
+          return;
+        }
+      }
+      if (!saved) return;
       setPrompt(saved.drafts?.[saved.active_thread_id ?? "new"] ?? saved.draft ?? "");
       setAttachments(draftAttachmentsRef.current[saved.active_thread_id ?? "new"] ?? []);
       if (!saved.active_thread_id || !saved.session_file) return;
@@ -140,6 +160,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
     }).catch((cause) => setError(String(cause)));
     return () => { if (watchId) void requestAgent("cancel", { requestId: watchId }).catch(() => {}); };
   }, [windowLabel, workspace.id, workspace.path]);
+
+  useEffect(() => {
+    void Promise.all(workspaces.filter(({ id }) => id !== workspace.id).map(async (item) => [item.id, await requestAgent("listThreads", { cwd: item.path })] as const))
+      .then((entries) => setWorkspaceThreads((current) => ({ ...current, ...Object.fromEntries(entries) })))
+      .catch((cause) => setError(String(cause)));
+  }, [workspace.id, workspaces]);
 
   useEffect(() => {
     let stop = () => {};
@@ -378,6 +404,12 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
     } catch (cause) { setError(String(cause)); }
   }
 
+  async function selectWorkspaceThread(workspaceId: string, item: ThreadSummary) {
+    if (workspaceId === workspace.id) { await selectThread(item); return; }
+    sessionStorage.setItem("pi-ocarina:open-thread", JSON.stringify({ workspaceId, sessionFile: item.sessionFile }));
+    if (!await onSelectWorkspace(workspaceId)) sessionStorage.removeItem("pi-ocarina:open-thread");
+  }
+
   /** @param {ThreadSummary} item */
   function markRead(item: ThreadSummary) {
     const next = { ...threadMetadataRef.current, [item.sessionFile]: { ...threadMetadataRef.current[item.sessionFile], read_message_count: item.messageCount ?? 0 } };
@@ -459,6 +491,7 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
   }
 
   const organized = useMemo(() => organizeThreads(threads, threadMetadata, query), [threads, threadMetadata, query]);
+  const noThreads = organized.active.length === 0 && organized.archived.length === 0 && workspaces.every(({ id }) => id === workspace.id || !workspaceThreads[id]?.length);
   const messages = thread?.messages;
   const transcriptItems = useMemo(() => messages?.map((message, index) => message.role === "tool"
     ? <ToolCall key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} />
@@ -467,25 +500,30 @@ export function ThreadRunner({ workspace, models, model, onModelChange, sidebarV
       : <ChatBubble key={`${message.role}-${index}`} role="assistant">{message.text ?? ""}</ChatBubble>), [messages, setChangePath, setChangesOpen]);
 
   return (
-    <section className={sidebarVisible ? "grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)]" : "flex min-h-0 flex-1"} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
-      {sidebarVisible && <nav className="pb-sidebar flex min-h-0 flex-col overflow-hidden border-r p-3" aria-label="Threads">
+    <section className="pb-thread-shell grid min-h-0 flex-1" data-sidebar-visible={sidebarVisible} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
+      <nav className="pb-sidebar flex min-h-0 min-w-0 flex-col overflow-hidden border-r p-3" aria-hidden={!sidebarVisible} inert={!sidebarVisible} aria-label="Threads">
         <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span className="text-primary">Ocarina</span></h1>
         <div hidden>{sidebarHeader}</div>
-        <Button data-sidebar-row className="w-full justify-start" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon />New thread</Button>
-        <h2 className="px-2 pb-1 pt-5 text-xs text-muted-foreground" data-sidebar-heading>Projects</h2>
-        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-        {organized.active.map((item) => <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
-          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="min-w-0 flex-1 justify-start truncate" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{runningThreads.has(item.threadId ?? "") && <MatrixSpinner size={2} gap={1} label={`${item.title} running`} />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 shrink-0 rounded-full bg-primary" />}{item.title}</Button>
+        <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon /><span>New thread</span></Button>
+        <div className="flex items-center px-2 pb-3 pt-6" data-workspace-header><h2 className="flex-1 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={onOpenWorkspace}><PlusIcon /></Button></div>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+        {workspaces.map((entry) => <section className="space-y-1" key={entry.id}>
+          <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={entry.id === workspace.id ? "secondary" : "ghost"} onClick={() => void onSelectWorkspace(entry.id)}><FolderOpenIcon /><span className="truncate">{entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path}</span></Button>
+          <div className="space-y-1">{(entry.id === workspace.id ? organized.active : workspaceThreads[entry.id] ?? []).map((item) => entry.id !== workspace.id
+            ? <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><span aria-hidden /><span className="truncate">{item.title}</span></Button>
+            : <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
+          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="grid place-items-center">{runningThreads.has(item.threadId ?? "") && <MatrixSpinner size={2} gap={1} label={`${item.title} running`} />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 rounded-full bg-primary" />}</span><span className="truncate">{item.title}</span></Button>
           {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
           <Button aria-label={`Archive ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><ArchiveIcon /></Button>
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
-        </div>)}
+        </div>)}</div>
+        </section>)}
         {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
-        {organized.active.length === 0 && organized.archived.length === 0 && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
+        {noThreads && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
         </div>
-      </nav>}
+      </nav>
       <div className="pb-main-surface flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8">
       <div hidden><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
       <ChangesPanel workspaceId={workspace.id} open={changesOpen} {...(changePath ? { selectedPath: changePath } : {})} onClose={() => setChangesOpen(false)} />

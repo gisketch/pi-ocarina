@@ -26,7 +26,7 @@ export function Composer({ workspaceId, value, running, disabled, commands = [],
   const [files, setFiles] = useState<string[]>([]);
   const fileQuery = value.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   useEffect(() => { if (fileQuery == null || mentions.length) { setFiles([]); return; } const timer = setTimeout(() => void invokeTauri("search_workspace_files", { workspaceId, query: fileQuery }).then(setFiles).catch(() => setFiles([])), 100); return () => clearTimeout(timer); }, [fileQuery, mentions.length, workspaceId]);
-  return <form className="pb-composer pb-noisy-surface mx-auto w-full max-w-4xl rounded-md border border-border text-card-foreground" data-testid="composer" onSubmit={(event) => { event.preventDefault(); if (running) onSteer(); else onSend(); }}>
+  return <form className="pb-composer pb-noisy-surface mx-auto w-full max-w-3xl rounded-md border border-border text-card-foreground" data-testid="composer" onSubmit={(event) => { event.preventDefault(); if (running) onSteer(); else onSend(); }}>
     {suggestions.length > 0 && <div className="rounded-md border bg-popover p-1" role="listbox" aria-label="Slash commands">
       {suggestions.map((command) => <Button className="w-full justify-start" key={`${"source" in command ? command.source : "host"}:${command.name}`} type="button" variant="ghost" role="option" onClick={() => onChange(`/${command.name} `)}>
         <span>/{command.name}</span><span className="ml-2 truncate text-muted-foreground">{command.description}</span>
