@@ -1,5 +1,5 @@
 import type { CSSProperties, SVGAttributes } from "react";
-import { avatarColor, matrixPath, matrixSize, matrixTonePaths, proceduralAvatar } from "./matrix";
+import { avatarColor, matrixPath, matrixSize, matrixTonePaths, proceduralAvatar, proceduralAvatarFrames } from "./matrix";
 import { cn } from "@/shared/lib/utils";
 
 export interface CellMatrixProps extends Omit<SVGAttributes<SVGSVGElement>, "color"> {
@@ -27,6 +27,14 @@ export function CellMatrix({ cells, columns, rows, cellSize = 4, gap = 1, color 
 
 export function ProceduralAvatar({ seed, size = 5, cellSize = 4, gap = 1, color, label, className }: { seed: string; size?: number; cellSize?: number; gap?: number; color?: string; label?: string; className?: string }) {
   return <CellMatrix cells={proceduralAvatar(seed, size)} columns={size} rows={size} cellSize={cellSize} gap={gap} color={color ?? avatarColor(seed)} toneSeed={seed} {...(label === undefined ? {} : { label })} {...(className === undefined ? {} : { className })} />;
+}
+
+export function AnimatedProceduralAvatar({ seed, color, running = false, label, className }: { seed: string; color: string; running?: boolean; label?: string; className?: string }) {
+  const [first, second] = proceduralAvatarFrames(seed);
+  return <span className={cn("pb-animated-avatar", className)} data-running={running} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <CellMatrix className="pb-animated-avatar-frame pb-animated-avatar-frame-first" cells={first} columns={5} rows={5} cellSize={2} gap={1} color={color} tones={false} glow={false} />
+    <CellMatrix className="pb-animated-avatar-frame pb-animated-avatar-frame-second" cells={second} columns={5} rows={5} cellSize={2} gap={1} color={color} tones={false} glow={false} />
+  </span>;
 }
 
 const spinnerTrailOpacity = [1, 0.64, 0.4, 0.24, 0.12];

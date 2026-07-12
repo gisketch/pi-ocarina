@@ -1,13 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, FolderOpenIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Composer } from "@/features/composer/composer";
+import { projectColor } from "@/features/appearance/project-color";
 import { ChangesPanel } from "@/features/review/changes-panel";
 import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments, type Attachment } from "@/features/composer/attachments";
@@ -16,7 +17,7 @@ import { EMPTY_DOCK, reduceDock, type DockState } from "@/features/extensions/ex
 import { blockedCommand, loadCompatibility, saveCompatibility, type CompatibilityRecords } from "@/features/extensions/compatibility.js";
 import { notificationCategories, shouldNotify, shouldRequestPermission } from "@/features/notifications/notification-policy.js";
 import { Textarea } from "@/shared/ui/textarea";
-import { MatrixSpinner } from "@/shared/ui/cell-matrix";
+import { AnimatedProceduralAvatar } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { ChatBubble, ToolCall } from "./chat-message";
 import { TranscriptViewport } from "./transcript-viewport";
@@ -74,6 +75,8 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   }, []);
   const threadModel = thread?.model;
   const running = thread ? runningThreads.has(thread.threadId) : false;
+  const activeProjectColor = projectColor(workspace);
+  const chatTheme = { "--pb-primary": activeProjectColor.primary, "--pb-primary-foreground": activeProjectColor.foreground } as CSSProperties;
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
@@ -510,9 +513,9 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         {workspaces.map((entry) => <section className="space-y-1" key={entry.id}>
           <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={entry.id === workspace.id ? "secondary" : "ghost"} onClick={() => void onSelectWorkspace(entry.id)}><FolderOpenIcon /><span className="truncate">{entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path}</span></Button>
           <div className="space-y-1">{(entry.id === workspace.id ? organized.active : workspaceThreads[entry.id] ?? []).map((item) => entry.id !== workspace.id
-            ? <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><span aria-hidden /><span className="truncate">{item.title}</span></Button>
+            ? <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={projectColor(entry).primary} /><span className="truncate">{item.title}</span></Button>
             : <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
-          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="grid place-items-center">{runningThreads.has(item.threadId ?? "") && <MatrixSpinner size={2} gap={1} label={`${item.title} running`} />}{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="size-2 rounded-full bg-primary" />}</span><span className="truncate">{item.title}</span></Button>
+          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="relative grid place-items-center"><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={activeProjectColor.primary} running={runningThreads.has(item.threadId ?? "")} />{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary" />}</span><span className="truncate">{item.title}</span>{runningThreads.has(item.threadId ?? "") && <span className="sr-only">Running</span>}</Button>
           {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
@@ -524,7 +527,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         {noThreads && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
         </div>
       </nav>
-      <div className="pb-main-surface flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8">
+      <div className="pb-main-surface flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8" style={chatTheme}>
       <div hidden><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
       <ChangesPanel workspaceId={workspace.id} open={changesOpen} {...(changePath ? { selectedPath: changePath } : {})} onClose={() => setChangesOpen(false)} />
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">

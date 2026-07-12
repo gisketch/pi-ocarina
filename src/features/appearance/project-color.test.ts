@@ -1,0 +1,25 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PROJECT_COLORS, projectColor } from "./project-color.js";
+
+function luminance(hex: string) {
+  const channels = hex.match(/[\da-f]{2}/gi)!.map((value) => Number.parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
+}
+
+test("project colors are stable and inherited by worktrees", () => {
+  const root = { id: "project-a", name: "Before" };
+  const renamed = { ...root, name: "After" };
+  const worktree = { id: "worktree-a", root_workspace_id: root.id };
+  assert.equal(projectColor(root), projectColor(renamed));
+  assert.equal(projectColor(root), projectColor(worktree));
+  assert.ok(PROJECT_COLORS.includes(projectColor(root)));
+});
+
+test("project palette has readable foreground contrast", () => {
+  for (const color of PROJECT_COLORS) {
+    const lighter = Math.max(luminance(color.primary), luminance(color.foreground));
+    const darker = Math.min(luminance(color.primary), luminance(color.foreground));
+    assert.ok((lighter + 0.05) / (darker + 0.05) >= 4.5, color.name);
+  }
+});
