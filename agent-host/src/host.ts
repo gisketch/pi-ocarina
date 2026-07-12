@@ -697,7 +697,11 @@ function transcriptMessages(messages: readonly unknown[]): TranscriptItem[] {
   const tools = new Map<string, number>();
   for (const message of messages) {
     if (!message || typeof message !== "object" || !("role" in message) || !("content" in message)) continue;
-    for (const item of transcriptItems(String(message.role), message.content)) {
+    const value = message as Record<string, unknown>;
+    const messageItems = value.role === "toolResult" && typeof value.toolCallId === "string" && typeof value.toolName === "string"
+      ? [{ role: "tool", toolCallId: value.toolCallId, toolName: value.toolName, status: value.isError ? "failed" : "completed", output: value.content }]
+      : transcriptItems(String(value.role), value.content);
+    for (const item of messageItems) {
       const index = item.toolCallId ? tools.get(item.toolCallId) ?? -1 : -1;
       if (index < 0) {
         if (item.toolCallId) tools.set(item.toolCallId, items.length);

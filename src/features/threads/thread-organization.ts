@@ -1,6 +1,16 @@
 export type ThreadListItem = { sessionFile: string; title: string; modified?: string };
 import type { ThreadMetadata } from "@/shared/contracts/app";
 
+export function isThreadUnread(item: ThreadListItem & { messageCount?: number }, metadata: ThreadMetadata, selectedSessionFile?: string, pendingSessionFile?: string) {
+  return (item.messageCount ?? 0) > (metadata[item.sessionFile]?.read_message_count ?? 0)
+    && item.sessionFile !== selectedSessionFile
+    && item.sessionFile !== pendingSessionFile;
+}
+
+export function markThreadRead(item: ThreadListItem & { messageCount?: number }, metadata: ThreadMetadata): ThreadMetadata {
+  return { ...metadata, [item.sessionFile]: { ...metadata[item.sessionFile], read_message_count: item.messageCount ?? 0 } };
+}
+
 export function organizeThreads<T extends ThreadListItem>(threads: T[], metadata: ThreadMetadata, query = "") {
   const needle = query.trim().toLowerCase();
   const filtered = threads.filter((thread) => !needle || thread.title.toLowerCase().includes(needle));

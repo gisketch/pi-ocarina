@@ -165,7 +165,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const input = new PassThrough();
   const output = new PassThrough();
   const events: WireEvent[] = [];
-  const persisted: Array<{ role: string; content: unknown }> = [];
+  const persisted: Array<Record<string, unknown>> = [];
   type PackageSettingStub = { source: string; skills: string[]; extensions?: string[] };
   let globalSettings: { packages: PackageSettingStub[] } = { packages: [{ source: "@scope/proof", skills: ["skills/**"] }] };
   let reloads = 0;
@@ -198,7 +198,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       async prompt(text: string) {
         persisted.push({ role: "user", content: text });
         persisted.push({ role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "README.md" } }] });
-        persisted.push({ role: "tool", content: [{ type: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "README content" }], isError: false }] });
+        persisted.push({ role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "README content" }], isError: false });
         ui?.setEditorText("host replacement");
         listeners.forEach((listener) => listener({ type: "tool_execution_start", toolCallId: "call-1", toolName: "read", args: { path: "README.md" } }));
         listeners.forEach((listener) => listener({ type: "tool_execution_update", toolCallId: "call-1", toolName: "read", partialResult: "partial" }));

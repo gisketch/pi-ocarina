@@ -13,6 +13,7 @@ In scope:
 - One deterministic Matrix avatar shape per thread. Thread avatars use their project's color.
 - Project color applied as the primary token only within the selected chat surface, including transcript accents, selection styling, focus rings, and the composer send button.
 - Thread avatars shown as the leading icon in each sidebar thread row without displacing running, unread, or attention state.
+- Each sidebar project label/icon and its selected thread and status accents use that project's color; unrelated sidebar controls retain the global theme.
 - A dedicated 5×5 animated procedural-avatar component with two closely related deterministic frames, rendered crisply in the sidebar's 14px leading icon slot and animated only while its thread is running.
 
 Out of scope:
@@ -31,6 +32,8 @@ Out of scope:
 - A running thread's avatar loops between its two frames at 600ms per frame using a hard step with no fade or interpolation. An idle thread shows the first frame, and reduced-motion preference disables the loop.
 - A new-thread view uses its project color and shows no fabricated persistent thread avatar before Pi creates a thread identity.
 - Switching projects updates the selected chat surface immediately without leaking that project's color into unrelated application surfaces.
+- Sidebar project labels and icons match their avatars, selected threads, unread marks, and attention marks.
+- Switching workspaces preserves the last known sidebar thread rows while fresh summaries load, avoiding a transient collapsed layout.
 - The send button, user-message tint, links, selection, and focus treatment inside the chat surface follow the active project color while retaining readable foreground contrast.
 - Running, unread, attention, destructive, warning, and success meaning remains distinguishable and accessible; avatar decoration is not the sole carrier of state.
 
@@ -39,7 +42,7 @@ Out of scope:
 - Keep the existing global theme as the fallback. Resolve a project identity from `root_workspace_id ?? id`, hash it with a small deterministic function, and index into a fixed ordered palette.
 - Derive presentation values at runtime. Do not add color or avatar fields to persisted workspace/thread contracts in this version.
 - Define the palette and seed-to-color resolver in one framework-neutral appearance module. Each palette entry supplies a stable name, primary color, and readable foreground; UI code consumes the result rather than duplicating color literals.
-- Scope project tokens on the chat container with CSS custom properties. Existing semantic/Tailwind primary-token consumers inside that boundary inherit the project color.
+- Scope both source tokens and their resolved Tailwind aliases on the chat container and each sidebar project section. This keeps project identity consistent without recoloring unrelated controls.
 - Reuse the existing Matrix avatar primitive. Seed avatar geometry from `threadId`, falling back to `sessionFile` only when a summary has no thread ID; use resolved project color instead of the primitive's free-hue avatar color.
 - Build a separate animated procedural-avatar component on the existing Matrix primitive. Derive frame two from the same seed by toggling exactly one deterministic mirrored cell pair so symmetry and identity remain recognizable; use a two-step CSS loop only when `running` is true.
 - The avatar permanently owns the sidebar row's leading icon slot and becomes the running indicator through animation. Preserve unread and attention indicators as overlays or adjacent marks so status never replaces thread identity.

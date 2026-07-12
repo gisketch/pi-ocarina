@@ -28,6 +28,7 @@ import plus from "pixelarticons/svg/plus.svg";
 import refresh from "pixelarticons/svg/reload.svg";
 import rotate from "pixelarticons/svg/repeat.svg";
 import send from "pixelarticons/svg/send.svg";
+import search from "pixelarticons/svg/search.svg";
 import settings from "pixelarticons/svg/settings-2.svg";
 import stop from "pixelarticons/svg/square.svg";
 import sun from "pixelarticons/svg/cloud-sun.svg";
@@ -36,14 +37,17 @@ import trash from "pixelarticons/svg/trash.svg";
 import tree from "pixelarticons/svg/tree.svg";
 import fileDiff from "pixelarticons/svg/file.svg";
 
-const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-down": chevronDown, "chevron-right": chevronRight, circle, close, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, mic, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, send, settings, stop, sun, terminal, trash, tree };
+const icons = { archive, "arrow-down": arrowDown, "arrow-up": arrowUp, attachment, check, "chevron-down": chevronDown, "chevron-right": chevronRight, circle, close, expand, "file-diff": fileDiff, folder, "folder-open": folderOpen, "git-branch": gitBranch, grip, "message-plus": messagePlus, mic, monitor, moon, dots: moreHorizontal, "panel-left": panelLeft, paperclip, pencil, pin, plus, refresh, rotate, search, send, settings, stop, sun, terminal, trash, tree };
 
 export type IconName = keyof typeof icons;
-export interface IconProps extends HTMLAttributes<HTMLSpanElement> { name: IconName; size?: number }
+export interface IconProps extends HTMLAttributes<HTMLSpanElement> { name: IconName; size?: number; glow?: boolean }
 
-export function Icon({ name, size = 20, className, style, ...props }: IconProps) {
+export function Icon({ name, size = 20, glow = false, className, style, ...props }: IconProps) {
   const mask = `url("${icons[name]}") center / contain no-repeat`;
-  return <span aria-hidden data-slot="icon" className={cn("relative inline-block shrink-0", className)} style={{ width: size, height: size, ...style } as CSSProperties} {...props}><span className="absolute inset-0 bg-current" style={{ mask, WebkitMask: mask }} /></span>;
+  return <span aria-hidden data-slot="icon" className={cn("relative inline-block shrink-0", className)} style={{ width: size, height: size, ...style } as CSSProperties} {...props}>
+    <span aria-hidden data-icon-glow className={cn("pb-icon-glow absolute inset-0", glow && "pb-icon-glow-always")} style={{ filter: "blur(3px)" }}><span className="absolute inset-0 bg-current" style={{ mask, WebkitMask: mask }} /></span>
+    <span className="absolute inset-0 bg-current" style={{ mask, WebkitMask: mask }} />
+  </span>;
 }
 
 type NamedIconProps = Omit<IconProps, "name">;
@@ -72,6 +76,7 @@ export const PinIcon = named("pin");
 export const PlusIcon = named("plus");
 export const RefreshCwIcon = named("refresh");
 export const RotateCcwIcon = named("rotate");
+export const SearchIcon = named("search");
 export const SendIcon = named("send");
 export const SettingsIcon = named("settings");
 export const StopCircleIcon = named("stop");

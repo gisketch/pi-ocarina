@@ -8,7 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Composer } from "@/features/composer/composer";
-import { projectColor } from "@/features/appearance/project-color";
+import { projectColor, projectColorVariables } from "@/features/appearance/project-color";
 import { ChangesPanel } from "@/features/review/changes-panel";
 import { parseComposerControl } from "@/features/composer/commands";
 import { importAttachments, type Attachment } from "@/features/composer/attachments";
@@ -21,8 +21,10 @@ import { AnimatedProceduralAvatar } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { ChatBubble, ToolCall } from "./chat-message";
 import { TranscriptViewport } from "./transcript-viewport";
-import { movePinned, organizeThreads, togglePinned } from "./thread-organization";
+import { isThreadUnread, markThreadRead, movePinned, organizeThreads, togglePinned } from "./thread-organization";
 import { createCoalescedTask } from "./coalesced-task";
+import { cachedThreadSummaries, cachedWorkspaceThreads, cacheThreadSummaries } from "./thread-summary-cache";
+import { pendingThreadFile as pendingThreadHandoff } from "./thread-navigation";
 import { requestAgent } from "@/shared/lib/agent-client";
 import { reconcileToolMessages } from "./tool-presentation";
 import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
@@ -31,8 +33,8 @@ import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata
 export function ThreadRunner({ workspace, workspaces, models, model, onModelChange, onThreadTitleChange, onOpenWorkspace, onSelectWorkspace, sidebarVisible = true, sidebarHeader }: { workspace: Workspace; workspaces: Workspace[]; models: Model[]; model: Model | null; onModelChange: (model: Model | null) => void; onThreadTitleChange: (title: string) => void; onOpenWorkspace: () => void; onSelectWorkspace: (workspaceId: string) => Promise<boolean>; sidebarVisible?: boolean; sidebarHeader?: ReactNode }) {
   const windowLabel = getCurrentWindow().label;
   const [thread, setThread] = useState<Thread | null>(null);
-  const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [workspaceThreads, setWorkspaceThreads] = useState<Record<string, ThreadSummary[]>>({});
+  const [threads, setThreads] = useState<ThreadSummary[]>(() => cachedThreadSummaries(workspace.id));
+  const [workspaceThreads, setWorkspaceThreads] = useState<Record<string, ThreadSummary[]>>(() => cachedWorkspaceThreads(workspaces.map(({ id }) => id)));
   const [prompt, setPrompt] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [stream, setStream] = useState("");
@@ -51,6 +53,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   const [treeOpen, setTreeOpen] = useState(false);
   const [query] = useState("");
   const [threadMetadata, setThreadMetadata] = useState<ThreadMetadata>({});
+  const [pendingThreadFile, setPendingThreadFile] = useState<string | undefined>(() => pendingThreadHandoff(sessionStorage.getItem("pi-ocarina:open-thread"), workspace.id));
   const revision = useRef(0);
   const selectedThreadRef = useRef<string | null>(null);
   const runIdsRef = useRef(new Map<string, string>());
@@ -77,10 +80,11 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   const threadModel = thread?.model;
   const running = thread ? runningThreads.has(thread.threadId) : false;
   const activeProjectColor = projectColor(workspace);
-  const chatTheme = { "--pb-primary": activeProjectColor.primary, "--pb-primary-foreground": activeProjectColor.foreground } as CSSProperties;
+  const chatTheme = projectColorVariables(activeProjectColor) as CSSProperties;
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
+  useEffect(() => { cacheThreadSummaries(workspace.id, threads); }, [threads, workspace.id]);
   useEffect(() => onThreadTitleChange(thread?.title ?? "New thread"), [onThreadTitleChange, thread?.title]);
 
   useEffect(() => {
@@ -126,19 +130,25 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       setThreadMetadata(threadMetadataRef.current);
       const requested = sessionStorage.getItem("pi-ocarina:open-thread");
       if (requested) {
-        const target = JSON.parse(requested) as { workspaceId: string; sessionFile: string };
-        const item = target.workspaceId === workspace.id ? available.find(({ sessionFile }) => sessionFile === target.sessionFile) : undefined;
+        const requestedFile = pendingThreadHandoff(requested, workspace.id);
+        const item = requestedFile ? available.find(({ sessionFile }) => sessionFile === requestedFile) : undefined;
         if (item) {
           sessionStorage.removeItem("pi-ocarina:open-thread");
           const opened = await requestAgent("openThread", { cwd: workspace.path, sessionFile: item.sessionFile });
           setThread(opened); selectedThreadRef.current = opened.threadId;
+          setPendingThreadFile(undefined);
+          markRead(item);
           setPrompt(draftsRef.current[opened.threadId] ?? "");
           setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
           await invokeTauri("set_workspace_projection", { workspaceId: workspace.id, projection: {
             ...saved, active_thread_id: opened.threadId, session_file: opened.sessionFile,
-            revision: ++revision.current, run_status: "idle",
+            revision: ++revision.current, run_status: "idle", thread_metadata: threadMetadataRef.current,
           } });
           return;
+        }
+        if (requestedFile) {
+          sessionStorage.removeItem("pi-ocarina:open-thread");
+          setPendingThreadFile(undefined);
         }
       }
       if (!saved) return;
@@ -150,6 +160,8 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       });
       setThread(recovered);
       selectedThreadRef.current = recovered.threadId;
+      const recoveredSummary = available.find(({ sessionFile }) => sessionFile === recovered.sessionFile);
+      if (recoveredSummary) markRead(recoveredSummary);
       if (recovered.runStatus === "running") {
         setRunningThreads((items) => new Set(items).add(recovered.threadId));
         void requestAgent("threadQueue", { threadId: recovered.threadId }).then((result) => setQueue(result.items)).catch(() => {});
@@ -161,13 +173,16 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         }, watchId).catch(() => {});
       }
       if (["interrupted", "missing"].includes(recovered.runStatus ?? "")) setError(recovered.runStatus === "missing" ? "Saved session is missing. Start a new thread." : "The previous run was interrupted. You can continue this thread.");
-    }).catch((cause) => setError(String(cause)));
+    }).catch((cause) => { setPendingThreadFile(undefined); setError(String(cause)); });
     return () => { if (watchId) void requestAgent("cancel", { requestId: watchId }).catch(() => {}); };
   }, [windowLabel, workspace.id, workspace.path]);
 
   useEffect(() => {
     void Promise.all(workspaces.filter(({ id }) => id !== workspace.id).map(async (item) => [item.id, await requestAgent("listThreads", { cwd: item.path })] as const))
-      .then((entries) => setWorkspaceThreads((current) => ({ ...current, ...Object.fromEntries(entries) })))
+      .then((entries) => {
+        entries.forEach(([id, items]) => cacheThreadSummaries(id, items));
+        setWorkspaceThreads((current) => ({ ...current, ...Object.fromEntries(entries) }));
+      })
       .catch((cause) => setError(String(cause)));
   }, [workspace.id, workspaces]);
 
@@ -388,9 +403,10 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   /** @param {ThreadSummary} item */
   async function selectThread(item: ThreadSummary) {
     if (item.threadId === thread?.threadId) return;
-    await flushDraftSave();
-    setError(""); setStream("");
+    setPendingThreadFile(item.sessionFile);
     try {
+      await flushDraftSave();
+      setError(""); setStream("");
       const opened = await requestAgent("openThread", { cwd: workspace.path, sessionFile: item.sessionFile });
       setThread(opened);
       selectedThreadRef.current = opened.threadId;
@@ -406,6 +422,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       setAttachments(draftAttachmentsRef.current[opened.threadId] ?? []);
       await saveProjection(opened, "idle", draftsRef.current[opened.threadId] ?? "");
     } catch (cause) { setError(String(cause)); }
+    finally { setPendingThreadFile((current) => current === item.sessionFile ? undefined : current); }
   }
 
   async function selectWorkspaceThread(workspaceId: string, item: ThreadSummary) {
@@ -416,8 +433,9 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
 
   /** @param {ThreadSummary} item */
   function markRead(item: ThreadSummary) {
-    const next = { ...threadMetadataRef.current, [item.sessionFile]: { ...threadMetadataRef.current[item.sessionFile], read_message_count: item.messageCount ?? 0 } };
-    setOrganization(next);
+    const next = markThreadRead(item, threadMetadataRef.current);
+    threadMetadataRef.current = next;
+    setThreadMetadata(next);
   }
 
   function setOrganization(next: ThreadMetadata) {
@@ -511,19 +529,19 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon /><span>New thread</span></Button>
         <div className="flex items-center px-2 pb-3 pt-6" data-workspace-header><h2 className="flex-1 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={onOpenWorkspace}><PlusIcon /></Button></div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {workspaces.map((entry) => <section className="space-y-1" key={entry.id}>
-          <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={entry.id === workspace.id ? "secondary" : "ghost"} onClick={() => void onSelectWorkspace(entry.id)}><FolderOpenIcon /><span className="truncate">{entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path}</span></Button>
+        {workspaces.map((entry) => { const entryColor = projectColor(entry); return <section className="space-y-1" key={entry.id} style={projectColorVariables(entryColor) as CSSProperties}>
+          <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={entry.id === workspace.id ? "secondary" : "ghost"} style={{ color: entryColor.primary }} onClick={() => void onSelectWorkspace(entry.id)}><FolderOpenIcon /><span className="truncate">{entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path}</span></Button>
           <div className="space-y-1">{(entry.id === workspace.id ? organized.active : workspaceThreads[entry.id] ?? []).map((item) => entry.id !== workspace.id
             ? <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={projectColor(entry).primary} /><span className="truncate">{item.title}</span></Button>
             : <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
           <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="relative grid place-items-center"><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={activeProjectColor.primary} running={runningThreads.has(item.threadId ?? "")} />{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary" />}</span><span className="truncate">{item.title}</span>{runningThreads.has(item.threadId ?? "") && <span className="sr-only">Running</span>}</Button>
-          {(item.messageCount ?? 0) > (threadMetadata[item.sessionFile]?.read_message_count ?? 0) && item.sessionFile !== thread?.sessionFile && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
+          {isThreadUnread(item, threadMetadata, thread?.sessionFile, pendingThreadFile) && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
           <Button aria-label={`Archive ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><ArchiveIcon /></Button>
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
         </div>)}</div>
-        </section>)}
+        </section>; })}
         {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
         {noThreads && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
         </div>

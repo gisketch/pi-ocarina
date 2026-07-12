@@ -1,16 +1,19 @@
 import { Button } from "@/shared/ui/button";
-import { CheckIcon, ChevronRightIcon, FileDiffIcon, TerminalIcon, XIcon } from "@/shared/ui/icon";
+import { CheckIcon, ChevronRightIcon, CircleIcon, FileDiffIcon, FolderOpenIcon, PencilIcon, SearchIcon, TerminalIcon, XIcon } from "@/shared/ui/icon";
 import { MatrixSpinner } from "@/shared/ui/cell-matrix";
+import { useButtonField } from "@/shared/ui/button-field";
 import type { ThreadMessage } from "@/shared/contracts/app";
 import { presentTool, type ToolDetail, type ToolStatus } from "./tool-presentation";
 
 export function ToolCall({ tool, onOpenFile, defaultOpen = false }: { tool: ThreadMessage; onOpenFile?: (path: string) => void; defaultOpen?: boolean }) {
   const presentation = presentTool(tool);
+  const summaryRef = useButtonField<HTMLElement>();
   return <details className={`group/tool pb-tool-call pb-tool-call-${presentation.status}`} data-testid="tool-call" open={defaultOpen || undefined}>
-    <summary className="pb-tool-summary">
-      <StatusIcon status={presentation.status} />
+    <summary ref={summaryRef} className="pb-button-interaction pb-tool-summary" data-effects="default">
+      <span className="pb-tool-kind-icon"><ToolIcon name={presentation.name} /></span>
       <span className="min-w-0 flex-1 truncate"><span className="font-medium">{presentation.verb}</span>{presentation.subject && <> <span className="text-muted-foreground">{presentation.subject}</span></>}</span>
       <span className="sr-only">{presentation.status}</span>
+      <StatusIcon status={presentation.status} />
       {presentation.detail.kind !== "none" && <ChevronRightIcon className="text-muted-foreground transition-transform group-open/tool:rotate-90" />}
     </summary>
     {presentation.detail.kind !== "none" && <div className="pb-tool-details">
@@ -20,10 +23,19 @@ export function ToolCall({ tool, onOpenFile, defaultOpen = false }: { tool: Thre
   </details>;
 }
 
+function ToolIcon({ name }: { name: string }) {
+  if (name === "bash") return <TerminalIcon />;
+  if (name === "edit") return <PencilIcon />;
+  if (name === "read" || name === "write") return <FileDiffIcon />;
+  if (name === "grep" || name === "find") return <SearchIcon />;
+  if (name === "ls") return <FolderOpenIcon />;
+  return <CircleIcon />;
+}
+
 function StatusIcon({ status }: { status: ToolStatus }) {
-  if (status === "running") return <span className="grid size-4 place-items-center text-primary"><MatrixSpinner size={2} gap={1} label="Tool running" /></span>;
-  if (status === "failed") return <XIcon className="text-destructive" />;
-  return <CheckIcon className="text-muted-foreground" />;
+  if (status === "running") return <span className="pb-tool-status-icon grid size-4 place-items-center"><MatrixSpinner className="text-inherit" size={2} gap={1} label="Tool running" /></span>;
+  if (status === "failed") return <XIcon className="pb-tool-status-icon" />;
+  return <CheckIcon className="pb-tool-status-icon" />;
 }
 
 function ToolDetails({ detail }: { detail: Exclude<ToolDetail, { kind: "none" }> }) {

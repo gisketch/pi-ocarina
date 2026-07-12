@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { movePinned, organizeThreads, togglePinned } from "./thread-organization.js";
+import { isThreadUnread, markThreadRead, movePinned, organizeThreads, togglePinned } from "./thread-organization.js";
 import type { ThreadMetadata } from "@/shared/contracts/app";
 
 test("thread organization is stable, searchable, pinnable, reorderable, and archivable", () => {
@@ -18,4 +18,13 @@ test("thread organization is stable, searchable, pinnable, reorderable, and arch
   assert.deepEqual(organizeThreads(threads, metadata, "alp").active.map(({ sessionFile }) => sessionFile), ["a"]);
   metadata = togglePinned(metadata, "a");
   assert.equal(metadata.a?.pin_order, undefined);
+});
+
+test("pending thread selection suppresses its unread indicator", () => {
+  const item = { sessionFile: "pending", title: "Pending", messageCount: 2 };
+  const metadata = { pending: { read_message_count: 1 } };
+  assert.equal(isThreadUnread(item, metadata), true);
+  assert.equal(isThreadUnread(item, metadata, undefined, item.sessionFile), false);
+  assert.equal(isThreadUnread(item, metadata, item.sessionFile), false);
+  assert.equal(isThreadUnread(item, markThreadRead(item, metadata)), false);
 });

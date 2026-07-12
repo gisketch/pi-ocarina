@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PROJECT_COLORS, projectColor } from "./project-color.js";
+import { PROJECT_COLORS, projectColor, projectColorVariables } from "./project-color.js";
 
 function luminance(hex: string) {
   const channels = hex.match(/[\da-f]{2}/gi)!.map((value) => Number.parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -22,4 +22,18 @@ test("project palette has readable foreground contrast", () => {
     const darker = Math.min(luminance(color.primary), luminance(color.foreground));
     assert.ok((lighter + 0.05) / (darker + 0.05) >= 4.5, color.name);
   }
+});
+
+test("project scope overrides source and resolved theme aliases", () => {
+  const color = PROJECT_COLORS[2];
+  assert.deepEqual(projectColorVariables(color), {
+    "--pb-primary": color.primary,
+    "--pb-primary-foreground": color.foreground,
+    "--primary": color.primary,
+    "--primary-foreground": color.foreground,
+    "--ring": color.primary,
+    "--sidebar-primary": color.primary,
+    "--sidebar-primary-foreground": color.foreground,
+    "--sidebar-ring": color.primary,
+  });
 });

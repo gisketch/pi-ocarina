@@ -4,8 +4,9 @@ const markdown = `## AI Chat markdown
 
 Supports **emphasis**, lists, links, and highlighted code.
 
-- Reuse real components
-- Keep fixture data deterministic
+1. \`read\` → package.json
+2. \`bash\` → printed \`pwd\`
+3. \`write\` → created a file
 
 \`\`\`ts
 const answer: string = "smallest complete slice";
