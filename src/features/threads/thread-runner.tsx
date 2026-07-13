@@ -15,10 +15,10 @@ import { ChangesPanel } from "@/features/review/changes-panel";
 import { expandCommandInvocation, expandSkillInvocation, parseComposerControl } from "@/features/composer/commands";
 import { importAttachments, type Attachment } from "@/features/composer/attachments";
 import { ExtensionDock } from "@/features/extensions/extension-dock-panel";
+import { ExtensionNotice, ExtensionPromptDialog } from "@/features/extensions/extension-runtime-ui";
 import { EMPTY_DOCK, reduceDock, type DockState } from "@/features/extensions/extension-dock.js";
 import { blockedCommand, loadCompatibility, saveCompatibility, type CompatibilityRecords } from "@/features/extensions/compatibility.js";
 import { notificationCategories, shouldNotify, shouldRequestPermission } from "@/features/notifications/notification-policy.js";
-import { Textarea } from "@/shared/ui/textarea";
 import { AnimatedProceduralAvatar } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { ChatBubble, ToolCall } from "./chat-message";
@@ -31,7 +31,7 @@ import { cachedThreadSummaries, cachedWorkspaceThreads, cacheThreadSummaries } f
 import { pendingNewThread, pendingThreadFile as pendingThreadHandoff } from "./thread-navigation";
 import { requestAgent } from "@/shared/lib/agent-client";
 import { reconcileToolMessages, settleActiveToolMessages } from "./tool-presentation";
-import type { AgentStreamEvent, RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
+import type { AgentStreamEvent, RuntimeNoticePayload, RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
 import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace, WorkspaceResources } from "@/shared/contracts/app";
 
 export type WorkspaceSidebarActions = {
@@ -60,7 +60,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, workspaceAc
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [runtimePrompt, setRuntimePrompt] = useState<RuntimePromptPayload | null>(null);
   const [runtimeValue, setRuntimeValue] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<RuntimeNoticePayload | null>(null);
   const compatibilityRef = useRef<CompatibilityRecords>(loadCompatibility(workspace.id));
   const [newThinking, setNewThinking] = useState("medium");
   const [renameTarget, setRenameTarget] = useState<ThreadSummary | null>(null);
@@ -323,10 +323,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, workspaceAc
           });
         }
         if (event.type === "runtimePrompt") { runtimePromptsRef.current.set(active.threadId, event.payload); signalAttention(active.threadId, "attention", active.title ?? "Pi Ocarina"); if (selectedThreadRef.current === active.threadId) { setRuntimeValue(event.payload.options?.[0] ?? ""); setRuntimePrompt(event.payload); } }
-        if (event.type === "runtimeNotice" && selectedThreadRef.current === active.threadId) {
-          if (event.payload.type === "error") setError(event.payload.message);
-          else setNotice(event.payload.message);
-        }
+        if (event.type === "runtimeNotice" && selectedThreadRef.current === active.threadId) setNotice(event.payload);
         if (event.type === "compatibilityIssue") {
           const key = `${event.payload.extensionPath}::${event.payload.commandName}`;
           compatibilityRef.current = { ...compatibilityRef.current, [key]: event.payload };
@@ -505,7 +502,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, workspaceAc
 
   async function newThread() {
     await flushDraftSave();
-    selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
+    selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setNotice(null); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
   async function newThreadInWorkspace(workspaceId: string) {
@@ -656,7 +653,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, workspaceAc
         onModelChange={(next) => void applyModel(next)} onThinkingChange={(level) => void applyThinking(level)}
       />
       <div hidden><ExtensionDock dock={dock} /></div>
-      {notice && <p className="rounded-md border bg-muted p-2 text-sm" role="status">{notice}<Button className="ml-2" size="sm" variant="ghost" onClick={() => setNotice("")}>Dismiss</Button></p>}
+      {notice && <ExtensionNotice notice={notice} onDismiss={() => setNotice(null)} />}
       {queue.length > 0 && <div hidden aria-label="Queued messages" />}
       {thread && <Dialog open={resourcesOpen} onOpenChange={setResourcesOpen}><DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto"><DialogHeader className={undefined}><DialogTitle className={undefined}>Resources</DialogTitle><DialogDescription className={undefined}>Skills and extensions available to this thread.</DialogDescription></DialogHeader><section className="rounded-md border bg-card p-3 text-sm">
         <h3 className="font-medium">Skills ({thread.skills?.length ?? 0})</h3>
@@ -673,13 +670,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, workspaceAc
         <div className="mt-2 space-y-2">{thread.extensions?.map((extension) => <div className="flex items-center justify-between gap-3" key={extension.source}><div className="min-w-0"><p className="font-medium">{extension.label}</p><p className="truncate text-xs text-muted-foreground">{extension.source} · {extension.scope}</p></div>{extension.managed && <Button size="sm" variant="outline" onClick={() => void requestAgent("setExtensionEnabled", { threadId: thread.threadId, source: extension.source, enabled: !extension.enabled }).then(setThread).catch((cause) => setError(String(cause)))}>{extension.enabled ? "Disable" : "Enable"}</Button>}</div>)}</div>
       </section></DialogContent></Dialog>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Dialog open={Boolean(runtimePrompt)} onOpenChange={(open: boolean) => { if (!open) resolvePrompt(true); }}>
-        <DialogContent className={undefined}>
-          <DialogHeader className={undefined}><DialogTitle className={undefined}>{runtimePrompt?.title}</DialogTitle><DialogDescription className={undefined}>{runtimePrompt?.message}</DialogDescription></DialogHeader>
-          {runtimePrompt?.kind === "select" ? <select className="h-9 rounded-md border bg-background px-3" value={runtimeValue} onChange={(event: ChangeEvent<HTMLSelectElement>) => setRuntimeValue(event.target.value)}>{runtimePrompt.options?.map((option) => <option key={option}>{option}</option>)}</select> : runtimePrompt?.kind === "editor" ? <Textarea aria-label="Runtime editor" className={undefined} value={runtimeValue} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setRuntimeValue(event.target.value)} /> : runtimePrompt?.kind !== "confirm" && <Input aria-label="Runtime input" className={undefined} type="text" value={runtimeValue} onChange={(event: ChangeEvent<HTMLInputElement>) => setRuntimeValue(event.target.value)} />}
-          <DialogFooter className={undefined}><Button variant="outline" onClick={() => resolvePrompt(true)}>Cancel</Button><Button onClick={() => resolvePrompt(false)}>Continue</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExtensionPromptDialog prompt={runtimePrompt} value={runtimeValue} onValueChange={setRuntimeValue} onResolve={resolvePrompt} />
       <Dialog open={Boolean(renameTarget)} onOpenChange={(open: boolean) => { if (!open) setRenameTarget(null); }}>
         <DialogContent className={undefined}>
           <DialogHeader className={undefined}><DialogTitle className={undefined}>Rename thread</DialogTitle><DialogDescription className={undefined}>This name is saved in the Pi session.</DialogDescription></DialogHeader>

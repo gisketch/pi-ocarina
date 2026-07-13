@@ -4,12 +4,13 @@ export type ToolLifecycleStatus = "preparing" | "running" | "completed" | "faile
 export type ToolCallPayload = { threadId: string; runId?: string | undefined; toolCallId?: string | undefined; toolName?: string | undefined; status?: ToolLifecycleStatus | undefined; input?: unknown; output?: unknown };
 export type RunEventPayload = { threadId: string; runId: string; kind: "start" | "turnStart" | "content" | "end"; timestamp?: number; turn?: number; message?: number; contentIndex?: number; contentKind?: "thinking" | "text"; text?: string; phase?: "commentary" | "final_answer"; outcome?: RunOutcome };
 export type RuntimePromptPayload = { threadId: string; promptId: string; kind: "select" | "confirm" | "input" | "editor"; title?: string | undefined; message?: string | undefined; options?: string[] | undefined };
+export type RuntimeNoticePayload = { threadId: string; type: "info" | "warning" | "error"; message: string };
 export type AgentStreamEvent =
   | { version: 1; requestId: string; type: "messageDelta"; payload: { threadId: string; delta: string } }
   | { version: 1; requestId: string; type: "runEvent"; payload: RunEventPayload }
   | { version: 1; requestId: string; type: "toolCall"; payload: ToolCallPayload }
   | { version: 1; requestId: string; type: "runtimePrompt"; payload: RuntimePromptPayload }
-  | { version: 1; requestId: string; type: "runtimeNotice"; payload: { threadId: string; type: "info" | "warning" | "error"; message: string } }
+  | { version: 1; requestId: string; type: "runtimeNotice"; payload: RuntimeNoticePayload }
   | { version: 1; requestId: string; type: "editorText"; payload: { threadId: string; mode: "append" | "replace"; text: string } }
   | { version: 1; requestId: string; type: "extensionDock"; payload: { threadId: string; kind: string; key?: string | undefined; value?: unknown } }
   | { version: 1; requestId: string; type: "compatibilityIssue"; payload: { threadId: string; extensionPath: string; commandName: string; capability?: string | undefined; message: string } }
