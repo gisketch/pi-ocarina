@@ -9,7 +9,7 @@ Use risk-based tests. Prove process boundaries and critical desktop workflows; d
 - TypeScript branch, parser, reducer, or protocol behavior: `tsx --test`.
 - React user behavior: component test only when interaction logic exists.
 - Rust command/service logic: Cargo unit or integration test.
-- TypeScript host protocol: process-level contract test with a typed fake Pi adapter plus compiled Node 20 package smoke.
+- TypeScript host protocol: process-level contract test with a typed fake Pi adapter plus compiled bundled Node 22.19.0 package smoke.
 - Critical user workflow: real Tauri desktop E2E test.
 
 ## Required Tests

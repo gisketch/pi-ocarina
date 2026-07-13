@@ -13,7 +13,7 @@ type EventPayload = {
   delta: string;
   items: Array<{ mode: string }>;
   message: string;
-  messages: Array<{ role: string; text?: string }>;
+  messages: Array<{ role: string; text?: string; toolName?: string; status?: string; phase?: string }>;
   model: { id: string };
   nodes: Array<{ children: Array<{ preview: string }> }>;
   promptId: string;
@@ -27,6 +27,10 @@ type EventPayload = {
   toolName: string;
   input: unknown;
   output: unknown;
+  runId: string;
+  kind: string;
+  phase: string;
+  runs: Array<{ outcome: string }>;
 } & Array<{ title: string }>;
 type WireEvent = { requestId: string; type: string; payload: EventPayload };
 type SessionListener = (event: unknown) => void;
@@ -170,6 +174,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const output = new PassThrough();
   const events: WireEvent[] = [];
   const persisted: Array<Record<string, unknown>> = [];
+  const customEntries: Array<Record<string, unknown>> = [];
   type PackageSettingStub = { source: string; skills: string[]; extensions?: string[] };
   let globalSettings: { packages: PackageSettingStub[] } = { packages: [{ source: "@scope/proof", skills: ["skills/**"] }] };
   let reloads = 0;
@@ -186,6 +191,10 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       messages: persisted,
       model: { provider: "test", id: "old", name: "Old" },
       thinkingLevel: "low",
+      sessionManager: {
+        appendCustomEntry(customType: string, data: unknown) { customEntries.push({ type: "custom", customType, data }); },
+        getEntries: () => customEntries,
+      },
       getAvailableThinkingLevels: () => ["off", "low", "high"],
       setThinkingLevel(level: string) { this.thinkingLevel = level; },
       async setModel(model: { provider: string; id: string; name: string }) { this.model = model; },
@@ -200,6 +209,8 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
       async reload() { reloads += 1; },
       subscribe(listener: SessionListener) { listeners.add(listener); return () => listeners.delete(listener); },
       async prompt(text: string) {
+        listeners.forEach((listener) => listener({ type: "agent_start" }));
+        listeners.forEach((listener) => listener({ type: "turn_start" }));
         persisted.push({ role: "user", content: text });
         persisted.push({ role: "assistant", content: [{ type: "toolCall", id: "call-1", name: "read", arguments: { path: "README.md" } }] });
         persisted.push({ role: "toolResult", toolCallId: "call-1", toolName: "read", content: [{ type: "text", text: "README content" }], isError: false });
@@ -221,13 +232,21 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
         listeners.forEach((listener) => listener({ type: "message_update", message: interrupted, assistantMessageEvent: { type: "toolcall_delta", delta: "draft" } }));
         listeners.forEach((listener) => listener({ type: "message_end", message: interrupted }));
         await ui?.input("Login", "Token");
+        listeners.forEach((listener) => listener({ type: "message_start", message: { role: "assistant", content: [] } }));
+        let response = "";
         for (const delta of ["hel", "lo"]) {
+          response += delta;
           listeners.forEach((listener) => listener({
             type: "message_update",
-            assistantMessageEvent: { type: "text_delta", delta },
+            message: { role: "assistant", content: [{ type: "text", text: response, textSignature: JSON.stringify({ v: 1, phase: "final_answer" }) }] },
+            assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta },
           }));
         }
-        persisted.push({ role: "assistant", content: [{ type: "text", text: "hello" }] });
+        const answer = { role: "assistant", content: [{ type: "text", text: "hello", textSignature: JSON.stringify({ v: 1, phase: "final_answer" }) }] };
+        persisted.push(answer);
+        listeners.forEach((listener) => listener({ type: "message_end", message: answer }));
+        listeners.forEach((listener) => listener({ type: "turn_end", message: answer, toolResults: [] }));
+        listeners.forEach((listener) => listener({ type: "agent_end", messages: [answer] }));
       },
       async abort() {},
       async steer(text: string) { steering = [...steering, text]; },
@@ -282,7 +301,7 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   assert.deepEqual(events.filter(({ requestId, type }) => requestId === "prompt" && type === "messageDelta").map(({ payload }) => payload.delta), ["hel", "lo"]);
   assert.equal(requiredEvent(events, "set-model", "completed").payload.model.id, "new");
   assert.equal(requiredEvent(events, "set-thinking", "completed").payload.thinkingLevel, "high");
-  assert.deepEqual(requiredEvent(events, "create", "completed").payload.commands.map(({ name }) => name), ["deploy", "review", "skill:ship"]);
+  assert.deepEqual(requiredEvent(events, "create", "completed").payload.commands.map(({ name }) => name), ["deploy", "review"]);
   assert.deepEqual(requiredEvent(events, "reload", "completed").payload.skills[0], {
     name: "ship", description: "Ship it", path: "/tmp/workspace/.pi/skills/ship/SKILL.md", source: "project", scope: "project", available: true, aliases: ["skill:ship"], disableModelInvocation: false,
   });
@@ -296,15 +315,23 @@ test("thread streams deltas and reopens the Pi-owned transcript", async () => {
   const toolEvents = events.filter(({ requestId, type, payload }) => requestId === "prompt" && type === "toolCall" && payload.toolCallId === "call-1").map(({ payload }) => payload);
   assert.deepEqual(toolEvents.map(({ status }) => status), ["preparing", "running", "running", "completed"]);
   assert.deepEqual(toolEvents[0]?.input, { path: "README.md" });
+  assert.ok(toolEvents.every(({ runId }) => typeof runId === "string"));
+  const runEvents = events.filter(({ requestId, type }) => requestId === "prompt" && type === "runEvent").map(({ payload }) => payload);
+  assert.deepEqual(runEvents.filter(({ kind }) => kind !== "content").map(({ kind }) => kind), ["start", "turnStart", "end"]);
+  assert.equal([...runEvents].reverse().find(({ kind }) => kind === "content")?.phase, "final_answer");
   assert.deepEqual(events.filter(({ requestId, type, payload }) => requestId === "prompt" && type === "toolCall" && payload.toolCallId === "call-2").map(({ payload }) => payload.status), ["preparing", "failed"]);
   assert.match(requiredEvent(events, "second-writer", "failed").payload.message, /already active/);
   assert.equal(requiredEvent(events, "queue", "completed").payload.items[0]?.mode, "followUp");
   assert.equal(requiredEvent(events, "steer", "completed").payload.items[1]?.mode, "steer");
-  assert.deepEqual(requiredEvent(events, "open", "completed").payload.messages, [
-    { role: "user", text: "hi" },
-    { role: "tool", toolCallId: "call-1", toolName: "read", status: "completed", input: { path: "README.md" }, output: [{ type: "text", text: "README content" }] },
-    { role: "assistant", text: "hello" },
+  const reopened = requiredEvent(events, "open", "completed").payload;
+  assert.deepEqual(reopened.messages.map(({ role, text, toolName, status }) => ({ role, text, toolName, status })), [
+    { role: "user", text: "hi", toolName: undefined, status: undefined },
+    { role: "tool", text: undefined, toolName: "read", status: "completed" },
+    { role: "assistant", text: "hello", toolName: undefined, status: undefined },
   ]);
+  assert.equal(reopened.messages.at(-1)?.phase, "final_answer");
+  assert.equal(reopened.runs.length, 1);
+  assert.equal(reopened.runs[0]?.outcome, "stopped");
   assert.equal(requiredEvent(events, "recover", "completed").payload.runStatus, "idle");
   assert.equal(requiredEvent(events, "watch", "messageDelta").payload.delta, "live");
 });
@@ -316,6 +343,7 @@ test("manual thread name wins a delayed one-shot generated title", async () => {
   let name: string | undefined;
   let resolveTitle: (value: string | undefined) => void = () => {};
   let generated = 0;
+  let generatedFor: unknown;
   const session = {
     sessionId: "thread-name",
     sessionFile: "/tmp/thread-name.jsonl",
@@ -331,7 +359,7 @@ test("manual thread name wins a delayed one-shot generated title", async () => {
     asCreateSession(async () => ({ session })),
     asResolveModel(() => ({ authStorage: {}, modelRegistry: {}, model: {} })),
     asListSessions(async () => [{ id: "thread-name", path: "/tmp/thread-name.jsonl", ...(name === undefined ? {} : { name }) }]),
-    asGenerateTitle(() => { generated += 1; return new Promise<string | undefined>((resolve) => { resolveTitle = resolve; }); }),
+    asGenerateTitle((source: unknown) => { generatedFor = source; generated += 1; return new Promise<string | undefined>((resolve) => { resolveTitle = resolve; }); }),
   );
   output.on("data", (chunk) => events.push(...parseWireEvents(chunk)));
   const send = (requestId: string, operation: string, payload: Record<string, unknown>) => input.write(`${JSON.stringify({ version: 1, requestId, operation, payload })}\n`);
@@ -350,6 +378,7 @@ test("manual thread name wins a delayed one-shot generated title", async () => {
 
   assert.equal(name, "Manual title wins");
   assert.equal(generated, 1);
+  assert.equal(generatedFor, session);
   assert.equal(requiredEvent(events, "auto-name", "completed").payload.applied, false);
   assert.equal(events.filter(({ requestId, type }) => requestId === "auto-name" && type === "started").length, 1);
   assert.equal(requiredEvent(events, "reopen-list", "completed").payload[0]?.title, "Manual title wins");

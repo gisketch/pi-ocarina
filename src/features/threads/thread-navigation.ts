@@ -9,3 +9,7 @@ export function pendingThreadFile(value: string | null, workspaceId: string) {
     return undefined;
   }
 }
+
+export function pendingNewThread(value: string | null, workspaceId: string) {
+  return value === workspaceId;
+}

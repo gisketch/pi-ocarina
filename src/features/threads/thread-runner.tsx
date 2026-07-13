@@ -1,16 +1,18 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
-import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FileDiffIcon, FolderOpenIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, PencilIcon, PinIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon } from "@/shared/ui/icon";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
+import { ArchiveIcon, ArrowDownIcon, ArrowUpIcon, FolderFilledIcon, FolderGit2Icon, FolderOpenIcon, GitBranchIcon, ListTreeIcon, MessageSquarePlusIcon, MoreHorizontalIcon, PencilIcon, PinIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon, SettingsIcon, Trash2Icon } from "@/shared/ui/icon";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
 import { Button } from "@/shared/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/ui/dropdown-menu";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@/shared/ui/resizable";
 import { Input } from "@/shared/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Composer } from "@/features/composer/composer";
 import { projectColor, projectColorVariables } from "@/features/appearance/project-color";
 import { ChangesPanel } from "@/features/review/changes-panel";
-import { parseComposerControl } from "@/features/composer/commands";
+import { expandCommandInvocation, expandSkillInvocation, parseComposerControl } from "@/features/composer/commands";
 import { importAttachments, type Attachment } from "@/features/composer/attachments";
 import { ExtensionDock } from "@/features/extensions/extension-dock-panel";
 import { EMPTY_DOCK, reduceDock, type DockState } from "@/features/extensions/extension-dock.js";
@@ -20,24 +22,38 @@ import { Textarea } from "@/shared/ui/textarea";
 import { AnimatedProceduralAvatar } from "@/shared/ui/cell-matrix";
 import { MarkdownMessage } from "./markdown-message";
 import { ChatBubble, ToolCall } from "./chat-message";
+import { RunDisclosure } from "./run-disclosure";
+import { reduceRunEvent, reduceRunTool, settleLiveRun, type LiveRun } from "./run-presentation";
 import { TranscriptViewport } from "./transcript-viewport";
 import { isThreadUnread, markThreadRead, movePinned, organizeThreads, togglePinned } from "./thread-organization";
 import { createCoalescedTask } from "./coalesced-task";
 import { cachedThreadSummaries, cachedWorkspaceThreads, cacheThreadSummaries } from "./thread-summary-cache";
-import { pendingThreadFile as pendingThreadHandoff } from "./thread-navigation";
+import { pendingNewThread, pendingThreadFile as pendingThreadHandoff } from "./thread-navigation";
 import { requestAgent } from "@/shared/lib/agent-client";
 import { reconcileToolMessages, settleActiveToolMessages } from "./tool-presentation";
-import type { RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
-import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace } from "@/shared/contracts/app";
+import type { AgentStreamEvent, RuntimePromptPayload, ToolCallPayload } from "@/shared/contracts/agent";
+import type { Model, QueueItem, Thread, ThreadMessage as Message, ThreadMetadata, ThreadSummary, ThreadTreeNode, Workspace, WorkspaceResources } from "@/shared/contracts/app";
 
-export function ThreadRunner({ workspace, workspaces, models, model, onModelChange, onThreadTitleChange, onOpenWorkspace, onSelectWorkspace, sidebarVisible = true, sidebarHeader }: { workspace: Workspace; workspaces: Workspace[]; models: Model[]; model: Model | null; onModelChange: (model: Model | null) => void; onThreadTitleChange: (title: string) => void; onOpenWorkspace: () => void; onSelectWorkspace: (workspaceId: string) => Promise<boolean>; sidebarVisible?: boolean; sidebarHeader?: ReactNode }) {
+export type WorkspaceSidebarActions = {
+  collapsedWorkspaceIds: ReadonlySet<string>;
+  onToggleWorkspace: (workspaceId: string) => void;
+  canCreateWorktree: boolean;
+  onRenameWorkspace: (workspace: Workspace) => void;
+  onRevealWorkspace: (workspace: Workspace) => void;
+  onCreateWorktree: (workspace: Workspace) => void;
+  onRemoveWorkspace: (workspace: Workspace) => void;
+};
+
+export function ThreadRunner({ workspace, workspaces, models, model, workspaceActions, changesOpen, onChangesOpenChange, changesTreeVisible, onModelChange, onThreadTitleChange, onOpenWorkspace, onOpenSettings, onSelectWorkspace, sidebarVisible = true }: { workspace: Workspace; workspaces: Workspace[]; models: Model[]; model: Model | null; workspaceActions: WorkspaceSidebarActions; changesOpen: boolean; onChangesOpenChange: (open: boolean) => void; changesTreeVisible: boolean; onModelChange: (model: Model | null) => void; onThreadTitleChange: (title: string) => void; onOpenWorkspace: () => void; onOpenSettings: () => void; onSelectWorkspace: (workspaceId: string) => Promise<boolean>; sidebarVisible?: boolean }) {
   const windowLabel = getCurrentWindow().label;
   const [thread, setThread] = useState<Thread | null>(null);
+  const [workspaceResources, setWorkspaceResources] = useState<WorkspaceResources>({ commands: [], skills: [], extensions: [] });
   const [threads, setThreads] = useState<ThreadSummary[]>(() => cachedThreadSummaries(workspace.id));
   const [workspaceThreads, setWorkspaceThreads] = useState<Record<string, ThreadSummary[]>>(() => cachedWorkspaceThreads(workspaces.map(({ id }) => id)));
   const [prompt, setPrompt] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [stream, setStream] = useState("");
+  const [liveRun, setLiveRun] = useState<LiveRun | null>(null);
   const [error, setError] = useState("");
   const [runningThreads, setRunningThreads] = useState(new Set<string>());
   const [attentionThreads, setAttentionThreads] = useState(new Set<string>());
@@ -53,11 +69,13 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   const [treeOpen, setTreeOpen] = useState(false);
   const [query] = useState("");
   const [threadMetadata, setThreadMetadata] = useState<ThreadMetadata>({});
+  const [threadMetadataReady, setThreadMetadataReady] = useState(false);
   const [pendingThreadFile, setPendingThreadFile] = useState<string | undefined>(() => pendingThreadHandoff(sessionStorage.getItem("pi-ocarina:open-thread"), workspace.id));
   const revision = useRef(0);
   const selectedThreadRef = useRef<string | null>(null);
   const runIdsRef = useRef(new Map<string, string>());
   const streamsRef = useRef(new Map<string, string>());
+  const consumeAgentEventRef = useRef<(event: AgentStreamEvent, threadId: string) => void>(() => {});
   const runtimePromptsRef = useRef(new Map<string, RuntimePromptPayload>());
   const docksRef = useRef(new Map<string, DockState>());
   const [dock, setDock] = useState<DockState>({ ...EMPTY_DOCK });
@@ -69,14 +87,18 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   if (!draftPersistence.current) draftPersistence.current = createCoalescedTask((write) => write(), 300);
   const threadMetadataRef = useRef<ThreadMetadata>({});
   const [dismissedSkew, setDismissedSkew] = useState<string | null>(null);
-  const [changesOpen, setChangesOpen] = useState(false);
   const [changePath, setChangePath] = useState("");
+  const reviewerWidthRef = useRef(560);
+  const reviewerPanelRef = useResizablePanelRef();
+  const clearChangePath = useCallback(() => setChangePath(""), []);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   useEffect(() => {
-    const openChanges = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "g") { event.preventDefault(); setChangesOpen(true); } };
+    const openChanges = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "g") { event.preventDefault(); onChangesOpenChange(true); } };
     window.addEventListener("keydown", openChanges);
     return () => window.removeEventListener("keydown", openChanges);
-  }, []);
+  }, [onChangesOpenChange]);
+  useEffect(() => { void invokeTauri("app_state_snapshot").then(({ state }) => { reviewerWidthRef.current = Math.max(320, state.preferences.reviewer_width || 560); }); }, []);
+  useEffect(() => { if (changesOpen) reviewerPanelRef.current?.resize(`${reviewerWidthRef.current}px`); else reviewerPanelRef.current?.collapse(); }, [changesOpen, reviewerPanelRef]);
   const threadModel = thread?.model;
   const running = thread ? runningThreads.has(thread.threadId) : false;
   const activeProjectColor = projectColor(workspace);
@@ -84,7 +106,14 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   const activeModel = thread
     ? threadModel && models.some((item) => item.provider === threadModel.provider && item.id === threadModel.id) ? threadModel : null
     : model;
+  const composerCommands = [...(thread?.commands ?? []), ...workspaceResources.commands];
+  const composerSkills = thread?.skills?.length ? thread.skills : workspaceResources.skills;
+  const composerExtensions = thread?.extensions ?? workspaceResources.extensions;
   useEffect(() => { cacheThreadSummaries(workspace.id, threads); }, [threads, workspace.id]);
+  useEffect(() => {
+    setWorkspaceResources({ commands: [], skills: [], extensions: [] });
+    void requestAgent("workspaceResources", { cwd: workspace.path }).then(setWorkspaceResources).catch((cause) => setError(String(cause)));
+  }, [workspace.id, workspace.path]);
   useEffect(() => onThreadTitleChange(thread?.title ?? "New thread"), [onThreadTitleChange, thread?.title]);
 
   useEffect(() => {
@@ -128,6 +157,19 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       scrollPositionsRef.current = saved?.scroll_positions ?? {};
       threadMetadataRef.current = saved?.thread_metadata ?? {};
       setThreadMetadata(threadMetadataRef.current);
+      setThreadMetadataReady(true);
+      const requestedNewThread = sessionStorage.getItem("pi-ocarina:new-thread");
+      if (pendingNewThread(requestedNewThread, workspace.id)) {
+        sessionStorage.removeItem("pi-ocarina:new-thread");
+        selectedThreadRef.current = null;
+        setThread(null);
+        const draft = draftsRef.current.new ?? "";
+        const draftAttachments = draftAttachmentsRef.current.new ?? [];
+        setPrompt(draft);
+        setAttachments(draftAttachments);
+        await invokeTauri("set_workspace_projection", { workspaceId: workspace.id, projection: { ...saved, active_thread_id: null, session_file: null, draft, attachments: draftAttachments, revision: ++revision.current, run_status: "idle" } });
+        return;
+      }
       const requested = sessionStorage.getItem("pi-ocarina:open-thread");
       if (requested) {
         const requestedFile = pendingThreadHandoff(requested, workspace.id);
@@ -168,8 +210,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         watchId = crypto.randomUUID();
         void requestAgent("watchThread", { threadId: recovered.threadId }, (event) => {
           if (event.payload.threadId !== saved.active_thread_id) return;
-          if (event.type === "messageDelta") appendStream(recovered.threadId, event.payload.delta);
-          if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
+          consumeAgentEventRef.current(event, recovered.threadId);
         }, watchId).catch(() => {});
       }
       if (["interrupted", "missing"].includes(recovered.runStatus ?? "")) setError(recovered.runStatus === "missing" ? "Saved session is missing. Start a new thread." : "The previous run was interrupted. You can continue this thread.");
@@ -227,10 +268,11 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   async function submit() {
     if ((!prompt.trim() && !attachments.length)) return;
     await flushDraftSave();
-    const blocked = blockedCommand(prompt, thread?.commands, compatibilityRef.current);
+    const commandPrompt = expandCommandInvocation(prompt, composerCommands);
+    const blocked = blockedCommand(commandPrompt, composerCommands, compatibilityRef.current);
     if (blocked) { setError(blocked.message); return; }
     if (running) { await enqueue("followUp"); return; }
-    const control = parseComposerControl(prompt);
+    const control = parseComposerControl(commandPrompt);
     if (control?.type === "thinking") { await applyThinking(control.value); setPrompt(""); void saveProjection(thread, "idle", ""); return; }
     if (control?.type === "model") {
       const selected = models.find((item) => item.provider === control.provider && item.id === control.id);
@@ -252,6 +294,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
         thinkingLevel: newThinking,
       });
       const text = prompt;
+      const submittedText = expandSkillInvocation(expandCommandInvocation(text, active.commands), active.skills);
       const submittedAttachments = attachments;
       startedThreadId = active.threadId;
       selectedThreadRef.current = active.threadId;
@@ -270,9 +313,8 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       activeRunId = crypto.randomUUID();
       runIdsRef.current.set(active.threadId, activeRunId);
       setRunningThreads((items) => new Set(items).add(active.threadId));
-      const completed = await requestAgent("promptThread", { threadId: active.threadId, prompt: text, attachments: submittedAttachments }, (event) => {
-        if (event.type === "messageDelta") appendStream(active.threadId, event.payload.delta);
-        if (event.type === "toolCall" && selectedThreadRef.current === active.threadId) setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
+      const completed = await requestAgent("promptThread", { threadId: active.threadId, prompt: submittedText, attachments: submittedAttachments }, (event) => {
+        if (["messageDelta", "runEvent", "toolCall"].includes(event.type) && selectedThreadRef.current === active.threadId) consumeAgentEvent(event, active.threadId);
         if (event.type === "editorText" && event.payload.threadId === active.threadId) {
           setPrompt((value) => {
             const next = event.payload.mode === "append" ? value + event.payload.text : event.payload.text;
@@ -302,7 +344,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
           if (selectedThreadRef.current === active.threadId) setDock(next);
         }
       }, activeRunId);
-      if (selectedThreadRef.current === active.threadId) setThread(completed);
+      if (selectedThreadRef.current === active.threadId) { setThread(completed); setLiveRun(null); }
       signalAttention(active.threadId, "completed", completed.title ?? "Pi Ocarina");
       draftAttachmentsRef.current[active.threadId] = [];
       const refreshed = await requestAgent("listThreads", { cwd: workspace.path });
@@ -319,6 +361,7 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       if (startedThreadId) signalAttention(startedThreadId, "failed", thread?.title ?? "Pi Ocarina");
       if (!startedThreadId || selectedThreadRef.current === startedThreadId) {
         setError(String(cause));
+        setLiveRun((current) => settleLiveRun(current, String(cause).toLowerCase().includes("cancel") ? "stopped" : "failed"));
         setThread((value) => value && ({ ...value, messages: settleActiveToolMessages(value.messages, String(cause)) }));
       }
     } finally {
@@ -338,11 +381,19 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
     if (selectedThreadRef.current === threadId) setStream(next);
   }
 
+  function consumeAgentEvent(event: AgentStreamEvent, threadId: string) {
+    if (event.type === "runEvent") { setLiveRun((current) => reduceRunEvent(current, event.payload)); return; }
+    if (event.type === "toolCall" && event.payload.runId) { setLiveRun((current) => reduceRunTool(current, event.payload)); return; }
+    if (event.type === "messageDelta") appendStream(threadId, event.payload.delta);
+    if (event.type === "toolCall") setThread((value) => value && ({ ...value, messages: reconcileTool(value.messages, event.payload) }));
+  }
+  consumeAgentEventRef.current = consumeAgentEvent;
+
   /** @param {"steer" | "followUp"} mode */
   async function enqueue(mode: "steer" | "followUp") {
     if (!thread || (!prompt.trim() && !attachments.length)) return;
     try {
-      const result = await requestAgent("queueThread", { threadId: thread.threadId, prompt, attachments, mode });
+      const result = await requestAgent("queueThread", { threadId: thread.threadId, prompt: expandSkillInvocation(expandCommandInvocation(prompt, thread.commands), thread.skills), attachments, mode });
       setQueue(result.items); setPrompt(""); setAttachments([]);
       void saveProjection(thread, "running", "", []);
     } catch (cause) { setError(String(cause)); }
@@ -457,6 +508,13 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
     selectedThreadRef.current = null; setThread(null); setStream(""); setDock(EMPTY_DOCK); setError(""); setQueue([]); setPrompt(draftsRef.current.new ?? ""); setAttachments(draftAttachmentsRef.current.new ?? []);
   }
 
+  async function newThreadInWorkspace(workspaceId: string) {
+    if (workspaceId === workspace.id) { await newThread(); return; }
+    sessionStorage.removeItem("pi-ocarina:open-thread");
+    sessionStorage.setItem("pi-ocarina:new-thread", workspaceId);
+    if (!await onSelectWorkspace(workspaceId)) sessionStorage.removeItem("pi-ocarina:new-thread");
+  }
+
   function stopRun() {
     const id = thread && runIdsRef.current.get(thread.threadId);
     if (id) void requestAgent("cancel", { requestId: id }).catch((cause) => setError(String(cause)));
@@ -518,40 +576,60 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
   const organized = useMemo(() => organizeThreads(threads, threadMetadata, query), [threads, threadMetadata, query]);
   const noThreads = organized.active.length === 0 && organized.archived.length === 0 && workspaces.every(({ id }) => id === workspace.id || !workspaceThreads[id]?.length);
   const messages = thread?.messages;
-  const transcriptItems = useMemo(() => messages?.map((message, index) => message.role === "tool"
-    ? <ToolCall key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); setChangesOpen(true); }} />
-    : message.role === "user"
-      ? <ChatBubble key={`${message.role}-${index}`} role="user">{message.text}</ChatBubble>
-      : <ChatBubble key={`${message.role}-${index}`} role="assistant">{message.text ?? ""}</ChatBubble>), [messages, setChangePath, setChangesOpen]);
+  const transcriptItems = useMemo(() => {
+    const renderedRuns = new Set<string>();
+    return messages?.flatMap((message, index) => {
+      if (message.role === "user") return [<ChatBubble key={`${message.role}-${index}`} role="user">{message.text}</ChatBubble>];
+      if (message.runId) {
+        if (renderedRuns.has(message.runId)) return [];
+        renderedRuns.add(message.runId);
+        const metadata = thread?.runs?.find((run) => run.runId === message.runId) ?? { runId: message.runId, startedAt: Date.now(), outcome: "interrupted" as const, startMessageIndex: 0, endMessageIndex: 0 };
+        return [<RunDisclosure key={message.runId} metadata={metadata} messages={messages.filter((item) => item.runId === message.runId)} onOpenFile={(path) => { setChangePath(path); onChangesOpenChange(true); }} />];
+      }
+      return [message.role === "tool"
+        ? <ToolCall key={message.toolCallId ?? index} tool={message} onOpenFile={(path) => { setChangePath(path); onChangesOpenChange(true); }} />
+        : <ChatBubble key={`${message.role}-${index}`} role="assistant">{message.text ?? ""}</ChatBubble>];
+    });
+  }, [messages, onChangesOpenChange, thread?.runs]);
 
   return (
     <section className="pb-thread-shell grid min-h-0 flex-1" data-sidebar-visible={sidebarVisible} aria-label="Thread" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const files = Array.from(event.dataTransfer.files); if (files.length) void importAttachments(files).then((items) => { const next = [...attachments, ...items]; setAttachments(next); draftAttachmentsRef.current[thread?.threadId ?? "new"] = next; void saveProjection(thread, running ? "running" : "idle", prompt, next); }).catch((cause) => setError(String(cause))); }}>
       <nav className="pb-sidebar flex min-h-0 min-w-0 flex-col overflow-hidden border-r p-3" aria-hidden={!sidebarVisible} inert={!sidebarVisible} aria-label="Threads">
-        <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span className="text-primary">Ocarina</span></h1>
-        <div hidden>{sidebarHeader}</div>
-        <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={!thread ? "secondary" : "ghost"} onClick={() => void newThread()}><MessageSquarePlusIcon /><span>New thread</span></Button>
-        <div className="flex items-center px-2 pb-3 pt-6" data-workspace-header><h2 className="flex-1 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={onOpenWorkspace}><PlusIcon /></Button></div>
+        <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span style={{ color: activeProjectColor.primary }}>Ocarina</span></h1>
+        <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left text-foreground" effects="row-highlight" size="sm" variant="ghost" onClick={() => void newThread()}><MessageSquarePlusIcon /><span>New thread</span></Button>
+        <div className="flex items-center pb-3 pt-6" data-workspace-header><h2 className="flex-1 px-2 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><div className="flex w-14 justify-end"><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={onOpenWorkspace}><PlusIcon /></Button></div></div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {workspaces.map((entry) => { const entryColor = projectColor(entry); return <section className="space-y-1" key={entry.id} style={projectColorVariables(entryColor) as CSSProperties}>
-          <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant={entry.id === workspace.id ? "secondary" : "ghost"} style={{ color: entryColor.primary }} onClick={() => void onSelectWorkspace(entry.id)}><FolderOpenIcon /><span className="truncate">{entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path}</span></Button>
-          <div className="space-y-1">{(entry.id === workspace.id ? organized.active : workspaceThreads[entry.id] ?? []).map((item) => entry.id !== workspace.id
-            ? <Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={projectColor(entry).primary} /><span className="truncate">{item.title}</span></Button>
+        {workspaces.map((entry) => { const entryColor = projectColor(entry); const collapsed = workspaceActions.collapsedWorkspaceIds.has(entry.id); const label = entry.name || entry.path.split("/").filter(Boolean).at(-1) || entry.path; const WorkspaceIcon = collapsed ? FolderFilledIcon : FolderOpenIcon; return <section className="space-y-1" key={entry.id} style={entry.id === workspace.id ? projectColorVariables(entryColor) as CSSProperties : undefined}>
+          <div className="pb-workspace-row group/workspace relative">
+            <Button aria-expanded={!collapsed} aria-label={`${collapsed ? "Expand" : "Collapse"} ${label}`} className="pb-workspace-disclosure grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 pr-16 text-left text-foreground" effects="row-highlight" size="sm" variant="ghost" onClick={() => workspaceActions.onToggleWorkspace(entry.id)}><WorkspaceIcon className={entry.id === workspace.id ? "text-primary" : "text-foreground"} /><span className="truncate">{label}</span></Button>
+            <div className="pb-workspace-actions invisible absolute inset-y-0 right-0 flex w-14 opacity-0 transition-opacity group-hover/workspace:visible group-hover/workspace:opacity-100 group-focus-within/workspace:visible group-focus-within/workspace:opacity-100">
+              <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={`Actions for ${label}`} size="icon-sm" variant="ghost"><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className={undefined}>
+                <DropdownMenuItem className={undefined} onSelect={() => workspaceActions.onRenameWorkspace(entry)}>Rename</DropdownMenuItem>
+                <DropdownMenuItem className={undefined} onSelect={() => workspaceActions.onRevealWorkspace(entry)}>Reveal in Finder</DropdownMenuItem>
+                {entry.root_workspace_id ? <DropdownMenuItem className={undefined} variant="destructive" onSelect={() => workspaceActions.onRemoveWorkspace(entry)}><Trash2Icon />Remove Worktree</DropdownMenuItem> : <><DropdownMenuItem className={undefined} disabled={!workspaceActions.canCreateWorktree} onSelect={() => workspaceActions.onCreateWorktree(entry)}><FolderGit2Icon />Create Worktree</DropdownMenuItem><DropdownMenuItem className={undefined} variant="destructive" onSelect={() => workspaceActions.onRemoveWorkspace(entry)}><Trash2Icon />Remove Project</DropdownMenuItem></>}
+              </DropdownMenuContent></DropdownMenu>
+              <Button aria-label={`New thread in ${label}`} size="icon-sm" variant="ghost" onClick={() => void newThreadInWorkspace(entry.id)}><PlusIcon /></Button>
+            </div>
+          </div>
+          {!collapsed && <div className="space-y-1">{(entry.id === workspace.id ? organized.active : workspaceThreads[entry.id] ?? []).map((item) => entry.id !== workspace.id
+            ? <Button data-sidebar-row className="w-full justify-start px-2 pl-8 text-left text-foreground" effects="row-highlight" key={item.sessionFile} size="sm" variant="ghost" onClick={() => void selectWorkspaceThread(entry.id, item)}><span className="truncate">{item.title}</span></Button>
             : <div className="group flex items-center [&>button:not(:first-child)]:opacity-0 [&>button:not(:first-child)]:focus:opacity-100 [&>button:not(:first-child)]:group-hover:opacity-100" key={item.sessionFile}>
-          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="relative grid place-items-center"><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={activeProjectColor.primary} running={runningThreads.has(item.threadId ?? "")} />{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary" />}</span><span className="truncate">{item.title}</span>{runningThreads.has(item.threadId ?? "") && <span className="sr-only">Running</span>}</Button>
-          {isThreadUnread(item, threadMetadata, thread?.sessionFile, pendingThreadFile) && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
+          <Button data-sidebar-row aria-current={item.threadId === thread?.threadId || item.sessionFile === thread?.sessionFile ? "page" : undefined} className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_14px] justify-start gap-2 px-2 pl-8 text-left text-foreground" effects="row-highlight" size="sm" variant="ghost" onClick={() => void selectThread(item)}><span className="truncate">{item.title}</span><span className="relative grid place-items-center"><AnimatedProceduralAvatar seed={item.threadId || item.sessionFile} color={activeProjectColor.primary} running={runningThreads.has(item.threadId ?? "")} />{attentionThreads.has(item.threadId ?? "") && <span aria-label="Needs attention" className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary" />}</span>{runningThreads.has(item.threadId ?? "") && <span className="sr-only">Running</span>}</Button>
+          {isThreadUnread(item, threadMetadata, thread?.sessionFile, pendingThreadFile, threadMetadataReady) && <span className="mt-3 size-2 rounded-full bg-primary" aria-label="Unread" />}
           <Button className="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label={`${threadMetadata[item.sessionFile]?.pin_order == null ? "Pin" : "Unpin"} ${item.title}`} size="icon-sm" variant="ghost" onClick={() => setOrganization(togglePinned(threadMetadataRef.current, item.sessionFile))}><PinIcon /></Button>
           {threadMetadata[item.sessionFile]?.pin_order != null && <><Button aria-label={`Move ${item.title} up`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, -1))}><ArrowUpIcon /></Button><Button aria-label={`Move ${item.title} down`} size="icon-sm" variant="ghost" onClick={() => setOrganization(movePinned(threadMetadataRef.current, item.sessionFile, 1))}><ArrowDownIcon /></Button></>}
           <Button aria-label={`Archive ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><ArchiveIcon /></Button>
           <Button aria-label={`Rename ${item.title}`} size="icon-sm" variant="ghost" onClick={() => { setRenameTarget(item); setRenameValue(item.title); }}><PencilIcon /></Button>
-        </div>)}</div>
+        </div>)}</div>}
         </section>; })}
         {organized.archived.length > 0 && <details><summary className="px-2 py-1 text-xs text-muted-foreground">Archived ({organized.archived.length})</summary>{organized.archived.map((item) => <div className="flex" key={item.sessionFile}><Button className="min-w-0 flex-1 justify-start truncate" size="sm" variant="ghost" onClick={() => void selectThread(item)}>{item.title}</Button><Button aria-label={`Restore ${item.title}`} size="icon-sm" variant="ghost" onClick={() => toggleArchive(item)}><RotateCcwIcon /></Button></div>)}</details>}
         {noThreads && <p className="px-2 pt-3 text-muted-foreground">No matching threads.</p>}
         </div>
+        <div className="border-t pt-2"><Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left text-foreground" effects="row-highlight" size="sm" variant="ghost" onClick={onOpenSettings}><SettingsIcon /><span>Settings</span></Button></div>
       </nav>
-      <div className="pb-main-surface flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8" style={chatTheme}>
-      <div hidden><Button size="sm" variant="ghost" onClick={() => setChangesOpen(true)}><FileDiffIcon />Changes</Button>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
-      <ChangesPanel workspaceId={workspace.id} open={changesOpen} {...(changePath ? { selectedPath: changePath } : {})} onClose={() => setChangesOpen(false)} />
+      <ResizablePanelGroup className="pb-review-panel-group" orientation="horizontal" onLayoutChanged={(_, meta) => { if (meta.isUserInteraction && reviewerWidthRef.current >= 320) void invokeTauri("set_panel_layout", { reviewerWidth: Math.round(reviewerWidthRef.current) }); }}>
+      <ResizablePanel id="chat" minSize="40%"><div className="pb-main-surface flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 px-6 pb-4 pt-8" style={chatTheme}>
+      <div hidden>{thread && <><Button size="sm" variant="ghost" onClick={() => setResourcesOpen(true)}>Resources</Button><Button size="sm" variant="ghost" disabled={running} onClick={() => void openTree()}><ListTreeIcon />Tree</Button></>}</div>
       {thread?.schema?.newer && dismissedSkew !== thread.sessionFile && <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm" role="alert">
         <span>This session was written by Pi schema {thread.schema.fileVersion}; this app supports {thread.schema.runtimeVersion}. It is read-only.</span>
         <Button type="button" variant="ghost" onClick={() => setDismissedSkew(thread.sessionFile)}>Dismiss</Button>
@@ -559,18 +637,19 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
       <TranscriptViewport
         threadKey={thread?.threadId ?? "new"}
         {...(scrollPositionsRef.current[thread?.threadId ?? "new"] === undefined ? {} : { savedTop: scrollPositionsRef.current[thread?.threadId ?? "new"] })}
-        contentKey={`${thread?.messages.length ?? 0}:${stream.length}`}
+        contentKey={`${thread?.messages.length ?? 0}:${stream.length}:${liveRun?.messages.length ?? 0}`}
         onPosition={rememberScroll}
       >
         {!thread && <p className="text-sm text-muted-foreground">Start a new thread in this workspace.</p>}
         {transcriptItems}
-        {stream && <ChatBubble role="assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></ChatBubble>}
+        {liveRun && <RunDisclosure metadata={liveRun.metadata} messages={liveRun.messages} onOpenFile={(path) => { setChangePath(path); onChangesOpenChange(true); }} />}
+        {!liveRun && stream && <ChatBubble role="assistant"><MarkdownMessage data-testid="streaming-response">{stream}</MarkdownMessage></ChatBubble>}
       </TranscriptViewport>
       <Composer
         workspaceId={workspace.id}
         value={prompt} running={running} disabled={Boolean(thread?.schema?.newer)}
         attachments={attachments} onAttachments={(items) => { setAttachments(items); draftAttachmentsRef.current[thread?.threadId ?? "new"] = items; void saveProjection(thread, running ? "running" : "idle", prompt, items); }} onAttachmentError={(message) => setError(message)}
-        {...(thread?.commands === undefined ? {} : { commands: thread.commands })} {...(thread?.extensions === undefined ? {} : { extensions: thread.extensions })} models={models} model={activeModel}
+        commands={composerCommands} skills={composerSkills} extensions={composerExtensions} models={models} model={activeModel}
         thinkingLevel={thread?.thinkingLevel ?? newThinking} {...(thread?.thinkingLevels === undefined ? {} : { thinkingLevels: thread.thinkingLevels })}
         onChange={(value) => { setPrompt(value); scheduleDraftSave(value); }} onDraftBlur={() => void flushDraftSave()}
         onSend={() => void submit()} onSteer={() => void enqueue("steer")} onStop={stopRun}
@@ -614,7 +693,10 @@ export function ThreadRunner({ workspace, workspaces, models, model, onModelChan
           <TreeNodes nodes={tree} onFork={forkAt} onNavigate={navigateTo} />
         </DialogContent>
       </Dialog>
-      </div>
+      </div></ResizablePanel>
+      <ResizableHandle className={changesOpen ? "" : "pb-review-handle-hidden"} disabled={!changesOpen} />
+      <ResizablePanel className="pb-review-resizable-panel" id="changes" panelRef={reviewerPanelRef} collapsible collapsedSize={0} defaultSize={0} minSize="30%" maxSize="60%" onResize={(size) => { if (size.inPixels > 0) reviewerWidthRef.current = size.inPixels; else if (changesOpen) onChangesOpenChange(false); }}><ChangesPanel workspaceId={workspace.id} open={changesOpen} treeVisible={changesTreeVisible} onSelectedPathHandled={clearChangePath} {...(changePath ? { selectedPath: changePath } : {})} /></ResizablePanel>
+      </ResizablePanelGroup>
     </section>
   );
 }

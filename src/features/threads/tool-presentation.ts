@@ -49,21 +49,6 @@ export function settleActiveToolMessages(messages: ThreadMessage[], output = "To
     : message);
 }
 
-export function diffStats(lines: Extract<ToolDetail, { kind: "diff" }>["lines"]) {
-  return lines.reduce((counts, line) => ({ additions: counts.additions + Number(line.kind === "add"), deletions: counts.deletions + Number(line.kind === "remove") }), { additions: 0, deletions: 0 });
-}
-
-export function numberDiffLines(lines: Extract<ToolDetail, { kind: "diff" }>["lines"]) {
-  let oldLine = 1;
-  let newLine = 1;
-  return lines.map((line) => {
-    if (line.kind === "remove") return { ...line, oldLine: oldLine++, newLine: null };
-    if (line.kind === "add") return { ...line, oldLine: null, newLine: newLine++ };
-    if (line.text === "⋯") return { ...line, oldLine: null, newLine: null };
-    return { ...line, oldLine: oldLine++, newLine: newLine++ };
-  });
-}
-
 function bash(input: Record<string, unknown> | undefined, output: string, status: ToolStatus): ToolPresentation | undefined {
   const command = string(input?.command);
   if (!command) return undefined;

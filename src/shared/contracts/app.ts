@@ -1,11 +1,19 @@
 export type Preferences = {
-  theme: "dark";
+  theme: "system" | "light" | "dark";
   transparency: boolean;
   sidebar_visible: boolean;
   reviewer_width?: number;
   terminal_shell?: string;
   terminal_height?: number;
   terminal_maximized?: boolean;
+  model_scope?: string;
+  global_model?: { provider: string; id: string } | null;
+  repository_models?: Record<string, { provider: string; id: string }>;
+  application_font?: string | null;
+  code_font?: string | null;
+  interface_accent?: string | null;
+  background_brightness?: number;
+  project_palette?: string[];
 };
 
 export type Workspace = {
@@ -39,7 +47,7 @@ export type WorkspaceProjection = {
 export type AppState = WorkspaceState & { preferences: Preferences };
 export type AppStateSnapshot = { state: AppState };
 
-export type Model = { provider: string; id: string; name: string; available?: boolean; input?: string[]; reasoning?: boolean };
+export type Model = { provider: string; id: string; name: string; available?: boolean; input?: string[]; reasoning?: boolean; thinkingLevels?: string[] };
 export type Provider = { id: string; name: string; configured: boolean; source?: string; label?: string };
 export type CustomEndpoint = { id: string; name: string; baseUrl: string; credentialReference: string; models: Array<{ id: string; name: string }> };
 export type ModelCatalog = { providers: Provider[]; models: Model[]; customEndpoints?: CustomEndpoint[]; errors: string[] };
@@ -52,12 +60,16 @@ export function isModelCatalog(value: unknown): value is ModelCatalog {
 
 export type Attachment = { path: string; name: string; size: number; kind: "image" | "file" };
 export type ThreadMetadata = Record<string, { pin_order?: number; archived?: boolean; read_message_count?: number }>;
-export type ThreadMessage = { role: string; text?: string | undefined; toolCallId?: string | undefined; toolName?: string | undefined; status?: string | undefined; input?: unknown; output?: unknown };
+export type RunOutcome = "completed" | "stopped" | "failed" | "interrupted";
+export type RunMetadata = { runId: string; startedAt: number; endedAt?: number; outcome: RunOutcome; startMessageIndex: number; endMessageIndex: number };
+export type ThreadMessage = { role: string; text?: string | undefined; toolCallId?: string | undefined; toolName?: string | undefined; status?: string | undefined; input?: unknown; output?: unknown; runId?: string | undefined; contentKey?: string | undefined; phase?: "commentary" | "final_answer" | undefined };
 export type ThreadCommand = { name: string; description?: string; source?: string; mode?: string; extensionPath?: string };
 export type ThreadSkill = { path: string; aliases: string[]; description: string; source: string; available: boolean };
 export type ThreadExtension = { source: string; label: string; scope: string; managed: boolean; enabled: boolean };
+export type WorkspaceResources = { commands: ThreadCommand[]; skills: ThreadSkill[]; extensions: ThreadExtension[] };
 export type Thread = {
   threadId: string; sessionFile: string; title?: string; messages: ThreadMessage[]; model?: Model | null;
+  runs?: RunMetadata[];
   thinkingLevel?: string; thinkingLevels?: string[]; commands?: ThreadCommand[]; skills?: ThreadSkill[]; extensions?: ThreadExtension[];
   schema?: { fileVersion?: number; runtimeVersion: number; newer: boolean }; runStatus?: string; editorText?: string;
 };
@@ -74,3 +86,4 @@ export function isAppStateSnapshot(value: unknown): value is AppStateSnapshot {
 }
 export function isThread(value: unknown): value is Thread { return isRecord(value) && typeof value.threadId === "string" && typeof value.sessionFile === "string" && Array.isArray(value.messages); }
 export function isThreadSummary(value: unknown): value is ThreadSummary { return isRecord(value) && typeof value.sessionFile === "string" && typeof value.title === "string"; }
+export function isWorkspaceResources(value: unknown): value is WorkspaceResources { return isRecord(value) && Array.isArray(value.commands) && Array.isArray(value.skills) && Array.isArray(value.extensions); }

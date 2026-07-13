@@ -6,12 +6,15 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Type, type Static, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 
 import {
   AgentSession,
   AuthStorage,
+  DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
+  SettingsManager,
   CURRENT_SESSION_VERSION,
   createAgentSession,
   discoverAndLoadExtensions,
@@ -22,7 +25,7 @@ import {
   type ExtensionUIContext,
   type ResolvedCommand,
   type SessionInfo,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { acquireLease, sessionSchema, shouldRefreshFromDisk } from "./session-coexistence.js";
 import { OrchestrationRuntime } from "./orchestration.js";
 
@@ -36,13 +39,26 @@ type ResolvedModel = {
 };
 type ResolveModel = (payload: ModelPayload) => ResolvedModel;
 type ListSessions = (cwd: string) => Promise<SessionInfo[]>;
-type GenerateTitle = (prompt: string, signal: AbortSignal) => Promise<string | undefined>;
+type GenerateTitle = (session: AgentSession, prompt: string, signal: AbortSignal) => Promise<string | undefined>;
 type SessionMap = Map<string, AgentSession>;
 type LeaseMap = Map<string, string>;
 type BaselineMap = Map<string, number>;
 type Publish = (type: string, payload: Record<string, unknown>) => void;
-type ToolPublishPayload = { threadId: string; toolCallId?: string; toolName?: string; status: "preparing" | "running" | "completed" | "failed"; input?: unknown; output?: unknown };
+type ToolPublishPayload = { threadId: string; runId?: string; toolCallId?: string; toolName?: string; status: "preparing" | "running" | "completed" | "failed"; input?: unknown; output?: unknown };
 type PendingToolPublish = { payload: ToolPublishPayload; timer: ReturnType<typeof setTimeout> };
+type PendingRunPublish = { payload: Record<string, unknown>; timer: ReturnType<typeof setTimeout> };
+type RunOutcome = "completed" | "stopped" | "failed" | "interrupted";
+type RunContext = { runId: string; startedAt: number; startMessageIndex: number; turn: number; message: number; outcome: RunOutcome; started: boolean; settled: boolean };
+const RUN_ENTRY = "pi-ocarina.run.v1";
+const THREAD_TITLE_SYSTEM_PROMPT = [
+  "You generate concise UI thread titles for a coding assistant.",
+  "Return only the title text.",
+  "Keep it short, usually 2 to 5 words.",
+  "Use the same language as the user's message.",
+  "Preserve ticket IDs exactly.",
+  "No markdown, quotes, labels, or trailing punctuation.",
+].join("\n");
+const activeRunContexts = new WeakMap<AgentSession, RunContext>();
 type PromptPending = { threadId: string; resolve: (value: unknown) => void };
 type PromptMap = Map<string, PromptPending>;
 type Attachment = { path: string; name: string; size?: number; kind?: string };
@@ -104,6 +120,17 @@ export async function inspectRuntime({ cwd = process.cwd(), extensionPaths = [] 
     models: models.length,
     extensions: extensions.extensions.map(({ path }) => path),
     errors: extensions.errors.map(({ error }) => error),
+  };
+}
+
+export async function loadWorkspaceResources({ cwd, agentDir = getAgentDir() }: { cwd: string; agentDir?: string }) {
+  const loader = new DefaultResourceLoader({ cwd, agentDir, settingsManager: SettingsManager.create(cwd, agentDir) });
+  await loader.reload();
+  const extensions = loader.getExtensions().extensions;
+  return {
+    commands: workspaceExtensionCommands(extensions),
+    skills: skillSnapshot(loader.getSkills().skills),
+    extensions: extensions.map(extensionRecord),
   };
 }
 
@@ -192,6 +219,7 @@ export function serve(input: NodeJS.ReadableStream = process.stdin, output: Node
     try {
       let result;
       if (operation === "inspectRuntime") result = await inspectRuntime(validated(operation, Type.Object({ cwd: Type.Optional(Type.String()), extensionPaths: Type.Optional(Type.Array(Type.String())) }), payload));
+      else if (operation === "workspaceResources") result = await loadWorkspaceResources(validated(operation, Type.Object({ cwd: Type.String(), ...AgentDirSchema }), payload));
       else if (operation === "createSession") result = await provePiSession(payload, createSession);
       else if (operation === "createThread") result = await createThread(validated(operation, CreateThreadSchema, payload), createSession, resolveModel, sessions, leases, baselines, orchestration);
       else if (operation === "listThreads") result = await listThreads(validated(operation, Type.Object({ cwd: Type.String() }), payload), listSessions);
@@ -246,7 +274,7 @@ async function autoNameThread({ threadId, prompt }: { threadId: string; prompt: 
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
   if (session.sessionName) return { threadId, title: session.sessionName, applied: false };
-  const title = normalizeTitle(await generateTitle(prompt, signal));
+  const title = normalizeTitle(await generateTitle(session, prompt, signal));
   if (!title || signal.aborted || session.sessionName) return { threadId, title: session.sessionName, applied: false };
   session.setSessionName(title);
   return { threadId, title, applied: true };
@@ -313,9 +341,55 @@ function boundedPreview(value: unknown) {
   return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
-async function generateThreadTitle(prompt: string, signal: AbortSignal) {
-  if (signal.aborted || typeof prompt !== "string") return undefined;
-  return prompt.trim().split(/\s+/).slice(0, 5).join(" ");
+async function generateThreadTitle(source: AgentSession, prompt: string, signal: AbortSignal) {
+  const text = prompt.trim();
+  if (!text || signal.aborted || !source.model) return undefined;
+  const cwd = source.sessionManager.getCwd();
+  const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } });
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir: getAgentDir(),
+    settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
+    systemPrompt: THREAD_TITLE_SYSTEM_PROMPT,
+  });
+  await resourceLoader.reload();
+  const { session } = await createAgentSession({
+    cwd,
+    authStorage: source.modelRegistry.authStorage,
+    modelRegistry: source.modelRegistry,
+    model: source.model,
+    thinkingLevel: "off",
+    resourceLoader,
+    settingsManager,
+    sessionManager: SessionManager.inMemory(cwd),
+    tools: [],
+  });
+  const abort = () => { void session.abort().catch(() => undefined); };
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    if (signal.aborted) return undefined;
+    await session.prompt([
+      "Generate a short UI thread title for the user's first message.",
+      "Return only the title.",
+      "",
+      "<user_message>",
+      text,
+      "</user_message>",
+    ].join("\n"), { source: "interactive" });
+    for (let index = session.messages.length - 1; index >= 0; index -= 1) {
+      const message = session.messages[index];
+      if (message?.role === "assistant") return messageText(message.content);
+    }
+    return undefined;
+  } finally {
+    signal.removeEventListener("abort", abort);
+    session.dispose();
+  }
 }
 
 function normalizeTitle(value: unknown) {
@@ -454,8 +528,10 @@ async function promptThread({ threadId, prompt = "", attachments = [] }: ThreadP
   const sessionFile = session.sessionFile;
   if (!sessionFile) throw new Error("Persistent session is required");
   if ((await sessionSchema(sessionFile, CURRENT_SESSION_VERSION)).newer) throw new Error("Session was written by a newer Pi version and is read-only");
-  const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
-  const abort = () => { void session.abort(); void orchestration?.cancelChildren(threadId); cancelThreadPrompts(threadId, prompts); };
+  const run: RunContext = { runId: crypto.randomUUID(), startedAt: Date.now(), startMessageIndex: session.messages.length, turn: 0, message: 0, outcome: "completed", started: false, settled: false };
+  activeRunContexts.set(session, run);
+  const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish, run, session));
+  const abort = () => { run.outcome = "stopped"; void session.abort(); void orchestration?.cancelChildren(threadId); cancelThreadPrompts(threadId, prompts); };
   const commandName = prompt.trim().match(/^\/([^\s]+)/)?.[1];
   const command = session.extensionRunner?.getRegisteredCommands?.().find(({ invocationName }) => invocationName === commandName);
   session.extensionRunner?.setUIContext(runtimeUi(threadId, prompts, publish, command) as unknown as ExtensionUIContext);
@@ -469,8 +545,14 @@ async function promptThread({ threadId, prompt = "", attachments = [] }: ThreadP
       sessions.set(session.sessionId, session);
       publish("sessionChanged", { ...threadSnapshot(session), previousThreadId: threadId });
     }
+    settleRun(run, session, threadId, publish);
     return threadSnapshot(session);
+  } catch (error) {
+    run.outcome = signal.aborted ? "stopped" : "failed";
+    throw error;
   } finally {
+    settleRun(run, session, threadId, publish);
+    activeRunContexts.delete(session);
     signal.removeEventListener("abort", abort);
     runningThreads.delete(threadId);
     queues.delete(threadId);
@@ -526,12 +608,13 @@ function watchThread({ threadId }: ThreadPayload, signal: AbortSignal, sessions:
   const session = sessions.get(threadId);
   if (!session) throw new Error("Thread is not open");
   return new Promise((resolve) => {
-    const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish));
+    const unsubscribe = session.subscribe((event) => publishPiEvent(event, threadId, publish, activeRunContexts.get(session), session));
     signal.addEventListener("abort", () => { unsubscribe(); resolve({ stopped: true }); }, { once: true });
   });
 }
 
 const pendingToolPublishes = new WeakMap<Publish, Map<string, PendingToolPublish>>();
+const pendingRunPublishes = new WeakMap<Publish, Map<string, PendingRunPublish>>();
 
 function publishToolCall(publish: Publish, payload: ToolPublishPayload, deferred = false) {
   const key = payload.toolCallId;
@@ -578,23 +661,86 @@ function partialToolCalls(message: unknown) {
   });
 }
 
-function publishPiEvent(event: AgentSessionEvent, threadId: string, publish: Publish) {
+function publishPiEvent(event: AgentSessionEvent, threadId: string, publish: Publish, run?: RunContext, session?: AgentSession) {
+  if (run && event.type === "agent_start") startRun(run, session, threadId, publish);
+  if (run && event.type === "turn_start") { run.turn += 1; run.message = 0; publish("runEvent", { threadId, runId: run.runId, kind: "turnStart", turn: run.turn }); }
+  if (run && event.type === "message_start" && event.message.role === "assistant") run.message += 1;
   if (event.type === "message_update") {
     if (event.assistantMessageEvent.type === "text_delta") publish("messageDelta", { threadId, delta: event.assistantMessageEvent.delta });
-    for (const tool of partialToolCalls(event.message)) publishToolCall(publish, { threadId, ...tool, status: "preparing" }, true);
+    if (run && ["thinking_start", "thinking_delta", "thinking_end", "text_start", "text_delta", "text_end"].includes(event.assistantMessageEvent.type)) publishRunContent(event, threadId, publish, run);
+    for (const tool of partialToolCalls(event.message)) publishToolCall(publish, { threadId, ...(run ? { runId: run.runId } : {}), ...tool, status: "preparing" }, true);
     return;
   }
   if (event.type === "message_end") {
     flushToolCall(publish);
+    flushRunContent(publish);
     const message = event.message as unknown;
     if (message && typeof message === "object" && !Array.isArray(message) && ["error", "aborted"].includes(String((message as Record<string, unknown>).stopReason))) {
-      for (const tool of partialToolCalls(message)) publishToolCall(publish, { threadId, ...tool, status: "failed", output: (message as Record<string, unknown>).errorMessage ?? "Tool preparation interrupted" });
+      for (const tool of partialToolCalls(message)) publishToolCall(publish, { threadId, ...(run ? { runId: run.runId } : {}), ...tool, status: "failed", output: (message as Record<string, unknown>).errorMessage ?? "Tool preparation interrupted" });
+      if (run) run.outcome = String((message as Record<string, unknown>).stopReason) === "aborted" ? "stopped" : "failed";
     }
     return;
   }
-  if (event.type === "tool_execution_start") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
-  else if (event.type === "tool_execution_update") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
-  else if (event.type === "tool_execution_end") publishToolCall(publish, { threadId, toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
+  if (event.type === "tool_execution_start") publishToolCall(publish, { threadId, ...(run ? { runId: run.runId } : {}), toolCallId: event.toolCallId, toolName: event.toolName, status: "running", input: event.args });
+  else if (event.type === "tool_execution_update") publishToolCall(publish, { threadId, ...(run ? { runId: run.runId } : {}), toolCallId: event.toolCallId, toolName: event.toolName, status: "running", output: event.partialResult });
+  else if (event.type === "tool_execution_end") publishToolCall(publish, { threadId, ...(run ? { runId: run.runId } : {}), toolCallId: event.toolCallId, toolName: event.toolName, status: event.isError ? "failed" : "completed", output: event.result });
+  else if (run && event.type === "agent_end") settleRun(run, session, threadId, publish);
+}
+
+function startRun(run: RunContext, session: AgentSession | undefined, threadId: string, publish: Publish) {
+  if (run.started) return;
+  run.started = true;
+  run.startedAt = Date.now();
+  session?.sessionManager?.appendCustomEntry(RUN_ENTRY, { runId: run.runId, startedAt: run.startedAt, startMessageIndex: run.startMessageIndex, status: "active" });
+  publish("runEvent", { threadId, runId: run.runId, kind: "start", timestamp: run.startedAt });
+}
+
+function settleRun(run: RunContext, session: AgentSession | undefined, threadId: string, publish: Publish) {
+  if (run.settled) return;
+  startRun(run, session, threadId, publish);
+  run.settled = true;
+  flushRunContent(publish);
+  const endedAt = Date.now();
+  const endMessageIndex = session?.messages.length ?? run.startMessageIndex;
+  session?.sessionManager?.appendCustomEntry(RUN_ENTRY, { runId: run.runId, startedAt: run.startedAt, endedAt, outcome: run.outcome, startMessageIndex: run.startMessageIndex, endMessageIndex, status: "settled" });
+  publish("runEvent", { threadId, runId: run.runId, kind: "end", timestamp: endedAt, outcome: run.outcome });
+}
+
+function publishRunContent(event: Extract<AgentSessionEvent, { type: "message_update" }>, threadId: string, publish: Publish, run: RunContext) {
+  const update = event.assistantMessageEvent;
+  if (!("contentIndex" in update) || typeof update.contentIndex !== "number") return;
+  const content = event.message.role === "assistant" ? event.message.content[update.contentIndex] : undefined;
+  if (!content || (content.type !== "thinking" && content.type !== "text")) return;
+  const text = content.type === "thinking" ? content.thinking : content.text;
+  const phase = content.type === "text" ? textPhase(content.textSignature) : undefined;
+  const payload = { threadId, runId: run.runId, kind: "content", turn: run.turn, message: run.message, contentIndex: update.contentIndex, contentKind: content.type, text: boundedText(text, 262_144), ...(phase ? { phase } : {}) };
+  const key = `${run.runId}:${run.turn}:${run.message}:${update.contentIndex}`;
+  const pending = pendingRunPublishes.get(publish) ?? new Map<string, PendingRunPublish>();
+  pendingRunPublishes.set(publish, pending);
+  const current = pending.get(key);
+  if (current) { current.payload = payload; return; }
+  const timer = setTimeout(() => flushRunContent(publish, key), 16);
+  timer.unref();
+  pending.set(key, { payload, timer });
+}
+
+function flushRunContent(publish: Publish, key?: string) {
+  const pending = pendingRunPublishes.get(publish);
+  if (!pending) return;
+  for (const itemKey of key ? [key] : [...pending.keys()]) {
+    const item = pending.get(itemKey);
+    if (!item) continue;
+    clearTimeout(item.timer);
+    pending.delete(itemKey);
+    publish("runEvent", item.payload);
+  }
+  if (pending.size === 0) pendingRunPublishes.delete(publish);
+}
+
+function textPhase(signature?: string) {
+  if (!signature?.startsWith("{")) return undefined;
+  try { const value = JSON.parse(signature) as { phase?: unknown }; return value.phase === "commentary" || value.phase === "final_answer" ? value.phase : undefined; }
+  catch { return undefined; }
 }
 
 function cancelThreadPrompts(threadId: string, prompts: PromptMap) {
@@ -658,26 +804,53 @@ function threadSnapshot(session: AgentSession) {
   if (!sessionFile) throw new Error("Persistent session is required");
   const extensionCommands = session.extensionRunner?.getRegisteredCommands?.() ?? [];
   const skills = session.resourceLoader?.getSkills?.().skills ?? [];
+  const runs = runMetadata(session);
   return {
     threadId: session.sessionId,
     sessionFile,
     title: session.sessionName,
-    messages: transcriptMessages(session.messages),
+    messages: transcriptMessages(session.messages, runs),
+    runs,
     model: session.model ? { provider: session.model.provider, id: session.model.id, name: session.model.name } : null,
     thinkingLevel: session.thinkingLevel ?? "off",
     thinkingLevels: session.getAvailableThinkingLevels?.() ?? ["off"],
     commands: [
       ...extensionCommands.map(({ invocationName, description, sourceInfo }) => ({ name: invocationName, description, source: "extension", extensionPath: sourceInfo?.path ?? "unknown" })),
       ...(session.promptTemplates ?? []).map(({ name, description }) => ({ name, description, source: "prompt" })),
-      ...skills.map(({ name, description }) => ({ name: `skill:${name}`, description, source: "skill" })),
     ],
-    skills: skills.map(({ name, description, filePath, sourceInfo, disableModelInvocation }) => ({
-      name, description, path: filePath, source: sourceInfo?.source ?? "unknown",
-      scope: sourceInfo?.scope ?? "temporary", available: true,
-      aliases: [`skill:${name}`], disableModelInvocation,
-    })),
+    skills: skillSnapshot(skills),
     extensions: extensionSnapshot(session),
   };
+}
+
+function skillSnapshot(skills: ReturnType<NonNullable<AgentSession["resourceLoader"]>["getSkills"]>["skills"]) {
+  return skills.map(({ name, description, filePath, sourceInfo, disableModelInvocation }) => ({
+    name, description, path: filePath, source: sourceInfo?.source ?? "unknown",
+    scope: sourceInfo?.scope ?? "temporary", available: true,
+    aliases: [`skill:${name}`], disableModelInvocation,
+  }));
+}
+
+function workspaceExtensionCommands(extensions: ReturnType<DefaultResourceLoader["getExtensions"]>["extensions"]) {
+  const commands = extensions.flatMap((extension) => [...extension.commands.values()].map((command) => ({ command, extensionPath: extension.path })));
+  const counts = new Map<string, number>();
+  for (const { command } of commands) counts.set(command.name, (counts.get(command.name) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const taken = new Set<string>();
+  return commands.map(({ command, extensionPath }) => {
+    const occurrence = (seen.get(command.name) ?? 0) + 1;
+    seen.set(command.name, occurrence);
+    let name = counts.get(command.name) === 1 ? command.name : `${command.name}:${occurrence}`;
+    let suffix = occurrence;
+    while (taken.has(name)) name = `${command.name}:${++suffix}`;
+    taken.add(name);
+    return {
+      name,
+      description: command.description,
+      source: "extension",
+      extensionPath: command.sourceInfo?.path ?? extensionPath,
+    };
+  });
 }
 
 async function reloadResources({ threadId }: ThreadPayload, sessions: SessionMap) {
@@ -752,39 +925,61 @@ async function withSchema<T extends { sessionFile: string }>(snapshot: T) {
   return { ...snapshot, schema: await sessionSchema(snapshot.sessionFile, CURRENT_SESSION_VERSION) };
 }
 
-type TranscriptItem = { role: string; text?: string; toolCallId?: string; toolName?: string; status?: string; input?: unknown; output?: unknown };
-function transcriptMessages(messages: readonly unknown[]): TranscriptItem[] {
+type RunMetadata = { runId: string; startedAt: number; endedAt?: number; outcome: RunOutcome; startMessageIndex: number; endMessageIndex: number };
+type TranscriptItem = { role: string; text?: string; toolCallId?: string; toolName?: string; status?: string; input?: unknown; output?: unknown; runId?: string; contentKey?: string; phase?: "commentary" | "final_answer" };
+function transcriptMessages(messages: readonly unknown[], runs: RunMetadata[] = []): TranscriptItem[] {
   const items: TranscriptItem[] = [];
   const tools = new Map<string, number>();
-  for (const message of messages) {
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+    const message = messages[messageIndex];
     if (!message || typeof message !== "object" || !("role" in message) || !("content" in message)) continue;
     const value = message as Record<string, unknown>;
+    const runId = runs.find((run) => messageIndex >= run.startMessageIndex && messageIndex < run.endMessageIndex)?.runId;
     const messageItems = value.role === "toolResult" && typeof value.toolCallId === "string" && typeof value.toolName === "string"
       ? [{ role: "tool", toolCallId: value.toolCallId, toolName: value.toolName, status: value.isError ? "failed" : "completed", output: value.content }]
-      : transcriptItems(String(value.role), value.content);
+      : transcriptItems(String(value.role), value.content, messageIndex, Boolean(runId));
     for (const item of messageItems) {
+      const tagged = { ...item, ...(runId ? { runId } : {}) };
       const index = item.toolCallId ? tools.get(item.toolCallId) ?? -1 : -1;
       if (index < 0) {
         if (item.toolCallId) tools.set(item.toolCallId, items.length);
-        items.push(item);
+        items.push(tagged);
       }
-      else items[index] = { ...items[index], ...item, input: item.input ?? items[index]?.input, output: item.output ?? items[index]?.output };
+      else items[index] = { ...items[index], ...tagged, input: item.input ?? items[index]?.input, output: item.output ?? items[index]?.output };
     }
   }
   return items;
 }
 
-function transcriptItems(role: string, content: unknown): TranscriptItem[] {
-  const text = messageText(content);
-  const items: TranscriptItem[] = text ? [{ role, text }] : [];
-  if (!Array.isArray(content)) return items;
-  for (const part of content) {
+function transcriptItems(role: string, content: unknown, messageIndex: number, keyed: boolean): TranscriptItem[] {
+  if (typeof content === "string") return content ? [{ role, text: content, ...(keyed ? { contentKey: `${messageIndex}:0` } : {}) }] : [];
+  if (!Array.isArray(content)) return [];
+  const items: TranscriptItem[] = [];
+  for (let contentIndex = 0; contentIndex < content.length; contentIndex++) {
+    const part = content[contentIndex];
     if (!part || typeof part !== "object" || Array.isArray(part)) continue;
     const value = part as Record<string, unknown>;
+    if (value.type === "text" && typeof value.text === "string" && value.text) {
+      const phase = typeof value.textSignature === "string" ? textPhase(value.textSignature) : undefined;
+      items.push({ role, text: value.text, ...(keyed ? { contentKey: `${messageIndex}:${contentIndex}` } : {}), ...(phase ? { phase } : {}) });
+    }
+    if (value.type === "thinking" && typeof value.thinking === "string" && value.thinking) items.push({ role: "thinking", text: value.thinking, ...(keyed ? { contentKey: `${messageIndex}:${contentIndex}` } : {}) });
     if (value.type === "toolCall") items.push({ role: "tool", ...(typeof value.id === "string" ? { toolCallId: value.id } : {}), ...(typeof value.name === "string" ? { toolName: value.name } : {}), status: "running", input: value.arguments });
     if (value.type === "toolResult") items.push({ role: "tool", ...(typeof value.toolCallId === "string" ? { toolCallId: value.toolCallId } : {}), ...(typeof value.toolName === "string" ? { toolName: value.toolName } : {}), status: value.isError ? "failed" : "completed", output: value.content });
   }
   return items;
+}
+
+function runMetadata(session: AgentSession): RunMetadata[] {
+  const records = new Map<string, RunMetadata>();
+  for (const entry of session.sessionManager?.getEntries?.() ?? []) {
+    if (entry.type !== "custom" || entry.customType !== RUN_ENTRY || !entry.data || typeof entry.data !== "object" || Array.isArray(entry.data)) continue;
+    const value = entry.data as Record<string, unknown>;
+    if (typeof value.runId !== "string" || typeof value.startedAt !== "number" || typeof value.startMessageIndex !== "number") continue;
+    const settled = value.status === "settled" && typeof value.endedAt === "number" && typeof value.endMessageIndex === "number";
+    records.set(value.runId, { runId: value.runId, startedAt: value.startedAt, ...(settled ? { endedAt: value.endedAt as number } : {}), outcome: settled && ["completed", "stopped", "failed"].includes(String(value.outcome)) ? value.outcome as RunOutcome : "interrupted", startMessageIndex: value.startMessageIndex, endMessageIndex: settled ? value.endMessageIndex as number : session.messages.length });
+  }
+  return [...records.values()].sort((a, b) => a.startMessageIndex - b.startMessageIndex);
 }
 
 function messageText(content: unknown) {
@@ -803,6 +998,7 @@ export function loadModelCatalog({ agentDir = getAgentDir() }: { agentDir?: stri
     available: registry.hasConfiguredAuth(model),
     input: model.input,
     reasoning: model.reasoning,
+    thinkingLevels: getSupportedThinkingLevels(model),
   }));
   const providerIds = [...new Set([...models.map(({ provider }) => provider), ...authStorage.list()])].sort();
   const providers = providerIds.map((id) => ({
@@ -968,7 +1164,7 @@ async function provePiSession(_payload: Record<string, unknown>, createSession: 
       sessionManager: SessionManager.inMemory(root),
     });
     session.dispose();
-    return { sdk: "@mariozechner/pi-coding-agent", session: "created" };
+    return { sdk: "@earendil-works/pi-coding-agent", session: "created" };
   } finally {
     await rm(root, { recursive: true, force: true });
   }

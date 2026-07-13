@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PROJECT_COLORS, projectColor, projectColorVariables } from "./project-color.js";
+import { PROJECT_COLORS, projectColor, projectColorVariables, setProjectPalette } from "./project-color.js";
 
 function luminance(hex: string) {
   const channels = hex.match(/[\da-f]{2}/gi)!.map((value) => Number.parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -11,9 +11,20 @@ test("project colors are stable and inherited by worktrees", () => {
   const root = { id: "project-a", name: "Before" };
   const renamed = { ...root, name: "After" };
   const worktree = { id: "worktree-a", root_workspace_id: root.id };
-  assert.equal(projectColor(root), projectColor(renamed));
-  assert.equal(projectColor(root), projectColor(worktree));
-  assert.ok(PROJECT_COLORS.includes(projectColor(root)));
+  assert.deepEqual(projectColor(root), projectColor(renamed));
+  assert.deepEqual(projectColor(root), projectColor(worktree));
+  assert.ok(PROJECT_COLORS.some(({ name }) => name === projectColor(root).name));
+});
+
+test("custom palette preserves stable slots", () => {
+  const workspace = { id: "project-a" };
+  const slot = PROJECT_COLORS.findIndex(({ name }) => name === projectColor(workspace).name);
+  const palette: string[] = PROJECT_COLORS.map(({ primary }) => primary);
+  palette[slot] = "#ffffff";
+  setProjectPalette(palette);
+  assert.equal(projectColor(workspace).primary, "#ffffff");
+  assert.equal(projectColor(workspace).foreground, "#020203");
+  setProjectPalette();
 });
 
 test("project palette has readable foreground contrast", () => {

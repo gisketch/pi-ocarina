@@ -6,7 +6,9 @@ export type NotificationCategories = Record<NotificationCategory, boolean>;
 export function notificationCategories(): NotificationCategories {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(key) ?? "{}");
-    return stored && typeof stored === "object" && !Array.isArray(stored) ? { ...defaultCategories, ...stored } : defaultCategories;
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) return defaultCategories;
+    const record = stored as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(defaultCategories).map(([name, fallback]) => [name, typeof record[name] === "boolean" ? record[name] : fallback])) as NotificationCategories;
   }
   catch { return defaultCategories; }
 }

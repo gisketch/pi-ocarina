@@ -12,7 +12,7 @@ Cross-platform desktop coding-agent application.
 
 - Desktop shell: Tauri 2 with a small Rust host.
 - Frontend: strict React TypeScript, Vite, and Tailwind CSS.
-- Agent runtime: Pi SDK and Pi coding agent in a dedicated TypeScript host compiled to Node 20 JavaScript.
+- Agent runtime: Pi SDK and Pi coding agent in a dedicated TypeScript host compiled to bundled Node 22.19.0 JavaScript.
 - Package manager: Bun.
 - Native responsibilities: Rust owns Tauri commands, process lifecycle, filesystem access, git/worktrees, PTY integration, notifications, and secure settings.
 

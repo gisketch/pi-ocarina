@@ -3,5 +3,5 @@
   "identifier": "e2e",
   "description": "Debug-only permissions for the real desktop smoke lane.",
   "windows": ["main"],
-  "permissions": ["wdio:default", "wdio-webdriver:default"]
+  "permissions": ["wdio:default", "wdio-webdriver:default", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
 }

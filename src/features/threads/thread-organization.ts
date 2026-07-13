@@ -1,8 +1,8 @@
 export type ThreadListItem = { sessionFile: string; title: string; modified?: string };
 import type { ThreadMetadata } from "@/shared/contracts/app";
 
-export function isThreadUnread(item: ThreadListItem & { messageCount?: number }, metadata: ThreadMetadata, selectedSessionFile?: string, pendingSessionFile?: string) {
-  return (item.messageCount ?? 0) > (metadata[item.sessionFile]?.read_message_count ?? 0)
+export function isThreadUnread(item: ThreadListItem & { messageCount?: number }, metadata: ThreadMetadata, selectedSessionFile?: string, pendingSessionFile?: string, hydrated = true) {
+  return hydrated && (item.messageCount ?? 0) > (metadata[item.sessionFile]?.read_message_count ?? 0)
     && item.sessionFile !== selectedSessionFile
     && item.sessionFile !== pendingSessionFile;
 }

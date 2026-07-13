@@ -5,7 +5,7 @@
 - Product: Codex-style desktop application powered by Pi.
 - Desktop: Tauri 2 with a small Rust host.
 - Frontend: Bun + strict React TypeScript + Vite + Tailwind CSS.
-- Agent runtime: Pi SDK/Pi coding agent behind a strict TypeScript host compiled for Node 20.
+- Agent runtime: Pi SDK/Pi coding agent behind a strict TypeScript host compiled for bundled Node 22.19.0.
 - Reference: `../pi-gui` for behavior and visual flows, not Electron structure.
 
 ## Runtime Direction

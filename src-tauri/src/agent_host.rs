@@ -53,6 +53,8 @@ struct CatalogModel {
     available: bool,
     input: Vec<String>,
     reasoning: bool,
+    #[serde(default)]
+    thinking_levels: Vec<String>,
 }
 
 impl HostEvent {
@@ -311,9 +313,9 @@ fn validate_runtime(node: &Path, script: &Path) -> io::Result<()> {
     }
     let output = Command::new(node).arg("--version").output()?;
     let version = String::from_utf8_lossy(&output.stdout);
-    if !output.status.success() || !version.starts_with("v20.") {
+    if !output.status.success() || !version.starts_with("v22.") {
         return Err(io::Error::other(format!(
-            "bundled Node runtime is incompatible: expected Node 20, got {}",
+            "bundled Node runtime is incompatible: expected Node 22, got {}",
             version.trim()
         )));
     }
@@ -413,6 +415,10 @@ mod tests {
             r#"{"version":1,"requestId":"a","type":"catalog","payload":{"providers":[],"models":[],"errors":[],"apiKey":"secret"}}"#
         )
         .is_err());
+        assert!(HostEvent::parse(
+            r#"{"version":1,"requestId":"a","type":"catalog","payload":{"providers":[],"models":[{"provider":"local","id":"model","name":"Model","available":true,"input":["text"],"reasoning":true}],"errors":[]}}"#
+        )
+        .is_ok());
         assert!(HostEvent::parse(
             r#"{"version":1,"requestId":"a","type":"extensionDock","payload":{"threadId":"thread","kind":"widget","key":"proof","value":["ready"]}}"#
         )

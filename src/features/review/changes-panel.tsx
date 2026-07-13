@@ -1,36 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
-import { MarkdownMessage } from "@/features/threads/markdown-message";
+import { EditorCode, EditorDiff } from "@/shared/ui/editor-diff";
+import { additionEditorModel, parseUnifiedDiff } from "@/shared/ui/editor-model";
+import { CheckIcon, FileDiffIcon, SearchIcon } from "@/shared/ui/icon";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/shared/ui/resizable";
 import { invokeTauri } from "@/shared/lib/tauri-client";
+import type { ChangedFile, FileDiff, OpenWorkspaceFile, WorkspaceFile } from "@/shared/contracts/tauri";
+import { CompactFileTree } from "./compact-file-tree";
 
-/** @param {{workspaceId: string, open: boolean, selectedPath?: string, onClose: () => void}} props */
-type ChangedFile = { path: string; status: string };
-type Diff = { content: string; binary: boolean };
-type WorkspaceFile = { path: string; reviewed: boolean };
-type OpenFile = WorkspaceFile & Diff;
-
-export function ChangesPanel({ workspaceId, open, selectedPath, onClose }: { workspaceId: string; open: boolean; selectedPath?: string; onClose: () => void }) {
+export function ChangesPanel({ workspaceId, open, treeVisible, selectedPath, onSelectedPathHandled }: { workspaceId: string; open: boolean; treeVisible: boolean; selectedPath?: string; onSelectedPathHandled?: () => void }) {
   const [files, setFiles] = useState<ChangedFile[]>([]);
   const [selected, setSelected] = useState("");
-  const [diff, setDiff] = useState<Diff | null>(null);
+  const [diff, setDiff] = useState<FileDiff | null>(null);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState("changes");
+  const [mode, setMode] = useState<"changes" | "files">("changes");
+  const [query, setQuery] = useState("");
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
-  const [file, setFile] = useState<OpenFile | null>(null);
-  const [width, setWidth] = useState(560);
-  useEffect(() => { void invokeTauri("app_state_snapshot").then(({ state }) => setWidth(state.preferences.reviewer_width || 560)); }, []);
-  const resize = (next: number) => { const bounded = Math.max(320, Math.min(1200, next)); setWidth(bounded); void invokeTauri("set_panel_layout", { reviewerWidth: bounded }); };
-  useEffect(() => { if (!open) return; if (selectedPath) setMode("changes"); setError(""); void invokeTauri("repository_changes", { workspaceId }).then((items) => { setFiles(items); setSelected(selectedPath && items.some((item) => item.path === selectedPath) ? selectedPath : items[0]?.path ?? ""); }).catch((cause) => setError(String(cause))); }, [open, selectedPath, workspaceId]);
+  const [file, setFile] = useState<OpenWorkspaceFile | null>(null);
+  useEffect(() => { if (!open) return; if (selectedPath) setMode("changes"); setError(""); void invokeTauri("repository_changes", { workspaceId }).then((items) => { setFiles(items); setSelected((current) => selectedPath && items.some((item) => item.path === selectedPath) ? selectedPath : items.some((item) => item.path === current) ? current : items[0]?.path ?? ""); onSelectedPathHandled?.(); }).catch((cause) => setError(String(cause))); }, [onSelectedPathHandled, open, selectedPath, workspaceId]);
   useEffect(() => { if (!selected) { setDiff(null); return; } setDiff(null); void invokeTauri("file_diff", { workspaceId, path: selected }).then(setDiff).catch((cause) => setError(String(cause))); }, [selected, workspaceId]);
   useEffect(() => { if (!open || mode !== "files") return; void invokeTauri("workspace_files", { workspaceId }).then(setWorkspaceFiles).catch((cause) => setError(String(cause))); }, [mode, open, workspaceId]);
   const openFile = (path: string) => void invokeTauri("read_workspace_file", { workspaceId, path }).then(setFile).catch((cause) => setError(String(cause)));
   const toggleReviewed = async () => { if (!file) return; await invokeTauri("set_file_reviewed", { workspaceId, path: file.path, reviewed: !file.reviewed }); setFile({ ...file, reviewed: !file.reviewed }); setWorkspaceFiles((items) => items.map((item) => item.path === file.path ? { ...item, reviewed: !file.reviewed } : item)); };
+  const selectedStatus = files.find((item) => item.path === selected)?.status;
+  const model = useMemo(() => diff && !diff.binary ? /^(?:A|\?\?)/.test(selectedStatus ?? "") && !/^diff --git|^@@ /m.test(diff.content) ? additionEditorModel(diff.content) : parseUnifiedDiff(diff.content) : null, [diff, selectedStatus]);
   if (!open) return null;
-  return <aside className="min-w-0 rounded-md border bg-card p-3 max-sm:!w-full" style={{ width: `min(100%, ${width}px)` }} aria-label="Review workbench"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Tabs className={undefined} value={mode} onValueChange={setMode}><TabsList className={undefined}><TabsTrigger className={undefined} value="changes">Changes</TabsTrigger><TabsTrigger className={undefined} value="files">Files ({workspaceFiles.filter((item) => item.reviewed).length}/{workspaceFiles.length})</TabsTrigger></TabsList></Tabs><div className="flex"><Button aria-label="Narrow reviewer" size="sm" variant="ghost" onClick={() => resize(width - 80)}>−</Button><Button aria-label="Widen reviewer" size="sm" variant="ghost" onClick={() => resize(width + 80)}>+</Button><Button size="sm" variant="ghost" onClick={onClose}>Close</Button></div></div>
-    {error && <p className="text-sm text-destructive">{error}</p>}{!error && files.length === 0 && <p className="text-sm text-muted-foreground">No repository changes.</p>}
-    {mode === "changes" ? <div className="grid min-h-48 gap-2 sm:grid-cols-[12rem_1fr]"><nav className="max-h-80 overflow-auto" aria-label="Changed files">{files.map((file) => <Button className="w-full justify-start truncate" key={file.path} size="sm" variant={selected === file.path ? "secondary" : "ghost"} onClick={() => setSelected(file.path)}><span className="w-5 shrink-0">{file.status}</span>{file.path}</Button>)}</nav>
-      <div className="min-w-0 overflow-auto rounded bg-muted p-2 text-xs">{selected && !diff && <p>Loading diff…</p>}{diff?.binary ? <p>Binary file cannot be previewed.</p> : <pre className="whitespace-pre-wrap break-words">{diff?.content || (selected ? "No readable diff." : "Select a file.")}</pre>}</div></div>
-      : <div className="grid min-h-48 gap-2 sm:grid-cols-[12rem_1fr]"><nav className="max-h-80 overflow-auto" aria-label="Workspace files">{workspaceFiles.map((item) => <Button className="w-full justify-start truncate" key={item.path} size="sm" variant={file?.path === item.path ? "secondary" : "ghost"} onClick={() => openFile(item.path)}>{item.reviewed ? "✓ " : ""}{item.path}</Button>)}</nav><div className="min-w-0 overflow-auto rounded bg-muted p-2 text-xs">{file && <div className="mb-2 flex items-center justify-between"><span className="truncate font-medium">{file.path}</span><Button size="sm" variant="outline" onClick={() => void toggleReviewed()}>{file.reviewed ? "Reviewed ✓" : "Mark reviewed"}</Button></div>}{file?.binary ? <p>Binary file cannot be previewed.</p> : file ? <MarkdownMessage className="text-xs">{`\`\`\`${file.path.split(".").pop() ?? "text"}\n${file.content.replaceAll("```", "` ` `")}\n\`\`\``}</MarkdownMessage> : <p>Select a file.</p>}</div></div>}
+  const treeItems = mode === "changes" ? files : workspaceFiles;
+  const activePath = mode === "changes" ? selected : file?.path;
+  return <aside className="pb-changes-panel" aria-label="Review workbench">
+    <header className="pb-review-header"><Tabs className="min-w-0" value={mode} onValueChange={(value) => setMode(value as "changes" | "files")}><TabsList><TabsTrigger value="changes">Changes ({files.length})</TabsTrigger><TabsTrigger value="files">Files ({workspaceFiles.filter((item) => item.reviewed).length}/{workspaceFiles.length})</TabsTrigger></TabsList></Tabs></header>
+    <ResizablePanelGroup className="pb-review-layout" orientation="horizontal">
+      <ResizablePanel id="review-editor" defaultSize="72%" minSize="50%" maxSize={treeVisible ? "80%" : "100%"}><section className="pb-review-editor" aria-label="Selected file">
+        {error ? <ReviewState tone="error">{error}</ReviewState> : mode === "changes" ? <ChangesEditor selected={selected} diff={diff} model={model} /> : <FileEditor file={file} onToggleReviewed={() => void toggleReviewed()} />}
+      </section></ResizablePanel>
+      {treeVisible && <><ResizableHandle aria-label="Resize file tree" /><ResizablePanel id="review-tree" defaultSize="28%" minSize="20%" maxSize="50%"><aside className="pb-review-tree"><label className="pb-review-filter"><SearchIcon /><span className="sr-only">Filter files</span><Input value={query} placeholder="Filter files…" onChange={(event) => setQuery(event.target.value)} /></label><div className="min-h-0 flex-1 overflow-auto">{treeItems.length ? <CompactFileTree items={treeItems} query={query} selectedPath={activePath} onSelect={mode === "changes" ? setSelected : openFile} /> : <ReviewState>{mode === "changes" ? "No repository changes." : "No workspace files."}</ReviewState>}</div></aside></ResizablePanel></>}
+    </ResizablePanelGroup>
   </aside>;
 }
+
+function ChangesEditor({ selected, diff, model }: { selected: string; diff: FileDiff | null; model: ReturnType<typeof parseUnifiedDiff> | null }) {
+  if (!selected) return <ReviewState>Select a changed file.</ReviewState>;
+  if (!diff) return <ReviewState>Loading diff…</ReviewState>;
+  if (diff.binary) return <ReviewState>Binary file cannot be previewed.</ReviewState>;
+  if (!model || !diff.content) return <ReviewState>No readable diff.</ReviewState>;
+  return <><EditorHeader path={selected} additions={model.additions} deletions={model.deletions} /><EditorDiff density="workbench" lines={model.lines} path={selected} truncated={model.truncated} /></>;
+}
+
+function FileEditor({ file, onToggleReviewed }: { file: OpenWorkspaceFile | null; onToggleReviewed: () => void }) {
+  if (!file) return <ReviewState>Select a workspace file.</ReviewState>;
+  if (file.binary) return <ReviewState>Binary file cannot be previewed.</ReviewState>;
+  return <><EditorHeader path={file.path}><Button size="sm" variant="ghost" onClick={onToggleReviewed}>{file.reviewed && <CheckIcon />}{file.reviewed ? "Reviewed" : "Mark reviewed"}</Button></EditorHeader><EditorCode content={file.content} density="workbench" path={file.path} /></>;
+}
+
+function EditorHeader({ path, additions, deletions, children }: { path: string; additions?: number; deletions?: number; children?: React.ReactNode }) {
+  return <div className="pb-review-editor-header"><FileDiffIcon /><span className="min-w-0 truncate" title={path}>{path}</span>{additions !== undefined && <span className="pb-review-positive">+{additions}</span>}{deletions !== undefined && <span className="text-destructive">-{deletions}</span>}<span className="ml-auto">{children}</span></div>;
+}
+
+function ReviewState({ children, tone }: { children: React.ReactNode; tone?: "error" }) { return <p className={tone === "error" ? "p-4 text-destructive" : "p-4 text-muted-foreground"}>{children}</p>; }

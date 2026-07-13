@@ -10,7 +10,7 @@ Migrate every authored JavaScript-family file to strict TypeScript without chang
 - Frontend, tools, E2E, and agent host pass separate strict typechecks.
 - No explicit `any`, `@ts-nocheck`, or `@ts-ignore` remains.
 - Tauri and agent-host boundaries use typed operation maps, discriminated events, and runtime validation.
-- The bundled host runs compiled `agent-host/dist/host.js` on pinned Node 20.
+- The bundled host runs compiled `agent-host/dist/host.js` on pinned Node 22.19.0.
 - Lint, unit/contract tests, production build, Rust checks, real desktop smoke, and packaged app checks pass.
 
 ## Progress
@@ -20,7 +20,7 @@ Migrate every authored JavaScript-family file to strict TypeScript without chang
 - [x] Add typed frontend contracts and validated agent client.
 - [x] Add `TauriCommandMap`/`TauriEventMap`, runtime guards, and one shared native client; feature code has no raw `invoke` or `listen` calls.
 - [x] Convert the Pi host and validate JSONL payloads with TypeBox.
-- [x] Compile the host into ignored Node 20-compatible output.
+- [x] Compile the host into ignored Node 22-compatible output.
 - [x] Update Rust supervision and packaged resource paths.
 - [x] Remove duplicate root Pi and Node runtime dependencies.
 - [x] Update harness and architecture documentation.
@@ -42,4 +42,4 @@ Migrate every authored JavaScript-family file to strict TypeScript without chang
 
 - 2026-07-12: TypeScript 5.9 is pinned because TypeScript 7 is not yet supported by the current `typescript-eslint` toolchain.
 - 2026-07-12: Customized COMP LIB/Shadcn primitives are manually typed; none are regenerated.
-- 2026-07-12: Generated JavaScript exists only in ignored `agent-host/dist` because the packaged runtime executes JavaScript on Node 20.
+- 2026-07-12: Generated JavaScript exists only in ignored `agent-host/dist` because the packaged runtime executes JavaScript on bundled Node 22.19.0.

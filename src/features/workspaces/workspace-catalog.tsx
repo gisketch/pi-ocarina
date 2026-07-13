@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FolderGit2Icon, FolderOpenIcon, MessageSquarePlusIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "@/shared/ui/icon";
+import { FolderOpenIcon, MessageSquarePlusIcon, PlusIcon, SettingsIcon } from "@/shared/ui/icon";
 import { useCallback, useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { invokeTauri, listenTauri } from "@/shared/lib/tauri-client";
 
@@ -9,10 +9,8 @@ import { Button } from "@/shared/ui/button";
 import {
   Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/shared/ui/dialog";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
+import { toggleWorkspaceDisclosure } from "./workspace-disclosure";
 import { parseAgentHostEvent } from "@/shared/contracts/agent";
 import type { Model, Workspace, WorkspaceState } from "@/shared/contracts/app";
 import type { TauriCommandMap } from "@/shared/contracts/tauri";
@@ -24,7 +22,7 @@ const emptyState: WorkspaceState = { workspaces: [], selected_workspace: null };
 const folderName = (workspace: Workspace) => workspace.path.split("/").filter(Boolean).at(-1) ?? workspace.path;
 
 /** @param {{ sidebarVisible?: boolean }} props */
-export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }: { sidebarVisible?: boolean; onThreadTitleChange: (title: string) => void }) {
+export function WorkspaceCatalog({ sidebarVisible = true, changesOpen, onChangesOpenChange, changesTreeVisible, onThreadTitleChange, onOpenSettings }: { sidebarVisible?: boolean; changesOpen: boolean; onChangesOpenChange: (open: boolean) => void; changesTreeVisible: boolean; onThreadTitleChange: (title: string) => void; onOpenSettings: () => void }) {
   const windowLabel = getCurrentWindow().label;
   const [state, setState] = useState(emptyState);
   const [model, setModel] = useState<Model | null>(null);
@@ -32,6 +30,7 @@ export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }:
   const [renameTarget, setRenameTarget] = useState<Workspace | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Workspace | null>(null);
   const [name, setName] = useState("");
+  const [collapsedWorkspaceIds, setCollapsedWorkspaceIds] = useState<Set<string>>(new Set());
 
   type WorkspaceMutation = "add_workspace" | "select_workspace" | "rename_workspace" | "remove_workspace";
   const run = useCallback(async <K extends WorkspaceMutation>(command: K, args: TauriCommandMap[K]["args"]) => {
@@ -90,13 +89,20 @@ export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }:
     if (removeTarget && await run("remove_workspace", { workspaceId: removeTarget.id })) setRemoveTarget(null);
   };
 
+  const renameWorkspace = (workspace: Workspace) => { setName(workspace.name || folderName(workspace)); setRenameTarget(workspace); };
+  const revealWorkspace = (workspace: Workspace) => void invokeTauri("reveal_workspace", { workspaceId: workspace.id }).catch((cause) => setError(String(cause)));
+  const removeWorkspace = (workspace: Workspace) => workspace.root_workspace_id ? void removeWorktree(workspace) : setRemoveTarget(workspace);
+
   if (state.workspaces.length === 0) {
     return (
       <section className="pb-thread-shell grid h-full min-h-0" data-sidebar-visible={sidebarVisible}>
         <nav className="pb-sidebar flex min-h-0 min-w-0 flex-col overflow-hidden border-r p-3" aria-hidden={!sidebarVisible} inert={!sidebarVisible} aria-label="Threads">
-          <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">Pi<span className="text-primary">Ocarina</span></h1>
+          <h1 className="px-2 pb-4 pt-1 font-heading text-xl text-foreground">
+            Pi<span className="text-primary">Ocarina</span>
+          </h1>
           <Button className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" disabled size="sm" variant="ghost"><MessageSquarePlusIcon /><span>New thread</span></Button>
-          <div className="flex items-center px-2 pb-3 pt-6" data-workspace-header><h2 className="flex-1 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button></div>
+          <div className="flex items-center pb-3 pt-6" data-workspace-header><h2 className="flex-1 px-2 text-sm text-muted-foreground" data-sidebar-heading>Workspaces</h2><div className="flex w-14 justify-end"><Button className="pb-workspace-add shrink-0 text-foreground" aria-label="Open workspace" title="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button></div></div>
+          <div className="mt-auto border-t pt-2"><Button data-sidebar-row className="grid w-full grid-cols-[14px_minmax(0,1fr)] justify-start gap-2 px-2 text-left" effects="row-highlight" size="sm" variant="ghost" onClick={onOpenSettings}><SettingsIcon /><span>Settings</span></Button></div>
         </nav>
         <div className="pb-main-surface grid min-h-0 place-items-center px-6 pb-4">
           <div className="flex flex-col items-center gap-3"><p className="text-sm text-muted-foreground">Open a local folder to begin.</p><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button>{error && <p className="text-sm text-destructive">{error}</p>}</div>
@@ -107,19 +113,10 @@ export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }:
 
   const selectedWorkspace = state.windows?.[windowLabel]?.workspace_id ?? null;
   const selected = state.workspaces.find(({ id }) => id === selectedWorkspace) ?? null;
-  const sidebarHeader = <div className="mb-3 flex items-center gap-1 border-b pb-3">
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button className="min-w-0 flex-1 justify-start" size="sm" variant="ghost"><FolderOpenIcon /><span className="truncate">{selected ? selected.name || folderName(selected) : "Choose workspace"}</span></Button></DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-64">{state.workspaces.map((workspace) => <DropdownMenuItem className={undefined} key={workspace.id} onSelect={() => void run("select_workspace", { workspaceId: workspace.id })}>{workspace.root_workspace_id && <FolderGit2Icon />}{workspace.name || folderName(workspace)}</DropdownMenuItem>)}</DropdownMenuContent>
-    </DropdownMenu>
-    <Button aria-label="Open workspace" size="icon-sm" variant="ghost" onClick={openWorkspace}><PlusIcon /></Button>
-    {selected && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Workspace actions" size="icon-sm" variant="ghost"><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className={undefined}><DropdownMenuItem className={undefined} onSelect={() => { setName(selected.name || folderName(selected)); setRenameTarget(selected); }}>Rename</DropdownMenuItem><DropdownMenuItem className={undefined} onSelect={() => void invokeTauri("reveal_workspace", { workspaceId: selected.id }).catch((cause) => setError(String(cause)))}>Reveal in Finder</DropdownMenuItem>{selected.root_workspace_id ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => void removeWorktree(selected)}><Trash2Icon />Remove worktree</DropdownMenuItem> : <><DropdownMenuItem className={undefined} disabled={!model} onSelect={() => void createWorktree(selected)}><FolderGit2Icon />Create worktree</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setRemoveTarget(selected)}>Remove from list…</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu>}
-  </div>;
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {selected ? <ModelCatalog onModelChange={setModel} onThreadTitleChange={onThreadTitleChange} sidebarHeader={sidebarHeader} sidebarVisible={sidebarVisible} workspace={selected} workspaces={state.workspaces} onOpenWorkspace={openWorkspace} onSelectWorkspace={(workspaceId) => run("select_workspace", { workspaceId })} /> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
+        {selected ? <ModelCatalog changesOpen={changesOpen} onChangesOpenChange={onChangesOpenChange} changesTreeVisible={changesTreeVisible} onModelChange={setModel} onThreadTitleChange={onThreadTitleChange} sidebarVisible={sidebarVisible} workspace={selected} workspaces={state.workspaces} onOpenWorkspace={openWorkspace} onOpenSettings={onOpenSettings} onSelectWorkspace={(workspaceId) => run("select_workspace", { workspaceId })} workspaceActions={{ collapsedWorkspaceIds, onToggleWorkspace: (workspaceId) => setCollapsedWorkspaceIds((current) => toggleWorkspaceDisclosure(current, workspaceId)), canCreateWorktree: Boolean(model), onRenameWorkspace: renameWorkspace, onRevealWorkspace: revealWorkspace, onCreateWorktree: (workspace) => void createWorktree(workspace), onRemoveWorkspace: removeWorkspace }} /> : <div className="grid flex-1 place-items-center"><Button onClick={openWorkspace}><FolderOpenIcon />Open Folder</Button></div>}
         {error && <p className="px-3 text-xs text-destructive">{error}</p>}
       </section>
 
@@ -133,7 +130,7 @@ export function WorkspaceCatalog({ sidebarVisible = true, onThreadTitleChange }:
 
       <Dialog open={Boolean(removeTarget)} onOpenChange={(open: boolean) => !open && setRemoveTarget(null)}>
         <DialogContent className={undefined}>
-          <DialogHeader className={undefined}><DialogTitle className={undefined}>Remove workspace?</DialogTitle><DialogDescription className={undefined}>Only the catalog entry is removed. The folder, files, worktrees, and Pi sessions stay untouched.</DialogDescription></DialogHeader>
+          <DialogHeader className={undefined}><DialogTitle className={undefined}>Remove project?</DialogTitle><DialogDescription className={undefined}>Only the catalog entry is removed. The folder, files, worktrees, and Pi sessions stay untouched.</DialogDescription></DialogHeader>
           <DialogFooter className={undefined}><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button variant="destructive" onClick={confirmRemove}>Remove from list</Button></DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,6 +3,7 @@ pub mod app_state;
 pub mod attachment;
 pub mod model_scope;
 pub mod review;
+pub mod system_fonts;
 pub mod terminal;
 pub mod workspace;
 pub mod worktree;
@@ -43,12 +44,7 @@ fn set_preferences(
     store: State<'_, AppStateStore>,
     preferences: Preferences,
 ) -> Result<AppState, String> {
-    if !matches!(preferences.theme.as_str(), "system" | "light" | "dark") {
-        return Err("theme must be system, light, or dark".into());
-    }
-    if preferences.transparency && !cfg!(target_os = "macos") {
-        return Err("window transparency is not supported on this platform".into());
-    }
+    preferences.validate()?;
     update_and_emit(&app, &store, |state| {
         let terminal_shell = std::mem::take(&mut state.preferences.terminal_shell);
         state.preferences = preferences;
@@ -199,6 +195,7 @@ fn update_and_emit(
 
 pub fn run() {
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -236,6 +233,7 @@ pub fn run() {
             app_state_snapshot,
             set_preferences,
             appearance_support,
+            system_fonts::system_font_families,
             open_notification_settings,
             set_panel_layout,
             open_app_window,

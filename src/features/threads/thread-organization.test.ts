@@ -26,5 +26,6 @@ test("pending thread selection suppresses its unread indicator", () => {
   assert.equal(isThreadUnread(item, metadata), true);
   assert.equal(isThreadUnread(item, metadata, undefined, item.sessionFile), false);
   assert.equal(isThreadUnread(item, metadata, item.sessionFile), false);
+  assert.equal(isThreadUnread(item, metadata, undefined, undefined, false), false);
   assert.equal(isThreadUnread(item, markThreadRead(item, metadata)), false);
 });

@@ -1,10 +1,12 @@
-import { isModelCatalog, isRecord, isThread, isThreadSummary, type Attachment, type ModelCatalog, type QueueItem, type Thread, type ThreadSummary, type ThreadTreeNode } from "./app";
+import { isModelCatalog, isRecord, isThread, isThreadSummary, isWorkspaceResources, type Attachment, type ModelCatalog, type QueueItem, type RunOutcome, type Thread, type ThreadSummary, type ThreadTreeNode, type WorkspaceResources } from "./app";
 
 export type ToolLifecycleStatus = "preparing" | "running" | "completed" | "failed";
-export type ToolCallPayload = { threadId: string; toolCallId?: string | undefined; toolName?: string | undefined; status?: ToolLifecycleStatus | undefined; input?: unknown; output?: unknown };
+export type ToolCallPayload = { threadId: string; runId?: string | undefined; toolCallId?: string | undefined; toolName?: string | undefined; status?: ToolLifecycleStatus | undefined; input?: unknown; output?: unknown };
+export type RunEventPayload = { threadId: string; runId: string; kind: "start" | "turnStart" | "content" | "end"; timestamp?: number; turn?: number; message?: number; contentIndex?: number; contentKind?: "thinking" | "text"; text?: string; phase?: "commentary" | "final_answer"; outcome?: RunOutcome };
 export type RuntimePromptPayload = { threadId: string; promptId: string; kind: "select" | "confirm" | "input" | "editor"; title?: string | undefined; message?: string | undefined; options?: string[] | undefined };
 export type AgentStreamEvent =
   | { version: 1; requestId: string; type: "messageDelta"; payload: { threadId: string; delta: string } }
+  | { version: 1; requestId: string; type: "runEvent"; payload: RunEventPayload }
   | { version: 1; requestId: string; type: "toolCall"; payload: ToolCallPayload }
   | { version: 1; requestId: string; type: "runtimePrompt"; payload: RuntimePromptPayload }
   | { version: 1; requestId: string; type: "runtimeNotice"; payload: { threadId: string; type: "info" | "warning" | "error"; message: string } }
@@ -52,9 +54,17 @@ export function parseAgentHostEvent(value: unknown): AgentHostEvent {
   const threadId = string(payload, "threadId");
   switch (value.type) {
     case "messageDelta": return { ...base, type: value.type, payload: { threadId, delta: string(payload, "delta") } };
+    case "runEvent": {
+      const kind = string(payload, "kind");
+      if (!["start", "turnStart", "content", "end"].includes(kind)) throw new Error("Invalid run event kind");
+      const phase = optionalString(payload, "phase");
+      const contentKind = optionalString(payload, "contentKind");
+      const outcome = optionalString(payload, "outcome");
+      return { ...base, type: value.type, payload: { threadId, runId: string(payload, "runId"), kind: kind as RunEventPayload["kind"], ...(typeof payload.timestamp === "number" ? { timestamp: payload.timestamp } : {}), ...(typeof payload.turn === "number" ? { turn: payload.turn } : {}), ...(typeof payload.message === "number" ? { message: payload.message } : {}), ...(typeof payload.contentIndex === "number" ? { contentIndex: payload.contentIndex } : {}), ...(contentKind === "thinking" || contentKind === "text" ? { contentKind } : {}), ...(typeof payload.text === "string" ? { text: payload.text } : {}), ...(phase === "commentary" || phase === "final_answer" ? { phase } : {}), ...(outcome && ["completed", "stopped", "failed", "interrupted"].includes(outcome) ? { outcome: outcome as RunOutcome } : {}) } };
+    }
     case "toolCall": {
       const status = optionalToolStatus(payload);
-      return { ...base, type: value.type, payload: { threadId, ...(optionalString(payload, "toolCallId") ? { toolCallId: optionalString(payload, "toolCallId") } : {}), ...(optionalString(payload, "toolName") ? { toolName: optionalString(payload, "toolName") } : {}), ...(status ? { status } : {}), input: payload.input, output: payload.output } };
+      return { ...base, type: value.type, payload: { threadId, ...(optionalString(payload, "runId") ? { runId: optionalString(payload, "runId") } : {}), ...(optionalString(payload, "toolCallId") ? { toolCallId: optionalString(payload, "toolCallId") } : {}), ...(optionalString(payload, "toolName") ? { toolName: optionalString(payload, "toolName") } : {}), ...(status ? { status } : {}), input: payload.input, output: payload.output } };
     }
     case "runtimePrompt": {
       const kind = string(payload, "kind");
@@ -80,6 +90,7 @@ export function parseAgentHostEvent(value: unknown): AgentHostEvent {
 
 export type AgentOperationMap = {
   createSession: { payload: Record<string, never>; result: Record<string, unknown> };
+  workspaceResources: { payload: { cwd: string }; result: WorkspaceResources };
   cancel: { payload: { requestId: string }; result: { cancelled: string } };
   createThread: { payload: { cwd: string; provider: string; modelId: string; thinkingLevel?: string }; result: Thread };
   listThreads: { payload: { cwd: string }; result: ThreadSummary[] };
@@ -123,6 +134,8 @@ export function parseAgentResult<K extends AgentOperation>(operation: K, value: 
     if (!isThread(value)) throw new Error(`Invalid ${operation} response`);
   } else if (operation === "listThreads") {
     if (!Array.isArray(value) || !value.every(isThreadSummary)) throw new Error("Invalid listThreads response");
+  } else if (operation === "workspaceResources") {
+    if (!isWorkspaceResources(value)) throw new Error("Invalid workspaceResources response");
   } else if (["queueThread", "replaceThreadQueue", "threadQueue"].includes(operation)) {
     if (!isRecord(value) || !Array.isArray(value.items)) throw new Error(`Invalid ${operation} response`);
   } else if (!isRecord(value)) throw new Error(`Invalid ${operation} response`);

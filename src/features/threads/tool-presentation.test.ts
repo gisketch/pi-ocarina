@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diffStats, numberDiffLines, presentTool, reconcileToolMessages, settleActiveToolMessages } from "./tool-presentation";
+import { editorStats as diffStats, numberEditorLines as numberDiffLines } from "@/shared/ui/editor-model";
+import { presentTool, reconcileToolMessages, settleActiveToolMessages } from "./tool-presentation";
 
 test("built-in tools produce semantic summaries and visual details", () => {
   const bash = presentTool({ role: "tool", toolName: "bash", status: "completed", input: { command: "bun test" }, output: [{ type: "text", text: "10 pass" }] });

@@ -52,7 +52,7 @@ Build the first maintainable vertical slice of a `pi-gui`-style desktop app usin
 ## Progress Log
 
 - 2026-07-12: Removed the prompt-typing persistence/event backlog with coalesced durable draft writes, stable catalog subscriptions, frame-coalesced matrix-caret measurement, and real-desktop regression coverage.
-- 2026-07-12: Migrated all authored JavaScript-family source, tests, and tooling to strict TypeScript; the agent host now compiles reproducibly for bundled Node 20.
+- 2026-07-12: Migrated all authored JavaScript-family source, tests, and tooling to strict TypeScript; the agent host now compiles reproducibly for bundled Node 22.19.0.
 - 2026-07-12: Migrating the accepted `pixel-blocky-ui-complib` working-tree design system into Pi Ocarina as a dark-only, repo-owned shared UI foundation.
 - 2026-07-11: Harness initialized with product, architecture, testing, and quality rules.
 - 2026-07-11: Ticket 01 completed with the Tauri shell and real macOS WebdriverIO smoke lane.

@@ -46,6 +46,11 @@ pub struct Preferences {
     pub reviewer_width: u32,
     pub terminal_height: u32,
     pub terminal_maximized: bool,
+    pub application_font: Option<String>,
+    pub code_font: Option<String>,
+    pub interface_accent: Option<String>,
+    pub background_brightness: i16,
+    pub project_palette: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -67,7 +72,56 @@ impl Default for Preferences {
             reviewer_width: 560,
             terminal_height: 256,
             terminal_maximized: false,
+            application_font: None,
+            code_font: None,
+            interface_accent: None,
+            background_brightness: 0,
+            project_palette: Vec::new(),
         }
+    }
+}
+
+impl Preferences {
+    pub fn validate(&self) -> Result<(), String> {
+        if !matches!(self.theme.as_str(), "system" | "light" | "dark") {
+            return Err("theme must be system, light, or dark".into());
+        }
+        if self.transparency && !cfg!(target_os = "macos") {
+            return Err("window transparency is not supported on this platform".into());
+        }
+        let valid_hex = |value: &str| {
+            value.len() == 7
+                && value.starts_with('#')
+                && value[1..]
+                    .chars()
+                    .all(|character| character.is_ascii_hexdigit())
+        };
+        if self
+            .interface_accent
+            .as_deref()
+            .is_some_and(|value| !valid_hex(value))
+        {
+            return Err("interface accent must be a hex color".into());
+        }
+        if [self.application_font.as_deref(), self.code_font.as_deref()]
+            .into_iter()
+            .flatten()
+            .any(|value| {
+                value.trim().is_empty() || value.len() > 128 || value.chars().any(char::is_control)
+            })
+        {
+            return Err("font family is invalid".into());
+        }
+        if !(-2..=28).contains(&self.background_brightness) {
+            return Err("background brightness must be between -2 and 28".into());
+        }
+        if !self.project_palette.is_empty()
+            && (self.project_palette.len() != 8
+                || self.project_palette.iter().any(|value| !valid_hex(value)))
+        {
+            return Err("project palette must contain eight hex colors".into());
+        }
+        Ok(())
     }
 }
 

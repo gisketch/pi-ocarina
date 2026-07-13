@@ -4,20 +4,26 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { deleteCustomEndpoint, inspectRuntime, loadModelCatalog, saveCustomEndpoint, saveProviderCredential } from "../src/host.js";
+import { deleteCustomEndpoint, inspectRuntime, loadModelCatalog, loadWorkspaceResources, saveCustomEndpoint, saveProviderCredential } from "../src/host.js";
 
 test("pinned runtime imports upstream Pi and discovers a workspace extension", async () => {
-  assert.match(process.versions.node, /^20\./);
+  assert.match(process.versions.node, /^22\./);
   const cwd = await mkdtemp(join(tmpdir(), "pi-ocarina-runtime-"));
   const extensionDir = join(cwd, ".pi", "extensions");
   const extensionPath = join(extensionDir, "proof.js");
   await mkdir(extensionDir, { recursive: true });
-  await writeFile(extensionPath, "export default function () {}\n");
+  const skillDir = join(cwd, ".agents", "skills", "proof-skill");
+  await mkdir(skillDir, { recursive: true });
+  await writeFile(extensionPath, "export default function (pi) { pi.registerCommand('proof-command', { description: 'Proof command', handler: async () => {} }); }\n");
+  await writeFile(join(skillDir, "SKILL.md"), "---\nname: proof-skill\ndescription: Proof skill\n---\n\n# Proof\n");
 
   const result = await inspectRuntime({ cwd });
-  assert.equal(result.node.startsWith("20."), true);
+  const resources = await loadWorkspaceResources({ cwd });
+  assert.equal(result.node.startsWith("22."), true);
   assert.equal(result.extensions.includes(extensionPath), true);
   assert.deepEqual(result.errors, []);
+  assert.equal(resources.commands.some(({ name }) => name === "proof-command"), true);
+  assert.equal(resources.skills.some(({ aliases }) => aliases.includes("skill:proof-skill")), true);
 });
 
 test("model catalog uses upstream config without exposing credential values", async () => {
@@ -59,6 +65,7 @@ test("credentials use Pi storage while external providers remain read-only", asy
   }));
   const modelsCatalog = loadModelCatalog({ agentDir: modelsDir });
   assert.equal(modelsCatalog.providers.find(({ id }) => id === "local")?.source, "models_json_key");
+  assert.deepEqual(modelsCatalog.models.find(({ id }) => id === "local-model")?.thinkingLevels, ["off"]);
   assert.equal(JSON.stringify(modelsCatalog).includes("LOCAL_ONLY"), false);
   assert.throws(
     () => saveProviderCredential({ provider: "local", apiKey: secret }, modelsDir),

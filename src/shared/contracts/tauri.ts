@@ -12,6 +12,7 @@ export type TauriCommandMap = {
   app_state_snapshot: { args: undefined; result: AppStateSnapshot };
   set_preferences: { args: { preferences: Preferences }; result: { preferences: Preferences } };
   appearance_support: { args: undefined; result: { transparency: boolean } };
+  system_font_families: { args: undefined; result: { families: string[] } };
   set_workspace_projection: { args: { workspaceId: string; projection: WorkspaceProjection }; result: void };
   add_workspace: { args: { path: string }; result: WorkspaceState };
   select_workspace: { args: { workspaceId: string }; result: WorkspaceState };

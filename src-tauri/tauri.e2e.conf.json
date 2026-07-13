@@ -1,4 +1,6 @@
 {
+  "productName": "Pi Ocarina E2E",
+  "identifier": "tech.cmdblock.pi-ocarina.e2e",
   "app": {
     "withGlobalTauri": true,
     "security": {
