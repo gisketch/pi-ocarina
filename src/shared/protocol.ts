@@ -105,6 +105,8 @@ export interface SessionCommands {
     params: { threadId: string; approvalId: string; outcome: ApprovalOutcome }
     result: { ok: true }
   }
+  listApprovalRules: { params: { workspaceId: string }; result: { rules: string[] } }
+  revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }
   cancelTurn: { params: { threadId: string }; result: { ok: true } }
   retryTurn: { params: { threadId: string }; result: { ok: true } }
   restoreCheckpoint: {

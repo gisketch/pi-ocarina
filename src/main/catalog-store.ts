@@ -32,7 +32,38 @@ export class CatalogStore {
   }
 
   snapshot(): CatalogState {
-    return { ...this.#state, workspaces: [...this.#state.workspaces], focus: [...this.#state.focus] }
+    return {
+      ...this.#state,
+      workspaces: [...this.#state.workspaces],
+      focus: [...this.#state.focus],
+      approvals: structuredClone(this.#state.approvals),
+    }
+  }
+
+  hasApproval(workspaceId: string, key: string): boolean {
+    return this.#state.approvals[workspaceId]?.includes(key) ?? false
+  }
+
+  addApproval(workspaceId: string, key: string): void {
+    const existing = this.#state.approvals[workspaceId] ?? []
+    if (existing.includes(key)) return
+
+    this.#state.approvals[workspaceId] = [...existing, key]
+    this.#persist()
+  }
+
+  removeApproval(workspaceId: string, key: string): void {
+    const existing = this.#state.approvals[workspaceId]
+    if (!existing?.includes(key)) return
+
+    const remaining = existing.filter((candidate) => candidate !== key)
+    if (remaining.length > 0) this.#state.approvals[workspaceId] = remaining
+    else delete this.#state.approvals[workspaceId]
+    this.#persist()
+  }
+
+  listApprovals(workspaceId: string): string[] {
+    return [...(this.#state.approvals[workspaceId] ?? [])]
   }
 
   get warning(): string | undefined {
@@ -66,8 +97,10 @@ export class CatalogStore {
     const index = this.#state.workspaces.findIndex((entry) => entry.id === id)
     if (index === -1) return
 
-    this.#state.workspaces.splice(index, 1)
+    const [removed] = this.#state.workspaces.splice(index, 1)
     this.#state.focus.splice(index, 1)
+    // Unpinning revokes what was allowed there; re-pinning should ask again.
+    delete this.#state.approvals[removed.id]
     this.#state.workspaceIndex = Math.min(
       this.#state.workspaceIndex,
       Math.max(0, this.#state.workspaces.length - 1),

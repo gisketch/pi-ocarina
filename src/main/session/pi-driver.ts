@@ -7,12 +7,14 @@ import type {
   SessionDriver,
 } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
+import { ApprovalGate } from './approvals'
 import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
 import { WorkspaceService, type Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
 type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
+type ResourceLoaderOf = InstanceType<Sdk['DefaultResourceLoader']>
 
 /** A model named the way pi's config names it. */
 export interface ModelRef {
@@ -33,6 +35,12 @@ interface Thread {
   unsubscribe: () => void
 }
 
+/** Lets the approval extension name its thread, which only exists once pi has
+ *  created the session the extension is being built for. */
+interface ThreadHandle {
+  threadId: string
+}
+
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
  *
  *  Everything pi-shaped stops here: the driver speaks pi inwards and the shared
@@ -47,11 +55,15 @@ export class PiDriver implements SessionDriver {
   readonly #emit: EmitEvent
   readonly #model: ModelRef | undefined
   readonly #workspaces: WorkspaceService
+  readonly #approvals: ApprovalGate
+  readonly #catalog: CatalogStore
 
   constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
     this.#model = model
+    this.#catalog = catalog
     this.#workspaces = new WorkspaceService(catalog, () => this.#load())
+    this.#approvals = new ApprovalGate(emit, catalog)
   }
 
   async execute<N extends CommandName>(
@@ -95,6 +107,23 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
+      case 'resolveApproval': {
+        const { approvalId, outcome } = params as CommandParams<'resolveApproval'>
+        this.#approvals.resolve(approvalId, outcome)
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'listApprovalRules': {
+        const { workspaceId } = params as CommandParams<'listApprovalRules'>
+        return { rules: this.#catalog.listApprovals(workspaceId) } as CommandResult<N>
+      }
+
+      case 'revokeApprovalRule': {
+        const { workspaceId, rule } = params as CommandParams<'revokeApprovalRule'>
+        this.#catalog.removeApproval(workspaceId, rule)
+        return { ok: true } as CommandResult<N>
+      }
+
       case 'cancelTurn': {
         const { threadId } = params as CommandParams<'cancelTurn'>
         await this.#thread(threadId).session.abort()
@@ -129,8 +158,55 @@ export class PiDriver implements SessionDriver {
 
     // Credentials and the model catalogue stay in pi's config; the app only ever
     // names a model, and names none at all unless asked to.
-    const { session } = await createAgentSession({ cwd, model: await this.#resolveModel() })
-    return this.#adopt(session, cwd)
+    const handle: ThreadHandle = { threadId: '' }
+    const { session } = await createAgentSession({
+      cwd,
+      model: await this.#resolveModel(),
+      resourceLoader: await this.#resources(cwd, workspaceId, handle),
+    })
+
+    handle.threadId = this.#adopt(session, cwd)
+    return handle.threadId
+  }
+
+  /** Loads pi's usual resources plus one extension of ours: the approval gate.
+   *
+   *  `tool_call` is pi's only place to stand between the model and the disk, and
+   *  it can wait on a promise — so the handler simply asks the user and blocks
+   *  until they answer. */
+  async #resources(
+    cwd: string,
+    workspaceId: string,
+    handle: ThreadHandle,
+  ): Promise<ResourceLoaderOf> {
+    const { DefaultResourceLoader, getAgentDir } = await this.#load()
+    const gate = this.#approvals
+
+    const loader = new DefaultResourceLoader({
+      cwd,
+      agentDir: getAgentDir(),
+      extensionFactories: [
+        {
+          name: 'piocarina-approvals',
+          factory: (pi) => {
+            pi.on('tool_call', async (event) => {
+              const verdict = await gate.request({
+                threadId: handle.threadId,
+                workspaceId,
+                toolName: event.toolName,
+                input: event.input,
+              })
+              return verdict.blocked ? { block: true, reason: verdict.reason } : undefined
+            })
+          },
+        },
+      ],
+    })
+
+    // A freshly constructed loader holds nothing: without this the extension is
+    // never built, and the gate silently never runs. Learned the hard way.
+    await loader.reload()
+    return loader
   }
 
   /** Reopens a thread: its history is replayed as events before the live session
@@ -144,10 +220,13 @@ export class PiDriver implements SessionDriver {
     const sessionManager = SessionManager.open(path)
     for (const event of replayEntries(sessionManager.getEntries())) this.#emit(threadId, event)
 
+    // The thread id is already known here, unlike on creation.
+    const workspaceId = this.#workspaces.idForPath(cwd)
     const { session } = await createAgentSession({
       cwd,
       sessionManager,
       model: await this.#resolveModel(),
+      resourceLoader: await this.#resources(cwd, workspaceId, { threadId }),
     })
     this.#adopt(session, cwd)
   }
@@ -252,6 +331,8 @@ export class PiDriver implements SessionDriver {
     const thread = this.#threads.get(threadId)
     if (!thread) return
     thread.unsubscribe()
+    // Anything waiting on an answer is released rather than left hanging.
+    this.#approvals.abandon(threadId)
     thread.session.dispose()
     this.#threads.delete(threadId)
   }

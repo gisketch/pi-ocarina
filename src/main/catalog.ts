@@ -18,6 +18,8 @@ export interface CatalogState {
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
+  /** Workspace id → "always allow" rule keys. Policy lives in main only. */
+  approvals: Record<string, string[]>
 }
 
 /** A fresh empty catalog.
@@ -26,7 +28,7 @@ export interface CatalogState {
  *  not its arrays, so every caller would end up pushing workspaces into the same
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
-  return { version: 2, workspaces: [], workspaceIndex: 0, focus: [] }
+  return { version: 2, workspaces: [], workspaceIndex: 0, focus: [], approvals: {} }
 }
 
 /** For comparison and display only — never spread this to make a new catalog. */
@@ -76,6 +78,21 @@ function parseWorkspaces(value: unknown): WorkspaceEntry[] {
   return entries
 }
 
+/** Approval rules are security-relevant, so anything malformed is dropped
+ *  rather than coerced: a rule we cannot read must never become a rule that
+ *  silently allows something. */
+function parseApprovals(value: unknown): Record<string, string[]> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+
+  const rules: Record<string, string[]> = {}
+  for (const [workspaceId, keys] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(keys)) continue
+    const clean = keys.filter((key): key is string => typeof key === 'string' && key.length > 0)
+    if (clean.length > 0) rules[workspaceId] = [...new Set(clean)]
+  }
+  return rules
+}
+
 /** Validates untrusted JSON. Never throws: a broken catalog must not stop the app. */
 export function parseCatalog(raw: string): CatalogLoad {
   let data: unknown
@@ -96,7 +113,7 @@ export function parseCatalog(raw: string): CatalogLoad {
   // Version 1 had no workspaces, only a remembered position. Upgrading it is
   // not an error — the user simply had nothing pinned yet.
   if (record.version === 1) {
-    return { state: { version: 2, workspaces: [], workspaceIndex, focus } }
+    return { state: { ...defaultCatalog(), workspaceIndex, focus } }
   }
 
   if (record.version !== 2) {
@@ -107,7 +124,13 @@ export function parseCatalog(raw: string): CatalogLoad {
   }
 
   return {
-    state: { version: 2, workspaces: parseWorkspaces(record.workspaces), workspaceIndex, focus },
+    state: {
+      version: 2,
+      workspaces: parseWorkspaces(record.workspaces),
+      workspaceIndex,
+      focus,
+      approvals: parseApprovals(record.approvals),
+    },
   }
 }
 

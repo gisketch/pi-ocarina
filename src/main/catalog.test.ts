@@ -34,6 +34,7 @@ describe('parseCatalog', () => {
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
+      approvals: {},
     })
   })
 
@@ -41,7 +42,13 @@ describe('parseCatalog', () => {
     const { state, warning } = parseCatalog('{"version":1,"workspaceIndex":2,"focus":[1,0]}')
 
     expect(warning).toBeUndefined()
-    expect(state).toEqual({ version: 2, workspaces: [], workspaceIndex: 2, focus: [1, 0] })
+    expect(state).toEqual({
+      version: 2,
+      workspaces: [],
+      workspaceIndex: 2,
+      focus: [1, 0],
+      approvals: {},
+    })
   })
 
   it('falls back to defaults on malformed JSON, with a warning', () => {
@@ -91,6 +98,40 @@ describe('parseCatalog', () => {
   })
 })
 
+describe('parseCatalog approvals', () => {
+  it('keeps well-formed rules', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({ version: 2, approvals: { w1: ['bash:pnpm', 'write'] } }),
+    )
+
+    expect(state.approvals).toEqual({ w1: ['bash:pnpm', 'write'] })
+  })
+
+  it('drops anything it cannot read rather than guessing a permission', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({
+        version: 2,
+        approvals: { w1: ['bash:pnpm', 7, '', null], w2: 'all', w3: [] },
+      }),
+    )
+
+    expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
+  })
+
+  it('ignores an approvals field of the wrong shape entirely', () => {
+    expect(parseCatalog('{"version":2,"approvals":["w1"]}').state.approvals).toEqual({})
+    expect(parseCatalog('{"version":2,"approvals":null}').state.approvals).toEqual({})
+  })
+
+  it('does not let a duplicate rule pile up', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({ version: 2, approvals: { w1: ['write', 'write'] } }),
+    )
+
+    expect(state.approvals.w1).toEqual(['write'])
+  })
+})
+
 describe('readCatalog', () => {
   it('returns defaults without a warning when no catalog exists yet', async () => {
     const file = await tempFile('missing.json')
@@ -118,6 +159,7 @@ describe('writeCatalog', () => {
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
+      approvals: { w1: ['bash:pnpm', 'write'] },
     }
 
     await writeCatalog(file, state)

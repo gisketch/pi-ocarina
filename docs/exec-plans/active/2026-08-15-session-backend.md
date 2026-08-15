@@ -77,7 +77,13 @@ Status legend: `todo` · `in-progress` · `done`.
   replay-equals-live fixture assertion; manual relaunch check.
 - Blocked by: B2
 
-## B4 — Approvals enforcement — `todo`
+## B4 — Approvals enforcement — `done`
+
+> Verified live: a denied `echo` is blocked and the ledger row fails; "always"
+> persists `bash:echo` for that workspace only; the next `echo` runs without
+> asking. pi has no permission system of its own, so the policy is ours — see
+> the spec's "Verified against pi" section.
+
 
 - Delivered behavior: pi permission requests surface as `approve` events;
   `allow-once` resolves once; `always` persists a per-workspace rule to the

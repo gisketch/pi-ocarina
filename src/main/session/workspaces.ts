@@ -47,6 +47,12 @@ export class WorkspaceService {
     return workspace.path
   }
 
+  /** Which pinned workspace owns a folder. Falls back to the path itself so an
+   *  approval rule is still scoped to something stable rather than to nothing. */
+  idForPath(path: string): string {
+    return this.list().find((workspace) => workspace.path === path)?.id ?? path
+  }
+
   async listThreads(workspaceId: string): Promise<ThreadSummary[]> {
     const cwd = this.pathOf(workspaceId)
     const { SessionManager } = await this.#load()

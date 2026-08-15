@@ -98,6 +98,59 @@ describe.skipIf(!live)('pi driver against a real session', () => {
   })
 })
 
+describe.skipIf(!live)('approvals against a real session', () => {
+  it('blocks a denied command, then remembers "always"', { timeout: 180_000 }, async () => {
+    const { catalog, id: workspaceId } = await workspace()
+
+    const events: UiEvent[] = []
+    const driver = new PiDriver({
+      emit: (_threadId, event) => events.push(event),
+      catalog,
+      model: MODEL,
+    })
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+
+    const run = async (outcome: 'deny' | 'always'): Promise<void> => {
+      const before = events.length
+      await driver.execute('prompt', {
+        threadId,
+        text: 'Run exactly this shell command and nothing else: echo ocarina',
+      })
+
+      await waitFor(() => events.slice(before).some((event) => event.kind === 'approve'), 60_000)
+      const approval = events.slice(before).find((event) => event.kind === 'approve')
+      if (approval?.kind !== 'approve') throw new Error('no approval was requested')
+
+      await driver.execute('resolveApproval', { threadId, approvalId: approval.id, outcome })
+      await waitFor(
+        () => events.slice(before).some((event) => isState(event, 'done') || isState(event, 'idle')),
+        90_000,
+      )
+    }
+
+    // The gate exists at all: pi asked before touching the shell.
+    await run('deny')
+    console.log('[pi-live approvals]', JSON.stringify(events.map((event) => event.kind)))
+    expect(events.some((event) => event.kind === 'tool-end' && event.status === 'fail')).toBe(true)
+    expect(catalog.listApprovals(workspaceId)).toEqual([])
+
+    // "always" is remembered against the program, not against bash as a whole.
+    await run('always')
+    expect(catalog.listApprovals(workspaceId)).toEqual(['bash:echo'])
+
+    // And the rule holds: the next echo runs without asking again.
+    const before = events.length
+    await driver.execute('prompt', {
+      threadId,
+      text: 'Run exactly this shell command and nothing else: echo again',
+    })
+    await waitFor(() => events.slice(before).some((event) => isState(event, 'done')), 90_000)
+    expect(events.slice(before).some((event) => event.kind === 'approve')).toBe(false)
+
+    await driver.dispose()
+  })
+})
+
 function textOf(events: UiEvent[]): string {
   return events
     .filter((event) => event.kind === 'agent-message-delta')

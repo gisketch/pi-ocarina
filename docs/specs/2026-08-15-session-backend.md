@@ -110,6 +110,21 @@ Rendering, git status (git-terminal spec), pty management (git-terminal spec).
   pi upgrade; a utilityProcess per workspace would remove the need.
 - Tool names `find` and `ls` have no row in the design's vocabulary and render as
   `raw` rather than being mislabelled. The design may want a listing row.
+- **Approvals: pi has no permission system.** It offers a `tool_call` extension
+  hook that runs before a tool executes and can block it (`{ block, reason }`),
+  and the handler may await a promise — which is what lets the gate wait on the
+  user. So *what* requires approval is entirely this app's policy, not pi's.
+  **The policy (B4):** the mutating tools (`bash`, `write`, `edit`) ask;
+  read-only tools never interrupt. "Always" is remembered per workspace, keyed
+  by tool — except `bash`, which is keyed by the *program* (`bash:pnpm`), since
+  approving `pnpm install` must not silently permit every future shell command.
+- **An inline extension needs `await loader.reload()`.** A freshly constructed
+  `DefaultResourceLoader` holds no extensions, so passing one to
+  `createAgentSession` without reloading it means the hook never runs and every
+  tool call is silently allowed. Verified: the gate is real only after reload.
+- `tool_call` fires *after* `tool_execution_start`, so the ledger row opens, the
+  approve card appears, and the row then settles — which is what the design's
+  approve card already implies.
 
 ## Risks
 
