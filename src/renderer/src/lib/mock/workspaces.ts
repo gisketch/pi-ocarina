@@ -38,6 +38,8 @@ export const WORKSPACES: Workspace[] = [
     branch: 'main',
     git: '',
     snippet: 'fresh thread',
-    threads: [{ id: 'fresh', title: 'docs-site', status: 'idle', meta: 'fresh thread' }],
+    threads: [
+      { id: 'fresh', title: 'docs-site', status: 'idle', meta: 'fresh thread', fresh: true },
+    ],
   },
 ]

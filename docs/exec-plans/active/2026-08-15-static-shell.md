@@ -33,7 +33,7 @@ Status legend: `todo` · `in-progress` · `done`.
   `pnpm check`; visual review.
 - Blocked by: T1
 
-## T3 — Thread strip: columns, focus, motion — `todo`
+## T3 — Thread strip: columns, focus, motion — `done`
 
 - Delivered behavior: per-workspace strip with fixed 780px columns (placeholder
   interiors), translateX slide with `cubic-bezier(.22,1,.36,1)` 500ms, `h`/`l`

@@ -2,7 +2,9 @@
   import Titlebar from './components/Titlebar.svelte'
   import Statusbar from './components/Statusbar.svelte'
   import Rail from './components/Rail.svelte'
+  import Strip from './components/strip/Strip.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { scrollColumn } from '$lib/state/columns'
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -11,12 +13,31 @@
     document.documentElement.style.setProperty('--accent-hue', String(app.workspace.hue))
   })
 
-  // Interim binding: replaced wholesale by the mode state machine in T4.
+  // Interim bindings: replaced wholesale by the mode state machine in T4.
   function onKeydown(event: KeyboardEvent): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return
+
     const digit = Number(event.key)
     if (Number.isInteger(digit) && digit >= 1 && digit <= app.workspaces.length) {
       app.goWorkspace(digit - 1)
+      return
+    }
+
+    switch (event.key) {
+      case 'h':
+      case 'ArrowLeft':
+        app.moveThread(-1)
+        break
+      case 'l':
+      case 'ArrowRight':
+        app.moveThread(1)
+        break
+      case 'j':
+        scrollColumn(app.thread.id, 100)
+        break
+      case 'k':
+        scrollColumn(app.thread.id, -100)
+        break
     }
   }
 </script>
@@ -31,7 +52,7 @@
 
   <div class="body">
     <Rail />
-    <!-- thread strip lands in T3 -->
+    <Strip />
   </div>
 
   <Statusbar />

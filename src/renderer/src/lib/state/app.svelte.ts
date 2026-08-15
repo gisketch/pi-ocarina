@@ -1,4 +1,5 @@
 import { WORKSPACES } from '../mock/workspaces'
+import { clampThread } from '../strip'
 import type { Mode, Thread, Workspace } from '../types'
 
 /** Single source of truth for shell state. Every chrome segment reads from here
@@ -38,10 +39,8 @@ class AppState {
   }
 
   focusThread(index: number): void {
-    const max = this.workspace.threads.length - 1
-    const next = Math.min(max, Math.max(0, index))
     const focus = this.focus.slice()
-    focus[this.workspaceIndex] = next
+    focus[this.workspaceIndex] = clampThread(index, this.workspace.threads.length)
     this.focus = focus
   }
 

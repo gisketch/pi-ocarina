@@ -8,6 +8,8 @@ export interface Thread {
   status: ThreadStatus
   /** Right-aligned label in the column header, e.g. "14:02 · done ✓". */
   meta: string
+  /** A started-but-empty thread; renders the hero column instead of history. */
+  fresh?: boolean
 }
 
 export interface Workspace {
