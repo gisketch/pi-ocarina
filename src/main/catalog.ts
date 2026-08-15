@@ -1,14 +1,42 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 
-/** Layout the shell restores on launch. The real catalog (pinned folders, hues,
- *  thread↔session mapping) grows from this in the session-backend milestone. */
+/** A folder the user pinned. Identity (note, hue) is derived from the path, but
+ *  stored so a future palette change cannot repaint everyone's workspaces. */
+export interface WorkspaceEntry {
+  id: string
+  path: string
+  name: string
+  note: string
+  hue: number
+}
+
+/** What the shell restores on launch: which folders are pinned, and where the
+ *  user was standing. Thread identity is not stored — pi's own session store is
+ *  the truth about what threads exist, so it cannot drift out of sync here. */
 export interface CatalogState {
-  version: 1
+  version: 2
+  workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
 }
 
-export const DEFAULT_CATALOG: CatalogState = { version: 1, workspaceIndex: 0, focus: [] }
+/** A fresh empty catalog.
+ *
+ *  A function, not a shared constant: spreading a constant copies the object but
+ *  not its arrays, so every caller would end up pushing workspaces into the same
+ *  `workspaces` array. */
+export function defaultCatalog(): CatalogState {
+  return { version: 2, workspaces: [], workspaceIndex: 0, focus: [] }
+}
+
+/** For comparison and display only — never spread this to make a new catalog. */
+export const DEFAULT_CATALOG: Readonly<CatalogState> = defaultCatalog()
+
+/** All the renderer is allowed to write: where the user was standing. */
+export interface CatalogPosition {
+  workspaceIndex: number
+  focus: number[]
+}
 
 export interface CatalogLoad {
   state: CatalogState
@@ -20,28 +48,67 @@ function isFiniteIndex(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/** Drops any workspace missing the two fields that cannot be reconstructed. */
+function parseWorkspaces(value: unknown): WorkspaceEntry[] {
+  if (!Array.isArray(value)) return []
+
+  const entries: WorkspaceEntry[] = []
+  for (const raw of value) {
+    if (typeof raw !== 'object' || raw === null) continue
+    const record = raw as Record<string, unknown>
+
+    const id = text(record.id)
+    const path = text(record.path)
+    if (!id || !path) continue
+
+    entries.push({
+      id,
+      path,
+      name: text(record.name) ?? path,
+      note: text(record.note) ?? '',
+      hue: typeof record.hue === 'number' ? record.hue : 0,
+    })
+  }
+  return entries
+}
+
 /** Validates untrusted JSON. Never throws: a broken catalog must not stop the app. */
 export function parseCatalog(raw: string): CatalogLoad {
   let data: unknown
   try {
     data = JSON.parse(raw)
   } catch {
-    return { state: { ...DEFAULT_CATALOG }, warning: 'catalog is not valid JSON' }
+    return { state: defaultCatalog(), warning: 'catalog is not valid JSON' }
   }
 
   if (typeof data !== 'object' || data === null) {
-    return { state: { ...DEFAULT_CATALOG }, warning: 'catalog is not an object' }
+    return { state: defaultCatalog(), warning: 'catalog is not an object' }
   }
 
   const record = data as Record<string, unknown>
-  if (record.version !== 1) {
-    return { state: { ...DEFAULT_CATALOG }, warning: `unsupported catalog version: ${String(record.version)}` }
-  }
-
   const workspaceIndex = isFiniteIndex(record.workspaceIndex) ? record.workspaceIndex : 0
   const focus = Array.isArray(record.focus) ? record.focus.filter(isFiniteIndex) : []
 
-  return { state: { version: 1, workspaceIndex, focus } }
+  // Version 1 had no workspaces, only a remembered position. Upgrading it is
+  // not an error — the user simply had nothing pinned yet.
+  if (record.version === 1) {
+    return { state: { version: 2, workspaces: [], workspaceIndex, focus } }
+  }
+
+  if (record.version !== 2) {
+    return {
+      state: defaultCatalog(),
+      warning: `unsupported catalog version: ${String(record.version)}`,
+    }
+  }
+
+  return {
+    state: { version: 2, workspaces: parseWorkspaces(record.workspaces), workspaceIndex, focus },
+  }
 }
 
 export async function readCatalog(file: string): Promise<CatalogLoad> {
@@ -51,8 +118,8 @@ export async function readCatalog(file: string): Promise<CatalogLoad> {
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
     // A missing catalog is the normal first-run case, not a problem to report.
-    if (code === 'ENOENT') return { state: { ...DEFAULT_CATALOG } }
-    return { state: { ...DEFAULT_CATALOG }, warning: `catalog unreadable: ${code ?? 'unknown error'}` }
+    if (code === 'ENOENT') return { state: defaultCatalog() }
+    return { state: defaultCatalog(), warning: `catalog unreadable: ${code ?? 'unknown error'}` }
   }
   return parseCatalog(raw)
 }

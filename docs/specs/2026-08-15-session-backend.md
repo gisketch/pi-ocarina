@@ -32,9 +32,14 @@ Rendering, git status (git-terminal spec), pty management (git-terminal spec).
   thread reducer). The contract is async and message-shaped — no shared memory —
   so a session can move to a `utilityProcess` later without renderer change.
 - **Catalog** (Electron `userData`, JSON): pinned workspaces (path, hue, note,
-  order), thread→pi-session mapping, last-focused positions, approval rules.
-  Corrupt catalog → rebuilt empty with a visible warning, never a crash;
-  pi session files remain the transcript truth.
+  order), last-focused positions, approval rules. Corrupt catalog → rebuilt
+  empty with a visible warning, never a crash; pi session files remain the
+  transcript truth. Main is the sole writer — the renderer sends its position
+  and nothing else, so a layout save cannot erase a pin.
+  **Revised in B3:** the catalog does *not* map threads to pi sessions.
+  `SessionManager.list(cwd)` reads them from pi's own store, so threads started
+  by the `pi` CLI appear for free and the app can never disagree with pi about
+  what exists. Thread ids are pi session ids.
 
 ## Acceptance Behavior
 

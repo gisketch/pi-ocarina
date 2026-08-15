@@ -7,6 +7,7 @@ import {
   type EventBatch,
   type SessionDriver,
 } from '../../shared/protocol'
+import type { CatalogStore } from '../catalog-store'
 import { EventBatcher } from './batcher'
 import { PiDriver } from './pi-driver'
 import { StubDriver } from './stub-driver'
@@ -21,16 +22,14 @@ function broadcast(batches: EventBatch[]): void {
 /** Stands the session backend up and returns the driver so app shutdown can
  *  stop it cleanly. The stub is in place until the pi adapter lands; nothing
  *  above this function knows the difference. */
-export function registerSession(): SessionDriver {
+export function registerSession(catalog: CatalogStore): SessionDriver {
   const batcher = new EventBatcher(broadcast)
   const emit = (threadId: string, event: Parameters<typeof batcher.push>[1]): void =>
     batcher.push(threadId, event)
 
   // The stub stays available for seam work and demos; pi is the real backend.
   const driver: SessionDriver =
-    process.env.PIOCARINA_DRIVER === 'stub'
-      ? new StubDriver(emit)
-      : new PiDriver({ emit, resolveWorkspace: () => process.cwd() })
+    process.env.PIOCARINA_DRIVER === 'stub' ? new StubDriver(emit) : new PiDriver({ emit, catalog })
 
   ipcMain.handle(
     SESSION_COMMAND_CHANNEL,

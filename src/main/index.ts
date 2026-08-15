@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { type CatalogState, readCatalog, writeCatalog } from './catalog'
+import type { CatalogPosition } from './catalog'
+import { CatalogStore } from './catalog-store'
 import { registerSession } from './session'
 import { runSeamDemo } from './session/seam-demo'
 
@@ -62,29 +63,31 @@ function registerWindowControls(): void {
   ipcMain.on('window:close', (event) => windowFromEvent(event)?.close())
 }
 
-function registerCatalog(): void {
+function registerCatalog(catalog: CatalogStore): void {
   ipcMain.handle('catalog:load', async () => {
-    const { state, warning } = await readCatalog(catalogFile())
+    const { state, warning } = await catalog.load()
     if (warning) console.warn(`[catalog] ${warning} — starting from defaults`)
     return { state, warning }
   })
 
-  ipcMain.handle('catalog:save', async (_event, state: CatalogState) => {
-    try {
-      await writeCatalog(catalogFile(), state)
-    } catch (error) {
-      // Losing layout is not worth surfacing to the user mid-session.
-      console.warn('[catalog] save failed:', error)
-    }
+  // The renderer sends its position only. Workspaces belong to main, so a layout
+  // save can never erase a pin.
+  ipcMain.handle('catalog:save', (_event, position: CatalogPosition) => {
+    catalog.setPosition(position.workspaceIndex, position.focus)
   })
 }
 
 void app.whenReady().then(() => {
-  registerWindowControls()
-  registerCatalog()
+  const catalog = new CatalogStore(catalogFile())
 
-  const driver = registerSession()
-  app.on('will-quit', () => void driver.dispose())
+  registerWindowControls()
+  registerCatalog(catalog)
+
+  const driver = registerSession(catalog)
+  app.on('will-quit', () => {
+    void driver.dispose()
+    void catalog.flush()
+  })
 
   const win = createWindow()
   if (process.env.PIOCARINA_SEAM_DEMO) {

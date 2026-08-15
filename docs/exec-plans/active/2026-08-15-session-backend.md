@@ -54,7 +54,15 @@ Status legend: `todo` · `in-progress` · `done`.
   prompt → streamed events → session file on disk; `pnpm test`.
 - Blocked by: B1
 
-## B3 — Real catalog: workspaces, threads, resume — `todo`
+## B3 — Real catalog: workspaces, threads, resume — `done`
+
+> Verified live: pin a folder → new thread → prompt → dispose → a fresh driver
+> lists the thread and reopens it, rebuilding the same conversation from disk.
+> Two scope notes: threads are read from pi's session store rather than tracked
+> in the catalog (pi is the truth, so the two cannot drift), and the rail still
+> renders mock workspaces — swapping the UI onto the catalog needs the reducer
+> and lands with C2.
+
 
 - Delivered behavior: catalog v2 in `userData`: pinned workspaces (path, hue,
   note, order), thread→pi-session mapping, last-focused positions. Pinning a real

@@ -28,7 +28,6 @@ export function startPersistence(): () => void {
       // Track the layout fields; skip writes until the restore has landed so we
       // never overwrite a good catalog with startup defaults.
       const snapshot = {
-        version: 1 as const,
         workspaceIndex: app.workspaceIndex,
         focus: [...app.focus],
       }

@@ -6,15 +6,13 @@ import type {
   EmitEvent,
   SessionDriver,
 } from '../../shared/protocol'
+import type { CatalogStore } from '../catalog-store'
 import { PiTranslator } from './pi-translate'
+import { replayEntries } from './replay'
+import { WorkspaceService, type Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
-type ModelRuntimeOf = Awaited<
-  ReturnType<typeof import('@earendil-works/pi-coding-agent').ModelRuntime.create>
->
-
-/** Where a workspace id points on disk. Replaced by the real catalog in B3. */
-export type ResolveWorkspace = (workspaceId: string) => string
+type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
 
 /** A model named the way pi's config names it. */
 export interface ModelRef {
@@ -24,7 +22,7 @@ export interface ModelRef {
 
 export interface PiDriverOptions {
   emit: EmitEvent
-  resolveWorkspace: ResolveWorkspace
+  catalog: CatalogStore
   /** Overrides pi's configured default. Left unset, pi chooses — which is the
    *  product decision: provider and model live in pi's config, not ours. */
   model?: ModelRef
@@ -32,11 +30,10 @@ export interface PiDriverOptions {
 
 interface Thread {
   session: AgentSession
-  translator: PiTranslator
   unsubscribe: () => void
 }
 
-/** Hosts pi `AgentSession`s in the main process, one per thread.
+/** Hosts pi `AgentSession`s in the main process, one per open thread.
  *
  *  Everything pi-shaped stops here: the driver speaks pi inwards and the shared
  *  protocol outwards, so nothing above it needs to change when pi does. */
@@ -44,18 +41,17 @@ export class PiDriver implements SessionDriver {
   readonly kind = 'pi'
 
   #threads = new Map<string, Thread>()
-  #created = 0
-  #sdk: Promise<typeof import('@earendil-works/pi-coding-agent')> | null = null
+  #sdk: Promise<Sdk> | null = null
   #runtime: Promise<ModelRuntimeOf> | null = null
 
   readonly #emit: EmitEvent
-  readonly #resolveWorkspace: ResolveWorkspace
   readonly #model: ModelRef | undefined
+  readonly #workspaces: WorkspaceService
 
-  constructor({ emit, resolveWorkspace, model }: PiDriverOptions) {
+  constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
-    this.#resolveWorkspace = resolveWorkspace
     this.#model = model
+    this.#workspaces = new WorkspaceService(catalog, () => this.#load())
   }
 
   async execute<N extends CommandName>(
@@ -63,10 +59,34 @@ export class PiDriver implements SessionDriver {
     params: CommandParams<N>,
   ): Promise<CommandResult<N>> {
     switch (name) {
+      case 'listWorkspaces':
+        return { workspaces: this.#workspaces.list() } as CommandResult<N>
+
+      case 'pinWorkspace': {
+        const { path } = params as CommandParams<'pinWorkspace'>
+        return { workspace: await this.#workspaces.pin(path) } as CommandResult<N>
+      }
+
+      case 'unpinWorkspace': {
+        const { workspaceId } = params as CommandParams<'unpinWorkspace'>
+        this.#workspaces.unpin(workspaceId)
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'listThreads': {
+        const { workspaceId } = params as CommandParams<'listThreads'>
+        return { threads: await this.#workspaces.listThreads(workspaceId) } as CommandResult<N>
+      }
+
       case 'createThread': {
         const { workspaceId } = params as CommandParams<'createThread'>
-        const threadId = await this.#createThread(workspaceId)
-        return { threadId } as CommandResult<N>
+        return { threadId: await this.#createThread(workspaceId) } as CommandResult<N>
+      }
+
+      case 'openThread': {
+        const { threadId } = params as CommandParams<'openThread'>
+        await this.#openThread(threadId)
+        return { ok: true } as CommandResult<N>
       }
 
       case 'prompt': {
@@ -105,29 +125,55 @@ export class PiDriver implements SessionDriver {
 
   async #createThread(workspaceId: string): Promise<string> {
     const { createAgentSession } = await this.#load()
-    const cwd = this.#resolveWorkspace(workspaceId)
+    const cwd = this.#workspaces.pathOf(workspaceId)
 
     // Credentials and the model catalogue stay in pi's config; the app only ever
     // names a model, and names none at all unless asked to.
     const { session } = await createAgentSession({ cwd, model: await this.#resolveModel() })
-    await this.#bindToolsToWorkspace(session, cwd)
+    return this.#adopt(session, cwd)
+  }
 
-    this.#created += 1
-    const threadId = `pi-${this.#created}`
+  /** Reopens a thread: its history is replayed as events before the live session
+   *  is attached, so watching a thread and returning to it look the same. */
+  async #openThread(threadId: string): Promise<void> {
+    if (this.#threads.has(threadId)) return
+
+    const { createAgentSession, SessionManager } = await this.#load()
+    const { path, cwd } = await this.#workspaces.locate(threadId)
+
+    const sessionManager = SessionManager.open(path)
+    for (const event of replayEntries(sessionManager.getEntries())) this.#emit(threadId, event)
+
+    const { session } = await createAgentSession({
+      cwd,
+      sessionManager,
+      model: await this.#resolveModel(),
+    })
+    this.#adopt(session, cwd)
+  }
+
+  /** Takes ownership of a session: binds its tools, wires its events, and files
+   *  it under pi's own session id so the thread survives a relaunch. */
+  #adopt(session: AgentSession, cwd: string): string {
+    const threadId = session.sessionId
+    void this.#bindToolsToWorkspace(session, cwd)
+
     const translator = new PiTranslator()
-
     const unsubscribe = session.subscribe((event) => {
       for (const translated of translator.translate(event)) this.#emit(threadId, translated)
       if (event.type === 'turn_end') this.#emitUsage(threadId, session)
     })
 
-    this.#threads.set(threadId, { session, translator, unsubscribe })
+    this.#threads.set(threadId, { session, unsubscribe })
+    if (session.sessionFile) {
+      this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
+    }
     return threadId
   }
 
   #startTurn(threadId: string, text: string): void {
     const { session } = this.#thread(threadId)
-    this.#emit(threadId, { kind: 'user-message', id: `user-${Date.now()}`, text })
+    this.#emit(threadId, { kind: 'user-message', id: `user-${session.sessionId}-${text.length}`, text })
 
     // Deliberately not awaited: a turn runs for minutes and the caller's IPC
     // reply must not wait for it. Progress and failure both arrive as events.
@@ -144,10 +190,9 @@ export class PiDriver implements SessionDriver {
   #emitUsage(threadId: string, session: AgentSession): void {
     try {
       const stats = session.getSessionStats()
-      const percent = stats.contextUsage?.percent
       this.#emit(threadId, {
         kind: 'usage',
-        contextPercent: percent ?? 0,
+        contextPercent: stats.contextUsage?.percent ?? 0,
         tokens: stats.tokens.total,
         costUsd: stats.cost,
       })
@@ -160,14 +205,13 @@ export class PiDriver implements SessionDriver {
    *
    *  pi 0.84's `createAgentSession({ cwd })` uses cwd to name the session file
    *  and find project resources, but still builds its tools against
-   *  `process.cwd()` — verified directly: a session with cwd set to a temp
-   *  folder read files out of the Electron process's directory instead.
+   *  `process.cwd()` — verified directly: a session rooted at a temp folder read
+   *  files out of the Electron process's directory instead.
    *
-   *  That is fatal here, where several workspaces run in one process and each
-   *  is a different folder, so the tools are rebuilt bound to the right cwd.
+   *  That is fatal here, where several workspaces run in one process and each is
+   *  a different folder, so the tools are rebuilt bound to the right cwd.
    *  Replacing `agent.state.tools` is pi's own documented way to swap tools.
-   *  Revisit when pi honours cwd, or when sessions move to a utilityProcess
-   *  (which would give each workspace a real process cwd of its own). */
+   *  Revisit when pi honours cwd, or when sessions move to a utilityProcess. */
   async #bindToolsToWorkspace(session: AgentSession, cwd: string): Promise<void> {
     const sdk = await this.#load()
     const rebound = [
@@ -213,7 +257,7 @@ export class PiDriver implements SessionDriver {
   }
 
   /** Loaded on first use: pi is a heavy import and the window should paint first. */
-  #load(): Promise<typeof import('@earendil-works/pi-coding-agent')> {
+  #load(): Promise<Sdk> {
     this.#sdk ??= import('@earendil-works/pi-coding-agent')
     return this.#sdk
   }

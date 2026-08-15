@@ -67,8 +67,30 @@ export interface EventBatch {
   events: UiEvent[]
 }
 
+/** A pinned folder, as the UI needs to draw it. */
+export interface WorkspaceSummary {
+  id: string
+  path: string
+  name: string
+  note: string
+  hue: number
+}
+
+/** A thread that exists on disk, whether this app or the pi CLI started it. */
+export interface ThreadSummary {
+  id: string
+  title: string
+  /** ISO timestamp of the last write, for the column's right-hand label. */
+  modified: string
+  messageCount: number
+}
+
 /** Commands the UI can issue, with their parameter and result shapes. */
 export interface SessionCommands {
+  listWorkspaces: { params: Record<string, never>; result: { workspaces: WorkspaceSummary[] } }
+  pinWorkspace: { params: { path: string }; result: { workspace: WorkspaceSummary } }
+  unpinWorkspace: { params: { workspaceId: string }; result: { ok: true } }
+  listThreads: { params: { workspaceId: string }; result: { threads: ThreadSummary[] } }
   createThread: { params: { workspaceId: string; title?: string }; result: { threadId: string } }
   openThread: { params: { threadId: string }; result: { ok: true } }
   archiveThread: { params: { threadId: string }; result: { ok: true } }

@@ -62,7 +62,8 @@ export function resultText(result: unknown): string {
   return ''
 }
 
-function bodyFor(toolName: string, result: unknown): ToolBody | undefined {
+/** Shared with replay so a tool looks the same live and on reopen. */
+export function toolBody(toolName: string, result: unknown): ToolBody | undefined {
   const text = resultText(result)
   if (!text.trim()) return undefined
 
@@ -151,7 +152,7 @@ export class PiTranslator {
 
       case 'tool_execution_end': {
         const events: UiEvent[] = []
-        const body = bodyFor(event.toolName, event.result)
+        const body = toolBody(event.toolName, event.result)
         if (body) events.push({ kind: 'tool-body', id: event.toolCallId, body })
         events.push({
           kind: 'tool-end',

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { CatalogLoad, CatalogState } from '../main/catalog'
+import type { CatalogLoad, CatalogPosition } from '../main/catalog'
 import {
   SESSION_COMMAND_CHANNEL,
   SESSION_EVENTS_CHANNEL,
@@ -20,7 +20,7 @@ const api = {
   },
   catalog: {
     load: (): Promise<CatalogLoad> => ipcRenderer.invoke('catalog:load'),
-    save: (state: CatalogState): Promise<void> => ipcRenderer.invoke('catalog:save', state),
+    save: (position: CatalogPosition): Promise<void> => ipcRenderer.invoke('catalog:save', position),
   },
   session: {
     invoke: <N extends CommandName>(

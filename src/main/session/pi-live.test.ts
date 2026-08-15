@@ -1,81 +1,109 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
+import { CatalogStore } from '../catalog-store'
 import { PiDriver } from './pi-driver'
 
 /** Talks to a real model, so it is opt-in: `PIOCARINA_PI_LIVE=1 pnpm test`.
  *
- *  This is the ticket's proving ground — the assertions below are what turn the
- *  spec's "pi emits usage / this granularity" assumptions into verified facts.
- *  Everything else about the adapter is covered by pi-translate.test.ts, which
- *  runs offline. */
+ *  This is the proving ground for the spec's assumptions about pi. Everything
+ *  that can be checked without a model lives in pi-translate.test.ts and
+ *  replay.test.ts, which run offline. */
 const live = process.env.PIOCARINA_PI_LIVE === '1'
 
+// Pinned so runs are cheap and repeatable rather than whatever pi's config
+// happens to default to on this machine.
+const MODEL = { provider: 'openai-codex', id: 'gpt-5.4-mini' }
+
+async function workspace(): Promise<{ catalog: CatalogStore; id: string; cwd: string }> {
+  const cwd = await mkdtemp(join(tmpdir(), 'piocarina-live-'))
+  await writeFile(join(cwd, 'hello.txt'), 'ocarina\n', 'utf8')
+
+  const catalog = new CatalogStore(join(cwd, 'catalog.json'))
+  await catalog.load()
+  return { catalog, id: catalog.pin(cwd).id, cwd }
+}
+
 describe.skipIf(!live)('pi driver against a real session', () => {
-  it(
-    'streams a prompt end to end and writes a session file',
-    { timeout: 180_000 },
-    async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'piocarina-live-'))
-      await writeFile(join(cwd, 'hello.txt'), 'ocarina\n', 'utf8')
+  it('streams a prompt end to end, then replays it on reopen', { timeout: 180_000 }, async () => {
+    const { catalog, id: workspaceId } = await workspace()
 
-      const events: UiEvent[] = []
-      const driver = new PiDriver({
-        emit: (_threadId, event) => events.push(event),
-        resolveWorkspace: () => cwd,
-        // Pinned so the run is cheap and repeatable rather than whatever pi's
-        // config happens to default to on this machine.
-        model: { provider: 'openai-codex', id: 'gpt-5.4-mini' },
-      })
+    const events: UiEvent[] = []
+    const driver = new PiDriver({
+      emit: (_threadId, event) => events.push(event),
+      catalog,
+      model: MODEL,
+    })
 
-      const { threadId } = await driver.execute('createThread', { workspaceId: 'live' })
-      await driver.execute('prompt', {
-        threadId,
-        text: 'Read hello.txt and reply with only its contents.',
-      })
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+    await driver.execute('prompt', {
+      threadId,
+      text: 'Read hello.txt and reply with only its contents.',
+    })
 
-      try {
-        await waitFor(() => events.some((event) => isState(event, 'done')), 120_000)
-      } finally {
-        // Always printed: on failure this is the only record of what pi said.
-        console.log('[pi-live]', JSON.stringify(events, null, 1))
-      }
+    try {
+      await waitFor(() => events.some((event) => isState(event, 'done')), 120_000)
+    } finally {
+      // Always printed: on failure this is the only record of what pi said.
+      console.log('[pi-live]', JSON.stringify(events, null, 1))
+    }
 
-      const kinds = events.map((event) => event.kind)
-      expect(kinds).toContain('agent-message-delta')
-      expect(kinds).toContain('tool-start')
-      expect(kinds).toContain('tool-end')
+    const kinds = events.map((event) => event.kind)
+    expect(kinds).toContain('agent-message-delta')
+    expect(kinds).toContain('tool-start')
+    expect(kinds).toContain('tool-end')
+    expect(textOf(events).toLowerCase()).toContain('ocarina')
 
-      const text = events
-        .filter((event) => event.kind === 'agent-message-delta')
-        .map((event) => (event.kind === 'agent-message-delta' ? event.text : ''))
-        .join('')
-      expect(text.toLowerCase()).toContain('ocarina')
+    const read = events.find((event) => event.kind === 'tool-start' && event.tool === 'read')
+    expect(read).toBeDefined()
 
-      const read = events.find((event) => event.kind === 'tool-start' && event.tool === 'read')
-      expect(read).toBeDefined()
+    // Workspace isolation: pi ignores its own cwd option when building tools, so
+    // this asserts the driver's rebinding still holds. Without it the agent
+    // reads whatever sits in the Electron process's directory.
+    expect(events.filter((event) => event.kind === 'tool-end' && event.status === 'fail')).toEqual([])
 
-      // Workspace isolation: pi ignores its own cwd option when building tools,
-      // so this asserts the driver's rebinding still holds. Without it the agent
-      // reads whatever sits in the Electron process's directory.
-      const failed = events.filter((event) => event.kind === 'tool-end' && event.status === 'fail')
-      expect(failed).toHaveLength(0)
+    // The usage risk: pi reports its own figures and we pass them through.
+    const usage = events.find((event) => event.kind === 'usage')
+    expect(usage?.kind === 'usage' && usage.tokens).toBeGreaterThan(0)
 
-      // The usage risk: pi reports its own figures and we pass them through.
-      const usage = events.find((event) => event.kind === 'usage')
-      expect(usage).toBeDefined()
-      expect(usage?.kind === 'usage' && usage.tokens).toBeGreaterThan(0)
+    expect(existsSync(driver.sessionFile(threadId) ?? '')).toBe(true)
+    await driver.dispose()
 
-      expect(driver.sessionFile(threadId)).toBeDefined()
-      expect(existsSync(driver.sessionFile(threadId) ?? '')).toBe(true)
+    // --- Relaunch: a fresh driver, the same catalog, nothing in memory. ---
 
-      await driver.dispose()
-    },
-  )
+    const replayed: UiEvent[] = []
+    const reopened = new PiDriver({
+      emit: (_threadId, event) => replayed.push(event),
+      catalog,
+      model: MODEL,
+    })
+
+    const { threads } = await reopened.execute('listThreads', { workspaceId })
+    expect(threads.map((thread) => thread.id)).toContain(threadId)
+    expect(threads[0].title.length).toBeGreaterThan(0)
+
+    await reopened.execute('openThread', { threadId })
+
+    // The same conversation, rebuilt from disk rather than watched.
+    expect(textOf(replayed).toLowerCase()).toContain('ocarina')
+    expect(replayed.filter((event) => event.kind === 'tool-start')).toHaveLength(
+      events.filter((event) => event.kind === 'tool-start').length,
+    )
+    expect(replayed.at(-1)).toMatchObject({ kind: 'thread-state', state: 'done' })
+
+    await reopened.dispose()
+  })
 })
+
+function textOf(events: UiEvent[]): string {
+  return events
+    .filter((event) => event.kind === 'agent-message-delta')
+    .map((event) => (event.kind === 'agent-message-delta' ? event.text : ''))
+    .join('')
+}
 
 function isState(event: UiEvent, state: string): boolean {
   return event.kind === 'thread-state' && event.state === state
