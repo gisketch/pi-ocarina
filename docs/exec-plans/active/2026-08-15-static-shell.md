@@ -108,30 +108,6 @@ Status legend: `todo` · `in-progress` · `done`.
   session; `pnpm check`.
 - Blocked by: T4, T5, T6
 
-## T8 — Switcher fzf, settings overlay, spotlight primitive — `todo`
-
-> Added 2026-08-15 after the design import gained Components §14 (detached-fzf
-> selectors) and the v2 shell gained `m`/`,`/leader-`s` and the settings modal.
-
-- Delivered behavior: the shell-side half of §14. (1) The workspace switcher
-  gains the detached fzf input above the card grid: autofocused, live-filters
-  the cards, `⏎` picks the first match, numbers/clicks still work. (2) The
-  settings overlay on `,` and leader `s`: rows per the shell spec — default
-  model (opens the model selector shell; wiring to real config is D5),
-  reasoning `h`/`l`, grain toggle, motion toggle (acts as reduce-motion),
-  workspace identity display, leader timeout `h`/`l`, keymap. `j`/`k` highlight,
-  `esc` close; grain/motion/leader-timeout persist in the catalog. (3) The
-  detached-input-over-panel spotlight becomes a shared primitive so the switcher
-  and D5's model selector are the same component, parameterized.
-- Acceptance: leader hint bar and keymap overlay show the new chords; overlays
-  stay mutually exclusive; typing in the fzf input never triggers NORMAL
-  bindings; toggled settings survive relaunch; motion-off disables the strip
-  slide exactly like OS reduce-motion.
-- Validation: headless tests for the new key routes, fzf filter/pick, and
-  settings persistence round-trip; visual review vs §14 and the v2 overlays;
-  `pnpm check`.
-- Blocked by: T7
-
 ## Order
 
-T1 → T2 → T3 → {T4 → T5, T6} → T7 → T8
+T1 → T2 → T3 → {T4 → T5, T6} → T7

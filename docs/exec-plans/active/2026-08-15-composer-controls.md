@@ -76,7 +76,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: headless two-step selector state tests (open paths, fuzzy pick,
   esc-back); integration check that `setModel`/`setReasoning` reach pi; visual
   review vs section 14.
-- Blocked by: D1, B3 (per-thread persistence), T8 (spotlight primitive)
+- Blocked by: D1, B3 (per-thread persistence), F1 (spotlight primitive)
 
 ## D6 — History search — `todo`
 

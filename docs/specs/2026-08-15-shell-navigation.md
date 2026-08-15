@@ -12,9 +12,8 @@ columns, driven entirely from the keyboard, feeling frame-perfect on ProMotion.
 ## In Scope
 
 Titlebar, workspace rail, niri-style thread strip, statusbar, leader layer,
-workspace switcher (detached fzf), settings overlay, command palette, keymap
-overlay, mode system (NORMAL / INSERT / LEADER), workspace accent tinting, motion
-rules. Static/mock data satisfies this
+workspace switcher, command palette, keymap overlay, mode system (NORMAL / INSERT /
+LEADER), workspace accent tinting, motion rules. Static/mock data satisfies this
 spec (milestone 1); it must not change when real sessions arrive.
 
 ## Out of Scope
@@ -49,14 +48,10 @@ In NORMAL:
 - `j`/`k` scroll the focused column.
 - `i` focuses the composer → INSERT. `esc` in INSERT returns to NORMAL.
 - `t` toggles terminal drawer; `w` toggles switcher; `?` toggles keymap overlay.
-- `m` toggles the model selector (behavior in composer-controls spec); `,` toggles
-  the settings overlay. The titlebar model chip (`<model> · m`) opens the selector
-  on click.
 - `y` yanks the last code block of the focused thread to clipboard.
 - `␣` enters LEADER and shows the which-key hint bar; then `1–3` jump, `n` new
-  thread, `w` switcher, `t` terminal, `h/l` thread move, `m` model selector,
-  `s` settings, `k` keymap, `c` compact (delegated to thread), `esc`/timeout/
-  unknown key cancels.
+  thread, `w` switcher, `t` terminal, `h/l` thread move, `k` keymap, `c` compact
+  (delegated to thread), `esc`/timeout/unknown key cancels.
 - `⌘K` toggles command palette from any mode; palette input autofocuses.
 - `esc` closes any overlay; overlays are mutually exclusive.
 
@@ -65,32 +60,11 @@ Typing in INSERT (or palette input) must never trigger NORMAL bindings except th
 
 ## Overlays
 
-Switcher (detached fzf pattern per v2 + Components §14): a floating input sits
-detached above the workspace card grid, autofocused on open (`>` prompt, "fuzzy
-filter workspaces… ⏎ picks first"). Typing filters the cards live; `⏎` picks the
-first match; number keys and clicks still select; the "pin a folder…" card keeps
-the next number key; `esc` closes.
-
-Settings (`,`, leader `s`; Components §14 "keyboard-centric rows"): a modal list of
-rows, `j`/`k` moves the highlight (accent left edge), `esc` closes. Rows and their
-actions:
-
-- default model — shows the current model; `⏎` opens the model selector.
-- reasoning effort — `h`/`l` cycles off/low/med/high (accent value).
-- grain texture — `⏎` toggles on/off.
-- motion — `⏎` toggles on/off; off behaves exactly like the OS reduce-motion
-  preference.
-- workspace identity — fixed "pixel 5×5" in v1 (display only).
-- leader timeout — `h`/`l` adjusts (default 2.6s).
-- keymap — `⏎`/`?` opens the keymap overlay.
-
-Grain, motion, leader timeout, and the default model/reasoning persist in the
-catalog and restore on launch.
-
-Command palette: fuzzy-filtered command list with kbd hints; commands cover at
-least the keymap's actions. Keymap overlay: four-column cheat sheet as designed.
-All overlays: fade/rise animations from the reference; backdrop blur allowed
-(transient only); overlays stay mutually exclusive.
+Switcher: card per workspace (identicon, name, note, branch, snippet, number key) +
+"pin a folder…" card; click or number selects; backdrop click closes. Command
+palette: fuzzy-filtered command list with kbd hints; commands cover at least the
+keymap's actions. Keymap overlay: four-column cheat sheet as designed. All overlays:
+fade/rise animations from the reference; backdrop blur allowed (transient only).
 
 ## Statusbar
 
