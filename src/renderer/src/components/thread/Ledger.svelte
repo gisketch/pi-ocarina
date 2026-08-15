@@ -72,6 +72,9 @@
 
   .entry {
     position: relative;
+    /* Rows are independent of each other, so a change in one never forces the
+       rest of a long ledger to be re-laid-out. */
+    contain: layout style;
   }
 
   .node {

@@ -129,4 +129,23 @@
     font-family: var(--font-body);
     font-size: 12.5px;
   }
+
+  /* Scrollback virtualization.
+     Every block is skipped by layout and paint while it is off-screen, which is
+     what keeps a five-thousand-block thread scrolling. This is done with
+     `content-visibility` rather than by windowing the list in JavaScript,
+     deliberately: the blocks stay in the DOM, so expand/collapse state, scroll
+     anchoring, text selection and find-in-page all keep working — a hand-rolled
+     window silently breaks each of those. `contain-intrinsic-size` gives the
+     scrollbar a stable estimate so it does not jump as blocks are measured. */
+  .body > :global(*) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+
+  /* The last block is exempt: it is the one that streams, and skipping its
+     layout while tokens arrive would make the caret stutter. */
+  .body > :global(*:last-child) {
+    content-visibility: visible;
+  }
 </style>

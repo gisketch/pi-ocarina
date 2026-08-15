@@ -80,6 +80,20 @@ And what pi 0.84 cannot express, found while building the error states (C4):
   boolean; and pi retries turns, not individual calls. The row variants exist;
   the retry offered to the user is the thread-level `retryTurn`.
 
+And how the scrollback budget is actually met (C5):
+
+- **Virtualization is `content-visibility`, not JavaScript windowing.** Blocks
+  stay in the DOM and are skipped by layout and paint while off-screen. A
+  hand-rolled window would break expansion state, scroll anchoring, text
+  selection and find-in-page; containment breaks none of them. Measured on a
+  5,000-block thread: 1.8ms median layout per scroll step against an 8.34ms
+  budget, versus 12.3ms with containment disabled — where every frame drops.
+  The streaming block is exempt from containment, so the caret never stutters.
+- **Markdown is a deliberate subset**: inline code, bullet and numbered lists,
+  fenced blocks with their language named. Anything else stays literal, because
+  eating a character the agent wrote is worse than not styling it. Syntax
+  highlighting remains deferred.
+
 ## Acceptance Behavior
 
 - Streaming: agent text grows with the blinking caret block; ledger rows appear as

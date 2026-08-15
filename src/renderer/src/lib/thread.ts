@@ -28,6 +28,7 @@ import type {
   ToolKind,
   ToolStatus,
 } from '../../../shared/vocabulary'
+import { lastCodeBlock } from './markdown'
 
 export interface ToolRow {
   id: string
@@ -99,28 +100,19 @@ export function collapsedBefore(blocks: Block[]): number {
   return cut > 0 ? cut : 0
 }
 
-export interface InlineSegment {
-  text: string
-  code: boolean
-}
+export type { InlineSegment, MarkdownNode } from './markdown'
+export { lastCodeBlock, parseInline, parseMarkdown } from './markdown'
 
-/** Splits `text` on backticks into plain and inline-code segments.
- *  Deliberately minimal: full markdown arrives with the real reducer. */
-export function parseInline(text: string): InlineSegment[] {
-  const segments: InlineSegment[] = []
-  let rest = text
-  let code = false
+/** The newest fenced code block anywhere in a thread — what `y` copies.
+ *  Searched newest-first, because that is what "the last block" means to
+ *  someone who just watched it stream in. */
+export function newestCodeBlock(blocks: Block[]): string | null {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (block.kind !== 'agent' && block.kind !== 'user') continue
 
-  while (rest.length > 0) {
-    const tick = rest.indexOf('`')
-    if (tick === -1) {
-      segments.push({ text: rest, code })
-      break
-    }
-    if (tick > 0) segments.push({ text: rest.slice(0, tick), code })
-    rest = rest.slice(tick + 1)
-    code = !code
+    const code = lastCodeBlock(block.text)
+    if (code !== null) return code
   }
-
-  return segments.filter((segment) => segment.text.length > 0)
+  return null
 }

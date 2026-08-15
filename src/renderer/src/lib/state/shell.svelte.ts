@@ -1,5 +1,7 @@
 import { app } from './app.svelte'
 import { scrollColumn } from './columns'
+import { threads } from './threads.svelte'
+import { newestCodeBlock } from '../thread'
 import {
   type Action,
   type KeyEventLike,
@@ -81,11 +83,15 @@ class ShellState {
       case 'focusPalette':
         queueMicrotask(() => this.targets.palette?.focus())
         break
-      case 'newThread':
       case 'compact':
+        threads.compact(app.thread.id)
+        break
       case 'yank':
-        // Wired to real behaviour with the session backend; the binding exists so
-        // the keyboard contract is complete in the static shell.
+        void yankNewestCodeBlock()
+        break
+      case 'newThread':
+        // Creating a thread needs a pinned workspace; the command palette owns
+        // that path, where there is somewhere to report failure.
         break
     }
   }
@@ -102,6 +108,19 @@ class ShellState {
     if (this.leaderTimer === null) return
     clearTimeout(this.leaderTimer)
     this.leaderTimer = null
+  }
+}
+
+/** Copies the focused thread's newest fenced block. A thread with no code is
+ *  not an error — `y` simply has nothing to take, and says nothing. */
+async function yankNewestCodeBlock(): Promise<void> {
+  const code = newestCodeBlock(threads.get(app.thread.id).blocks)
+  if (code === null) return
+
+  try {
+    await navigator.clipboard.writeText(code)
+  } catch {
+    // Clipboard access can be refused; losing a copy is not worth a crash.
   }
 }
 

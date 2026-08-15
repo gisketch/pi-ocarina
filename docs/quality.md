@@ -19,6 +19,7 @@ Keep this as the project verification menu. Add commands only after they pass lo
 | Unit tests | `pnpm test` (vitest) | verified |
 | Build | `pnpm build` (main + preload + renderer → `dist/`) | verified |
 | Visual review vs reference | `pnpm dev:web` on :5273, compare with `docs/reference/design/` | verified |
+| Scrollback perf budget | see `docs/exec-plans/active/2026-08-15-live-thread-ledger.md` C5 — generate a 5k-block thread, sweep the column, time layout per step; budget 8.34ms | verified |
 | Session seam round trip | `PIOCARINA_DRIVER=stub pnpm dev`, pin a folder, `␣ n` — the scripted turn streams into the column | verified |
 | Live pi slice (costs money) | `PIOCARINA_PI_LIVE=1 pnpm test` | verified |
 | Observe failures | Electron DevTools console + main-process stdout | verified |
