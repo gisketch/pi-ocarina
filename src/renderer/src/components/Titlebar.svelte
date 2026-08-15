@@ -1,10 +1,16 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte'
+  import { threads } from '$lib/state/threads.svelte'
   import { windowControls } from '$lib/bridge'
 
   // One dot per workspace slot plus a trailing empty slot, per the design's
   // "ocarina dots — active workspace indicator".
   const dotCount = $derived(app.workspaces.length + 1)
+
+  const { onmodel }: { onmodel?: () => void } = $props()
+
+  // Whatever pi says this thread is on. "pi default" until it says.
+  const model = $derived(threads.get(app.thread.id).model?.name ?? 'pi default')
 </script>
 
 <header class="titlebar">
@@ -40,7 +46,9 @@
     <span class="sep">·</span>
     <span class="name">thread {app.threadLabel}</span>
     <span class="sep">·</span>
-    <span class="model">pi-2.5-pro</span>
+    <button type="button" class="model" onclick={onmodel} disabled={!onmodel}>
+      {model} · m
+    </button>
   </div>
 </header>
 
@@ -132,5 +140,18 @@
     border: 1px solid var(--line-mid);
     padding: 3px 8px;
     background: var(--bg-hover);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+  .model:disabled {
+    cursor: default;
+  }
+  .model:not(:disabled):hover {
+    color: var(--fg-dim);
+    border-color: var(--line-strong);
   }
 </style>

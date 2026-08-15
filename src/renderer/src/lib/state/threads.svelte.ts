@@ -1,5 +1,5 @@
-import type { CommandName, CommandParams } from '../../../../shared/protocol'
-import type { ApprovalOutcome } from '../../../../shared/vocabulary'
+import type { CommandName, CommandParams, ModelSummary } from '../../../../shared/protocol'
+import type { ApprovalOutcome, ReasoningLevel } from '../../../../shared/vocabulary'
 import { session } from '../session'
 import { reduceBatch } from '../thread-reducer'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
@@ -77,13 +77,12 @@ class ThreadStore {
     box.model = model
   }
 
-  /** What the cards in a thread do.
-   *
-   *  Each is fire-and-forget on purpose: the command is a request, and the
-   *  thread's own events are what change the view. A card that painted itself
-   *  resolved on a resolved promise would be showing an outcome the backend
-   *  had not confirmed. Failures land on the thread rather than in a console
-   *  nobody is reading. */
+  /** Everything below is fire-and-forget on purpose: the command is a request,
+   *  and the thread's own events are what change the view. A card that painted
+   *  itself resolved on a resolved promise would be showing an outcome the
+   *  backend had not confirmed. Failures land on the thread rather than in a
+   *  console nobody is reading. */
+
   /** Starts a turn. The user's own message comes back as an event, so the
    *  composer never draws it locally — one projection, one truth. */
   prompt(threadId: string, text: string): void {
@@ -93,6 +92,22 @@ class ThreadStore {
   /** Queues text into the turn already running. */
   steer(threadId: string, text: string): void {
     this.#command(threadId, 'steer', { threadId, text })
+  }
+
+  /** Moves a thread onto another model, and optionally sets how hard it
+   *  thinks. Both are pi's to persist — it writes them into the session — so
+   *  nothing is kept here that could disagree after a relaunch. */
+  setModel(threadId: string, model: ModelSummary, reasoning: ReasoningLevel | null): void {
+    this.#command(threadId, 'setModel', {
+      threadId,
+      provider: model.provider,
+      model: model.id,
+    })
+    if (reasoning) this.#command(threadId, 'setReasoning', { threadId, reasoning })
+  }
+
+  setReasoning(threadId: string, reasoning: ReasoningLevel): void {
+    this.#command(threadId, 'setReasoning', { threadId, reasoning })
   }
 
   answer(threadId: string, askId: string, optionIndex: number): void {

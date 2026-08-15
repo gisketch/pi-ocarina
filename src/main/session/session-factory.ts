@@ -147,6 +147,23 @@ export class SessionFactory {
     session.agent.state.tools = [...rebound, ...kept]
   }
 
+  /** The models this machine can actually run.
+   *
+   *  `getModels()` returns pi's whole catalogue — over a thousand entries,
+   *  nearly all of them for providers with no credentials here. Selecting one
+   *  throws "No API key". `getAvailable()` is the set with auth configured,
+   *  which is the only honest list to put in front of a person. */
+  async models(): Promise<ReturnType<ModelRuntimeOf['getAvailableSnapshot']>> {
+    const { ModelRuntime } = await this.load()
+    this.#runtime ??= ModelRuntime.create()
+    const runtime = await this.#runtime
+
+    const available = await runtime.getAvailable()
+    // A machine with no credentials at all gets an empty list, and the selector
+    // says so — better than offering models that cannot run.
+    return available.length > 0 ? available : runtime.getAvailableSnapshot()
+  }
+
   async #resolveModel(): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
     if (!this.#model) return undefined
 

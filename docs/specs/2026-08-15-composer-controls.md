@@ -70,6 +70,22 @@ Thread rendering of sent messages, session transport, terminal input.
   file reading beyond preview thumbnails.
 - Model/reasoning options come from pi config via the driver (no hardcoded lists).
 
+Settled while building the selector (D5), against pi 0.84.2:
+
+- **Only models that can actually run are listed.** pi's `getModels()` returns
+  its whole catalogue — 1267 entries on the development machine, nearly all for
+  providers with no credentials, and selecting one throws "No API key".
+  `getAvailable()` returned 22. The selector shows that set; an empty set says
+  so rather than offering models that cannot run.
+- **Reasoning has pi's seven levels**, not the design's four tiles: `off`,
+  `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. The four came from a mock,
+  and a model supporting `max` would have been quietly capped. The tiles render
+  the levels the chosen model supports; a model that cannot reason skips the
+  step. A clamp steps down, never up — thinking harder than asked costs money
+  the user did not agree to.
+- **pi persists both.** `setModel` and `setThinkingLevel` write into the session
+  file, so this app stores neither. The `model` event reports what pi restored.
+
 ## Validation
 
 - Headless state tests: mode/focus transitions, slash/mention menu open-filter-

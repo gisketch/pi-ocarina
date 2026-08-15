@@ -5,6 +5,7 @@
     ['w', 'switcher'],
     ['n', 'new thread'],
     ['t', 'terminal'],
+    ['m', 'model'],
     ['s', 'settings'],
     ['k', 'keymap'],
   ]

@@ -73,7 +73,29 @@ Status legend: `todo` · `in-progress` · `done`.
   vs section 10.
 - Blocked by: D1
 
-## D5 — Model & reasoning spotlight — `todo`
+## D5 — Model & reasoning spotlight — `done`
+
+> Verified against real pi: `listModels` returns the machine's own models, the
+> thread reports which one it is on when it opens, and switching takes effect
+> and is reported back.
+>
+> **The important finding: `getModels()` returns 1267 models** — pi's whole
+> catalogue, nearly all for providers with no credentials on this machine.
+> Selecting one throws "No API key". `getAvailable()` returns **22** here: the
+> set that can actually run. A selector listing a thousand models that mostly
+> fail on click is worse than no selector.
+>
+> Two more. **`ReasoningLevel` widened from the design's four to pi's seven**
+> (`off · minimal · low · medium · high · xhigh · max`); the four came from a
+> mock, and capping a model that supports `max` would have quietly limited what
+> the user could ask for. The tiles render whichever levels the chosen model
+> supports, and a model that cannot reason skips the second step entirely.
+> **Neither choice is stored by this app** — pi writes both into the session
+> file, so a relaunch shows what pi restored rather than a second copy that
+> could disagree.
+>
+> A clamp steps *down*, never up: making a turn think harder than asked would
+> cost money the user did not agree to spend.
 
 - Delivered behavior: the two-step detached-fzf spotlight from §14, opened by
   `m` (NORMAL), leader `m`, `/model`, the titlebar model chip, and the settings

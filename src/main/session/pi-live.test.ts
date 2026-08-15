@@ -93,7 +93,12 @@ describe.skipIf(!live)('pi driver against a real session', () => {
     expect(replayed.filter((event) => event.kind === 'tool-start')).toHaveLength(
       events.filter((event) => event.kind === 'tool-start').length,
     )
-    expect(replayed.at(-1)).toMatchObject({ kind: 'thread-state', state: 'done' })
+    // The replayed transcript ends settled. Checked on the last *state* rather
+    // than the last event, because attaching the session also reports which
+    // model it is on, and that metadata legitimately arrives after the history.
+    const states = replayed.filter((event) => event.kind === 'thread-state')
+    expect(states.at(-1)).toMatchObject({ kind: 'thread-state', state: 'done' })
+    expect(replayed.some((event) => event.kind === 'model')).toBe(true)
 
     await reopened.dispose()
   })

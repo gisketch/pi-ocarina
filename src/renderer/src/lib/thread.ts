@@ -9,6 +9,7 @@
 export type {
   ApprovalOutcome,
   AskOption,
+  ReasoningLevel,
   CodeLine,
   DiffLine,
   MatchLine,
@@ -23,6 +24,7 @@ export type {
 import type {
   ApprovalOutcome,
   AskOption,
+  ReasoningLevel,
   ThreadRunState,
   ToolBody,
   ToolKind,
@@ -81,6 +83,8 @@ export interface ThreadViewModel {
   /** Why the thread failed, when it did. */
   reason?: string
   usage?: { contextPercent: number; tokens: number; costUsd: number }
+  /** What pi says this thread is running on. Absent until the thread opens. */
+  model?: { provider: string; id: string; name: string; reasoning: ReasoningLevel }
   connectivity?: { state: 'degraded' | 'restored'; retryInSeconds?: number }
 }
 

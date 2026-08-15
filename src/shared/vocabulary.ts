@@ -35,7 +35,31 @@ export type ThreadRunState =
 
 export type ApprovalOutcome = 'allow-once' | 'always' | 'deny'
 
-export type ReasoningLevel = 'off' | 'low' | 'medium' | 'high'
+/** How hard the model thinks before answering.
+ *
+ *  These are pi's own seven levels, not the design's four tiles. The mock had
+ *  four; a real model may support `max`, and offering only four would quietly
+ *  cap what the user can ask for. The selector renders whichever levels the
+ *  chosen model actually supports. */
+export type ReasoningLevel =
+  | 'off'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+
+/** In order, weakest first — the order the tiles are drawn in. */
+export const REASONING_ORDER: readonly ReasoningLevel[] = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+]
 
 /** A line of source with an optional trailing comment rendered dimmer. */
 export interface CodeLine {

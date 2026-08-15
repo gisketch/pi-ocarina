@@ -133,6 +133,17 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         },
       }
 
+    case 'model':
+      return {
+        ...model,
+        model: {
+          provider: event.provider,
+          id: event.id,
+          name: event.name,
+          reasoning: event.reasoning,
+        },
+      }
+
     case 'connectivity':
       return {
         ...model,

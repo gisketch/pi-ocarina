@@ -8,6 +8,7 @@ import type {
 } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
 import { ApprovalGate } from './approvals'
+import { ModelControl } from './model-control'
 import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
@@ -39,6 +40,7 @@ export class PiDriver implements SessionDriver {
   readonly #catalog: CatalogStore
   readonly #sessions: SessionFactory
   readonly #steers: SteerQueue
+  readonly #models: ModelControl
 
   constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
@@ -46,6 +48,7 @@ export class PiDriver implements SessionDriver {
     this.#approvals = new ApprovalGate(emit, catalog)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, model)
+    this.#models = new ModelControl(this.#sessions)
     this.#threads = new ThreadRegistry((threadId) => {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)
@@ -132,6 +135,23 @@ export class PiDriver implements SessionDriver {
       case 'compact': {
         const { threadId } = params as CommandParams<'compact'>
         await this.#compact(threadId)
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'listModels':
+        return { models: await this.#models.list() } as CommandResult<N>
+
+      case 'setModel': {
+        const { threadId, provider, model } = params as CommandParams<'setModel'>
+        await this.#models.set(this.#threads.get(threadId).session, provider, model)
+        this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'setReasoning': {
+        const { threadId, reasoning } = params as CommandParams<'setReasoning'>
+        this.#models.setReasoning(this.#threads.get(threadId).session, reasoning)
+        this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
         return { ok: true } as CommandResult<N>
       }
 
@@ -236,6 +256,7 @@ export class PiDriver implements SessionDriver {
     })
 
     this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
+    this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }

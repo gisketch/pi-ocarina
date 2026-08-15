@@ -1,6 +1,6 @@
 import type { Mode } from './types'
 
-export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings'
+export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model'
 
 export interface KeyState {
   mode: Mode
@@ -72,7 +72,7 @@ function goWorkspace(state: KeyState, index: number): KeyResult {
 
 /** Overlays that own a text caret. Their input must receive every keystroke
  *  the shell would otherwise read as a binding. */
-const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher'])
+const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher', 'model'])
 
 function focusFor(overlay: Overlay | null): Action[] {
   if (overlay === 'palette') return [{ type: 'focusPalette' }]
@@ -151,6 +151,8 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'keymap')
     case ',':
       return toggleOverlay(state, 'settings')
+    case 'm':
+      return toggleOverlay(state, 'model')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
     case 'y':
@@ -176,6 +178,8 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'keymap' }, [], true, 'clear')
     case 's':
       return result({ ...done, overlay: 'settings' }, [], true, 'clear')
+    case 'm':
+      return result({ ...done, overlay: 'model' }, [], true, 'clear')
     case 'n':
       return result({ ...done, overlay: null }, [{ type: 'newThread' }], true, 'clear')
     case 't':

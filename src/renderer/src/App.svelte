@@ -10,10 +10,13 @@
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
+  import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { models } from '$lib/state/models.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
   import { shell } from '$lib/state/shell.svelte'
+  import { threads } from '$lib/state/threads.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
 
@@ -22,6 +25,10 @@
   // has to apply the layout only once the real workspace list is in place.
   seedMockThreads()
   $effect(() => startPersistence())
+  // Loaded once, ahead of the first `m`, so the selector opens instantly.
+  $effect(() => {
+    void models.load()
+  })
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -87,7 +94,7 @@
   <div class="tint"></div>
   <div class="grain"></div>
 
-  <Titlebar />
+  <Titlebar onmodel={() => shell.openOverlay('model')} />
 
   <div class="body">
     <Rail onPin={() => shell.openOverlay('switcher')} onKeymap={() => shell.openOverlay('keymap')} />
@@ -122,6 +129,17 @@
     <SettingsOverlay
       onclose={() => shell.closeOverlay()}
       onkeymap={() => shell.openOverlay('keymap')}
+      onmodel={() => shell.openOverlay('model')}
+      model={threads.get(app.thread.id).model?.name ?? 'pi default'}
+    />
+  {:else if shell.overlay === 'model'}
+    <ModelOverlay
+      onclose={() => shell.closeOverlay()}
+      current={threads.get(app.thread.id).model}
+      onpick={(model, reasoning) => {
+        threads.setModel(app.thread.id, model, reasoning)
+        shell.closeOverlay()
+      }}
     />
   {:else if shell.overlay === 'palette'}
     <CommandPalette

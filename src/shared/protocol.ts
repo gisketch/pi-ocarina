@@ -64,6 +64,10 @@ export type UiEvent =
   | { kind: 'steer-delivered'; id: string }
   | { kind: 'steer-cancelled'; id: string }
   | { kind: 'usage'; contextPercent: number; tokens: number; costUsd: number }
+  /** Which model this thread is on, and how hard it is set to think. Emitted
+   *  when a thread opens and whenever either changes, so the chrome never has
+   *  to guess and a relaunch shows what pi actually restored. */
+  | { kind: 'model'; provider: string; id: string; name: string; reasoning: ReasoningLevel }
   | { kind: 'connectivity'; state: 'degraded' | 'restored'; retryInSeconds?: number }
   /** Anything the adapter could not name. Rendered visibly — never dropped,
    *  because a silently swallowed event is a lie about what the agent did. */
@@ -87,6 +91,18 @@ export interface WorkspaceSummary {
   name: string
   note: string
   hue: number
+}
+
+/** A model pi has configured, as the selector needs to draw it. */
+export interface ModelSummary {
+  id: string
+  provider: string
+  name: string
+  contextWindow: number
+  /** US dollars per million input tokens — the `$`/`$$`/`$$$` tier. */
+  costPerMTok: number
+  /** The reasoning levels this model supports. Empty means it cannot reason. */
+  reasoning: ReasoningLevel[]
 }
 
 /** A thread that exists on disk, whether this app or the pi CLI started it. */
@@ -127,7 +143,11 @@ export interface SessionCommands {
     result: { threadId: string }
   }
   compact: { params: { threadId: string }; result: { ok: true } }
-  setModel: { params: { threadId: string; model: string }; result: { ok: true } }
+  listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
+  setModel: {
+    params: { threadId: string; provider: string; model: string }
+    result: { ok: true }
+  }
   setReasoning: { params: { threadId: string; reasoning: ReasoningLevel }; result: { ok: true } }
 }
 
@@ -168,6 +188,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'steer-delivered',
   'steer-cancelled',
   'usage',
+  'model',
   'connectivity',
   'raw',
 ])
