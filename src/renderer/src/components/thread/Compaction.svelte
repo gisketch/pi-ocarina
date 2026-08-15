@@ -6,10 +6,12 @@
     summary?: string
     /** Set when the compaction started and then did not happen. */
     skipped?: string
-    /** How many blocks are collapsed behind this card. Zero hides the control:
-     *  there is nothing to expand. */
+    /** How many blocks this card stands in front of. Zero hides the control:
+     *  there is nothing to show or hide. */
     hidden?: number
-    onexpand?: () => void
+    /** Whether that history is currently hidden. */
+    collapsed?: boolean
+    ontoggle?: () => void
   }
 
   const {
@@ -19,7 +21,8 @@
     summary,
     skipped,
     hidden = 0,
-    onexpand,
+    collapsed = false,
+    ontoggle,
   }: Props = $props()
 
   // No `undo`. The reference offers one, but nothing in pi 0.84 can put a
@@ -53,10 +56,11 @@
     {#if summary}
       <div class="summary">{summary}</div>
     {/if}
-    {#if hidden > 0 && onexpand}
+    {#if hidden > 0 && ontoggle}
       <div class="actions">
-        <button type="button" onclick={onexpand}>
-          expand original ▸ <span class="count">{hidden} blocks</span>
+        <button type="button" onclick={ontoggle}>
+          {collapsed ? 'expand original ▸' : 'collapse original ▾'}
+          <span class="count">{hidden} blocks</span>
         </button>
       </div>
     {/if}

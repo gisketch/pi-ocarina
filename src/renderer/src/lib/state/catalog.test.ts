@@ -1,6 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandName } from '../../../../shared/protocol'
 import { session } from '../session'
+
+/** A stand-in for Electron's folder picker, so the pin path is reachable
+ *  without a window. `pick` is what the user chose; null is a cancel. */
+const picker = vi.hoisted(() => ({ pick: null as string | null }))
+vi.mock('../bridge', () => ({
+  bridge: {
+    dialog: { pickDirectory: () => Promise.resolve(picker.pick) },
+    // The session client is built from this at import time; every test spies on
+    // `session.invoke`, so this only has to exist.
+    session: { invoke: () => Promise.resolve({ ok: true }), onEvents: () => () => {} },
+  },
+  isDesktop: true,
+}))
+
+import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { threads } from './threads.svelte'
 
@@ -25,6 +40,10 @@ beforeEach(() => {
   vi.restoreAllMocks()
   catalog.workspaces = DEMO
   catalog.source = 'mock'
+  catalog.error = null
+  picker.pick = '/code/pinned'
+  app.goWorkspace(0)
+  app.focus = []
 })
 
 describe('falling back to the demo catalog', () => {
@@ -134,6 +153,33 @@ describe('the real catalog', () => {
     expect(catalog.workspaces[0].threads[0].meta).toBe('')
   })
 
+  it('pulls the focused workspace back in range when the list shrinks', async () => {
+    // Pinning replaces three demo workspaces with one. An index left pointing
+    // past the end leaves the rail with nothing highlighted while the rest of
+    // the chrome reads a different workspace.
+    app.goWorkspace(2)
+    backend([WORKSPACE], {
+      w1: [{ id: 's1', title: 'first', modified: '2026-08-15T14:02:00Z', messageCount: 1 }],
+    })
+
+    await catalog.load()
+
+    expect(app.workspaceIndex).toBe(0)
+    expect(app.workspace.id).toBe('w1')
+  })
+
+  it('pulls a remembered thread position back in range too', async () => {
+    app.goWorkspace(0)
+    app.focusThread(2) // demo pi-core has three threads
+    backend([WORKSPACE], {
+      w1: [{ id: 's1', title: 'only one', modified: '2026-08-15T14:02:00Z', messageCount: 1 }],
+    })
+
+    await catalog.load()
+
+    expect(app.threadIndex).toBe(0)
+  })
+
   it('keeps the demo state when the thread listing fails', async () => {
     vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) => {
       if (name === 'listWorkspaces') return Promise.resolve({ workspaces: [WORKSPACE] } as never)
@@ -145,5 +191,56 @@ describe('the real catalog', () => {
     // The workspace is real, so it is shown; it simply has no threads to list.
     expect(catalog.source).toBe('live')
     expect(catalog.workspaces[0].threads[0].fresh).toBe(true)
+  })
+})
+
+describe('pinning', () => {
+  it('does nothing when the user cancels the picker', async () => {
+    picker.pick = null
+    const invoke = backend([WORKSPACE])
+
+    expect(await catalog.pin()).toBe(false)
+    expect(invoke).not.toHaveBeenCalled()
+    expect(catalog.error).toBeNull()
+  })
+
+  it('pins the folder the user chose, then reloads', async () => {
+    const invoke = backend([WORKSPACE])
+
+    expect(await catalog.pin()).toBe(true)
+    expect(invoke).toHaveBeenCalledWith('pinWorkspace', { path: '/code/pinned' })
+    expect(catalog.source).toBe('live')
+  })
+})
+
+describe('when an action fails', () => {
+  it('reports a folder the backend refused instead of doing nothing', async () => {
+    vi.spyOn(session, 'invoke').mockRejectedValue(new Error('not a directory'))
+
+    const pinned = await catalog.pin()
+
+    expect(pinned).toBe(false)
+    expect(catalog.error).toBe('not a directory')
+  })
+
+  it('reports a thread that could not be created', async () => {
+    backend([WORKSPACE])
+    await catalog.load()
+
+    vi.spyOn(session, 'invoke').mockRejectedValue(new Error('workspace is gone'))
+    const threadId = await catalog.newThread('w1')
+
+    expect(threadId).toBeNull()
+    expect(catalog.error).toBe('workspace is gone')
+  })
+
+  it('clears the last failure when a new action starts', async () => {
+    catalog.error = 'stale message'
+    backend([WORKSPACE])
+    await catalog.load()
+
+    await catalog.newThread('w1')
+
+    expect(catalog.error).toBeNull()
   })
 })

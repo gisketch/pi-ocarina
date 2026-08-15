@@ -26,8 +26,12 @@
   // A finished compaction stands where the history it replaced used to be, so
   // the blocks above it collapse behind it until the reader asks for them.
   const cut = $derived(collapsedBefore(blocks))
-  let expanded = $state(false)
-  const hidden = $derived(expanded ? 0 : cut)
+  // Keyed by which compaction is doing the collapsing: a second compaction
+  // later in the thread starts collapsed again rather than inheriting the
+  // first one's expansion.
+  let expandedFor = $state<string | null>(null)
+  const marker = $derived(cut > 0 ? (blocks[cut]?.id ?? null) : null)
+  const hidden = $derived(marker !== null && expandedFor !== marker ? cut : 0)
   const shown = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
 </script>
 
@@ -66,8 +70,9 @@
       afterPercent={block.afterPercent}
       summary={block.summary}
       skipped={block.skipped}
-      hidden={cut > 0 && block.id === blocks[cut]?.id ? hidden : 0}
-      onexpand={() => (expanded = true)}
+      hidden={block.id === marker ? cut : 0}
+      collapsed={block.id === marker && hidden > 0}
+      ontoggle={() => (expandedFor = expandedFor === marker ? null : marker)}
     />
   {:else if block.kind === 'steer'}
     <QueuedSteer

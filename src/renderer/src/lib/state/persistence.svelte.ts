@@ -1,5 +1,6 @@
 import { app } from './app.svelte'
 import { bridge } from '../bridge'
+import { catalog } from './catalog.svelte'
 import { clampThread } from '../strip'
 
 const SAVE_DEBOUNCE_MS = 250
@@ -13,9 +14,11 @@ export function startPersistence(): () => void {
   let restored = false
   let timer: ReturnType<typeof setTimeout> | null = null
 
-  void desktop.catalog.load().then(({ state, warning }) => {
+  // The real workspace list has to land first. Restoring against the demo
+  // catalog would clamp a saved position to the wrong thread counts, and which
+  // of the two promises won was otherwise a matter of timing.
+  void Promise.all([desktop.catalog.load(), catalog.load()]).then(([{ state, warning }]) => {
     if (warning) console.warn(`[catalog] ${warning}`)
-    // Clamp against the live workspace list: pins may have changed since the write.
     app.goWorkspace(Math.min(state.workspaceIndex, app.workspaces.length - 1))
     app.focus = app.workspaces.map((workspace, i) =>
       clampThread(state.focus[i] ?? 0, workspace.threads.length),

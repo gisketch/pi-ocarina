@@ -50,9 +50,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return growMessage(model, event.id, event.text)
 
     case 'agent-message-end':
-      return editBlock(model, event.id, (block) =>
-        block.kind === 'agent' ? { ...block, streaming: false } : block,
-      )
+      return editBlock(model, event.id, 'agent', (block) => ({ ...block, streaming: false }))
 
     case 'tool-start':
       return startTool(model, event)
@@ -80,9 +78,10 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'ask-answered':
-      return decide(model, event.id, event, (block) =>
-        block.kind === 'ask' ? { ...block, answeredIndex: event.optionIndex } : block,
-      )
+      return decide(model, event.id, 'ask', event, (block) => ({
+        ...block,
+        answeredIndex: event.optionIndex,
+      }))
 
     case 'approve':
       return push(model, {
@@ -93,9 +92,10 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'approve-resolved':
-      return decide(model, event.id, event, (block) =>
-        block.kind === 'approve' ? { ...block, outcome: event.outcome } : block,
-      )
+      return decide(model, event.id, 'approve', event, (block) => ({
+        ...block,
+        outcome: event.outcome,
+      }))
 
     case 'checkpoint':
       return push(model, { kind: 'checkpoint', id: event.id, label: event.label })
@@ -167,18 +167,24 @@ function push(model: ThreadViewModel, block: Block): ThreadViewModel {
   return { ...model, blocks: [...model.blocks, block] }
 }
 
-/** Rewrites the block `id` names. Returns the model untouched when there is no
- *  such block, or when `change` declined it — callers rely on that identity to
- *  tell "applied" from "nothing to apply it to". */
-function editBlock(
+/** Rewrites the newest block of `kind` that `id` names. Returns the model
+ *  untouched when there is no such block, so callers can tell "applied" from
+ *  "nothing to apply it to".
+ *
+ *  The kind is part of the lookup, not a check inside `change`: ids come from
+ *  several sources and are only unique within a kind. Matching on id alone
+ *  would let an unrelated block shadow the one being edited, and the edit would
+ *  be dropped without a trace. */
+function editBlock<K extends Block['kind']>(
   model: ThreadViewModel,
   id: string,
-  change: (block: Block) => Block,
+  kind: K,
+  change: (block: Extract<Block, { kind: K }>) => Block,
 ): ThreadViewModel {
-  const index = model.blocks.findLastIndex((block) => block.id === id)
+  const index = model.blocks.findLastIndex((block) => block.id === id && block.kind === kind)
   if (index === -1) return model
 
-  const edited = change(model.blocks[index])
+  const edited = change(model.blocks[index] as Extract<Block, { kind: K }>)
   if (edited === model.blocks[index]) return model
 
   const blocks = model.blocks.slice()
@@ -191,13 +197,14 @@ function editBlock(
  *  A decision is not decoration: an answer or an approval outcome is a record
  *  of what a person chose. Losing one because its card never arrived would be
  *  the same lie as dropping an unknown event. */
-function decide(
+function decide<K extends Block['kind']>(
   model: ThreadViewModel,
   id: string,
+  kind: K,
   event: UiEvent,
-  change: (block: Block) => Block,
+  change: (block: Extract<Block, { kind: K }>) => Block,
 ): ThreadViewModel {
-  const next = editBlock(model, id, change)
+  const next = editBlock(model, id, kind, change)
   if (next !== model) return next
 
   return push(model, {
@@ -217,9 +224,7 @@ function finishCompaction(
   id: string,
   outcome: Omit<Block & { kind: 'compaction' }, 'kind' | 'id'>,
 ): ThreadViewModel {
-  const next = editBlock(model, id, (block) =>
-    block.kind === 'compaction' ? { ...block, ...outcome } : block,
-  )
+  const next = editBlock(model, id, 'compaction', (block) => ({ ...block, ...outcome }))
   if (next !== model) return next
 
   return push(model, { kind: 'compaction', id, ...outcome })
@@ -233,12 +238,10 @@ function dropBlock(model: ThreadViewModel, id: string): ThreadViewModel {
 /** A delta for a message that never started still carries the agent's words,
  *  so it opens the message rather than being discarded. */
 function growMessage(model: ThreadViewModel, id: string, text: string): ThreadViewModel {
-  const known = model.blocks.some((block) => block.kind === 'agent' && block.id === id)
-  if (!known) return push(model, { kind: 'agent', id, text, streaming: true })
+  const grown = editBlock(model, id, 'agent', (block) => ({ ...block, text: block.text + text }))
+  if (grown !== model) return grown
 
-  return editBlock(model, id, (block) =>
-    block.kind === 'agent' ? { ...block, text: block.text + text } : block,
-  )
+  return push(model, { kind: 'agent', id, text, streaming: true })
 }
 
 function startTool(
@@ -263,9 +266,10 @@ function startTool(
   const ledger = trailingLedger(model.blocks)
   if (!ledger) return push(model, { kind: 'ledger', id: `ledger-${event.id}`, rows: [row] })
 
-  return editBlock(model, ledger.id, (block) =>
-    block.kind === 'ledger' ? { ...block, rows: [...block.rows, row] } : block,
-  )
+  return editBlock(model, ledger.id, 'ledger', (block) => ({
+    ...block,
+    rows: [...block.rows, row],
+  }))
 }
 
 /** Applies a change to the row `id` names, or records that no such row exists. */

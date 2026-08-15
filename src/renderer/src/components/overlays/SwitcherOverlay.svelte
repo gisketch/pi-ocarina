@@ -19,7 +19,8 @@
     pinning = true
     try {
       // Closing only on success keeps the overlay in place when the user
-      // cancels the picker, which is where they were about to look anyway.
+      // cancels the picker or the folder is refused — which is where they are
+      // already looking, and where the reason can be shown.
       if (await catalog.pin()) onclose()
     } finally {
       pinning = false
@@ -52,6 +53,10 @@
       <div class="key plain">{app.workspaces.length + 1}</div>
     </button>
   </div>
+
+  {#if catalog.error}
+    <div class="failed">could not pin that folder — {catalog.error}</div>
+  {/if}
 </Backdrop>
 
 <style>
@@ -137,5 +142,15 @@
   .key.plain {
     color: var(--fg-dimmest);
     border-color: rgba(255, 255, 255, 0.09);
+  }
+
+  .failed {
+    margin-top: 14px;
+    padding: 7px 12px;
+    border: 1px solid rgba(224, 122, 107, 0.28);
+    background: var(--err-soft);
+    color: var(--err-text);
+    font-size: 11px;
+    font-family: var(--font-body);
   }
 </style>

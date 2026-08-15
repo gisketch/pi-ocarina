@@ -15,14 +15,11 @@
   import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
 
-  $effect(() => startPersistence())
-
-  // The demo columns are seeded first so the window is never blank, then the
-  // real catalog replaces them if anything is pinned.
+  // The demo columns are seeded first so the window is never blank. The real
+  // catalog and the saved layout are loaded together by startPersistence, which
+  // has to apply the layout only once the real workspace list is in place.
   seedMockThreads()
-  $effect(() => {
-    void catalog.load()
-  })
+  $effect(() => startPersistence())
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell

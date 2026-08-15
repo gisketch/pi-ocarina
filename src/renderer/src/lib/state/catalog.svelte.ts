@@ -5,6 +5,7 @@ import { WORKSPACES } from '../mock/workspaces'
 import { session } from '../session'
 import { replayThread } from '../thread-reducer'
 import type { Thread, Workspace } from '../types'
+import { app } from './app.svelte'
 import { threads } from './threads.svelte'
 
 /** Where the strip's workspaces come from.
@@ -29,28 +30,49 @@ class Catalog {
     const built = await Promise.all(pinned.map((workspace) => this.#build(workspace)))
     this.workspaces = built
     this.source = 'live'
+    // The demo catalog just went away underneath whatever was focused.
+    app.reconcile()
   }
 
+  /** Why the last pin or thread creation failed. Cleared when the next one
+   *  starts, so a stale message never sits under a successful action. */
+  error = $state.raw<string | null>(null)
+
   /** Pins a folder the user picked, then reloads. Returns false when they
-   *  cancelled or when there is no native picker to ask. */
+   *  cancelled, when there is no native picker to ask, or when the backend
+   *  refused the folder — the caller keeps the overlay open and `error` says
+   *  why, rather than the click doing nothing at all. */
   async pin(): Promise<boolean> {
+    this.error = null
+
     const path = await bridge?.dialog.pickDirectory()
     if (!path) return false
 
-    await session.invoke('pinWorkspace', { path })
-    await this.load()
-    return true
+    try {
+      await session.invoke('pinWorkspace', { path })
+      await this.load()
+      return true
+    } catch (cause) {
+      this.error = describe(cause)
+      return false
+    }
   }
 
   /** Starts a real thread in a pinned workspace. Returns its id, or null when
    *  the catalog is still the demo state and there is nothing to start it in. */
   async newThread(workspaceId: string): Promise<string | null> {
     if (this.source !== 'live') return null
+    this.error = null
 
-    const { threadId } = await session.invoke('createThread', { workspaceId })
-    threads.follow(threadId)
-    await this.load()
-    return threadId
+    try {
+      const { threadId } = await session.invoke('createThread', { workspaceId })
+      threads.follow(threadId)
+      await this.load()
+      return threadId
+    } catch (cause) {
+      this.error = describe(cause)
+      return null
+    }
   }
 
   async #listWorkspaces(): Promise<WorkspaceSummary[]> {
@@ -92,6 +114,10 @@ class Catalog {
       return []
     }
   }
+}
+
+function describe(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 function toThread(summary: ThreadSummary): Thread {

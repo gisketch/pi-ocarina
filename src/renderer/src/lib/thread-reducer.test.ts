@@ -54,6 +54,31 @@ describe('messages', () => {
     expect(model.blocks[0]).toMatchObject({ text: 'ab' })
   })
 
+  it('keeps growing a message when a later block shares its id', () => {
+    // Ids come from several sources and are only unique within a kind. Looking
+    // one up by id alone let an unrelated block shadow the message, and the
+    // delta was dropped without a trace.
+    const model = run(
+      start('x1'),
+      delta('x1', 'a'),
+      { kind: 'checkpoint', id: 'x1', label: 'same id' },
+      delta('x1', 'b'),
+    )
+
+    expect(model.blocks.find((block) => block.kind === 'agent')).toMatchObject({ text: 'ab' })
+  })
+
+  it('ends the message, not whatever else shares its id', () => {
+    const model = run(
+      start('x1'),
+      delta('x1', 'hi'),
+      { kind: 'checkpoint', id: 'x1', label: 'same id' },
+      { kind: 'agent-message-end', id: 'x1' },
+    )
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'agent', streaming: false })
+  })
+
   it('keeps user and agent messages in the order they arrived', () => {
     const model = run(
       { kind: 'user-message', id: 'u1', text: 'why?' },

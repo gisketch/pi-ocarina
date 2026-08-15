@@ -18,7 +18,20 @@ class AppState {
   }
 
   get workspace(): Workspace {
-    return this.workspaces[Math.min(this.workspaceIndex, this.workspaces.length - 1)]
+    return this.workspaces[this.workspaceIndex]
+  }
+
+  /** Pulls the focused position back inside a workspace list that changed under
+   *  it — pinning a folder replaces the demo catalog wholesale, and an index
+   *  left pointing past the end would leave the rail with nothing highlighted
+   *  while the rest of the chrome silently read a different workspace. */
+  reconcile(): void {
+    if (this.workspaces.length === 0) return
+
+    this.workspaceIndex = Math.min(this.workspaceIndex, this.workspaces.length - 1)
+    this.focus = this.workspaces.map((workspace, i) =>
+      clampThread(this.focus[i] ?? 0, workspace.threads.length),
+    )
   }
 
   get threadIndex(): number {
