@@ -266,3 +266,41 @@ function joined(events: UiEvent[]): string {
     .map((event) => (event.kind === 'agent-message-delta' ? event.text : ''))
     .join('')
 }
+
+describe('replay and live ids share no namespace', () => {
+  it('names replayed agent messages apart from the live translator’s', () => {
+    // Both sides can only count: pi gives a text part no id of its own. Two
+    // counters that each start at one named different messages the same thing
+    // the moment a live turn ran on a thread read back from disk.
+    const events = replayEntries(
+      entries(
+        message('a1', { role: 'assistant', content: [{ type: 'text', text: 'one' }] }),
+        message('a2', { role: 'assistant', content: [{ type: 'text', text: 'two' }] }),
+      ),
+    )
+
+    const ids = [...new Set(events.filter((e) => e.kind.startsWith('agent-message')).map((e) => ('id' in e ? e.id : '')))]
+    expect(ids).toEqual(['replay-msg-1', 'replay-msg-2'])
+    expect(ids.some((id) => /^msg-\d+$/.test(id))).toBe(false)
+  })
+
+  it('leaves a replayed thread and a live turn with no key in common', () => {
+    const replayed = replayEntries(
+      entries(
+        message('u1', { role: 'user', content: [{ type: 'text', text: 'hi' }] }),
+        message('a1', { role: 'assistant', content: [{ type: 'text', text: 'hello' }] }),
+      ),
+    )
+
+    // What the live translator produces for the first agent reply of a turn.
+    const live = new PiTranslator().translate({
+      type: 'message_start',
+      message: { role: 'assistant' },
+    } as never)
+    expect(live.length).toBeGreaterThan(0)
+
+    const key = (e: { kind: string; id?: string }) => `${e.kind}:${e.id ?? ''}`
+    const replayedKeys = new Set(replayed.map((e) => key(e as never)))
+    for (const event of live) expect(replayedKeys.has(key(event as never))).toBe(false)
+  })
+})

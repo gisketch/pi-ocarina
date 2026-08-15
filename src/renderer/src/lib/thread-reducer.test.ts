@@ -233,3 +233,24 @@ describe('block identity', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 })
+
+describe('replaying a thread that is already on screen', () => {
+  it('rebuilds it rather than showing everything twice', () => {
+    // A thread closed and opened again still holds its history. Replay states
+    // the thread from its beginning, so it resets first.
+    const history: UiEvent[] = [
+      { kind: 'checkpoint', id: 'e1', label: 'hi' },
+      { kind: 'user-message', id: 'user:e1', text: 'hi' },
+      { kind: 'agent-message-start', id: 'replay-msg-1' },
+      { kind: 'agent-message-delta', id: 'replay-msg-1', text: 'hello' },
+      { kind: 'agent-message-end', id: 'replay-msg-1' },
+    ]
+
+    const once = replayThread(history)
+    const twice = reduceBatch(once, [{ kind: 'thread-reset' }, ...history])
+
+    expect(twice.blocks.map((b) => `${b.kind}:${b.id}`)).toEqual(
+      once.blocks.map((b) => `${b.kind}:${b.id}`),
+    )
+  })
+})

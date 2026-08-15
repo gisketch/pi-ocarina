@@ -1,4 +1,4 @@
-import type { AgentSession } from '@earendil-works/pi-coding-agent'
+import type { AgentSession, SessionEntry } from '@earendil-works/pi-coding-agent'
 import type {
   CommandName,
   CommandParams,
@@ -13,7 +13,7 @@ import { ApprovalGate } from './approvals'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { PiTranslator } from './pi-translate'
-import { replayEntries } from './replay'
+import { emitReplay } from './replay'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
 import { ThreadRegistry } from './thread-registry'
@@ -224,9 +224,7 @@ export class PiDriver implements SessionDriver {
     // The active branch, not every entry in the file: a session that has been
     // rewound holds abandoned branches too, and replaying those would show the
     // user a conversation that never happened.
-    for (const event of replayEntries(sessionManager.buildContextEntries())) {
-      this.#emit(threadId, event)
-    }
+    this.#replay(threadId, sessionManager.buildContextEntries())
 
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
@@ -311,14 +309,9 @@ export class PiDriver implements SessionDriver {
     const result = await session.navigateTree(checkpointId)
     if (result.cancelled) return
 
-    // The conversation changed shape, so the thread is rebuilt rather than
-    // appended to.
-    this.#emit(threadId, { kind: 'thread-reset' })
     // The active branch as pi would send it to the model — which is exactly the
     // conversation the user should now see.
-    for (const event of replayEntries(session.sessionManager.buildContextEntries())) {
-      this.#emit(threadId, event)
-    }
+    this.#replay(threadId, session.sessionManager.buildContextEntries())
   }
 
   /** Asks pi to compact. Progress and outcome both arrive as session events, so
@@ -330,6 +323,11 @@ export class PiDriver implements SessionDriver {
     } catch {
       // Already surfaced by the translator's `compaction_end` handling.
     }
+  }
+
+  /** States a thread from its history, replacing whatever the renderer holds. */
+  #replay(threadId: string, entries: readonly SessionEntry[]): void {
+    emitReplay((event) => this.#emit(threadId, event), entries)
   }
 
   /** Usage comes from pi's own accounting; the app never estimates its own. */

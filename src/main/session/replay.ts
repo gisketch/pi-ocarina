@@ -84,7 +84,11 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
 
       if (content.type === 'text' && content.text) {
         messages += 1
-        const id = `msg-${messages}`
+        // Namespaced away from the live translator's ids. pi gives text parts no
+        // id of their own, so both sides can only count — and two counters that
+        // both start at one produce the same name for different messages the
+        // moment a live turn runs on a thread that was read back from disk.
+        const id = `replay-msg-${messages}`
         events.push({ kind: 'agent-message-start', id })
         events.push({ kind: 'agent-message-delta', id, text: stripAnsi(content.text) })
         events.push({ kind: 'agent-message-end', id })
@@ -110,4 +114,17 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   const state = lastRole === 'user' ? 'interrupted' : sawAssistant ? 'done' : 'idle'
   events.push({ kind: 'thread-state', state })
   return events
+}
+
+/** States a thread from its history, replacing whatever is on screen.
+ *
+ *  The reset is not optional. Replay describes the thread from its beginning,
+ *  so a thread that already holds its history — one closed and opened again, or
+ *  one just rewound — would otherwise be shown a second copy of itself. */
+export function emitReplay(
+  emit: (event: UiEvent) => void,
+  entries: readonly SessionEntry[],
+): void {
+  emit({ kind: 'thread-reset' })
+  for (const event of replayEntries(entries)) emit(event)
 }
