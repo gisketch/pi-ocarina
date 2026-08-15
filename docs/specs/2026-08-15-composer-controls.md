@@ -1,7 +1,9 @@
 # Spec: Composer & Controls
 
-Status: approved (from grill 2026-08-15). Visual truth: `PiOcarina Components.dc.html`
-sections 06, 09, 10, 12. Behavior truth: this file.
+Status: approved (from grill 2026-08-15; selectors revised 2026-08-15 from the
+updated design import). Visual truth: `PiOcarina Components.dc.html` sections 06,
+09, 10, 12, 14 — §14's detached-fzf spotlight supersedes §09's inline cards for
+the selectors. Behavior truth: this file.
 
 ## Problem & Outcome
 
@@ -40,11 +42,20 @@ Thread rendering of sent messages, session transport, terminal input.
   attached files render as inline chips flowing with text, removable ✕ before
   send. In sent messages, chips expand inline (image preview with `open ↗`, text
   files as a monospace block).
-- **Model selector** (`⌘M` and `/model` and statusbar model chip): lists models
-  from pi's config with descriptors; selection applies to the focused thread's
-  next turn and persists per thread. **Reasoning selector**: off/low/med/high
-  pixel-step control, same scope/persistence. Both render current values in the
-  titlebar/statusbar chips.
+- **Model & reasoning selector** (Components §14): one two-step spotlight opened
+  by `m` in NORMAL, leader `m`, `/model`, the titlebar model chip, and the
+  settings "default model" row. A detached fzf input floats above the panel
+  (autofocused; `esc` chip shown).
+  - Step 1 — MODEL: rows from pi's config, each with a pixel-bar tier glyph,
+    name, descriptor, meta (`<ctx> · <speed> · <cost>`), and a number-key chip.
+    Number keys or `⏎` pick; typing fuzzy-filters and `⏎` picks the first match.
+    Picking advances to step 2.
+  - Step 2 — REASONING: four tiles (off/low/med/high) with stepped pixel bars;
+    `1–4` or `⏎` picks and closes; `esc` returns to step 1 (only the second
+    `esc` closes). Footer hint names the chosen model.
+  - Selection applies to the focused thread's next turn and persists per thread;
+    current values render in the titlebar/statusbar chips. Reasoning is also
+    cycled with `h`/`l` on the settings row (same state).
 - **History search**: overlay searching thread titles/content across workspaces
   (match highlighting, workspace tag, recency label); `⏎` jumps to the thread
   (switching workspace/strip position as needed).

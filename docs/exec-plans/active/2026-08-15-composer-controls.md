@@ -1,7 +1,8 @@
 # Exec Plan: Composer & Controls
 
 Spec: [2026-08-15-composer-controls.md](../../specs/2026-08-15-composer-controls.md).
-Visual truth: `PiOcarina Components.dc.html` sections 06, 09, 10, 12.
+Visual truth: `PiOcarina Components.dc.html` sections 06, 09, 10, 12, 14
+(§14 supersedes §09 for the selectors).
 
 Status legend: `todo` · `in-progress` · `done`.
 
@@ -58,19 +59,24 @@ Status legend: `todo` · `in-progress` · `done`.
   vs section 10.
 - Blocked by: D1
 
-## D5 — Model & reasoning selectors — `todo`
+## D5 — Model & reasoning spotlight — `todo`
 
-- Delivered behavior: `⌘M`, `/model`, and the statusbar model chip open the
-  model selector listing models from pi's config via the driver (no hardcoded
-  lists, no keys stored); reasoning is the off/low/med/high pixel-step control.
-  Both apply to the focused thread's next turn, persist per thread, and render
-  current values in the titlebar/statusbar chips.
+- Delivered behavior: the two-step detached-fzf spotlight from §14, opened by
+  `m` (NORMAL), leader `m`, `/model`, the titlebar model chip, and the settings
+  "default model" row. Step 1 lists models from pi's config via the driver (no
+  hardcoded lists, no keys stored): pixel-bar tier glyph, name, descriptor, meta,
+  number keys; the detached input fuzzy-filters, `⏎` picks the first match.
+  Step 2 is the off/low/med/high reasoning tile grid (`1–4`/`⏎` picks and
+  closes; `esc` steps back to step 1, not out). Selection applies to the focused
+  thread's next turn, persists per thread, and renders in the titlebar/statusbar
+  chips; the settings "reasoning effort" row cycles the same state with `h`/`l`.
 - Acceptance: selection changes the next turn's model (visible in usage events);
   per-thread persistence survives relaunch; chips always reflect the focused
-  thread.
-- Validation: headless selector state tests; integration check that `setModel`/
-  `setReasoning` reach pi; visual review vs sections 09/12.
-- Blocked by: D1, B3 (per-thread persistence)
+  thread; `esc` in step 2 returns to step 1; fuzzy `⏎` picks the first match.
+- Validation: headless two-step selector state tests (open paths, fuzzy pick,
+  esc-back); integration check that `setModel`/`setReasoning` reach pi; visual
+  review vs section 14.
+- Blocked by: D1, B3 (per-thread persistence), T8 (spotlight primitive)
 
 ## D6 — History search — `todo`
 

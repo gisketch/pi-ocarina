@@ -50,7 +50,7 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
       <span style="color:#4a4a52">·</span>
       <span style="color:#8d8d93">thread {{ thrLabel }}</span>
       <span style="color:#4a4a52">·</span>
-      <span style="border:1px solid rgba(255,255,255,.08);padding:3px 8px;background:rgba(255,255,255,.03)">pi-2.5-pro</span>
+      <span onClick="{{ openModel }}" style="border:1px solid rgba(255,255,255,.08);padding:3px 8px;background:rgba(255,255,255,.03);cursor:pointer" style-hover="color:#9a9aa2;border-color:rgba(255,255,255,.2)">{{ modelName }} · m</span>
     </div>
   </div>
 
@@ -398,6 +398,8 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
       <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">w</span>switcher</span>
       <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">n</span>new thread</span>
       <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">t</span>terminal</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">m</span>model</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">s</span>settings</span>
       <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">k</span>keymap</span>
       <span style="margin-left:auto;color:#5c5c64"><span style="border:1px solid rgba(255,255,255,.09);padding:1px 6px">esc</span> cancel</span>
     </div>
@@ -405,9 +407,14 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
 
   <!-- switcher overlay -->
   <sc-if value="{{ switcher }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:50;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:fade .18s ease">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:50;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;animation:fade .18s ease">
+      <div onClick="{{ eat }}" style="width:440px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.09);background:#141417;padding:11px 14px">
+        <span style="color:{{ accent }}">&gt;</span>
+        <input sc-ref="swinp" onInput="{{ swInput }}" onKeyDown="{{ swKey }}" placeholder="fuzzy filter workspaces… ⏎ picks first" style="flex:1;background:transparent;border:none;outline:none;color:#e8e8e3;font-family:'JetBrains Mono',monospace;font-size:12.5px;caret-color:{{ accent }}">
+        <span style="font-size:9.5px;color:#5c5c64;border:1px solid rgba(255,255,255,.09);padding:1px 5px">esc</span>
+      </div>
       <div style="display:flex;gap:16px;align-items:stretch">
-        <sc-for list="{{ pins }}" as="c" hint-placeholder-count="3">
+        <sc-for list="{{ swCards }}" as="c" hint-placeholder-count="3">
           <div onClick="{{ c.go }}" style="width:190px;padding:22px 18px 16px;border:1px solid {{ c.border }};background:#141417;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;animation:rise .25s ease;transition:transform .15s" style-hover="transform:translateY(-3px)">
             <div style="width:52px;height:52px;position:relative">
               <span style="display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);width:100%;height:100%">
@@ -427,6 +434,67 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
           pin a folder…
           <div style="font-size:9.5px;border:1px solid rgba(255,255,255,.09);padding:1px 7px">4</div>
         </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- model selector: 2-step spotlight (model rows → reasoning tiles) -->
+  <sc-if value="{{ modelSel }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:52;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;animation:fade .15s ease">
+      <div onClick="{{ eat }}" style="width:440px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.09);background:#141417;padding:11px 14px">
+          <span style="font-size:9.5px;color:{{ accent }};letter-spacing:.1em;flex:none">{{ mTitle }}</span>
+          <input sc-ref="minp" onInput="{{ mInput }}" onKeyDown="{{ mKey }}" placeholder="{{ mPlaceholder }}" style="flex:1;background:transparent;border:none;outline:none;color:#e8e8e3;font-family:'JetBrains Mono',monospace;font-size:13px;caret-color:{{ accent }}">
+          <span style="font-size:9.5px;color:#5c5c64;border:1px solid rgba(255,255,255,.09);padding:1px 5px">esc</span>
+      </div>
+      <div onClick="{{ eat }}" style="width:560px;border:1px solid rgba(255,255,255,.055);background:#141417;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:rise .2s ease">
+        <sc-if value="{{ m1 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:6px;display:flex;flex-direction:column;gap:2px;font-family:'JetBrains Mono',monospace">
+            <sc-for list="{{ mRows }}" as="r" hint-placeholder-count="3">
+              <div onClick="{{ r.pick }}" style="display:flex;align-items:center;gap:12px;padding:9px 11px;cursor:pointer;border-left:2px solid {{ r.edge }};background:{{ r.bg }}" style-hover="background:rgba(255,255,255,.04)">
+                <span style="display:flex;align-items:flex-end;gap:2px;height:14px;flex:none">
+                  <sc-for list="{{ r.bars }}" as="b" hint-placeholder-count="4"><span style="width:4px;height:{{ b.h }}px;background:{{ b.c }}"></span></sc-for>
+                </span>
+                <span style="color:#efefea;font-size:12.5px;width:104px;flex:none">{{ r.name }}</span>
+                <span style="color:#8d8d93;font-size:11px">{{ r.desc }}</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10px;white-space:nowrap">{{ r.meta }}</span>
+                <span style="font-size:9.5px;color:#8d8d93;border:1px solid rgba(255,255,255,.1);padding:1px 6px;flex:none">{{ r.k }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ m2 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px;display:flex;gap:10px">
+            <sc-for list="{{ rTiles }}" as="rt" hint-placeholder-count="4">
+              <div onClick="{{ rt.pick }}" style="flex:1;padding:16px 10px 12px;border:1px solid {{ rt.border }};background:{{ rt.bg }};display:flex;flex-direction:column;align-items:center;gap:9px;cursor:pointer;transition:transform .12s" style-hover="transform:translateY(-2px)">
+                <span style="display:flex;align-items:flex-end;gap:2px;height:20px">
+                  <sc-for list="{{ rt.bars }}" as="b" hint-placeholder-count="4"><span style="width:5px;height:{{ b.h }}px;background:{{ b.c }}"></span></sc-for>
+                </span>
+                <span style="font-size:10.5px;color:{{ rt.fg }}">{{ rt.label }}</span>
+                <span style="font-size:9.5px;color:#8d8d93;border:1px solid rgba(255,255,255,.1);padding:1px 6px">{{ rt.k }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="display:flex;gap:14px;padding:9px 16px;border-top:1px solid rgba(255,255,255,.04);font-size:10px;color:#5c5c64">{{ mHint }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- settings -->
+  <sc-if value="{{ settings }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:53;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:fade .15s ease">
+      <div onClick="{{ eat }}" style="width:540px;border:1px solid rgba(255,255,255,.055);background:#141417;animation:rise .2s ease">
+        <div style="display:flex;align-items:center;gap:9px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px;letter-spacing:.14em;color:#8d8d93">SETTINGS<span style="margin-left:auto;border:1px solid rgba(255,255,255,.09);padding:1px 5px;color:#5c5c64">,</span></div>
+        <div style="padding:8px;display:flex;flex-direction:column;gap:2px;font-family:'JetBrains Mono',monospace;font-size:12px">
+          <div onClick="{{ openModel }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;color:#c9c9c4;border-left:2px solid {{ accent }};background:rgba(255,255,255,.03)">default model<span style="margin-left:auto;color:#efefea">{{ modelName }}</span><span style="color:#5c5c64;font-size:10px">⏎</span></div>
+          <div onClick="{{ cycleReason }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">reasoning effort<span style="margin-left:auto;color:{{ accent }}">{{ reasonLabel }}</span><span style="color:#5c5c64;font-size:10px">h/l</span></div>
+          <div onClick="{{ togGrain }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">grain texture<span style="margin-left:auto;color:#efefea">{{ grainLabel }}</span><span style="color:#5c5c64;font-size:10px">⏎</span></div>
+          <div onClick="{{ togMotion }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">motion<span style="margin-left:auto;color:#efefea">{{ motionLabel }}</span><span style="color:#5c5c64;font-size:10px">⏎</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">workspace identity<span style="margin-left:auto;color:#efefea">pixel 5×5</span><span style="color:#5c5c64;font-size:10px">h/l</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">leader timeout<span style="margin-left:auto;color:#efefea">2.6s</span><span style="color:#5c5c64;font-size:10px">h/l</span></div>
+          <div onClick="{{ openKeys }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;color:#c9c9c4;border-left:2px solid transparent" style-hover="background:rgba(255,255,255,.03)">keymap<span style="margin-left:auto;color:#efefea">view</span><span style="color:#5c5c64;font-size:10px">?</span></div>
+        </div>
+        <div style="display:flex;gap:14px;padding:10px 20px;border-top:1px solid rgba(255,255,255,.04);font-size:10px;color:#5c5c64">j/k move · ⏎ change · esc close</div>
       </div>
     </div>
   </sc-if>
@@ -465,6 +533,8 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>switcher</span><span style="color:#8d8d93">w</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>commands</span><span style="color:#8d8d93">⌘K</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>terminal</span><span style="color:#8d8d93">t</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>model</span><span style="color:#8d8d93">m</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>settings</span><span style="color:#8d8d93">,</span></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:9px">
             <div style="color:{{ accent }};font-size:10px;letter-spacing:.12em">LEADER ␣</div>
@@ -493,7 +563,13 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;grain&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Texture&quot;}, &quot;motion&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Motion&quot;}}">
 class Component extends DCLogic {
-  state = { ws: 0, f: [0, 0, 0], askSel: null, perm: null, term: false, palette: false, keysOpen: false, switcher: false, insert: false, leader: false, ping: null, t1: false, t2: true, t3: false };
+  state = { ws: 0, f: [0, 0, 0], askSel: null, perm: null, term: false, model: 0, reason: 3, modelSel: false, mStep: 0, mq: '', settings: false, swq: '', sGrain: null, sMotion: null, palette: false, keysOpen: false, switcher: false, insert: false, leader: false, ping: null, t1: false, t2: true, t3: false };
+  MODELS = [
+    { name: 'pi-2.5-pro', desc: 'deep reasoning', meta: '200k ctx · slow · $$$', bars: 4 },
+    { name: 'pi-2.5', desc: 'fast default', meta: '200k ctx · fast · $$', bars: 3 },
+    { name: 'pi-mini', desc: 'drafts & chores', meta: '64k ctx · instant · $', bars: 1 },
+  ];
+  REASONS = ['off', 'low', 'med', 'high'];
   WS = [
     { name: 'pi-core',    note: 'D',  hue: 152, branch: 'main',         snippet: 'retry logic in sync worker', threads: 3, git: '↑1 +1~1' },
     { name: 'ocarina-ui', note: 'F♯', hue: 265, branch: 'feat/palette', snippet: 'palette flicker on open',    threads: 2, git: '+4~2' },
@@ -516,10 +592,12 @@ class Component extends DCLogic {
       const s = this.state;
       if (e.key === 'Escape') {
         clearTimeout(this.lt);
-        this.setState({ palette: false, keysOpen: false, switcher: false, insert: false, leader: false });
+        if (s.modelSel && s.mStep === 1) { this.mReset(0); return; }
+        this.setState({ palette: false, keysOpen: false, switcher: false, modelSel: false, mStep: 0, mq: '', settings: false, swq: '', insert: false, leader: false });
         if (this.refs?.inp) this.refs.inp.blur();
         return;
       }
+      if (s.modelSel && ['1','2','3','4'].includes(e.key)) { e.preventDefault(); this.mPick(Number(e.key) - 1); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         this.setState({ palette: !s.palette, keysOpen: false, switcher: false, leader: false }, () => {
@@ -537,6 +615,8 @@ class Component extends DCLogic {
         else if (e.key === 'k') this.setState({ ...done, keysOpen: true });
         else if (e.key === 'n') { this.setState(done); this.go(2); }
         else if (e.key === 't') this.setState({ ...done, term: !s.term });
+        else if (e.key === 'm') this.setState({ ...done, modelSel: true });
+        else if (e.key === 's') this.setState({ ...done, settings: true });
         else if (e.key === 'h' || e.key === 'l') { this.setState(done); this.moveThread(e.key === 'l' ? 1 : -1); }
         else this.setState(done);
         e.preventDefault();
@@ -553,7 +633,9 @@ class Component extends DCLogic {
       if (e.key === 'h' || e.key === 'ArrowLeft') { this.moveThread(-1); return; }
       if (e.key === 'l' || e.key === 'ArrowRight') { this.moveThread(1); return; }
       if (e.key === 't') { this.setState({ term: !s.term }); return; }
-      if (e.key === 'w') { this.setState({ switcher: !s.switcher, palette: false, keysOpen: false }); return; }
+      if (e.key === 'm') { this.setState({ modelSel: !s.modelSel, settings: false, switcher: false, palette: false }); return; }
+      if (e.key === ',') { this.setState({ settings: !s.settings, modelSel: false, switcher: false, palette: false }); return; }
+      if (e.key === 'w') { this.setState({ switcher: !s.switcher, swq: '', palette: false, keysOpen: false }, () => { if (this.state.switcher && this.refs?.swinp) this.refs.swinp.focus(); }); return; }
       if (e.key === '?') { this.setState({ keysOpen: !s.keysOpen, palette: false, switcher: false }); return; }
       if (e.key === 'i') { e.preventDefault(); if (this.refs?.inp) this.refs.inp.focus(); return; }
       if (e.key === 'j' || e.key === 'k') {
@@ -571,13 +653,21 @@ class Component extends DCLogic {
     this.setState({ f });
   }
   focus(w, i) { const f = this.state.f.slice(); f[w] = i; this.setState({ f }); }
+  mReset(step) {
+    this.setState({ mStep: step, mq: '' }, () => { const el = this.refs?.minp; if (el) { el.value = ''; el.focus(); } });
+  }
+  mPick(i) {
+    const s = this.state;
+    if (s.mStep === 0) { if (i < this.MODELS.length) { this.setState({ model: i }); this.mReset(1); } }
+    else if (i < 4) this.setState({ reason: i, modelSel: false, mStep: 0, mq: '' });
+  }
   go(i) {
-    this.setState({ ws: i, palette: false, keysOpen: false, switcher: false, leader: false });
+    this.setState({ ws: i, palette: false, keysOpen: false, switcher: false, modelSel: false, settings: false, swq: '', leader: false });
   }
   renderVals() {
     const s = this.state, w = this.WS[s.ws];
-    const motion = this.props.motion ?? true;
-    const grain = this.props.grain ?? true;
+    const motion = s.sMotion ?? (this.props.motion ?? true);
+    const grain = s.sGrain ?? (this.props.grain ?? true);
     const accent = `oklch(0.76 0.14 ${w.hue})`;
     const accentSoft = `oklch(0.76 0.14 ${w.hue} / 0.13)`;
     const f = s.f[s.ws];
@@ -632,7 +722,64 @@ class Component extends DCLogic {
       permAllow: () => this.setState({ perm: 'y' }),
       permDeny: () => this.setState({ perm: 'n' }),
       switcher: s.switcher, palette: s.palette, keysOpen: s.keysOpen, leader: s.leader,
-      openSwitcher: () => this.setState({ switcher: true }),
+      openSwitcher: () => this.setState({ switcher: true, swq: '' }, () => { if (this.refs?.swinp) this.refs.swinp.focus(); }),
+      swCards: this.WS.map(mkPin).filter(p => p.name.includes(s.swq)),
+      swInput: (e) => this.setState({ swq: e.target.value }),
+      swKey: (e) => {
+        e.stopPropagation();
+        if (e.key === 'Escape') { this.setState({ switcher: false, swq: '' }); e.target.blur(); }
+        if (e.key === 'Enter') {
+          const first = this.WS.findIndex(w_ => w_.name.includes(this.state.swq));
+          if (first >= 0) this.go(first);
+        }
+      },
+      modelSel: s.modelSel, settings: s.settings,
+      modelName: this.MODELS[s.model].name,
+      m1: s.mStep === 0, m2: s.mStep === 1,
+      mTitle: s.mStep === 0 ? 'MODEL' : 'REASONING',
+      mPlaceholder: s.mStep === 0 ? 'select model…' : 'select reasoning…',
+      mHint: s.mStep === 0 ? '1–3 or ⏎ pick model · then reasoning · esc cancel' : `1–4 or ⏎ pick reasoning for ${this.MODELS[s.model].name} · esc back`,
+      mInput: (e) => this.setState({ mq: e.target.value }),
+      mKey: (e) => {
+        e.stopPropagation();
+        if (e.key === 'Escape') {
+          if (this.state.mStep === 1) this.mReset(0);
+          else { this.setState({ modelSel: false, mq: '' }); e.target.blur(); }
+        }
+        if (['1','2','3','4'].includes(e.key)) { e.preventDefault(); this.mPick(Number(e.key) - 1); return; }
+        if (e.key === 'Enter') {
+          const q = this.state.mq;
+          if (this.state.mStep === 0) {
+            const i = this.MODELS.findIndex(mo => mo.name.includes(q));
+            if (i >= 0) { this.setState({ model: i }); this.mReset(1); }
+          } else {
+            const i = this.REASONS.findIndex(r => r.includes(q));
+            if (i >= 0) this.setState({ reason: i, modelSel: false, mStep: 0, mq: '' });
+          }
+        }
+      },
+      openModel: () => this.setState({ modelSel: true, mStep: 0, mq: '', settings: false, palette: false }, () => { const el = this.refs?.minp; if (el) { el.value = ''; el.focus(); } }),
+      mRows: this.MODELS.map((mo, i) => ({
+        name: mo.name, desc: mo.desc, meta: mo.meta, k: String(i + 1),
+        edge: i === s.model ? accent : 'transparent',
+        bg: i === s.model ? `oklch(0.76 0.14 ${w.hue} / 0.08)` : 'transparent',
+        bars: [1, 2, 3, 4].map(n => ({ h: n * 3.5, c: n <= mo.bars ? (i === s.model ? accent : '#8d8d93') : 'rgba(255,255,255,0.1)' })),
+        pick: () => { this.setState({ model: i }); this.mReset(1); },
+      })).filter(r => r.name.includes(s.mq)),
+      rTiles: this.REASONS.map((label, i) => ({
+        label, k: String(i + 1),
+        border: i === s.reason ? `oklch(0.76 0.14 ${w.hue} / 0.5)` : 'rgba(255,255,255,0.07)',
+        bg: i === s.reason ? `oklch(0.76 0.14 ${w.hue} / 0.08)` : 'transparent',
+        fg: i === s.reason ? '#efefea' : '#8d8d93',
+        bars: [1, 2, 3, 4].map(n => ({ h: n * 5, c: n <= i + 1 ? (i === s.reason ? accent : '#8d8d93') : 'rgba(255,255,255,0.1)' })),
+        pick: () => this.setState({ reason: i, modelSel: false, mStep: 0, mq: '' }),
+      })).filter(t => t.label.includes(s.mq)),
+      reasonLabel: this.REASONS[s.reason],
+      cycleReason: () => this.setState({ reason: (s.reason + 1) % 4 }),
+      grainLabel: grain ? 'on' : 'off',
+      motionLabel: motion ? 'on' : 'off',
+      togGrain: () => this.setState({ sGrain: !grain }),
+      togMotion: () => this.setState({ sMotion: !motion }),
       openKeys: () => this.setState({ keysOpen: true }),
       closeAll: () => this.setState({ switcher: false, palette: false, keysOpen: false }),
       eat: (e) => e.stopPropagation(),
@@ -658,4 +805,3 @@ class Component extends DCLogic {
 </script>
 </body>
 </html>
-
