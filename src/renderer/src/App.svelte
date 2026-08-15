@@ -4,13 +4,17 @@
   import Rail from './components/Rail.svelte'
   import Strip from './components/strip/Strip.svelte'
   import Composer from './components/Composer.svelte'
+  import TerminalDrawer from './components/TerminalDrawer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import { app } from '$lib/state/app.svelte'
   import { shell } from '$lib/state/shell.svelte'
+  import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
+
+  $effect(() => startPersistence())
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -69,6 +73,9 @@
 
     <div class="main">
       <Strip />
+      {#if shell.terminal}
+        <TerminalDrawer onclose={() => shell.toggleTerminal()} />
+      {/if}
       <Composer bind:input={composerInput} />
     </div>
   </div>

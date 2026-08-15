@@ -13,14 +13,23 @@ Keep this as the project verification menu. Add commands only after they pass lo
 
 | Check | Command | Status |
 |---|---|---|
-| Bootstrap/install | `pnpm install` | planned |
-| Run application | `pnpm dev` (electron-vite dev, HMR) | planned |
-| Fast code checks | `pnpm check` (svelte-check + tsc) | planned |
-| Exercise primary behavior | Launch shell; verify keyboard nav (`1–3`, `h/l`, leader, `⌘K`) | planned |
-| Observe failures | Electron DevTools console + main-process stdout | planned |
-| Reset/cleanup | Quit app; `rm -rf node_modules` + `pnpm install` | planned |
+| Bootstrap/install | `pnpm install` | verified |
+| Run application | `pnpm dev` (electron-vite dev, HMR) | verified |
+| Fast code checks | `pnpm check` (svelte-check + tsc) | verified |
+| Unit tests | `pnpm test` (vitest) | verified |
+| Build | `pnpm build` (main + preload + renderer → `dist/`) | verified |
+| Visual review vs reference | `pnpm dev:web` on :5273, compare with `docs/reference/design/` | verified |
+| Observe failures | Electron DevTools console + main-process stdout | verified |
+| Reset/cleanup | Quit app; delete `~/Library/Application Support/PiOcarina/catalog.json` | verified |
 
-Greenfield: commands stay `planned` until the scaffold exists and each passes locally.
+Notes:
+
+- `pnpm dev:web` runs the renderer alone in a browser (no Electron APIs) purely for
+  visual comparison against the design reference. Animation smoothness cannot be
+  judged there — a headless pane never composites, so transitions do not advance;
+  judge motion in the real Electron window.
+- Electron's binary occasionally extracts incompletely on install; if `pnpm dev`
+  reports "Electron failed to install correctly", re-run `pnpm install`.
 
 ## Risk Lanes
 

@@ -54,7 +54,9 @@
     letter-spacing: 0.1em;
     background: var(--bg-chip);
     color: var(--fg-muted);
-    transition: all 0.2s;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
   }
   .mode.accented {
     background: var(--accent);

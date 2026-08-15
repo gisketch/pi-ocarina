@@ -87,7 +87,11 @@
     font-size: 12px;
     font-family: var(--font-body);
     text-align: left;
-    transition: all 0.15s;
+    /* Explicit rather than `all`: nothing here may animate a layout property. */
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s;
   }
   .option:hover {
     border-color: rgba(255, 255, 255, 0.2);

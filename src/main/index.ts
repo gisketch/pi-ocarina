@@ -1,8 +1,15 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { type CatalogState, readCatalog, writeCatalog } from './catalog'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
+
+// Set before anything reads a path: userData derives from the app name, and an
+// unnamed dev run would scatter state across an "Electron" directory instead.
+app.setName('PiOcarina')
+
+const catalogFile = (): string => join(app.getPath('userData'), 'catalog.json')
 
 // Chrome is drawn entirely by the renderer (the design owns its own titlebar and
 // window buttons), so the window is frameless and the shell background matches
@@ -53,8 +60,26 @@ function registerWindowControls(): void {
   ipcMain.on('window:close', (event) => windowFromEvent(event)?.close())
 }
 
+function registerCatalog(): void {
+  ipcMain.handle('catalog:load', async () => {
+    const { state, warning } = await readCatalog(catalogFile())
+    if (warning) console.warn(`[catalog] ${warning} — starting from defaults`)
+    return { state, warning }
+  })
+
+  ipcMain.handle('catalog:save', async (_event, state: CatalogState) => {
+    try {
+      await writeCatalog(catalogFile(), state)
+    } catch (error) {
+      // Losing layout is not worth surfacing to the user mid-session.
+      console.warn('[catalog] save failed:', error)
+    }
+  })
+}
+
 void app.whenReady().then(() => {
   registerWindowControls()
+  registerCatalog()
   createWindow()
 
   app.on('activate', () => {

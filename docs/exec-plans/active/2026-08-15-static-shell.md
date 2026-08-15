@@ -87,7 +87,13 @@ Status legend: `todo` · `in-progress` · `done`.
   visual review vs reference columns; `pnpm check`.
 - Blocked by: T3 (parallel with T4/T5)
 
-## T7 — Drawer, persistence, ProMotion pass — `todo`
+## T7 — Drawer, persistence, ProMotion pass — `done`
+
+> Verified: catalog round-trip, corrupt-file recovery (warns and falls back to
+> defaults), and layout restore on relaunch all confirmed against the real
+> Electron app. Transition audit shows zero layout-animating properties.
+> **Outstanding for the user:** the subjective 120fps/ProMotion judgement, which
+> can only be made by watching the real window.
 
 - Delivered behavior: static terminal drawer (`t`, slideup, static prompt content);
   layout persistence to a real catalog JSON in `userData` (pins, focused
