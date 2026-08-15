@@ -1,4 +1,5 @@
 import { app } from './app.svelte'
+import { catalog } from './catalog.svelte'
 import { scrollColumn } from './columns'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
@@ -99,6 +100,10 @@ class ShellState {
       case 'newThread':
         // Creating a thread needs a pinned workspace; the command palette owns
         // that path, where there is somewhere to report failure.
+        break
+      case 'pinWorkspace':
+        // Failure lands on `catalog.error`, which the welcome screen renders.
+        void catalog.pin()
         break
     }
   }

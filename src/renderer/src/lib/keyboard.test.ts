@@ -19,6 +19,27 @@ function press(state: KeyState, ...keys: (string | KeyEventLike)[]) {
 const NORMAL = initialKeyState
 const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
 
+describe('the welcome screen', () => {
+  const empty = { workspaceCount: 0 }
+
+  it('makes ⏎ pin a folder when nothing is pinned', () => {
+    const result = reduceKey(NORMAL, { key: 'Enter' }, empty)
+
+    expect(result.actions).toEqual([{ type: 'pinWorkspace' }])
+    expect(result.preventDefault).toBe(true)
+  })
+
+  it('leaves ⏎ alone once a workspace exists', () => {
+    expect(reduceKey(NORMAL, { key: 'Enter' }, ctx).actions).toEqual([])
+  })
+
+  it('leaves ⏎ to an open overlay, which owns its own list', () => {
+    const withOverlay: KeyState = { ...NORMAL, overlay: 'switcher' }
+
+    expect(reduceKey(withOverlay, { key: 'Enter' }, empty).actions).toEqual([])
+  })
+})
+
 describe('NORMAL bindings', () => {
   it('jumps workspaces on 1-3 and ignores out-of-range digits', () => {
     expect(press(NORMAL, '2').actions).toEqual([{ type: 'goWorkspace', index: 1 }])

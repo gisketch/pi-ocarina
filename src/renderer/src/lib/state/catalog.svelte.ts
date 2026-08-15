@@ -10,19 +10,23 @@ import { threads } from './threads.svelte'
 
 /** Where the strip's workspaces come from.
  *
- *  `mock` is the design reference's demo state, kept so the shell can be
- *  reviewed against the reference and so the browser harness has something to
- *  draw. The moment the backend reports a pinned folder, the real catalog
- *  replaces it wholesale — the two are never mixed, because a column that is
- *  half demo and half real cannot be trusted. */
-export type CatalogSource = 'mock' | 'live'
+ *  `empty` is the real app before anything is pinned: the welcome screen, not
+ *  a strip. `mock` is the design reference's demo state, and it belongs to the
+ *  browser harness alone — the harness has no backend to pin against, so demo
+ *  data is the only thing it can draw. The desktop app never shows it, because
+ *  a person cannot tell a demo thread from a real one. The moment the backend
+ *  reports a pinned folder, the real catalog replaces whichever it was — the
+ *  three are never mixed. */
+export type CatalogSource = 'empty' | 'mock' | 'live'
 
 class Catalog {
-  workspaces = $state.raw<Workspace[]>(WORKSPACES)
-  source = $state.raw<CatalogSource>('mock')
+  // In the desktop app the strip starts genuinely empty; only the harness,
+  // which has no backend at all, starts on the demo state.
+  workspaces = $state.raw<Workspace[]>(bridge ? [] : WORKSPACES)
+  source = $state.raw<CatalogSource>(bridge ? 'empty' : 'mock')
 
-  /** Reads the real catalog. Falls back to the demo state when there is no
-   *  backend or nothing is pinned yet, so the window is never blank. */
+  /** Reads the real catalog. Leaves the starting state alone when nothing is
+   *  pinned: the welcome screen in the app, the demo in the harness. */
   async load(): Promise<void> {
     const pinned = await this.#listWorkspaces()
     if (pinned.length === 0) return

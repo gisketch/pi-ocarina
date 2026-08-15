@@ -33,45 +33,49 @@ function backend(workspaces: unknown[], threadsByWorkspace: Record<string, unkno
 
 const WORKSPACE = { id: 'w1', path: '/code/pi-core', name: 'pi-core', note: 'D', hue: 152 }
 
-/** The demo state as it stands before any test loads over it. */
-const DEMO = catalog.workspaces
-
+/** The starting state of the desktop app: nothing pinned, nothing to draw but
+ *  the welcome screen. The bridge is mocked as present above, so this is the
+ *  `empty` branch rather than the harness's demo branch. */
 beforeEach(() => {
   vi.restoreAllMocks()
-  catalog.workspaces = DEMO
-  catalog.source = 'mock'
+  catalog.workspaces = []
+  catalog.source = 'empty'
   catalog.error = null
   picker.pick = '/code/pinned'
   app.goWorkspace(0)
   app.focus = []
 })
 
-describe('falling back to the demo catalog', () => {
-  it('keeps the demo workspaces when nothing is pinned', async () => {
+describe('before anything is pinned', () => {
+  it('stays empty rather than showing demo threads', async () => {
     backend([])
 
     await catalog.load()
 
-    expect(catalog.source).toBe('mock')
-    expect(catalog.workspaces.map((workspace) => workspace.name)).toEqual([
-      'pi-core',
-      'ocarina-ui',
-      'docs-site',
-    ])
+    expect(catalog.source).toBe('empty')
+    expect(catalog.workspaces).toEqual([])
   })
 
-  it('keeps the demo workspaces when there is no backend at all', async () => {
+  it('stays empty when there is no backend at all', async () => {
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('no session backend'))
 
     await catalog.load()
 
-    expect(catalog.source).toBe('mock')
-    expect(catalog.workspaces.length).toBeGreaterThan(0)
+    expect(catalog.source).toBe('empty')
+    expect(catalog.workspaces).toEqual([])
+  })
+
+  it('reads as an absent workspace rather than throwing', () => {
+    // Every chrome segment still renders around the welcome screen.
+    expect(app.workspace.id).toBe('')
+    expect(app.workspace.threads).toEqual([])
+    expect(app.thread.id).toBe('')
+    expect(app.threadLabel).toBe('–')
   })
 })
 
 describe('the real catalog', () => {
-  it('replaces the demo state entirely once a folder is pinned', async () => {
+  it('fills the strip once a folder is pinned', async () => {
     backend([WORKSPACE], {
       w1: [{ id: 's1', title: 'retry backoff', modified: '2026-08-15T14:02:00Z', messageCount: 8 }],
     })
@@ -154,10 +158,13 @@ describe('the real catalog', () => {
   })
 
   it('pulls the focused workspace back in range when the list shrinks', async () => {
-    // Pinning replaces three demo workspaces with one. An index left pointing
-    // past the end leaves the rail with nothing highlighted while the rest of
-    // the chrome reads a different workspace.
+    // A workspace can be unpinned elsewhere. An index left pointing past the
+    // end leaves the rail with nothing highlighted while the rest of the
+    // chrome reads a different workspace.
+    backend([WORKSPACE, { ...WORKSPACE, id: 'w2' }, { ...WORKSPACE, id: 'w3' }])
+    await catalog.load()
     app.goWorkspace(2)
+
     backend([WORKSPACE], {
       w1: [{ id: 's1', title: 'first', modified: '2026-08-15T14:02:00Z', messageCount: 1 }],
     })
@@ -169,8 +176,16 @@ describe('the real catalog', () => {
   })
 
   it('pulls a remembered thread position back in range too', async () => {
-    app.goWorkspace(0)
-    app.focusThread(2) // demo pi-core has three threads
+    backend([WORKSPACE], {
+      w1: [
+        { id: 's1', title: 'a', modified: '2026-08-15T14:02:00Z', messageCount: 1 },
+        { id: 's2', title: 'b', modified: '2026-08-15T14:02:00Z', messageCount: 1 },
+        { id: 's3', title: 'c', modified: '2026-08-15T14:02:00Z', messageCount: 1 },
+      ],
+    })
+    await catalog.load()
+    app.focusThread(2)
+
     backend([WORKSPACE], {
       w1: [{ id: 's1', title: 'only one', modified: '2026-08-15T14:02:00Z', messageCount: 1 }],
     })
@@ -180,7 +195,7 @@ describe('the real catalog', () => {
     expect(app.threadIndex).toBe(0)
   })
 
-  it('keeps the demo state when the thread listing fails', async () => {
+  it('shows the workspace with a fresh column when the thread listing fails', async () => {
     vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) => {
       if (name === 'listWorkspaces') return Promise.resolve({ workspaces: [WORKSPACE] } as never)
       return Promise.reject(new Error('session store unreadable'))

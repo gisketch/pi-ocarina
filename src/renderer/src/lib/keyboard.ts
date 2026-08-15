@@ -14,6 +14,7 @@ export type Action =
   | { type: 'moveThread'; delta: number }
   | { type: 'scrollColumn'; delta: number }
   | { type: 'newThread' }
+  | { type: 'pinWorkspace' }
   | { type: 'compact' }
   | { type: 'yank' }
   | { type: 'focusComposer' }
@@ -129,6 +130,12 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
 
   // Everything below is NORMAL-only; typing must reach the input untouched.
   if (typing) return result(state, [], false)
+
+  // With nothing pinned the welcome screen is the whole app, and its one
+  // action is the only thing ⏎ could mean.
+  if (key === 'Enter' && ctx.workspaceCount === 0 && !anyOverlay) {
+    return result(state, [{ type: 'pinWorkspace' }])
+  }
 
   switch (key) {
     case ' ':

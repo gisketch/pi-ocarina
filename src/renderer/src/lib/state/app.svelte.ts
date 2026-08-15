@@ -3,6 +3,28 @@ import { clampThread } from '../strip'
 import { threads } from './threads.svelte'
 import type { Mode, Thread, ThreadStatus, Workspace } from '../types'
 
+/** Stand-ins for "there is nothing here yet". Frozen so a component cannot
+ *  write into what is meant to be the absence of a workspace or thread. The
+ *  hue is the default accent, so the welcome screen is not off-palette. */
+const NO_WORKSPACE: Workspace = Object.freeze({
+  id: '',
+  name: '',
+  note: '',
+  hue: 152,
+  branch: '',
+  git: '',
+  snippet: '',
+  threads: Object.freeze([]) as unknown as Thread[],
+})
+
+const NO_THREAD: Thread = Object.freeze({
+  id: '',
+  title: '',
+  status: 'idle',
+  meta: '',
+  fresh: true,
+})
+
 /** Single source of truth for shell state. Every chrome segment reads from here
  *  so real data becomes a drop-in replacement for the mock catalog. */
 class AppState {
@@ -18,7 +40,10 @@ class AppState {
   }
 
   get workspace(): Workspace {
-    return this.workspaces[this.workspaceIndex]
+    // Before anything is pinned there is no workspace, and the chrome around
+    // the welcome screen still reads this. A placeholder keeps every segment
+    // blank instead of every segment throwing.
+    return this.workspaces[this.workspaceIndex] ?? NO_WORKSPACE
   }
 
   /** Pulls the focused position back inside a workspace list that changed under
@@ -39,10 +64,11 @@ class AppState {
   }
 
   get thread(): Thread {
-    return this.workspace.threads[this.threadIndex]
+    return this.workspace.threads[this.threadIndex] ?? NO_THREAD
   }
 
   get threadLabel(): string {
+    if (this.workspace.threads.length === 0) return '–'
     return `${this.threadIndex + 1}/${this.workspace.threads.length}`
   }
 

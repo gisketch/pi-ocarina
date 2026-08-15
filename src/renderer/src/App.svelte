@@ -3,6 +3,7 @@
   import Statusbar from './components/Statusbar.svelte'
   import Rail from './components/Rail.svelte'
   import Strip from './components/strip/Strip.svelte'
+  import Welcome from './components/Welcome.svelte'
   import Composer from './components/Composer.svelte'
   import TerminalDrawer from './components/TerminalDrawer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
@@ -13,6 +14,7 @@
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
   import { attachments } from '$lib/state/attachments.svelte'
   import { models } from '$lib/state/models.svelte'
@@ -23,10 +25,13 @@
   import type { CommandId } from '$lib/commands'
   import { REASONING_ORDER } from '../../shared/vocabulary'
 
-  // The demo columns are seeded first so the window is never blank. The real
-  // catalog and the saved layout are loaded together by startPersistence, which
-  // has to apply the layout only once the real workspace list is in place.
-  seedMockThreads()
+  // The demo columns belong to the browser harness alone — it has no backend
+  // to pin against, so demo data is the only thing it can draw. The desktop app
+  // opens on the welcome screen instead, because a person cannot tell a demo
+  // thread from a real one. The real catalog and the saved layout are loaded
+  // together by startPersistence, which has to apply the layout only once the
+  // real workspace list is in place.
+  if (!bridge) seedMockThreads()
   $effect(() => startPersistence())
   // Loaded once, ahead of the first `m`, so the selector opens instantly.
   $effect(() => {
@@ -153,11 +158,15 @@
     <Rail onPin={() => shell.openOverlay('switcher')} onKeymap={() => shell.openOverlay('keymap')} />
 
     <div class="main">
-      <Strip />
-      {#if shell.terminal}
-        <TerminalDrawer onclose={() => shell.toggleTerminal()} />
+      {#if catalog.source === 'empty'}
+        <Welcome />
+      {:else}
+        <Strip />
+        {#if shell.terminal}
+          <TerminalDrawer onclose={() => shell.toggleTerminal()} />
+        {/if}
+        <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
       {/if}
-      <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
     </div>
   </div>
 

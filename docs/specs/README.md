@@ -19,6 +19,9 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   catalog, lifecycle, failures, approvals. **Milestone 2 contract.**
 - [2026-08-15-composer-controls.md](2026-08-15-composer-controls.md) — composer,
   slash, @-mention, attachments, model/reasoning, history search.
+- [2026-08-16-core-usability.md](2026-08-16-core-usability.md) — welcome screen,
+  real new/close thread, live status bar, model-chip race. **Ships before git
+  & terminal.**
 - [2026-08-15-git-terminal.md](2026-08-15-git-terminal.md) — git status pipeline,
   commit card, pty drawer, toasts/modals/banner.
 
