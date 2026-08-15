@@ -1,6 +1,6 @@
 import type { Mode } from './types'
 
-export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model'
+export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model' | 'search'
 
 export interface KeyState {
   mode: Mode
@@ -72,7 +72,7 @@ function goWorkspace(state: KeyState, index: number): KeyResult {
 
 /** Overlays that own a text caret. Their input must receive every keystroke
  *  the shell would otherwise read as a binding. */
-const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher', 'model'])
+const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher', 'model', 'search'])
 
 function focusFor(overlay: Overlay | null): Action[] {
   if (overlay === 'palette') return [{ type: 'focusPalette' }]
@@ -153,6 +153,9 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'settings')
     case 'm':
       return toggleOverlay(state, 'model')
+    case '/':
+      // Search, by the convention every editor and pager already taught.
+      return toggleOverlay(state, 'search')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
     case 'y':
@@ -180,6 +183,8 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'settings' }, [], true, 'clear')
     case 'm':
       return result({ ...done, overlay: 'model' }, [], true, 'clear')
+    case 'f':
+      return result({ ...done, overlay: 'search' }, focusFor('search'), true, 'clear')
     case 'n':
       return result({ ...done, overlay: null }, [{ type: 'newThread' }], true, 'clear')
     case 't':

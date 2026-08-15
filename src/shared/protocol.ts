@@ -105,6 +105,17 @@ export interface ModelSummary {
   reasoning: ReasoningLevel[]
 }
 
+/** A thread a search matched, and where the match was. */
+export interface SearchHit {
+  workspaceId: string
+  workspaceName: string
+  threadId: string
+  title: string
+  /** The line the match sits in, for the result row. */
+  snippet: string
+  modified: string
+}
+
 /** A thread that exists on disk, whether this app or the pi CLI started it. */
 export interface ThreadSummary {
   id: string
@@ -145,6 +156,13 @@ export interface SessionCommands {
   compact: { params: { threadId: string }; result: { ok: true } }
   /** Paths the @-mention picker offers, relative to the workspace. */
   listFiles: { params: { workspaceId: string }; result: { files: string[] } }
+  /** Searches thread titles and transcripts. `complete` is false when the time
+   *  budget ran out — the result then says so rather than implying it saw
+   *  every thread. */
+  searchThreads: {
+    params: { query: string }
+    result: { hits: SearchHit[]; complete: boolean }
+  }
   listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
   setModel: {
     params: { threadId: string; provider: string; model: string }

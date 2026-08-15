@@ -11,6 +11,7 @@
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
+  import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
   import { attachments } from '$lib/state/attachments.svelte'
@@ -88,6 +89,17 @@
 
   function onKeydown(event: KeyboardEvent): void {
     if (shell.handleKey(event)) event.preventDefault()
+  }
+
+  /** Puts a thread from somewhere else on screen: the right workspace, then the
+   *  right column within it. */
+  function jumpTo(workspaceId: string, threadId: string): void {
+    const workspace = app.workspaces.findIndex((candidate) => candidate.id === workspaceId)
+    if (workspace === -1) return
+    app.goWorkspace(workspace)
+
+    const column = app.workspaces[workspace].threads.findIndex((thread) => thread.id === threadId)
+    if (column !== -1) app.focusThread(column)
   }
 
   function runCommand(id: CommandId): void {
@@ -171,6 +183,14 @@
       current={threads.get(app.thread.id).model}
       onpick={(model, reasoning) => {
         threads.setModel(app.thread.id, model, reasoning)
+        shell.closeOverlay()
+      }}
+    />
+  {:else if shell.overlay === 'search'}
+    <SearchOverlay
+      onclose={() => shell.closeOverlay()}
+      onjump={(hit) => {
+        jumpTo(hit.workspaceId, hit.threadId)
         shell.closeOverlay()
       }}
     />

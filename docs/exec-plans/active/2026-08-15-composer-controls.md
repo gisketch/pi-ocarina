@@ -160,7 +160,21 @@ Status legend: `todo` · `in-progress` · `done`.
   review vs section 14.
 - Blocked by: D1, B3 (per-thread persistence), F1 (spotlight primitive)
 
-## D6 — History search — `todo`
+## D6 — History search — `done`
+
+> `/` in NORMAL (and leader `f`) opens a search over every thread in every
+> pinned workspace, on the same spotlight primitive as the switcher and the
+> model selector. `⏎` jumps: the right workspace first, then the right column.
+>
+> **Titles are searched first, transcripts second, under a 400ms budget.**
+> Titles are already in memory, so those results are free and always complete.
+> Reading session files is not, so that pass stops when the budget is gone —
+> and the overlay **says so** rather than implying it saw every thread. A search
+> that quietly returns half the matches is worse than one that admits it.
+>
+> Snippets are cut from the raw session file and stripped of JSON punctuation.
+> Parsing every transcript to answer a keystroke would cost far more than a
+> search list is worth.
 
 - Delivered behavior: an overlay searching thread titles/content across all
   workspaces (match highlighting, workspace tag, recency label); `⏎` jumps to

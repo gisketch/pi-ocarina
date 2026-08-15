@@ -1,6 +1,7 @@
 import type { CommandName, CommandParams } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
 import type { ModelControl } from './model-control'
+import { searchThreads } from './search'
 import type { WorkspaceService } from './workspaces'
 
 /** Read-only commands about a workspace, rather than about a thread.
@@ -49,6 +50,11 @@ export class WorkspaceQueries {
       case 'listFiles': {
         const { workspaceId } = params as CommandParams<'listFiles'>
         return { result: { files: await this.#workspaces.listFiles(workspaceId) } }
+      }
+
+      case 'searchThreads': {
+        const { query } = params as CommandParams<'searchThreads'>
+        return { result: await searchThreads(this.#workspaces, query) }
       }
 
       case 'listModels':

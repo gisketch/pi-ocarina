@@ -209,3 +209,26 @@ describe('settings', () => {
     expect(press(settings, '?').state.overlay).toBe('keymap')
   })
 })
+
+describe('search', () => {
+  it('opens on slash, the convention every editor already taught', () => {
+    expect(press(NORMAL, '/').state.overlay).toBe('search')
+  })
+
+  it('opens on the leader f chord', () => {
+    expect(press(NORMAL, ' ', 'f').state.overlay).toBe('search')
+  })
+
+  it('a second slash types into the filter instead of closing it', () => {
+    expect(press(NORMAL, '/', '/').state.overlay).toBe('search')
+  })
+
+  it('does not steal a slash typed into the composer', () => {
+    const insert = press(NORMAL, 'i').state
+    expect(press(insert, '/').state.overlay).toBe(null)
+  })
+
+  it('escape closes it', () => {
+    expect(press(NORMAL, '/', 'Escape').state.overlay).toBe(null)
+  })
+})
