@@ -12,6 +12,7 @@
 import type { UiEvent } from '../../../shared/protocol'
 import type { ThreadRunState } from '../../../shared/vocabulary'
 import type { Block, ThreadViewModel, ToolRow } from './thread'
+import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
 
@@ -43,14 +44,18 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
     case 'user-message':
       return push(model, { kind: 'user', id: event.id, text: event.text })
 
+    // Starting a message is not evidence the agent said anything. pi splits a
+    // tool-calling turn into a chain of assistant messages that carry no text
+    // at all, so a block made here would be an empty "PI" before every tool
+    // call — and would cut the run of calls into unrelated-looking ledgers.
     case 'agent-message-start':
-      return push(model, { kind: 'agent', id: event.id, text: '', streaming: true })
+      return model
 
     case 'agent-message-delta':
-      return growMessage(model, event.id, event.text)
+      return growTurnMessage(model, event.text)
 
     case 'agent-message-end':
-      return editBlock(model, event.id, 'agent', (block) => ({ ...block, streaming: false }))
+      return settleTurnMessage(model)
 
     case 'tool-start':
       return startTool(model, event)
@@ -248,13 +253,6 @@ function dropBlock(model: ThreadViewModel, id: string): ThreadViewModel {
 
 /** A delta for a message that never started still carries the agent's words,
  *  so it opens the message rather than being discarded. */
-function growMessage(model: ThreadViewModel, id: string, text: string): ThreadViewModel {
-  const grown = editBlock(model, id, 'agent', (block) => ({ ...block, text: block.text + text }))
-  if (grown !== model) return grown
-
-  return push(model, { kind: 'agent', id, text, streaming: true })
-}
-
 function startTool(
   model: ThreadViewModel,
   event: UiEvent & { kind: 'tool-start' },

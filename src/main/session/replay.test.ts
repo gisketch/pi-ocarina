@@ -1,6 +1,7 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
+import { replayThread } from '../../renderer/src/lib/thread-reducer'
 import { PiTranslator } from './pi-translate'
 import { replayEntries, stripAnsi } from './replay'
 
@@ -181,6 +182,87 @@ describe('replayEntries', () => {
 })
 
 describe('replay matches live', () => {
+  /** pi's real shape for a tool-calling turn, verified against a session file:
+   *  a chain of assistant messages that carry no text, one per tool call, and
+   *  the words only at the end. This is the case that made the same turn read
+   *  two different ways — an empty "PI" before every call when watched, and
+   *  none of them when reopened. */
+  it('projects a multi-tool turn the same way from both sources', () => {
+    const translator = new PiTranslator()
+    const call = (n: number) => [
+      { type: 'message_start', message: { role: 'assistant' } },
+      { type: 'tool_execution_start', toolCallId: `t${n}`, toolName: 'bash', args: { command: `check ${n}` } },
+      {
+        type: 'tool_execution_end',
+        toolCallId: `t${n}`,
+        toolName: 'bash',
+        result: { content: [{ type: 'text', text: 'ok' }] },
+        isError: false,
+      },
+      { type: 'message_end', message: { role: 'assistant', stopReason: 'stop' } },
+    ]
+
+    const live = [
+      { type: 'agent_start' },
+      {
+        type: 'entry_appended',
+        entry: {
+          type: 'message',
+          id: 'u1',
+          message: { role: 'user', content: [{ type: 'text', text: 'run the checks' }] },
+        },
+      },
+      ...call(1),
+      ...call(2),
+      ...call(3),
+      { type: 'message_start', message: { role: 'assistant' } },
+      { type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: 'all three passed' } },
+      { type: 'message_end', message: { role: 'assistant', stopReason: 'stop' } },
+      { type: 'agent_end', willRetry: false },
+    ].flatMap((event) => translator.translate(event as Parameters<PiTranslator['translate']>[0]))
+
+    const stored = [1, 2, 3].flatMap((n) => [
+      message(`a${n}`, {
+        role: 'assistant',
+        content: [{ type: 'toolCall', id: `t${n}`, name: 'bash', arguments: { command: `check ${n}` } }],
+      }),
+      message(`r${n}`, {
+        role: 'toolResult',
+        toolCallId: `t${n}`,
+        toolName: 'bash',
+        content: [{ type: 'text', text: 'ok' }],
+        isError: false,
+      }),
+    ])
+
+    const replayed = replayEntries(
+      entries(
+        message('u1', { role: 'user', content: [{ type: 'text', text: 'run the checks' }] }),
+        ...stored,
+        message('a4', { role: 'assistant', content: [{ type: 'text', text: 'all three passed' }] }),
+      ),
+    )
+
+    // What the agent did, which is what this compares. The user's own message
+    // and its checkpoint are left out on purpose: live, the driver emits the
+    // message and the translator the checkpoint, so the two arrive in the
+    // opposite order to replay's. That ordering is a separate divergence and
+    // hiding it inside this assertion would only make it harder to find.
+    const work = (events: UiEvent[]) =>
+      replayThread(events)
+        .blocks.filter((block) => block.kind === 'ledger' || block.kind === 'agent')
+        .map((block) =>
+          block.kind === 'ledger'
+            ? `ledger(${block.rows.map((row) => row.id).join(',')})`
+            : `agent(${block.text})`,
+        )
+
+    // One ledger of three rows, then one message. No empty agent block
+    // anywhere, from either source.
+    expect(work(live)).toEqual(['ledger(t1,t2,t3)', 'agent(all three passed)'])
+    expect(work(replayed)).toEqual(work(live))
+  })
+
   /** The same turn, once as it streamed and once as it was stored. If these
    *  drift, a reopened thread stops looking like the thread the user watched. */
   it('produces the same projection as the live translator', () => {

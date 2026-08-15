@@ -5,9 +5,12 @@
     role: 'user' | 'agent'
     text: string
     streaming?: boolean
+    /** The agent's name is said once per turn, above everything it did, so an
+     *  agent message inside a turn that already named it stays unlabelled. */
+    labelled?: boolean
   }
 
-  const { role, text, streaming = false }: Props = $props()
+  const { role, text, streaming = false, labelled = true }: Props = $props()
   const nodes = $derived(parseMarkdown(text))
 
   // The caret belongs on the last thing the agent wrote, wherever that is.
@@ -19,7 +22,9 @@
     >{:else}{segment.text}{/if}{/each}{/snippet}
 
 <div class="message {role}">
-  <div class="label">{role === 'user' ? 'YOU' : '■ PI'}</div>
+  {#if labelled}
+    <div class="label">{role === 'user' ? 'YOU' : '■ PI'}</div>
+  {/if}
 
   <div class="text">
     {#each nodes as node, i (i)}

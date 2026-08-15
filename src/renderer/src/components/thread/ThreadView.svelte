@@ -3,6 +3,7 @@
   import Ledger from './Ledger.svelte'
   import AskCard from './AskCard.svelte'
   import ApproveCard from './ApproveCard.svelte'
+  import AgentLabel from './AgentLabel.svelte'
   import Checkpoint from './Checkpoint.svelte'
   import Compaction from './Compaction.svelte'
   import QueuedSteer from './QueuedSteer.svelte'
@@ -10,6 +11,7 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
+  import { marksTurnStart } from '$lib/thread-turn'
 
   interface Props {
     threadId: string
@@ -33,6 +35,12 @@
   const marker = $derived(cut > 0 ? (blocks[cut]?.id ?? null) : null)
   const hidden = $derived(marker !== null && expandedFor !== marker ? cut : 0)
   const shown = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
+
+  // Which blocks open a turn's worth of agent work. pi splits one turn across
+  // several messages and interleaves tool calls between them, so the name is
+  // said once, above the first thing the agent did, rather than once per
+  // message — which is what made a four-tool turn read as four separate PIs.
+  const opensTurn = $derived(marksTurnStart(shown))
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -40,11 +48,14 @@
      produce two of them. Keying on the id alone makes a collision fatal — the
      list throws, and Svelte abandons every update queued behind it, which
      strands unrelated chrome mid-frame. -->
-{#each shown as block (`${block.kind}:${block.id}`)}
+{#each shown as block, i (`${block.kind}:${block.id}`)}
+  {#if opensTurn[i]}
+    <AgentLabel />
+  {/if}
   {#if block.kind === 'user'}
     <Message role="user" text={block.text} />
   {:else if block.kind === 'agent'}
-    <Message role="agent" text={block.text} streaming={block.streaming} />
+    <Message role="agent" text={block.text} streaming={block.streaming} labelled={false} />
   {:else if block.kind === 'ledger'}
     <Ledger rows={block.rows} />
   {:else if block.kind === 'ask'}

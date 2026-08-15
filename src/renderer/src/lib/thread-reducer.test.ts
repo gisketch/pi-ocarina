@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../../shared/protocol'
 import { reduceBatch, reduceThread, replayThread } from './thread-reducer'
 import { EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
+import { marksTurnStart } from './thread-turn'
 
 function run(...events: UiEvent[]) {
   return replayThread(events)
@@ -30,7 +31,61 @@ describe('messages', () => {
   it('opens a streaming message and grows it delta by delta', () => {
     const model = run(start('m1'), delta('m1', 'Hel'), delta('m1', 'lo'))
 
-    expect(model.blocks).toEqual([{ kind: 'agent', id: 'm1', text: 'Hello', streaming: true }])
+    // The id is the block's own: one block can hold several of pi's messages,
+    // so no single message id owns it.
+    expect(model.blocks).toMatchObject([{ kind: 'agent', text: 'Hello', streaming: true }])
+  })
+
+  it('says nothing for a message that carried no text', () => {
+    // pi splits a tool-calling turn into a chain of messages with no text at
+    // all. A block for each would be an empty "PI" before every tool call.
+    const model = run(start('m1'), { kind: 'agent-message-end', id: 'm1' })
+
+    expect(model.blocks).toEqual([])
+  })
+
+  it('merges everything the agent says in one turn into one message', () => {
+    const model = run(
+      { kind: 'user-message', id: 'u1', text: 'go' },
+      start('m1'),
+      delta('m1', 'first'),
+      { kind: 'agent-message-end', id: 'm1' },
+      start('m2'),
+      delta('m2', ' and second'),
+      { kind: 'agent-message-end', id: 'm2' },
+    )
+
+    expect(kinds(model.blocks)).toEqual(['user', 'agent'])
+    expect(model.blocks[1]).toMatchObject({ text: 'first and second', streaming: false })
+  })
+
+  it('keeps a summary below the work it summarises', () => {
+    // Speaking, working, then speaking again is two things said. Folding the
+    // second into the first would put the summary above the tool calls.
+    const model = run(
+      start('m1'),
+      delta('m1', 'wrapping it in a retry loop'),
+      tool('t1'),
+      start('m2'),
+      delta('m2', 'done, all 18 tests pass'),
+    )
+
+    expect(kinds(model.blocks)).toEqual(['agent', 'ledger', 'agent'])
+    expect(model.blocks[2]).toMatchObject({ text: 'done, all 18 tests pass' })
+  })
+
+  it('starts a fresh message when the user speaks again', () => {
+    const model = run(
+      { kind: 'user-message', id: 'u1', text: 'one' },
+      start('m1'),
+      delta('m1', 'first'),
+      { kind: 'user-message', id: 'u2', text: 'two' },
+      start('m2'),
+      delta('m2', 'second'),
+    )
+
+    expect(kinds(model.blocks)).toEqual(['user', 'agent', 'user', 'agent'])
+    expect(model.blocks[3]).toMatchObject({ text: 'second' })
   })
 
   it('stops streaming when the message ends', () => {
@@ -47,11 +102,23 @@ describe('messages', () => {
     expect(model.blocks[0]).toMatchObject({ kind: 'agent', text: 'orphaned but real' })
   })
 
-  it('grows the right message when a tool interrupted it', () => {
+  it('resumes below a tool that interrupted the agent mid-sentence', () => {
+    // The words after the call were said after the call. Appending them to the
+    // block above would print them before the work they follow.
     const model = run(start('m1'), delta('m1', 'a'), tool('t1'), delta('m1', 'b'))
 
-    expect(kinds(model.blocks)).toEqual(['agent', 'ledger'])
-    expect(model.blocks[0]).toMatchObject({ text: 'ab' })
+    expect(kinds(model.blocks)).toEqual(['agent', 'ledger', 'agent'])
+    expect(model.blocks[0]).toMatchObject({ text: 'a' })
+    expect(model.blocks[2]).toMatchObject({ text: 'b' })
+  })
+
+  it('still stops the caret on a message a tool call outlived', () => {
+    const model = run(start('m1'), delta('m1', 'a'), tool('t1'), {
+      kind: 'agent-message-end',
+      id: 'm1',
+    })
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'agent', streaming: false })
   })
 
   it('keeps growing a message when a later block shares its id', () => {
@@ -98,8 +165,18 @@ describe('ledger grouping', () => {
     expect(rows(model.blocks)).toHaveLength(3)
   })
 
-  it('starts a new group after a message breaks the run', () => {
-    const model = run(tool('t1'), start('m1'), tool('t2'))
+  it('keeps the run together through the text-less messages pi splits it with', () => {
+    // Verified against a real session file: pi stores one tool-calling turn as
+    // a chain of assistant messages that carry no text. Treating each as a
+    // message cut one run of calls into unrelated-looking ledgers.
+    const model = run(tool('t1'), start('m1'), tool('t2'), start('m2'), tool('t3'))
+
+    expect(kinds(model.blocks)).toEqual(['ledger'])
+    expect(rows(model.blocks).map((row) => row.id)).toEqual(['t1', 't2', 't3'])
+  })
+
+  it('starts a new group when the agent actually says something', () => {
+    const model = run(tool('t1'), start('m1'), delta('m1', 'now the build'), tool('t2'))
 
     expect(kinds(model.blocks)).toEqual(['ledger', 'agent', 'ledger'])
   })
