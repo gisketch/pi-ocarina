@@ -7,7 +7,7 @@ only). Visual truth: [docs/reference/design/](../../reference/design/).
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## T1 — Scaffold & dark frame — `todo`
+## T1 — Scaffold & dark frame — `done`
 
 - Delivered behavior: `pnpm dev` boots an Electron window into the PiOcarina dark
   chrome: titlebar (wordmark, ocarina dots, right status text), empty content
@@ -19,7 +19,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: `pnpm check`; visual side-by-side vs reference titlebar/statusbar.
 - Blocked by: —
 
-## T2 — Workspaces: rail, identicons, accents — `todo`
+## T2 — Workspaces: rail, identicons, accents — `done`
 
 - Delivered behavior: mock catalog module (3 reference workspaces: pi-core D/152,
   ocarina-ui F♯/265, docs-site A/45). Rail renders 5×5 identicons (design hash

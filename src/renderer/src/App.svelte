@@ -1,17 +1,37 @@
 <script lang="ts">
   import Titlebar from './components/Titlebar.svelte'
   import Statusbar from './components/Statusbar.svelte'
+  import Rail from './components/Rail.svelte'
   import { app } from '$lib/state/app.svelte'
+
+  // The accent tokens are substituted where they are declared (:root), so the
+  // seeded hue must be written to the document element — setting it on .shell
+  // would leave every inherited --accent stuck on the default hue.
+  $effect(() => {
+    document.documentElement.style.setProperty('--accent-hue', String(app.workspace.hue))
+  })
+
+  // Interim binding: replaced wholesale by the mode state machine in T4.
+  function onKeydown(event: KeyboardEvent): void {
+    if (event.metaKey || event.ctrlKey || event.altKey) return
+    const digit = Number(event.key)
+    if (Number.isInteger(digit) && digit >= 1 && digit <= app.workspaces.length) {
+      app.goWorkspace(digit - 1)
+    }
+  }
 </script>
 
-<div class="shell" style:--accent-hue={app.workspace.hue}>
+<svelte:window onkeydown={onKeydown} />
+
+<div class="shell">
   <div class="tint"></div>
   <div class="grain"></div>
 
   <Titlebar />
 
   <div class="body">
-    <!-- rail + thread strip land in T2/T3 -->
+    <Rail />
+    <!-- thread strip lands in T3 -->
   </div>
 
   <Statusbar />
