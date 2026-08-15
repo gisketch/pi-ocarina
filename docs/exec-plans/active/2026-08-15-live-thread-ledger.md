@@ -88,7 +88,21 @@ Status legend: `todo` · `in-progress` · `done`.
   driver; integration pass on a real session; visual review.
 - Blocked by: C2, B4, B6
 
-## C4 — Subagents, errors, skeletons — `todo`
+## C4 — Subagents, errors, skeletons — `done`
+
+> Verified in the running app: denied rows red, timeout amber, cancelled struck
+> through, subagent children indented one level, the failed thread showing a red
+> header dot and its error row. Found and fixed a real misreport — pi says only
+> `isError`, so a command **the user refused** was rendering as a command that
+> **broke**. The approval gate now records the blocked `toolCallId` and the
+> translator maps it to `denied`.
+>
+> Three scope notes, all the same shape — pi 0.84 cannot produce them:
+> **subagents** (pi has no agent/task tool, and its tool events carry no parent
+> reference at all), **`timeout` and `cancelled` statuses** (pi reports one
+> boolean), and **per-row retry** (pi retries turns, not calls). Each is built
+> and fixture-tested, ready for a pi that emits them. The thread-level retry is
+> real and wired to `retryTurn`.
 
 - Delivered behavior: `agent` rows nest child tool rows one level deep; parallel
   subagents render as independently-updating sibling rows. Timeout rows offer

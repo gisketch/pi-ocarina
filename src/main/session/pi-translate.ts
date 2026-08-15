@@ -104,8 +104,17 @@ export class PiTranslator {
    *  Supplied by the driver, which can read the live session's stats. */
   readonly #contextWindow: () => number | undefined
 
-  constructor(contextWindow: () => number | undefined = () => undefined) {
+  /** Whether the approval gate stopped a call. pi reports every failure the
+   *  same way (`isError`), so without this a command the user refused would
+   *  read as one that broke — and the ledger would blame the tool. */
+  readonly #wasBlocked: (toolCallId: string) => boolean
+
+  constructor(
+    contextWindow: () => number | undefined = () => undefined,
+    wasBlocked: (toolCallId: string) => boolean = () => false,
+  ) {
     this.#contextWindow = contextWindow
+    this.#wasBlocked = wasBlocked
   }
 
   translate(event: AgentSessionEvent): UiEvent[] {
@@ -174,10 +183,13 @@ export class PiTranslator {
         const events: UiEvent[] = []
         const body = toolBody(event.toolName, event.result)
         if (body) events.push({ kind: 'tool-body', id: event.toolCallId, body })
+
+        const blocked = this.#wasBlocked(event.toolCallId)
         events.push({
           kind: 'tool-end',
           id: event.toolCallId,
-          status: event.isError ? 'fail' : 'ok',
+          status: blocked ? 'denied' : event.isError ? 'fail' : 'ok',
+          meta: blocked ? 'denied' : undefined,
         })
         return events
       }

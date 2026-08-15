@@ -127,6 +127,59 @@ describe('one paint per burst', () => {
   })
 })
 
+describe('loading history', () => {
+  it('is not loaded before the backend has answered', () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockReturnValue(new Promise(() => {}) as never)
+
+    threads.follow(id)
+
+    expect(threads.isLoaded(id)).toBe(false)
+  })
+
+  it('is loaded as soon as the first events arrive', () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockReturnValue(new Promise(() => {}) as never)
+    threads.follow(id)
+
+    session.ingest([batch(id, 0, [{ kind: 'user-message', id: 'u1', text: 'hi' }])])
+
+    expect(threads.isLoaded(id)).toBe(true)
+  })
+
+  it('is loaded once a thread with no history finishes opening', async () => {
+    // A brand-new thread is genuinely empty; it must not skeleton forever.
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+    threads.follow(id)
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(threads.isLoaded(id)).toBe(true)
+    expect(threads.get(id).blocks).toEqual([])
+  })
+
+  it('is loaded even when opening failed, so the error can be shown', async () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockRejectedValue(new Error('unreadable session file'))
+    threads.follow(id)
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(threads.isLoaded(id)).toBe(true)
+    expect(threads.errorFor(id)).toBe('unreadable session file')
+  })
+
+  it('a seeded thread is loaded immediately', () => {
+    const id = freshId()
+    threads.seed(id, { blocks: [], status: 'idle', runState: 'idle' })
+
+    expect(threads.isLoaded(id)).toBe(true)
+  })
+})
+
 describe('what the cards do', () => {
   it('sends each decision to the backend with its thread', () => {
     const id = freshId()

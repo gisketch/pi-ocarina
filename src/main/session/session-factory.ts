@@ -103,6 +103,7 @@ export class SessionFactory {
                 workspaceId,
                 toolName: event.toolName,
                 input: event.input,
+                toolCallId: event.toolCallId,
               })
               return verdict.blocked ? { block: true, reason: verdict.reason } : undefined
             })

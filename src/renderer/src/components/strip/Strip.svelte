@@ -1,9 +1,8 @@
 <script lang="ts">
   import ThreadColumn from './ThreadColumn.svelte'
   import FreshThread from './FreshThread.svelte'
-  import ThreadView from '../thread/ThreadView.svelte'
+  import LiveThread from './LiveThread.svelte'
   import { app } from '$lib/state/app.svelte'
-  import { threads } from '$lib/state/threads.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
   const workspace = $derived(app.workspace)
@@ -20,7 +19,7 @@
           <FreshThread {workspace} />
         {:else}
           <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
-            <ThreadView threadId={thread.id} blocks={threads.get(thread.id).blocks} />
+            <LiveThread threadId={thread.id} />
           </ThreadColumn>
         {/if}
       {/each}

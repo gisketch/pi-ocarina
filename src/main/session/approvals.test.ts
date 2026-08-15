@@ -224,6 +224,71 @@ describe('ApprovalGate', () => {
     expect(store.state).toEqual({})
   })
 
+  it('remembers which call it blocked, so the row can read "denied"', async () => {
+    const { gate: approvals, events } = gate()
+
+    const pending = approvals.request({
+      threadId: 't1',
+      workspaceId: 'w1',
+      toolCallId: 'call-7',
+      ...bash('rm -rf /'),
+    })
+    await Promise.resolve()
+    approvals.resolve(id(events), 'deny')
+    await pending
+
+    expect(approvals.takeBlocked('call-7')).toBe(true)
+  })
+
+  it('reports a blocked call once, then forgets it', async () => {
+    const { gate: approvals, events } = gate()
+
+    const pending = approvals.request({
+      threadId: 't1',
+      workspaceId: 'w1',
+      toolCallId: 'call-7',
+      ...bash('rm -rf /'),
+    })
+    await Promise.resolve()
+    approvals.resolve(id(events), 'deny')
+    await pending
+
+    expect(approvals.takeBlocked('call-7')).toBe(true)
+    expect(approvals.takeBlocked('call-7')).toBe(false)
+  })
+
+  it('does not mark an allowed call as blocked', async () => {
+    const { gate: approvals, events } = gate()
+
+    const pending = approvals.request({
+      threadId: 't1',
+      workspaceId: 'w1',
+      toolCallId: 'call-8',
+      ...bash('pnpm install'),
+    })
+    await Promise.resolve()
+    approvals.resolve(id(events), 'allow-once')
+    await pending
+
+    expect(approvals.takeBlocked('call-8')).toBe(false)
+  })
+
+  it('marks a call abandoned by a closing thread as blocked too', async () => {
+    const { gate: approvals } = gate()
+
+    const pending = approvals.request({
+      threadId: 't1',
+      workspaceId: 'w1',
+      toolCallId: 'call-9',
+      ...bash('pnpm install'),
+    })
+    await Promise.resolve()
+    approvals.abandon('t1')
+    await pending
+
+    expect(approvals.takeBlocked('call-9')).toBe(true)
+  })
+
   it('closing a thread releases its waiting calls instead of hanging the agent', async () => {
     const { gate: approvals } = gate()
 

@@ -13,6 +13,10 @@ class ThreadBox {
   model = $state.raw<ThreadViewModel>(EMPTY_THREAD)
   following = false
   error = $state.raw<string | null>(null)
+  /** False until the thread has said anything at all. Reading a long session
+   *  file back takes time, and an empty column would claim the thread is empty
+   *  when it is only still loading. */
+  loaded = $state.raw(false)
 }
 
 /** Live threads, keyed by id.
@@ -44,11 +48,24 @@ class ThreadStore {
     // batch, so a 60-token burst reduces once and paints once.
     session.subscribe(threadId, (events) => {
       box.model = reduceBatch(box.model, events)
+      box.loaded = true
     })
 
-    void session.invoke('openThread', { threadId }).catch((cause: unknown) => {
-      box.error = cause instanceof Error ? cause.message : String(cause)
-    })
+    void session
+      .invoke('openThread', { threadId })
+      .then(() => {
+        // A thread that opened and said nothing is genuinely empty — a new one.
+        box.loaded = true
+      })
+      .catch((cause: unknown) => {
+        box.error = cause instanceof Error ? cause.message : String(cause)
+        box.loaded = true
+      })
+  }
+
+  /** Whether this thread has finished reading its history back. */
+  isLoaded(threadId: string): boolean {
+    return this.#box(threadId).loaded
   }
 
   /** Seeds a thread from a recorded stream instead of the backend — the mock
@@ -56,6 +73,7 @@ class ThreadStore {
   seed(threadId: string, model: ThreadViewModel): void {
     const box = this.#box(threadId)
     box.following = true
+    box.loaded = true
     box.model = model
   }
 

@@ -60,6 +60,10 @@ export interface ApprovalRequest {
   workspaceId: string
   toolName: string
   input: unknown
+  /** pi's id for the call being gated. Kept so a blocked call can be reported
+   *  as `denied` rather than as a generic failure — pi only ever says
+   *  `isError`, and "the user said no" is not the same as "the tool broke". */
+  toolCallId?: string
 }
 
 export interface ApprovalVerdict {
@@ -72,6 +76,7 @@ interface Pending {
   workspaceId: string
   toolName: string
   input: unknown
+  toolCallId?: string
   settle: (verdict: ApprovalVerdict) => void
 }
 
@@ -82,6 +87,7 @@ interface Pending {
  *  a policy that governs writing to someone's disk. */
 export class ApprovalGate {
   #pending = new Map<string, Pending>()
+  #blocked = new Set<string>()
   #counter = 0
 
   readonly #emit: (threadId: string, event: UiEvent) => void
@@ -92,7 +98,13 @@ export class ApprovalGate {
     this.#rules = rules
   }
 
-  async request({ threadId, workspaceId, toolName, input }: ApprovalRequest): Promise<ApprovalVerdict> {
+  async request({
+    threadId,
+    workspaceId,
+    toolName,
+    input,
+    toolCallId,
+  }: ApprovalRequest): Promise<ApprovalVerdict> {
     if (!needsApproval(toolName)) return { blocked: false }
     if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
 
@@ -108,8 +120,14 @@ export class ApprovalGate {
     })
 
     return new Promise<ApprovalVerdict>((resolve) => {
-      this.#pending.set(id, { threadId, workspaceId, toolName, input, settle: resolve })
+      this.#pending.set(id, { threadId, workspaceId, toolName, input, toolCallId, settle: resolve })
     })
+  }
+
+  /** Whether this call was stopped by the gate. Consumed on read: a tool call
+   *  ends exactly once, so nothing is left behind to leak. */
+  takeBlocked(toolCallId: string): boolean {
+    return this.#blocked.delete(toolCallId)
   }
 
   /** Applies the user's answer and lets the waiting tool call continue. */
@@ -123,9 +141,12 @@ export class ApprovalGate {
     }
 
     this.#emit(pending.threadId, { kind: 'approve-resolved', id: approvalId, outcome })
-    pending.settle(
-      outcome === 'deny' ? { blocked: true, reason: 'denied by the user' } : { blocked: false },
-    )
+
+    if (outcome === 'deny') {
+      this.#block(pending, 'denied by the user')
+      return
+    }
+    pending.settle({ blocked: false })
   }
 
   /** Releases anything still waiting, denying rather than hanging the agent. */
@@ -133,8 +154,13 @@ export class ApprovalGate {
     for (const [id, pending] of [...this.#pending]) {
       if (pending.threadId !== threadId) continue
       this.#pending.delete(id)
-      pending.settle({ blocked: true, reason: 'the thread closed before it was answered' })
+      this.#block(pending, 'the thread closed before it was answered')
     }
+  }
+
+  #block(pending: Pending, reason: string): void {
+    if (pending.toolCallId) this.#blocked.add(pending.toolCallId)
+    pending.settle({ blocked: true, reason })
   }
 
   get pendingCount(): number {

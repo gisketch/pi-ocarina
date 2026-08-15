@@ -233,7 +233,10 @@ export class PiDriver implements SessionDriver {
    *  it under pi's own session id so the thread survives a relaunch. */
   #adopt(session: AgentSession, cwd: string): string {
     const threadId = session.sessionId
-    const translator = new PiTranslator(() => session.getSessionStats().contextUsage?.contextWindow)
+    const translator = new PiTranslator(
+      () => session.getSessionStats().contextUsage?.contextWindow,
+      (toolCallId) => this.#approvals.takeBlocked(toolCallId),
+    )
     const unsubscribe = session.subscribe((event) => {
       for (const translated of translator.translate(event)) this.#emit(threadId, translated)
       if (event.type === 'turn_end') this.#emitUsage(threadId, session)

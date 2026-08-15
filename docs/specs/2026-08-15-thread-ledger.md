@@ -66,6 +66,20 @@ Three more settled while wiring the cards (C3):
   0.84 can put a compacted context back. The control is omitted rather than
   shipped dead. Open item, not a decision against it.
 
+And what pi 0.84 cannot express, found while building the error states (C4):
+
+- **A denied call is not a failed call.** pi reports every tool outcome as one
+  boolean (`isError`), so a command the user refused looked identical to one
+  that crashed. The approval gate records the `toolCallId` it blocked and the
+  adapter maps that to `denied`; the ledger blames the right party.
+- **No subagents.** pi 0.84 has no agent or task tool, and `ToolExecutionStart`
+  carries no parent reference, so nested rows have no producer. The reducer,
+  the nesting rule (one level, grandchildren adopted by the grandparent) and
+  the renderer are built and fixture-tested.
+- **No `timeout` or `cancelled` tool status, and no per-row retry.** Same single
+  boolean; and pi retries turns, not individual calls. The row variants exist;
+  the retry offered to the user is the thread-level `retryTurn`.
+
 ## Acceptance Behavior
 
 - Streaming: agent text grows with the blinking caret block; ledger rows appear as

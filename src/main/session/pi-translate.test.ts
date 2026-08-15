@@ -147,6 +147,34 @@ describe('PiTranslator', () => {
     expect(events[0]).toMatchObject({ kind: 'tool-end', status: 'fail' })
   })
 
+  it('marks a call the user refused as denied, not as broken', () => {
+    // pi reports every failure the same way, so without the gate's own record
+    // "you said no" and "the tool crashed" would look identical in the ledger.
+    const translator = new PiTranslator(
+      () => undefined,
+      (toolCallId) => toolCallId === 't1',
+    )
+
+    const [end] = translator.translate(
+      pi({ type: 'tool_execution_end', toolCallId: 't1', toolName: 'bash', result: '', isError: true }),
+    )
+
+    expect(end).toMatchObject({ kind: 'tool-end', status: 'denied', meta: 'denied' })
+  })
+
+  it('leaves a genuine failure alone', () => {
+    const translator = new PiTranslator(
+      () => undefined,
+      (toolCallId) => toolCallId === 'other',
+    )
+
+    const [end] = translator.translate(
+      pi({ type: 'tool_execution_end', toolCallId: 't1', toolName: 'bash', result: '', isError: true }),
+    )
+
+    expect(end).toMatchObject({ kind: 'tool-end', status: 'fail' })
+  })
+
   it('renders bash output as terminal lines', () => {
     const events = run([
       {
