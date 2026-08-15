@@ -1,22 +1,42 @@
 <script lang="ts">
+  import SlashMenu from './SlashMenu.svelte'
   import { isSendKey, planSend, sendHint } from '$lib/composer'
+  import { wrapIndex } from '$lib/fuzzy'
+  import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
   import { app } from '$lib/state/app.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
     input?: HTMLTextAreaElement | null
+    /** Opens the model spotlight — `/model` has nowhere to go without it. */
+    onmodel?: () => void
   }
 
-  let { input = $bindable(null) }: Props = $props()
+  let { input = $bindable(null), onmodel }: Props = $props()
 
   let text = $state('')
   let sending = $state(false)
 
   const insert = $derived(app.mode === 'INSERT')
+
+  const query = $derived(slashQuery(text))
+  const slash = $derived(query === null ? [] : filterSlash(query))
+  const menuOpen = $derived(slash.length > 0)
+  let picked = $state(0)
+  const active = $derived(menuOpen ? wrapIndex(picked, slash.length) : -1)
+
   const thread = $derived(app.thread)
   const runState = $derived(threads.get(thread.id).runState)
   const hint = $derived(sendHint(runState))
+
+  function run(command: SlashCommand): void {
+    text = ''
+    picked = 0
+
+    if (command.id === 'compact') threads.compact(thread.id)
+    else if (command.id === 'model') onmodel?.()
+  }
 
   /** A fresh column has no thread behind it yet. Sending is what brings one
    *  into existence, so the hero is not a dead end. */
@@ -26,6 +46,14 @@
   }
 
   async function send(): Promise<void> {
+    // A message naming a real command runs it. Anything else starting with `/`
+    // is just text someone typed, and is sent as written.
+    const command = resolveSlash(text)
+    if (command) {
+      run(command)
+      return
+    }
+
     const plan = planSend(text, runState)
     if (plan.action === 'none' || sending) return
 
@@ -46,6 +74,31 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
+    if (menuOpen) {
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault()
+          picked = wrapIndex(active + 1, slash.length)
+          return
+        case 'ArrowUp':
+          event.preventDefault()
+          picked = wrapIndex(active - 1, slash.length)
+          return
+        case 'Enter':
+          if (event.shiftKey) break
+          event.preventDefault()
+          run(slash[active])
+          return
+        case 'Escape':
+          // Dismisses the menu without leaving INSERT: the person is still
+          // writing, they simply do not want the list.
+          event.preventDefault()
+          event.stopPropagation()
+          text = ''
+          return
+      }
+    }
+
     if (!isSendKey(event)) return
     event.preventDefault()
     void send()
@@ -62,9 +115,23 @@
     void text
     if (input) resize(input)
   })
+
+  $effect(() => {
+    void query
+    picked = 0
+  })
 </script>
 
 <div class="dock">
+  {#if menuOpen}
+    <SlashMenu
+      commands={slash}
+      {active}
+      onpick={run}
+      onhover={(index) => (picked = index)}
+    />
+  {/if}
+
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
     <textarea

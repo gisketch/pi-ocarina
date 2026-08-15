@@ -104,7 +104,7 @@
       {#if shell.terminal}
         <TerminalDrawer onclose={() => shell.toggleTerminal()} />
       {/if}
-      <Composer bind:input={composerInput} />
+      <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
     </div>
   </div>
 

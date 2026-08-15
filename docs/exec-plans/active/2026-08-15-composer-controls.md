@@ -35,7 +35,20 @@ Status legend: `todo` · `in-progress` · `done`.
   for queued-steer delivery/cancel already in C-plan reused; `pnpm check`.
 - Blocked by: C2, B6 (steering)
 
-## D2 — Slash-command menu — `todo`
+## D2 — Slash-command menu — `done`
+
+> Verified in the running app: `/` lists the commands, `/mod` narrows to
+> `/model`, and writing "look at src/lib" opens nothing — the menu is bound to
+> position 0, so a path in a sentence never fights the person typing it. A space
+> closes it: by then they are writing prose, not choosing a command.
+>
+> **Two of the four v1 commands are not built.** `/commit` needs the git
+> pipeline (E plan) and `/context` needs a context-breakdown surface that does
+> not exist. Both are omitted from the menu rather than listed as entries that
+> would do nothing when picked. `/compact` and `/model` are real.
+>
+> An unknown `/word` is sent as written. Someone who types `/shrug` meant to say
+> `/shrug`, and a partial name like `/comp` is not guessed at either.
 
 - Delivered behavior: `/` at position 0 opens the command list rendered by the
   same list primitive as the command palette (filter as you type, `↑↓`, `⏎`,
