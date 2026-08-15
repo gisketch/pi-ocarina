@@ -9,12 +9,31 @@ export interface RunningWork {
 
 /** Whether a finished thread deserves interrupting the user for.
  *
- *  Only when they are not already looking at the app: a notification for
- *  something happening on screen is just noise. */
-export function shouldNotify(event: UiEvent, focused: boolean): boolean {
-  if (focused) return false
+ *  Only when they are not already looking at the app, and only when the thread
+ *  was actually running: reopening a thread replays its history and ends on
+ *  `done` too, and announcing that would be a notification for something the
+ *  user just did themselves. */
+export function shouldNotify(event: UiEvent, focused: boolean, wasRunning: boolean): boolean {
+  if (focused || !wasRunning) return false
   if (event.kind !== 'thread-state') return false
   return event.state === 'done' || event.state === 'failed'
+}
+
+/** Remembers which threads are mid-turn.
+ *
+ *  Instantiated rather than global so each app run — and each test — starts
+ *  with an empty memory instead of inheriting the last one's. */
+export function createRunningTracker(): (threadId: string, event: UiEvent) => boolean {
+  const running = new Set<string>()
+
+  return (threadId, event) => {
+    if (event.kind !== 'thread-state') return running.has(threadId)
+
+    const wasRunning = running.has(threadId)
+    if (event.state === 'running') running.add(threadId)
+    else running.delete(threadId)
+    return wasRunning
+  }
 }
 
 export function quitMessage(running: number): { message: string; detail: string } {
@@ -25,16 +44,22 @@ export function quitMessage(running: number): { message: string; detail: string 
   }
 }
 
-/** Raises a native notification for work that finished out of sight. */
-export function notifyFinished(threadId: string, event: UiEvent): void {
-  const focused = BrowserWindow.getAllWindows().some((win) => win.isFocused())
-  if (!shouldNotify(event, focused) || !Notification.isSupported()) return
-  if (event.kind !== 'thread-state') return
+/** Builds the hook that raises a native notification for work that finished out
+ *  of sight. One per app run; it carries the running-thread memory. */
+export function createFinishNotifier(): (threadId: string, event: UiEvent) => void {
+  const wasRunningBefore = createRunningTracker()
 
-  new Notification({
-    title: event.state === 'failed' ? 'Thread failed' : 'Thread finished',
-    body: event.state === 'failed' ? (event.reason ?? threadId) : threadId,
-  }).show()
+  return (threadId, event) => {
+    const wasRunning = wasRunningBefore(threadId, event)
+    const focused = BrowserWindow.getAllWindows().some((win) => win.isFocused())
+    if (!shouldNotify(event, focused, wasRunning) || !Notification.isSupported()) return
+    if (event.kind !== 'thread-state') return
+
+    new Notification({
+      title: event.state === 'failed' ? 'Thread failed' : 'Thread finished',
+      body: event.state === 'failed' ? (event.reason ?? threadId) : threadId,
+    }).show()
+  }
 }
 
 /** Closing the window puts the app away; it does not stop the agents.

@@ -12,18 +12,28 @@ export function needsApproval(toolName: string): boolean {
   return GATED.has(toolName)
 }
 
+/** Shell syntax that lets one approved-looking command carry another.
+ *
+ *  `cd /tmp && rm -rf *` starts with `cd`, so keying a rule on the first word
+ *  would turn "always allow cd" into "always allow anything after a cd". */
+const COMPOUND = /[;&|`$(){}<>\n]/
+
 /** What "always allow" remembers.
  *
  *  For file tools the rule is the tool itself ("always let it write here").
- *  For bash it is the program being run, never the whole command: remembering
- *  `bash` outright would silently permit every future shell command in the
- *  workspace, which is not what someone approving `pnpm install` meant. */
+ *  For bash it is the program being run, never `bash` outright — approving
+ *  `pnpm install` must not permit every future shell command. A command that
+ *  chains or substitutes gets a rule matching that exact command and nothing
+ *  else, because its first word does not describe what it actually does. */
 export function ruleKey(toolName: string, input: unknown): string {
   if (toolName !== 'bash') return toolName
 
-  const command = (input as { command?: unknown })?.command
-  const program = typeof command === 'string' ? command.trim().split(/\s+/)[0] : ''
-  return program ? `bash:${program}` : 'bash:?'
+  const raw = (input as { command?: unknown })?.command
+  const command = typeof raw === 'string' ? raw.trim() : ''
+  if (!command) return 'bash:?'
+
+  if (COMPOUND.test(command)) return `bash=${command}`
+  return `bash:${command.split(/\s+/)[0]}`
 }
 
 /** The line the approve card shows. */
@@ -92,8 +102,9 @@ export class ApprovalGate {
     this.#emit(threadId, {
       kind: 'approve',
       id,
+      // No note: the command line already says what is about to happen, and
+      // the workspace id is a uuid that would mean nothing to the reader.
       command: describeCall(toolName, input),
-      note: toolName === 'bash' ? undefined : `${toolName} in ${workspaceId}`,
     })
 
     return new Promise<ApprovalVerdict>((resolve) => {

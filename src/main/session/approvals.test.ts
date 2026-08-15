@@ -64,6 +64,29 @@ describe('ruleKey', () => {
     expect(ruleKey('bash', {})).toBe('bash:?')
     expect(ruleKey('bash', undefined)).toBe('bash:?')
   })
+
+  it('will not let a chained command be remembered by its harmless first word', () => {
+    // Approving this must not become "always allow anything starting with cd".
+    const chained = ruleKey('bash', { command: 'cd /tmp && rm -rf *' })
+
+    expect(chained).not.toBe('bash:cd')
+    expect(chained).not.toBe(ruleKey('bash', { command: 'cd /tmp' }))
+  })
+
+  it.each([
+    'echo hi; rm -rf /',
+    'echo `rm -rf /`',
+    'echo $(rm -rf /)',
+    'cat a | sh',
+    'echo x > /etc/hosts',
+    'echo a\nrm -rf /',
+  ])('treats %j as a command that only matches itself', (command) => {
+    expect(ruleKey('bash', { command })).toBe(`bash=${command}`)
+  })
+
+  it('still keys a plain command by its program, so the rule is reusable', () => {
+    expect(ruleKey('bash', { command: 'pnpm run build --force' })).toBe('bash:pnpm')
+  })
 })
 
 describe('describeCall', () => {

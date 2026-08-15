@@ -11,6 +11,7 @@ import { ApprovalGate } from './approvals'
 import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
+import { SteerQueue } from './steering'
 import { WorkspaceService } from './workspaces'
 
 export type { ModelRef } from './session-factory'
@@ -28,6 +29,8 @@ interface Thread {
   unsubscribe: () => void
   /** The last thing the user asked, so a failed turn can be run again. */
   lastPrompt?: string
+  /** Counts prompts, so each user block gets an id of its own. */
+  prompts: number
 }
 
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
@@ -38,18 +41,18 @@ export class PiDriver implements SessionDriver {
   readonly kind = 'pi'
 
   #threads = new Map<string, Thread>()
-  /** Thread → queued steer text → its id, so delivery can be reported. */
-  #steers = new Map<string, Map<string, string>>()
   readonly #emit: EmitEvent
   readonly #workspaces: WorkspaceService
   readonly #approvals: ApprovalGate
   readonly #catalog: CatalogStore
   readonly #sessions: SessionFactory
+  readonly #steers: SteerQueue
 
   constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
     this.#catalog = catalog
     this.#approvals = new ApprovalGate(emit, catalog)
+    this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, model)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
   }
@@ -115,6 +118,12 @@ export class PiDriver implements SessionDriver {
       case 'steer': {
         const { threadId, text } = params as CommandParams<'steer'>
         return { steerId: await this.#steer(threadId, text) } as CommandResult<N>
+      }
+
+      case 'cancelQueuedSteer': {
+        const { threadId, steerId } = params as CommandParams<'cancelQueuedSteer'>
+        this.#steers.cancel(threadId, steerId)
+        return { ok: true } as CommandResult<N>
       }
 
       case 'restoreCheckpoint': {
@@ -201,7 +210,12 @@ export class PiDriver implements SessionDriver {
     const { path, cwd } = await this.#workspaces.locate(threadId)
 
     const sessionManager = SessionManager.open(path)
-    for (const event of replayEntries(sessionManager.getEntries())) this.#emit(threadId, event)
+    // The active branch, not every entry in the file: a session that has been
+    // rewound holds abandoned branches too, and replaying those would show the
+    // user a conversation that never happened.
+    for (const event of replayEntries(sessionManager.buildContextEntries())) {
+      this.#emit(threadId, event)
+    }
 
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
@@ -217,10 +231,10 @@ export class PiDriver implements SessionDriver {
     const unsubscribe = session.subscribe((event) => {
       for (const translated of translator.translate(event)) this.#emit(threadId, translated)
       if (event.type === 'turn_end') this.#emitUsage(threadId, session)
-      if (event.type === 'queue_update') this.#syncSteerQueue(threadId, event.steering)
+      if (event.type === 'queue_update') this.#steers.sync(threadId, event.steering)
     })
 
-    this.#threads.set(threadId, { session, unsubscribe })
+    this.#threads.set(threadId, { session, unsubscribe, prompts: 0 })
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }
@@ -231,7 +245,8 @@ export class PiDriver implements SessionDriver {
     const thread = this.#thread(threadId)
     const { session } = thread
     thread.lastPrompt = text
-    this.#emit(threadId, { kind: 'user-message', id: `user-${session.sessionId}-${text.length}`, text })
+    thread.prompts += 1
+    this.#emit(threadId, { kind: 'user-message', id: `user-${thread.prompts}`, text })
 
     // Deliberately not awaited: a turn runs for minutes and the caller's IPC
     // reply must not wait for it. Progress and failure both arrive as events.
@@ -254,28 +269,9 @@ export class PiDriver implements SessionDriver {
       return ''
     }
 
-    const steerId = `steer-${(this.#steers.get(threadId)?.size ?? 0) + 1}`
-    const queued = this.#steers.get(threadId) ?? new Map<string, string>()
-    queued.set(text, steerId)
-    this.#steers.set(threadId, queued)
-
-    this.#emit(threadId, { kind: 'steer-queued', id: steerId, text })
+    const steerId = this.#steers.add(threadId, text)
     await session.steer(text)
     return steerId
-  }
-
-  /** Watches pi's queue so a steer that has been handed to the agent stops
-   *  showing as pending. pi reports the queue's contents, not its transitions,
-   *  so the departure has to be noticed here. */
-  #syncSteerQueue(threadId: string, steering: readonly string[]): void {
-    const queued = this.#steers.get(threadId)
-    if (!queued) return
-
-    for (const [text, steerId] of [...queued]) {
-      if (steering.includes(text)) continue
-      queued.delete(text)
-      this.#emit(threadId, { kind: 'steer-delivered', id: steerId })
-    }
   }
 
   /** Rewinds the conversation to a checkpoint — and only the conversation.
@@ -337,7 +333,7 @@ export class PiDriver implements SessionDriver {
     thread.unsubscribe()
     // Anything waiting on an answer is released rather than left hanging.
     this.#approvals.abandon(threadId)
-    this.#steers.delete(threadId)
+    this.#steers.forget(threadId)
     thread.session.dispose()
     this.#threads.delete(threadId)
   }
