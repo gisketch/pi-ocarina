@@ -1,8 +1,12 @@
 <script lang="ts">
+  import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
   import { isSendKey, planSend, sendHint } from '$lib/composer'
   import { wrapIndex } from '$lib/fuzzy'
+  import { fuzzyFilter } from '$lib/fuzzy'
+  import { applyMention, mentionAt } from '$lib/mention'
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
+  import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
@@ -22,9 +26,47 @@
 
   const query = $derived(slashQuery(text))
   const slash = $derived(query === null ? [] : filterSlash(query))
-  const menuOpen = $derived(slash.length > 0)
+
+  // Where the caret is, so `@` knows which word it is inside.
+  let caret = $state(0)
+  const mention = $derived(mentionAt(text, caret))
+  const paths = $derived(
+    mention === null
+      ? []
+      : fuzzyFilter(files.files(app.workspace.id), mention.query, (path) => path).slice(0, 8),
+  )
+
+  // One menu at a time. A slash only ever opens at position 0 and a mention
+  // never starts there, so the two cannot both be open.
+  const menu = $derived(slash.length > 0 ? 'slash' : paths.length > 0 ? 'mention' : null)
+  const options = $derived(menu === 'slash' ? slash.length : paths.length)
   let picked = $state(0)
-  const active = $derived(menuOpen ? wrapIndex(picked, slash.length) : -1)
+  const active = $derived(menu === null ? -1 : wrapIndex(picked, options))
+
+  $effect(() => {
+    files.ensure(app.workspace.id)
+  })
+
+  function insertMention(path: string): void {
+    if (!mention) return
+    const next = applyMention(text, mention, path)
+    text = next.text
+    picked = 0
+    // Restored after Svelte writes the new value, or the caret jumps to the end.
+    queueMicrotask(() => {
+      input?.setSelectionRange(next.caret, next.caret)
+      caret = next.caret
+    })
+  }
+
+  function choose(index: number): void {
+    if (menu === 'slash') run(slash[index])
+    else if (menu === 'mention') insertMention(paths[index])
+  }
+
+  function trackCaret(): void {
+    caret = input?.selectionStart ?? 0
+  }
 
   const thread = $derived(app.thread)
   const runState = $derived(threads.get(thread.id).runState)
@@ -74,27 +116,36 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
-    if (menuOpen) {
+    if (menu !== null) {
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault()
-          picked = wrapIndex(active + 1, slash.length)
+          picked = wrapIndex(active + 1, options)
           return
         case 'ArrowUp':
           event.preventDefault()
-          picked = wrapIndex(active - 1, slash.length)
+          picked = wrapIndex(active - 1, options)
+          return
+        case 'Tab':
+          // Tab completes a path, which is what a file picker trains fingers to
+          // expect. It has no meaning for the command list.
+          if (menu !== 'mention') break
+          event.preventDefault()
+          choose(active)
           return
         case 'Enter':
           if (event.shiftKey) break
           event.preventDefault()
-          run(slash[active])
+          choose(active)
           return
         case 'Escape':
           // Dismisses the menu without leaving INSERT: the person is still
-          // writing, they simply do not want the list.
+          // writing, they simply do not want the list. A slash menu clears the
+          // word that opened it; a mention keeps what was typed.
           event.preventDefault()
           event.stopPropagation()
-          text = ''
+          if (menu === 'slash') text = ''
+          else caret = 0
           return
       }
     }
@@ -118,16 +169,24 @@
 
   $effect(() => {
     void query
+    void mention?.query
     picked = 0
   })
 </script>
 
 <div class="dock">
-  {#if menuOpen}
+  {#if menu === 'slash'}
     <SlashMenu
       commands={slash}
       {active}
       onpick={run}
+      onhover={(index) => (picked = index)}
+    />
+  {:else if menu === 'mention'}
+    <MentionMenu
+      {paths}
+      {active}
+      onpick={insertMention}
       onhover={(index) => (picked = index)}
     />
   {/if}
@@ -138,6 +197,10 @@
       bind:this={input}
       bind:value={text}
       {onkeydown}
+      onselect={trackCaret}
+      onclick={trackCaret}
+      oninput={trackCaret}
+      onkeyup={trackCaret}
       rows="1"
       placeholder="Message pi in {app.workspace.name}…  (i to focus)"
       onfocus={() => (app.mode = 'INSERT')}

@@ -59,7 +59,23 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: headless open-filter-pick flow tests; visual review vs section 06.
 - Blocked by: D1
 
-## D3 — @-mention file picker — `todo`
+## D3 — @-mention file picker — `done`
+
+> `@` opens a fuzzy picker over the workspace tree; `tab` or `⏎` completes the
+> path; the index is a `.gitignore`-aware walk in main, cached per workspace so
+> a filesystem crawl never sits in front of a keystroke.
+>
+> **A mention is the path in the message, not an attachment.** pi 0.84's
+> `prompt()` takes text and images — there is no channel for attaching a text
+> file. So `@src/thread.ts` goes into the message and pi opens it with its own
+> read tool. That is the real mechanism; calling it an "attachment" would
+> describe something the seam cannot do.
+>
+> Two details worth keeping: the picker will not open inside `me@example.com`
+> (an `@` must follow whitespace), and the walk skips `node_modules` and `.git`
+> whatever the ignore file says — walking `node_modules` alone takes longer than
+> every other folder combined. The index caps at 8,000 files; stopping beats
+> freezing the window.
 
 - Delivered behavior: `@` opens a fuzzy file picker over the workspace tree
   (recents first, dirs marked; `↑↓` + `tab`/`⏎` inserts a file-reference chip

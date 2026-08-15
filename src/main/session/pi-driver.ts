@@ -9,6 +9,7 @@ import type {
 import type { CatalogStore } from '../catalog-store'
 import { ApprovalGate } from './approvals'
 import { ModelControl } from './model-control'
+import { WorkspaceQueries } from './queries'
 import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
@@ -41,6 +42,7 @@ export class PiDriver implements SessionDriver {
   readonly #sessions: SessionFactory
   readonly #steers: SteerQueue
   readonly #models: ModelControl
+  readonly #queries: WorkspaceQueries
 
   constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
@@ -49,38 +51,24 @@ export class PiDriver implements SessionDriver {
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, model)
     this.#models = new ModelControl(this.#sessions)
+    this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
+    this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models)
     this.#threads = new ThreadRegistry((threadId) => {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)
       this.#steers.forget(threadId)
     })
-    this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
   }
 
   async execute<N extends CommandName>(
     name: N,
     params: CommandParams<N>,
   ): Promise<CommandResult<N>> {
+    // Workspace-scoped commands touch no thread, so they answer first.
+    const answered = await this.#queries.handle(name, params)
+    if (answered) return answered.result as CommandResult<N>
+
     switch (name) {
-      case 'listWorkspaces':
-        return { workspaces: this.#workspaces.list() } as CommandResult<N>
-
-      case 'pinWorkspace': {
-        const { path } = params as CommandParams<'pinWorkspace'>
-        return { workspace: await this.#workspaces.pin(path) } as CommandResult<N>
-      }
-
-      case 'unpinWorkspace': {
-        const { workspaceId } = params as CommandParams<'unpinWorkspace'>
-        this.#workspaces.unpin(workspaceId)
-        return { ok: true } as CommandResult<N>
-      }
-
-      case 'listThreads': {
-        const { workspaceId } = params as CommandParams<'listThreads'>
-        return { threads: await this.#workspaces.listThreads(workspaceId) } as CommandResult<N>
-      }
-
       case 'createThread': {
         const { workspaceId } = params as CommandParams<'createThread'>
         return { threadId: await this.#createThread(workspaceId) } as CommandResult<N>
@@ -101,17 +89,6 @@ export class PiDriver implements SessionDriver {
       case 'resolveApproval': {
         const { approvalId, outcome } = params as CommandParams<'resolveApproval'>
         this.#approvals.resolve(approvalId, outcome)
-        return { ok: true } as CommandResult<N>
-      }
-
-      case 'listApprovalRules': {
-        const { workspaceId } = params as CommandParams<'listApprovalRules'>
-        return { rules: this.#catalog.listApprovals(workspaceId) } as CommandResult<N>
-      }
-
-      case 'revokeApprovalRule': {
-        const { workspaceId, rule } = params as CommandParams<'revokeApprovalRule'>
-        this.#catalog.removeApproval(workspaceId, rule)
         return { ok: true } as CommandResult<N>
       }
 
@@ -137,9 +114,6 @@ export class PiDriver implements SessionDriver {
         await this.#compact(threadId)
         return { ok: true } as CommandResult<N>
       }
-
-      case 'listModels':
-        return { models: await this.#models.list() } as CommandResult<N>
 
       case 'setModel': {
         const { threadId, provider, model } = params as CommandParams<'setModel'>

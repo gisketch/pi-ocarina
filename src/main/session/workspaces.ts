@@ -1,3 +1,4 @@
+import { listWorkspaceFiles } from './files'
 import { stat } from 'node:fs/promises'
 import type { ThreadSummary, WorkspaceSummary } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
@@ -45,6 +46,11 @@ export class WorkspaceService {
     const workspace = this.#store.workspace(workspaceId)
     if (!workspace) throw new Error(`unknown workspace: ${workspaceId}`)
     return workspace.path
+  }
+
+  /** Paths the @-mention picker offers, relative to the workspace root. */
+  async listFiles(workspaceId: string): Promise<string[]> {
+    return listWorkspaceFiles(this.pathOf(workspaceId))
   }
 
   /** Which pinned workspace owns a folder. Falls back to the path itself so an

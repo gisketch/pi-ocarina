@@ -143,6 +143,8 @@ export interface SessionCommands {
     result: { threadId: string }
   }
   compact: { params: { threadId: string }; result: { ok: true } }
+  /** Paths the @-mention picker offers, relative to the workspace. */
+  listFiles: { params: { workspaceId: string }; result: { files: string[] } }
   listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
   setModel: {
     params: { threadId: string; provider: string; model: string }
