@@ -55,6 +55,11 @@ export type UiEvent =
       afterPercent: number
       summary: string
     }
+  /** A compaction that started and then did not happen — pi refuses to compact
+   *  a session it considers too small. It must be named rather than left as a
+   *  `raw` note: without the id, nothing can end the compaction it began, and
+   *  the UI would shimmer forever over work that already stopped. */
+  | { kind: 'compaction-skipped'; id: string; reason: string }
   | { kind: 'steer-queued'; id: string; text: string }
   | { kind: 'steer-delivered'; id: string }
   | { kind: 'steer-cancelled'; id: string }
@@ -158,6 +163,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'checkpoint',
   'compaction-start',
   'compaction-done',
+  'compaction-skipped',
   'steer-queued',
   'steer-delivered',
   'steer-cancelled',

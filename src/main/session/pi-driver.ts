@@ -160,8 +160,14 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
+      // pi 0.84 has no elicitation of its own, so no `ask` event is ever
+      // produced and this command has nothing to answer. It is accepted rather
+      // than rejected so the seam stays whole for the day pi gains one.
+      case 'answerAsk':
+        return { ok: true } as CommandResult<N>
+
       default:
-        // Asks, attachments and model control arrive with the composer work.
+        // Model and reasoning control arrive with the composer work (D5).
         return { ok: true } as CommandResult<N>
     }
   }

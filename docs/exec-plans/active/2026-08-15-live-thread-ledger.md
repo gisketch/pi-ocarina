@@ -57,7 +57,21 @@ Status legend: `todo` · `in-progress` · `done`.
   DevTools performance capture of a streaming burst; visual review vs reference.
 - Blocked by: C1, B2
 
-## C3 — Interactive cards live — `todo`
+## C3 — Interactive cards live — `done`
+
+> Verified against real pi: the live tests now assert the *rendered* card, not
+> just the event — approvals resolve to `deny` then `always`, a rewound thread
+> renders as one conversation, a delivered steer leaves no QUEUED row, and a
+> compaction always stops running. That last one found a bug: pi refuses to
+> compact a small session, and the refusal was a `raw` note with no id, so the
+> shimmer ran forever. `compaction-skipped` is now a named event carrying the
+> id it ends.
+>
+> Two scope notes. **pi 0.84 never emits an `ask`**, so the ask card is
+> mock-only today; the command is wired for the day pi gains elicitation.
+> **`undo` on the compaction card is not built** — nothing in pi can restore a
+> compacted context, and a dead button is worse than no button.
+> Composer-reply-answers-an-ask lands with D1, which owns send.
 
 - Delivered behavior: ask card answers via `answerAsk` (click or composer
   reply resolves it); approve card drives `resolveApproval` with allow-once /

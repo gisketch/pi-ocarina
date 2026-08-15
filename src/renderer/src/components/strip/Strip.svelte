@@ -20,7 +20,7 @@
           <FreshThread {workspace} />
         {:else}
           <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
-            <ThreadView blocks={threads.get(thread.id).blocks} />
+            <ThreadView threadId={thread.id} blocks={threads.get(thread.id).blocks} />
           </ThreadColumn>
         {/if}
       {/each}

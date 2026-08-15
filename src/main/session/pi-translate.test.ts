@@ -276,7 +276,13 @@ describe('PiTranslator', () => {
       }),
     )
 
-    expect(events[0]).toMatchObject({ kind: 'raw', rawKind: 'compaction-skipped' })
+    // Named, and carrying the id of the start it ends — otherwise nothing can
+    // stop the running divider the start put on screen.
+    expect(events[0]).toMatchObject({
+      kind: 'compaction-skipped',
+      id: 'compaction-1',
+      reason: 'Nothing to compact (session too small)',
+    })
     expect(events.some((event) => event.kind === 'thread-state')).toBe(false)
   })
 

@@ -233,12 +233,13 @@ export class PiTranslator {
         const id = `compaction-${this.#compactions}`
         if (!event.result) {
           // Refusing to compact a small session is an answer, not a failure —
-          // reporting it as a broken thread would be a lie.
+          // reporting it as a broken thread would be a lie. It carries the same
+          // id as the start it ends, so the running divider actually stops.
           return [
             {
-              kind: 'raw',
-              rawKind: 'compaction-skipped',
-              detail: event.errorMessage ?? (event.aborted ? 'aborted' : 'nothing to compact'),
+              kind: 'compaction-skipped',
+              id,
+              reason: event.errorMessage ?? (event.aborted ? 'aborted' : 'nothing to compact'),
             },
           ]
         }

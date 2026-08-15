@@ -4,12 +4,27 @@
     beforePercent?: number
     afterPercent?: number
     summary?: string
-    /** Absent until C3 wires the commands behind them. */
+    /** Set when the compaction started and then did not happen. */
+    skipped?: string
+    /** How many blocks are collapsed behind this card. Zero hides the control:
+     *  there is nothing to expand. */
+    hidden?: number
     onexpand?: () => void
-    onundo?: () => void
   }
 
-  const { running, beforePercent, afterPercent, summary, onexpand, onundo }: Props = $props()
+  const {
+    running,
+    beforePercent,
+    afterPercent,
+    summary,
+    skipped,
+    hidden = 0,
+    onexpand,
+  }: Props = $props()
+
+  // No `undo`. The reference offers one, but nothing in pi 0.84 can put a
+  // compacted context back, and a button that silently does nothing is worse
+  // than no button. Recorded as an open item in the thread-ledger spec.
 </script>
 
 {#if running}
@@ -19,6 +34,12 @@
     <!-- Stepped, never eased: the reference's pixel shimmer moves in whole
          cells, so it reads as a machine working rather than a progress bar. -->
     <span class="shimmer"></span>
+    <span class="rule"></span>
+  </div>
+{:else if skipped}
+  <div class="line">
+    <span class="rule"></span>
+    <span class="label">⌫ NOT COMPACTED · {skipped}</span>
     <span class="rule"></span>
   </div>
 {:else}
@@ -32,10 +53,11 @@
     {#if summary}
       <div class="summary">{summary}</div>
     {/if}
-    {#if onexpand || onundo}
+    {#if hidden > 0 && onexpand}
       <div class="actions">
-        {#if onexpand}<button type="button" onclick={onexpand}>expand original ▸</button>{/if}
-        {#if onundo}<button type="button" onclick={onundo}>undo</button>{/if}
+        <button type="button" onclick={onexpand}>
+          expand original ▸ <span class="count">{hidden} blocks</span>
+        </button>
       </div>
     {/if}
   </div>
@@ -127,5 +149,8 @@
   }
   .actions button:hover {
     color: var(--fg-dim);
+  }
+  .count {
+    color: var(--fg-dimmest);
   }
 </style>

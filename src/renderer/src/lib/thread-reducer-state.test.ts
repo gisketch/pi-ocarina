@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../../shared/protocol'
 import { reduceBatch, reduceThread, replayThread } from './thread-reducer'
-import { EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
+import { collapsedBefore, EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
 
 function run(...events: UiEvent[]) {
   return replayThread(events)
@@ -172,6 +172,31 @@ describe('checkpoints, compaction, steering', () => {
     expect(model.blocks).toHaveLength(1)
   })
 
+  it('stops the shimmer when pi refuses to compact', () => {
+    const model = run({ kind: 'compaction-start', id: 'k1' }, {
+      kind: 'compaction-skipped',
+      id: 'k1',
+      reason: 'Nothing to compact (session too small)',
+    })
+
+    expect(model.blocks).toHaveLength(1)
+    expect(model.blocks[0]).toMatchObject({
+      kind: 'compaction',
+      running: false,
+      skipped: 'Nothing to compact (session too small)',
+    })
+  })
+
+  it('a refused compaction claims no summary', () => {
+    const model = run({ kind: 'compaction-start', id: 'k1' }, {
+      kind: 'compaction-skipped',
+      id: 'k1',
+      reason: 'aborted',
+    })
+
+    expect(model.blocks[0]).not.toHaveProperty('summary')
+  })
+
   it('holds a queued steer until it is delivered', () => {
     const queued = run({ kind: 'steer-queued', id: 's1', text: 'also fix the test' })
     expect(queued.blocks[0]).toMatchObject({ kind: 'steer', text: 'also fix the test' })
@@ -254,5 +279,58 @@ describe('reset and purity', () => {
     const events: UiEvent[] = [start('m1'), delta('m1', 'a'), tool('t1'), delta('m1', 'b')]
 
     expect(reduceBatch(EMPTY_THREAD, events)).toEqual(events.reduce(reduceThread, EMPTY_THREAD))
+  })
+})
+
+describe('collapsing history behind a compaction', () => {
+  const compaction = (running: boolean): Block => ({ kind: 'compaction', id: 'k1', running })
+  const message = (id: string): Block => ({ kind: 'user', id, text: id })
+
+  it('collapses nothing when no compaction has finished', () => {
+    expect(collapsedBefore([message('a'), message('b')])).toBe(0)
+    expect(collapsedBefore([message('a'), compaction(true)])).toBe(0)
+  })
+
+  it('collapses everything above a finished compaction', () => {
+    expect(collapsedBefore([message('a'), message('b'), compaction(false)])).toBe(2)
+  })
+
+  it('collapses nothing when the compaction is the first block', () => {
+    // There is no history above it to hide, so the card shows no control.
+    expect(collapsedBefore([compaction(false), message('a')])).toBe(0)
+  })
+
+  it('uses the newest finished compaction when a thread has several', () => {
+    const blocks: Block[] = [
+      message('a'),
+      { kind: 'compaction', id: 'k1', running: false },
+      message('b'),
+      message('c'),
+      { kind: 'compaction', id: 'k2', running: false },
+    ]
+
+    expect(collapsedBefore(blocks)).toBe(4)
+  })
+
+  it('collapses nothing behind a compaction that was refused', () => {
+    // Nothing was replaced, so there is no history it stands in front of.
+    const blocks: Block[] = [
+      message('a'),
+      message('b'),
+      { kind: 'compaction', id: 'k1', running: false, skipped: 'nothing to compact' },
+    ]
+
+    expect(collapsedBefore(blocks)).toBe(0)
+  })
+
+  it('keeps the last compaction collapsed while a newer one is still running', () => {
+    const blocks: Block[] = [
+      message('a'),
+      { kind: 'compaction', id: 'k1', running: false },
+      message('b'),
+      { kind: 'compaction', id: 'k2', running: true },
+    ]
+
+    expect(collapsedBefore(blocks)).toBe(1)
   })
 })

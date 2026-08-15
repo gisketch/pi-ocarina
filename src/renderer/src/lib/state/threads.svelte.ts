@@ -1,3 +1,5 @@
+import type { CommandName, CommandParams } from '../../../../shared/protocol'
+import type { ApprovalOutcome } from '../../../../shared/vocabulary'
 import { session } from '../session'
 import { reduceBatch } from '../thread-reducer'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
@@ -55,6 +57,46 @@ class ThreadStore {
     const box = this.#box(threadId)
     box.following = true
     box.model = model
+  }
+
+  /** What the cards in a thread do.
+   *
+   *  Each is fire-and-forget on purpose: the command is a request, and the
+   *  thread's own events are what change the view. A card that painted itself
+   *  resolved on a resolved promise would be showing an outcome the backend
+   *  had not confirmed. Failures land on the thread rather than in a console
+   *  nobody is reading. */
+  answer(threadId: string, askId: string, optionIndex: number): void {
+    this.#command(threadId, 'answerAsk', { threadId, askId, optionIndex })
+  }
+
+  resolveApproval(threadId: string, approvalId: string, outcome: ApprovalOutcome): void {
+    this.#command(threadId, 'resolveApproval', { threadId, approvalId, outcome })
+  }
+
+  restore(threadId: string, checkpointId: string): void {
+    this.#command(threadId, 'restoreCheckpoint', { threadId, checkpointId })
+  }
+
+  cancelSteer(threadId: string, steerId: string): void {
+    this.#command(threadId, 'cancelQueuedSteer', { threadId, steerId })
+  }
+
+  compact(threadId: string): void {
+    this.#command(threadId, 'compact', { threadId })
+  }
+
+  retry(threadId: string): void {
+    this.#command(threadId, 'retryTurn', { threadId })
+  }
+
+  #command<N extends CommandName>(threadId: string, name: N, params: CommandParams<N>): void {
+    const box = this.#box(threadId)
+    box.error = null
+
+    void session.invoke(name, params).catch((cause: unknown) => {
+      box.error = cause instanceof Error ? cause.message : String(cause)
+    })
   }
 
   #box(threadId: string): ThreadBox {

@@ -127,6 +127,64 @@ describe('one paint per burst', () => {
   })
 })
 
+describe('what the cards do', () => {
+  it('sends each decision to the backend with its thread', () => {
+    const id = freshId()
+    const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+
+    threads.answer(id, 'ask-1', 2)
+    threads.resolveApproval(id, 'approve-1', 'always')
+    threads.restore(id, 'cp-1')
+    threads.cancelSteer(id, 'steer-1')
+    threads.compact(id)
+    threads.retry(id)
+
+    expect(invoke.mock.calls).toEqual([
+      ['answerAsk', { threadId: id, askId: 'ask-1', optionIndex: 2 }],
+      ['resolveApproval', { threadId: id, approvalId: 'approve-1', outcome: 'always' }],
+      ['restoreCheckpoint', { threadId: id, checkpointId: 'cp-1' }],
+      ['cancelQueuedSteer', { threadId: id, steerId: 'steer-1' }],
+      ['compact', { threadId: id }],
+      ['retryTurn', { threadId: id }],
+    ])
+  })
+
+  it('does not change the thread itself — the backend’s events do that', () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+    const before = threads.get(id)
+
+    threads.resolveApproval(id, 'approve-1', 'deny')
+
+    expect(threads.get(id)).toBe(before)
+  })
+
+  it('reports a command that failed on the thread it belongs to', async () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockRejectedValue(new Error('thread is not open'))
+
+    threads.restore(id, 'cp-1')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(threads.errorFor(id)).toBe('thread is not open')
+  })
+
+  it('clears a previous failure when a new command is issued', async () => {
+    const id = freshId()
+    const invoke = vi.spyOn(session, 'invoke').mockRejectedValue(new Error('first failure'))
+    threads.compact(id)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(threads.errorFor(id)).toBe('first failure')
+
+    invoke.mockResolvedValue({ ok: true } as never)
+    threads.compact(id)
+
+    expect(threads.errorFor(id)).toBeNull()
+  })
+})
+
 describe('seeding', () => {
   it('renders a recorded thread without a backend', () => {
     const id = freshId()

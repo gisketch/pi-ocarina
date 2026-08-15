@@ -50,6 +50,22 @@ Two contract points settled while building the reducer (C1):
   expanded every body would bury the column. The mock catalog re-applies the
   reference's pre-expanded rows as presentation data, and that retires with it.
 
+Three more settled while wiring the cards (C3):
+
+- **`compaction-skipped` added to the protocol** (`{ id, reason }`). pi refuses
+  to compact a session it considers too small, and that refusal previously
+  arrived as an anonymous `raw` note — leaving the running divider shimmering
+  forever over work that had already stopped. It is named, and carries the id of
+  the start it ends. A skipped compaction collapses no history: it replaced
+  nothing.
+- **The ask card has no live producer.** pi 0.84 has no elicitation mechanism,
+  so no `ask` event is ever emitted and `answerAsk` has nothing to answer. The
+  card, the command, and the seam all exist and are exercised by the mock
+  catalog, ready for the day pi gains one.
+- **No `undo` on the compaction card.** The reference offers one; nothing in pi
+  0.84 can put a compacted context back. The control is omitted rather than
+  shipped dead. Open item, not a decision against it.
+
 ## Acceptance Behavior
 
 - Streaming: agent text grows with the blinking caret block; ledger rows appear as

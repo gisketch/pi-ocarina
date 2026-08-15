@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { replayThread } from '../../renderer/src/lib/thread-reducer'
 import type { UiEvent } from '../../shared/protocol'
 import { CatalogStore } from '../catalog-store'
 import { PiDriver } from './pi-driver'
@@ -147,6 +148,18 @@ describe.skipIf(!live)('approvals against a real session', () => {
     await waitFor(() => events.slice(before).some((event) => isState(event, 'done')), 90_000)
     expect(events.slice(before).some((event) => event.kind === 'approve')).toBe(false)
 
+    // The card the user actually sees: the same events, projected. Asserting on
+    // the rendered block is what proves the round trip closed, rather than that
+    // an event merely went past.
+    const cards = replayThread(events).blocks.filter((block) => block.kind === 'approve')
+    expect(cards.map((card) => card.kind === 'approve' && card.outcome)).toEqual([
+      'deny',
+      'always',
+    ])
+    expect(cards.every((card) => card.kind === 'approve' && card.command.startsWith('echo'))).toBe(
+      true,
+    )
+
     await driver.dispose()
   })
 })
@@ -208,8 +221,16 @@ describe.skipIf(!live)('checkpoint restore against a real session', () => {
     expect(textOf(restored).toLowerCase()).toContain('first')
     expect(textOf(restored).toLowerCase()).not.toContain('second')
 
-    // The working tree is untouched.
+    // The working tree is untouched — which is exactly what the restore
+    // confirmation promises the user, so it is worth asserting here.
     expect(existsSync(witness)).toBe(true)
+
+    // Projected: a rewound thread renders as one conversation, not two glued
+    // together. The reset must have cleared the pre-restore blocks.
+    const rebuilt = replayThread(history)
+    const users = rebuilt.blocks.filter((block) => block.kind === 'user')
+    expect(users).toHaveLength(1)
+    expect(rebuilt.blocks.some((block) => block.kind === 'checkpoint')).toBe(true)
 
     await reader.dispose()
     await driver.dispose()
@@ -245,6 +266,10 @@ describe.skipIf(!live)('steering and compaction against a real session', () => {
     console.log('[pi-live steer]', JSON.stringify(events.map((event) => event.kind)))
     expect(events.some((event) => event.kind === 'steer-delivered')).toBe(true)
 
+    // Projected: a delivered steer leaves no QUEUED row behind. One that
+    // lingered would tell the user their message is still waiting to be sent.
+    expect(replayThread(events).blocks.some((block) => block.kind === 'steer')).toBe(false)
+
     const before = events.length
     await driver.execute('compact', { threadId })
 
@@ -255,11 +280,15 @@ describe.skipIf(!live)('steering and compaction against a real session', () => {
     // pi decides whether there is anything worth compacting. Either answer is
     // valid; what must never happen is the thread being marked failed for it.
     const settled = compaction.some(
-      (event) =>
-        event.kind === 'compaction-done' ||
-        (event.kind === 'raw' && event.rawKind === 'compaction-skipped'),
+      (event) => event.kind === 'compaction-done' || event.kind === 'compaction-skipped',
     )
     expect(settled).toBe(true)
+
+    // Projected: whichever answer came back, the divider stopped running. A
+    // compaction left mid-shimmer would claim the app is still working.
+    const compactions = replayThread(events).blocks.filter((block) => block.kind === 'compaction')
+    expect(compactions).toHaveLength(1)
+    expect(compactions[0]).toMatchObject({ running: false })
     expect(compaction.some((event) => isState(event, 'failed'))).toBe(false)
 
     await driver.dispose()

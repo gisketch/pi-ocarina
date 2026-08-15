@@ -104,7 +104,15 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return push(model, { kind: 'compaction', id: event.id, running: true })
 
     case 'compaction-done':
-      return finishCompaction(model, event)
+      return finishCompaction(model, event.id, {
+        running: false,
+        beforePercent: event.beforePercent,
+        afterPercent: event.afterPercent,
+        summary: event.summary,
+      })
+
+    case 'compaction-skipped':
+      return finishCompaction(model, event.id, { running: false, skipped: event.reason })
 
     case 'steer-queued':
       return push(model, { kind: 'steer', id: event.id, text: event.text })
@@ -200,26 +208,21 @@ function decide(
   })
 }
 
-/** Ends a compaction. If no running divider matches, the summary still lands as
- *  a card of its own: a shimmer that never stops would claim the app is busy
- *  forever, and the compaction did in fact happen. */
+/** Ends a compaction, whether it produced a summary or was refused. If no
+ *  running divider matches, the outcome still lands as a card of its own: a
+ *  shimmer that never stops would claim the app is busy forever, and something
+ *  did in fact happen. */
 function finishCompaction(
   model: ThreadViewModel,
-  event: UiEvent & { kind: 'compaction-done' },
+  id: string,
+  outcome: Omit<Block & { kind: 'compaction' }, 'kind' | 'id'>,
 ): ThreadViewModel {
-  const done = {
-    running: false,
-    beforePercent: event.beforePercent,
-    afterPercent: event.afterPercent,
-    summary: event.summary,
-  }
-
-  const next = editBlock(model, event.id, (block) =>
-    block.kind === 'compaction' ? { ...block, ...done } : block,
+  const next = editBlock(model, id, (block) =>
+    block.kind === 'compaction' ? { ...block, ...outcome } : block,
   )
   if (next !== model) return next
 
-  return push(model, { kind: 'compaction', id: event.id, ...done })
+  return push(model, { kind: 'compaction', id, ...outcome })
 }
 
 function dropBlock(model: ThreadViewModel, id: string): ThreadViewModel {
