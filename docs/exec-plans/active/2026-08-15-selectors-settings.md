@@ -33,7 +33,26 @@ Status legend: `todo` · `in-progress` · `done`.
   §14; `pnpm check`.
 - Blocked by: —
 
-## F2 — Settings overlay & preferences — `todo`
+## F2 — Settings overlay & preferences — `done`
+
+> Verified in the running app: all seven rows render, `j`/`k` move the
+> highlight, `⏎` toggles grain and motion, `h`/`l` steps reasoning and the
+> leader timeout. Grain off sets the overlay's opacity to 0; motion off
+> collapses the strip transition to 0.001ms — the same declaration the OS
+> reduce-motion rule makes, written against `:root[data-motion='off']` so the
+> two can never drift into meaning different things.
+>
+> **Catalog is now version 3.** A version 2 file upgrades in place and keeps
+> every pin and approval rule; preferences take their defaults. Each preference
+> also falls back on its own, so one unreadable value costs one setting rather
+> than the whole file.
+>
+> Two scope notes. **The `m` / leader-`m` model keys are deferred to D5**, with
+> the selector itself — a key that opened an empty panel would be worse than a
+> key that does not exist yet. The settings "default model" row shows the
+> current model and gains its `⏎` action in D5. **Preferences moved to
+> `src/shared/`**: importing them from `main/catalog.ts` pulled `node:fs` into
+> the renderer bundle and broke the build, which is the seam doing its job.
 
 - Delivered behavior: settings on `,` and leader `s` (leader also gains `m`;
   which-key bar and keymap overlay updated). Rows per spec: default model

@@ -1,6 +1,7 @@
 import { app } from './app.svelte'
 import { bridge } from '../bridge'
 import { catalog } from './catalog.svelte'
+import { preferences } from './preferences.svelte'
 import { clampThread } from '../strip'
 
 const SAVE_DEBOUNCE_MS = 250
@@ -19,6 +20,7 @@ export function startPersistence(): () => void {
   // of the two promises won was otherwise a matter of timing.
   void Promise.all([desktop.catalog.load(), catalog.load()]).then(([{ state, warning }]) => {
     if (warning) console.warn(`[catalog] ${warning}`)
+    preferences.apply(state.preferences)
     app.goWorkspace(Math.min(state.workspaceIndex, app.workspaces.length - 1))
     app.focus = app.workspaces.map((workspace, i) =>
       clampThread(state.focus[i] ?? 0, workspace.threads.length),
@@ -33,6 +35,7 @@ export function startPersistence(): () => void {
       const snapshot = {
         workspaceIndex: app.workspaceIndex,
         focus: [...app.focus],
+        preferences: preferences.stored,
       }
       if (!restored) return
 

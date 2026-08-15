@@ -64,8 +64,15 @@ edge), `esc` closes. Rows:
 
 ### Persistence
 
-Grain, motion, leader timeout, and default model/reasoning persist in the
-catalog and restore on launch.
+Grain, motion and the leader timeout persist in the catalog (version 3) and
+restore on launch. A version 2 catalog upgrades in place, keeping every pin and
+approval rule and taking the default preferences. Each preference falls back on
+its own, so one unreadable value costs one setting rather than the whole file.
+The leader timeout is clamped to 0.8–8.0s: outside that the chord is either
+gone before a key can follow it or effectively stuck.
+
+Model and reasoning are per-thread, not global — they belong to the
+composer-controls spec, which owns where they are kept.
 
 ## Settled Constraints
 

@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { nameFor, voiceFor } from '../shared/workspace-identity'
 import {
   defaultCatalog,
+  parsePreferences,
   readCatalog,
   writeCatalog,
   type CatalogState,
+  type Preferences,
   type WorkspaceEntry,
 } from './catalog'
 
@@ -109,9 +111,10 @@ export class CatalogStore {
   }
 
   /** The renderer's remembered position. Deliberately the only thing it writes. */
-  setPosition(workspaceIndex: number, focus: number[]): void {
+  setPosition(workspaceIndex: number, focus: number[], preferences?: Preferences): void {
     this.#state.workspaceIndex = workspaceIndex
     this.#state.focus = focus
+    if (preferences) this.#state.preferences = parsePreferences(preferences)
     this.#persist()
   }
 

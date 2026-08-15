@@ -143,3 +143,12 @@ a:hover {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Motion switched off in settings behaves exactly like the OS preference. */
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}

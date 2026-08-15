@@ -9,8 +9,10 @@
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
+  import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { preferences } from '$lib/state/preferences.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
@@ -26,6 +28,14 @@
   // would leave every inherited --accent stuck on the default hue.
   $effect(() => {
     document.documentElement.style.setProperty('--accent-hue', String(app.workspace.hue))
+  })
+
+  // Grain and motion are declared in CSS against these attributes, so the
+  // settings switches and the OS reduce-motion preference say the same thing in
+  // the same place.
+  $effect(() => {
+    document.documentElement.dataset.grain = preferences.grain ? 'on' : 'off'
+    document.documentElement.dataset.motion = preferences.motion ? 'on' : 'off'
   })
 
   let composerInput = $state<HTMLInputElement | null>(null)
@@ -107,6 +117,11 @@
         app.goWorkspace(index)
         shell.closeOverlay()
       }}
+    />
+  {:else if shell.overlay === 'settings'}
+    <SettingsOverlay
+      onclose={() => shell.closeOverlay()}
+      onkeymap={() => shell.openOverlay('keymap')}
     />
   {:else if shell.overlay === 'palette'}
     <CommandPalette

@@ -12,6 +12,7 @@
         ['switcher', 'w'],
         ['commands', '⌘K'],
         ['terminal', 't'],
+        ['settings', ','],
       ],
     },
     {
@@ -20,6 +21,7 @@
         ['␣ 1–3 jump', 'chord'],
         ['␣ n new thread', 'chord'],
         ['␣ c compact', 'chord'],
+        ['␣ s settings', 'chord'],
         ['␣ k keymap', 'chord'],
       ],
     },

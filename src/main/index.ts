@@ -91,7 +91,7 @@ function registerCatalog(catalog: CatalogStore): void {
   // The renderer sends its position only. Workspaces belong to main, so a layout
   // save can never erase a pin.
   ipcMain.handle('catalog:save', (_event, position: CatalogPosition) => {
-    catalog.setPosition(position.workspaceIndex, position.focus)
+    catalog.setPosition(position.workspaceIndex, position.focus, position.preferences)
   })
 }
 

@@ -1,4 +1,8 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
+import { DEFAULT_PREFERENCES, parsePreferences, type Preferences } from '../shared/preferences'
+
+export { DEFAULT_PREFERENCES, LEADER_TIMEOUT_RANGE, parsePreferences } from '../shared/preferences'
+export type { Preferences } from '../shared/preferences'
 
 /** A folder the user pinned. Identity (note, hue) is derived from the path, but
  *  stored so a future palette change cannot repaint everyone's workspaces. */
@@ -10,16 +14,18 @@ export interface WorkspaceEntry {
   hue: number
 }
 
-/** What the shell restores on launch: which folders are pinned, and where the
- *  user was standing. Thread identity is not stored — pi's own session store is
- *  the truth about what threads exist, so it cannot drift out of sync here. */
+/** What the shell restores on launch: which folders are pinned, where the user
+ *  was standing, and what they set. Thread identity is not stored — pi's own
+ *  session store is the truth about what threads exist, so it cannot drift out
+ *  of sync here. */
 export interface CatalogState {
-  version: 2
+  version: 3
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
   /** Workspace id → "always allow" rule keys. Policy lives in main only. */
   approvals: Record<string, string[]>
+  preferences: Preferences
 }
 
 /** A fresh empty catalog.
@@ -28,16 +34,25 @@ export interface CatalogState {
  *  not its arrays, so every caller would end up pushing workspaces into the same
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
-  return { version: 2, workspaces: [], workspaceIndex: 0, focus: [], approvals: {} }
+  return {
+    version: 3,
+    workspaces: [],
+    workspaceIndex: 0,
+    focus: [],
+    approvals: {},
+    preferences: { ...DEFAULT_PREFERENCES },
+  }
 }
 
 /** For comparison and display only — never spread this to make a new catalog. */
 export const DEFAULT_CATALOG: Readonly<CatalogState> = defaultCatalog()
 
-/** All the renderer is allowed to write: where the user was standing. */
+/** All the renderer is allowed to write: where the user was standing, and what
+ *  they set. Workspaces and approval rules stay in main. */
 export interface CatalogPosition {
   workspaceIndex: number
   focus: number[]
+  preferences?: Preferences
 }
 
 export interface CatalogLoad {
@@ -116,7 +131,9 @@ export function parseCatalog(raw: string): CatalogLoad {
     return { state: { ...defaultCatalog(), workspaceIndex, focus } }
   }
 
-  if (record.version !== 2) {
+  // Version 2 is version 3 without preferences, so it upgrades by taking the
+  // defaults. Nothing the user pinned or approved is lost.
+  if (record.version !== 2 && record.version !== 3) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -125,11 +142,12 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 2,
+      version: 3,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,
       approvals: parseApprovals(record.approvals),
+      preferences: parsePreferences(record.preferences),
     },
   }
 }

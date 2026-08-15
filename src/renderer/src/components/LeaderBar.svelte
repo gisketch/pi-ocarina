@@ -5,6 +5,7 @@
     ['w', 'switcher'],
     ['n', 'new thread'],
     ['t', 'terminal'],
+    ['s', 'settings'],
     ['k', 'keymap'],
   ]
 </script>

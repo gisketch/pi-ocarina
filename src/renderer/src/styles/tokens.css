@@ -72,3 +72,13 @@
     --dur-strip: 0s;
   }
 }
+
+/* The settings overlay's own switches. Motion-off declares exactly what the OS
+   preference declares, so the two cannot drift into meaning different things. */
+:root[data-motion='off'] {
+  --dur-strip: 0s;
+}
+
+:root[data-grain='off'] {
+  --grain-opacity: 0;
+}

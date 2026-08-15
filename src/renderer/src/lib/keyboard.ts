@@ -1,6 +1,6 @@
 import type { Mode } from './types'
 
-export type Overlay = 'palette' | 'switcher' | 'keymap'
+export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings'
 
 export interface KeyState {
   mode: Mode
@@ -149,6 +149,8 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'switcher')
     case '?':
       return toggleOverlay(state, 'keymap')
+    case ',':
+      return toggleOverlay(state, 'settings')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
     case 'y':
@@ -172,6 +174,8 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'switcher' }, focusFor('switcher'), true, 'clear')
     case 'k':
       return result({ ...done, overlay: 'keymap' }, [], true, 'clear')
+    case 's':
+      return result({ ...done, overlay: 'settings' }, [], true, 'clear')
     case 'n':
       return result({ ...done, overlay: null }, [{ type: 'newThread' }], true, 'clear')
     case 't':

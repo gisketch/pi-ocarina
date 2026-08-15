@@ -1,5 +1,6 @@
 import { app } from './app.svelte'
 import { scrollColumn } from './columns'
+import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
 import {
@@ -105,7 +106,7 @@ class ShellState {
     this.leaderTimer = setTimeout(() => {
       if (app.mode === 'LEADER') app.mode = 'NORMAL'
       this.leaderTimer = null
-    }, LEADER_TIMEOUT_MS)
+    }, preferences.leaderTimeoutMs)
   }
 
   private clearLeaderTimer(): void {

@@ -183,3 +183,29 @@ describe('overlays', () => {
     expect(press(NORMAL, { key: 'l', altKey: true }).actions).toEqual([])
   })
 })
+
+describe('settings', () => {
+  it('opens on comma and closes on a second comma', () => {
+    expect(press(NORMAL, ',').state.overlay).toBe('settings')
+    expect(press(NORMAL, ',', ',').state.overlay).toBe(null)
+  })
+
+  it('opens on the leader s chord', () => {
+    const { state, last } = press(NORMAL, ' ', 's')
+    expect(state.overlay).toBe('settings')
+    expect(state.mode).toBe('NORMAL')
+    expect(last.timer).toBe('clear')
+  })
+
+  it('does not steal keys from a focused input', () => {
+    // Settings has no caret of its own, but the composer does; typing a comma
+    // in a prompt must not open a dialog over it.
+    const insert = press(NORMAL, 'i').state
+    expect(press(insert, ',').state.overlay).toBe(null)
+  })
+
+  it('stays mutually exclusive with the other overlays', () => {
+    const settings = press(NORMAL, ',').state
+    expect(press(settings, '?').state.overlay).toBe('keymap')
+  })
+})
