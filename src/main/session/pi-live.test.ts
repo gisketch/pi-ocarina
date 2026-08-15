@@ -129,10 +129,15 @@ describe.skipIf(!live)('approvals against a real session', () => {
       )
     }
 
-    // The gate exists at all: pi asked before touching the shell.
+    // The gate exists at all: pi asked before touching the shell. The blocked
+    // call reads as `denied`, not `fail` — pi reports one boolean for every bad
+    // outcome, so only the gate's own record can tell the two apart.
     await run('deny')
     console.log('[pi-live approvals]', JSON.stringify(events.map((event) => event.kind)))
-    expect(events.some((event) => event.kind === 'tool-end' && event.status === 'fail')).toBe(true)
+    expect(events.some((event) => event.kind === 'tool-end' && event.status === 'denied')).toBe(
+      true,
+    )
+    expect(events.some((event) => event.kind === 'tool-end' && event.status === 'fail')).toBe(false)
     expect(catalog.listApprovals(workspaceId)).toEqual([])
 
     // "always" is remembered against the program, not against bash as a whole.
@@ -151,11 +156,16 @@ describe.skipIf(!live)('approvals against a real session', () => {
     // The card the user actually sees: the same events, projected. Asserting on
     // the rendered block is what proves the round trip closed, rather than that
     // an event merely went past.
-    const cards = replayThread(events).blocks.filter((block) => block.kind === 'approve')
+    const projected = replayThread(events)
+    const cards = projected.blocks.filter((block) => block.kind === 'approve')
     expect(cards.map((card) => card.kind === 'approve' && card.outcome)).toEqual([
       'deny',
       'always',
     ])
+
+    // And the ledger row the user reads blames the right party.
+    const rows = projected.blocks.flatMap((block) => (block.kind === 'ledger' ? block.rows : []))
+    expect(rows.some((row) => row.status === 'denied')).toBe(true)
     expect(cards.every((card) => card.kind === 'approve' && card.command.startsWith('echo'))).toBe(
       true,
     )
