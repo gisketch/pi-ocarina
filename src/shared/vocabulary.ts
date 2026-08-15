@@ -100,10 +100,23 @@ export interface AskOption {
   label: string
 }
 
-/** A file handed to the agent with a prompt. Bytes travel to main; the renderer
- *  reads a file only to draw a preview. */
+/** A file handed to the agent with a prompt.
+ *
+ *  Only the path travels: main reads the bytes. The renderer never opens a
+ *  file, which keeps the one process with filesystem access the one that has
+ *  it. */
 export interface AttachmentRef {
   name: string
-  path?: string
+  path: string
   mime?: string
+}
+
+/** Whether pi can actually take this file with a prompt.
+ *
+ *  pi 0.84's `prompt()` accepts text and images. An image travels as bytes; a
+ *  file of any other kind can only be referenced by path, for pi to open with
+ *  its read tool. Calling that second case an attachment would describe
+ *  something the seam cannot do. */
+export function isImageAttachment(attachment: AttachmentRef): boolean {
+  return (attachment.mime ?? '').startsWith('image/')
 }

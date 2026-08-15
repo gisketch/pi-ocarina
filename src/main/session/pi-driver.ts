@@ -6,7 +6,9 @@ import type {
   EmitEvent,
   SessionDriver,
 } from '../../shared/protocol'
+import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
+import { describeAttachments, readImages } from './attachments'
 import { ApprovalGate } from './approvals'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
@@ -81,8 +83,8 @@ export class PiDriver implements SessionDriver {
       }
 
       case 'prompt': {
-        const { threadId, text } = params as CommandParams<'prompt'>
-        this.#startTurn(threadId, text)
+        const { threadId, text, attachments } = params as CommandParams<'prompt'>
+        await this.#startTurn(threadId, text, attachments ?? [])
         return { ok: true } as CommandResult<N>
       }
 
@@ -134,7 +136,7 @@ export class PiDriver implements SessionDriver {
         const { lastPrompt } = this.#threads.get(threadId)
         // Nothing to retry is not an error; the UI simply offered a button it
         // did not need to.
-        if (lastPrompt) this.#startTurn(threadId, lastPrompt)
+        if (lastPrompt) void this.#startTurn(threadId, lastPrompt)
         return { ok: true } as CommandResult<N>
       }
 
@@ -237,16 +239,24 @@ export class PiDriver implements SessionDriver {
     return threadId
   }
 
-  #startTurn(threadId: string, text: string): void {
+  /** Starts a turn.
+   *
+   *  Attachments are resolved before the turn begins: images become bytes pi
+   *  can see, and everything else is named in the message for pi to open with
+   *  its read tool — pi 0.84 takes text and images, and nothing else. */
+  async #startTurn(threadId: string, text: string, attachments: AttachmentRef[] = []): Promise<void> {
     const thread = this.#threads.get(threadId)
     const { session } = thread
+    const images = await readImages(attachments)
+    const prompt = text + describeAttachments(attachments)
+
     thread.lastPrompt = text
     thread.prompts += 1
-    this.#emit(threadId, { kind: 'user-message', id: `user-${thread.prompts}`, text })
+    this.#emit(threadId, { kind: 'user-message', id: `user-${thread.prompts}`, text: prompt })
 
     // Deliberately not awaited: a turn runs for minutes and the caller's IPC
     // reply must not wait for it. Progress and failure both arrive as events.
-    void session.prompt(text).catch((error: unknown) => {
+    void session.prompt(prompt, images.length > 0 ? { images } : undefined).catch((error: unknown) => {
       this.#emit(threadId, {
         kind: 'thread-state',
         state: 'failed',

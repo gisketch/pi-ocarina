@@ -1,5 +1,5 @@
 import type { CommandName, CommandParams, ModelSummary } from '../../../../shared/protocol'
-import type { ApprovalOutcome, ReasoningLevel } from '../../../../shared/vocabulary'
+import type { ApprovalOutcome, AttachmentRef, ReasoningLevel } from '../../../../shared/vocabulary'
 import { session } from '../session'
 import { reduceBatch } from '../thread-reducer'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
@@ -85,8 +85,12 @@ class ThreadStore {
 
   /** Starts a turn. The user's own message comes back as an event, so the
    *  composer never draws it locally — one projection, one truth. */
-  prompt(threadId: string, text: string): void {
-    this.#command(threadId, 'prompt', { threadId, text })
+  prompt(threadId: string, text: string, attachments: AttachmentRef[] = []): void {
+    this.#command(threadId, 'prompt', {
+      threadId,
+      text,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    })
   }
 
   /** Queues text into the turn already running. */

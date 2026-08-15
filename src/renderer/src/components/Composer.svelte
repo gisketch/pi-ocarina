@@ -6,6 +6,7 @@
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
+  import { attachments } from '$lib/state/attachments.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
@@ -23,6 +24,7 @@
   let sending = $state(false)
 
   const insert = $derived(app.mode === 'INSERT')
+  const chips = $derived(attachments.list)
 
   const query = $derived(slashQuery(text))
   const slash = $derived(query === null ? [] : filterSlash(query))
@@ -91,6 +93,7 @@
     // A message naming a real command runs it. Anything else starting with `/`
     // is just text someone typed, and is sent as written.
     const command = resolveSlash(text)
+    void chips
     if (command) {
       run(command)
       return
@@ -104,8 +107,10 @@
       const threadId = await targetThread()
       if (!threadId) return
 
-      if (plan.action === 'prompt') threads.prompt(threadId, plan.text)
+      if (plan.action === 'prompt') threads.prompt(threadId, plan.text, attachments.list)
       else threads.steer(threadId, plan.text)
+
+      attachments.clear()
 
       // Cleared only once it has gone somewhere: losing a prompt to a failed
       // send would mean retyping it.
@@ -191,6 +196,22 @@
     />
   {/if}
 
+  {#if chips.length > 0}
+    <div class="chips">
+      {#each chips as attachment (attachment.path)}
+        <span class="chip" class:image={(attachment.mime ?? '').startsWith('image/')}>
+          <span class="glyph">▤</span>{attachment.name}
+          <button
+            type="button"
+            class="drop"
+            aria-label="remove {attachment.name}"
+            onclick={() => attachments.remove(attachment.path)}>✕</button
+          >
+        </span>
+      {/each}
+    </div>
+  {/if}
+
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
     <textarea
@@ -263,6 +284,47 @@
   }
   textarea::placeholder {
     color: var(--fg-dimmest);
+  }
+
+  .chips {
+    max-width: var(--column-w);
+    margin: 0 auto 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg-hover);
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--font-body);
+    color: var(--fg-agent);
+  }
+  .chip.image {
+    border-color: oklch(0.76 0.14 var(--accent-hue) / 0.5);
+  }
+  .glyph {
+    color: var(--fg-dim);
+  }
+  .chip.image .glyph {
+    color: var(--accent);
+  }
+  .drop {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg-dimmest);
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .drop:hover {
+    color: var(--err);
   }
 
   .hints {

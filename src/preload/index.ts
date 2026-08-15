@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CatalogLoad, CatalogPosition } from '../main/catalog'
 import {
   SESSION_COMMAND_CHANNEL,
@@ -21,6 +21,12 @@ const api = {
   catalog: {
     load: (): Promise<CatalogLoad> => ipcRenderer.invoke('catalog:load'),
     save: (position: CatalogPosition): Promise<void> => ipcRenderer.invoke('catalog:save', position),
+  },
+  files: {
+    /** The real path of a dropped file. Electron 38 removed `File.path`, and
+     *  this is the sanctioned replacement. The renderer never reads the file —
+     *  it hands the path to main, which does. */
+    pathFor: (file: File): string => webUtils.getPathForFile(file),
   },
   dialog: {
     /** Native folder picker; null when the user cancels. The renderer never

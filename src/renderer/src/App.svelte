@@ -13,6 +13,7 @@
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { attachments } from '$lib/state/attachments.svelte'
   import { models } from '$lib/state/models.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
   import { shell } from '$lib/state/shell.svelte'
@@ -58,6 +59,33 @@
     shell.targets.switcher = switcherInput
   })
 
+  // Dragenter/dragleave fire for every child element, so the zone is driven by
+  // a depth counter rather than by the last event seen.
+  let dragDepth = $state(0)
+
+  function ondragenter(event: DragEvent): void {
+    if (!event.dataTransfer?.types.includes('Files')) return
+    event.preventDefault()
+    dragDepth += 1
+    attachments.dragging = true
+  }
+
+  function ondragleave(): void {
+    dragDepth = Math.max(0, dragDepth - 1)
+    if (dragDepth === 0) attachments.dragging = false
+  }
+
+  function ondragover(event: DragEvent): void {
+    if (event.dataTransfer?.types.includes('Files')) event.preventDefault()
+  }
+
+  function ondrop(event: DragEvent): void {
+    event.preventDefault()
+    dragDepth = 0
+    attachments.dragging = false
+    attachments.add([...(event.dataTransfer?.files ?? [])])
+  }
+
   function onKeydown(event: KeyboardEvent): void {
     if (shell.handleKey(event)) event.preventDefault()
   }
@@ -89,6 +117,7 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+<svelte:body {ondragenter} {ondragleave} {ondragover} {ondrop} />
 
 <div class="shell">
   <div class="tint"></div>
@@ -107,6 +136,10 @@
       <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
     </div>
   </div>
+
+  {#if attachments.dragging}
+    <div class="dropzone">▤ drop files to attach — images go to the model, others are named for it</div>
+  {/if}
 
   <Statusbar />
 
@@ -194,5 +227,22 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+
+  /* Shown while a file is over the window. Pointer-events off so it cannot
+     swallow the drop it is advertising. */
+  .dropzone {
+    position: absolute;
+    inset: var(--titlebar-h) 0 0 0;
+    z-index: 70;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed oklch(0.76 0.14 var(--accent-hue) / 0.5);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.05);
+    color: var(--accent);
+    font-size: 10.5px;
+    font-family: var(--font-chrome);
   }
 </style>

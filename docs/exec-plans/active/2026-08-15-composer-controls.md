@@ -88,7 +88,24 @@ Status legend: `todo` · `in-progress` · `done`.
   chip insertion model; headless picker flow tests.
 - Blocked by: D1
 
-## D4 — Attachments — `todo`
+## D4 — Attachments — `done`
+
+> Drag a file anywhere over the window and the drop zone appears; dropped files
+> become chips above the composer, removable before send; sending clears them.
+>
+> **pi takes two things with a prompt: text and images.** So an image travels
+> as bytes (`PromptOptions.images`, base64) and **anything else is named in the
+> message** for pi to open with its read tool. That split is visible in the drop
+> zone's own wording — "images go to the model, others are named for it" —
+> because a chip that implied a log file had been read would be a lie.
+>
+> Only paths cross the seam. The renderer never opens a file; main reads the
+> bytes, which keeps the one process with filesystem access the only one that
+> has it. Electron 38 removed `File.path`, so the preload uses
+> `webUtils.getPathForFile`. A file with no real path (dragged from a browser)
+> is refused rather than staged, because its bytes could never be fetched.
+>
+> An unreadable image is dropped from the batch rather than failing the turn.
 
 - Delivered behavior: drag-drop anywhere on the column shows the reference drop
   zone; any file accepted, images previewable; attachments render as inline
