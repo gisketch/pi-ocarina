@@ -3,20 +3,16 @@ import {
   LEADER_TIMEOUT_RANGE,
   type Preferences,
 } from '../../../../shared/preferences'
-import type { ReasoningLevel } from '../../../../shared/vocabulary'
-
-export const REASONING_LEVELS: readonly ReasoningLevel[] = ['off', 'low', 'medium', 'high']
-
 /** What the settings overlay changes.
  *
- *  Grain, motion and the leader timeout live in the catalog because losing them
- *  on relaunch would be visible. Reasoning is here too, but it is not persisted
- *  by this store: it belongs to a thread, and D5 owns where it is kept. */
+ *  Grain, motion and the leader timeout, all in the catalog because losing them
+ *  on relaunch would be visible. Reasoning is deliberately absent: it belongs
+ *  to a thread and pi stores it in the session file, so a copy here would be a
+ *  second answer that could disagree. */
 class PreferencesState {
   grain = $state(DEFAULT_PREFERENCES.grain)
   motion = $state(DEFAULT_PREFERENCES.motion)
   leaderTimeoutMs = $state(DEFAULT_PREFERENCES.leaderTimeoutMs)
-  reasoning = $state<ReasoningLevel>('high')
 
   /** The stored shape, for writing back. */
   get stored(): Preferences {
@@ -44,12 +40,6 @@ class PreferencesState {
       LEADER_TIMEOUT_RANGE.max,
       Math.max(LEADER_TIMEOUT_RANGE.min, next),
     )
-  }
-
-  cycleReasoning(direction: 1 | -1): void {
-    const index = REASONING_LEVELS.indexOf(this.reasoning)
-    const next = Math.min(REASONING_LEVELS.length - 1, Math.max(0, index + direction))
-    this.reasoning = REASONING_LEVELS[next]
   }
 
   get leaderTimeoutLabel(): string {

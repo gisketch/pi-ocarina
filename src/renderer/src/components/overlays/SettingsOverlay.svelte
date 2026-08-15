@@ -10,9 +10,21 @@
      *  current model; it just cannot be changed from here yet. */
     onmodel?: () => void
     model?: string
+    /** The focused thread's reasoning level, and how to change it. pi stores
+     *  this per thread, so the row acts on the thread rather than on a global
+     *  preference that nothing would read. */
+    reasoning?: string
+    onreasoning?: (direction: 1 | -1) => void
   }
 
-  const { onclose, onkeymap, onmodel, model = 'pi default' }: Props = $props()
+  const {
+    onclose,
+    onkeymap,
+    onmodel,
+    model = 'pi default',
+    reasoning,
+    onreasoning,
+  }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
    *  the user which, so no row's behaviour has to be guessed. */
@@ -29,9 +41,9 @@
     { label: 'default model', value: () => model, hint: onmodel ? 'enter' : 'none', enter: onmodel },
     {
       label: 'reasoning effort',
-      value: () => preferences.reasoning,
-      hint: 'range',
-      nudge: (direction) => preferences.cycleReasoning(direction),
+      value: () => reasoning ?? 'pi default',
+      hint: onreasoning ? 'range' : 'none',
+      nudge: onreasoning,
       accent: true,
     },
     {

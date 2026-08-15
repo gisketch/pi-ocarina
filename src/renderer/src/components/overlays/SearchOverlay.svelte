@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import Spotlight from './Spotlight.svelte'
   import type { SearchHit } from '../../../../shared/protocol'
   import { session } from '$lib/session'
@@ -15,6 +16,25 @@
   let complete = $state(true)
   let picked = $state(0)
   let generation = 0
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  /** Each search walks every workspace and reads session files, so one per
+   *  keystroke would have "backoff" launch seven overlapping scans. Waiting for
+   *  a pause in typing costs nothing a person notices and does the work once. */
+  const DEBOUNCE_MS = 140
+
+  function schedule(): void {
+    picked = 0
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = null
+      void search()
+    }, DEBOUNCE_MS)
+  }
+
+  onDestroy(() => {
+    if (timer) clearTimeout(timer)
+  })
 
   async function search(): Promise<void> {
     const mine = ++generation
@@ -89,10 +109,7 @@
   placeholder="search every thread…"
   bind:value={query}
   {onkeydown}
-  oninput={() => {
-    picked = 0
-    void search()
-  }}
+  oninput={schedule}
 >
   {#if hits.length > 0}
     <div class="results">

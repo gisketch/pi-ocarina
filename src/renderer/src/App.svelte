@@ -21,6 +21,7 @@
   import { threads } from '$lib/state/threads.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
+  import { REASONING_ORDER } from '../../shared/vocabulary'
 
   // The demo columns are seeded first so the window is never blank. The real
   // catalog and the saved layout are loaded together by startPersistence, which
@@ -102,6 +103,17 @@
     if (column !== -1) app.focusThread(column)
   }
 
+  /** Moves the focused thread's reasoning one level. pi clamps it to what the
+   *  model supports and reports back what it landed on. */
+  function stepReasoning(direction: 1 | -1): void {
+    const current = threads.get(app.thread.id).model?.reasoning
+    if (!current) return
+
+    const at = REASONING_ORDER.indexOf(current)
+    const next = REASONING_ORDER[Math.min(REASONING_ORDER.length - 1, Math.max(0, at + direction))]
+    if (next !== current) threads.setReasoning(app.thread.id, next)
+  }
+
   function runCommand(id: CommandId): void {
     switch (id) {
       case 'jump-workspace':
@@ -176,6 +188,10 @@
       onkeymap={() => shell.openOverlay('keymap')}
       onmodel={() => shell.openOverlay('model')}
       model={threads.get(app.thread.id).model?.name ?? 'pi default'}
+      reasoning={threads.get(app.thread.id).model?.reasoning}
+      onreasoning={threads.get(app.thread.id).model
+        ? (direction) => stepReasoning(direction)
+        : undefined}
     />
   {:else if shell.overlay === 'model'}
     <ModelOverlay

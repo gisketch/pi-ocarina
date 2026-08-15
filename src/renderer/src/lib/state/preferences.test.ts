@@ -4,7 +4,6 @@ import { preferences } from './preferences.svelte'
 
 beforeEach(() => {
   preferences.apply(DEFAULT_PREFERENCES)
-  preferences.reasoning = 'high'
 })
 
 describe('switches', () => {
@@ -44,32 +43,10 @@ describe('leader timeout', () => {
   })
 })
 
-describe('reasoning', () => {
-  it('cycles through the four levels', () => {
-    preferences.reasoning = 'off'
-    preferences.cycleReasoning(1)
-    expect(preferences.reasoning).toBe('low')
-    preferences.cycleReasoning(1)
-    expect(preferences.reasoning).toBe('medium')
-  })
-
-  it('stops at each end rather than wrapping', () => {
-    // Wrapping from high straight to off would be a large, silent change to
-    // what the next turn costs.
-    preferences.reasoning = 'high'
-    preferences.cycleReasoning(1)
-    expect(preferences.reasoning).toBe('high')
-
-    preferences.reasoning = 'off'
-    preferences.cycleReasoning(-1)
-    expect(preferences.reasoning).toBe('off')
-  })
-})
 
 describe('what gets stored', () => {
   it('carries exactly the three settings the catalog keeps', () => {
     preferences.toggleGrain()
-    preferences.reasoning = 'low'
 
     expect(preferences.stored).toEqual({
       grain: false,

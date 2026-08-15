@@ -77,3 +77,21 @@ describe('mentionedPaths', () => {
     expect(mentionedPaths('just prose')).toEqual([])
   })
 })
+
+describe('dismissing a mention', () => {
+  // The composer suppresses a mention by remembering where the dismissed one
+  // started. These assertions pin the shape that makes that possible: a
+  // mention's `start` is stable while its query grows, and changes when the
+  // user moves on to a different one.
+  it('keeps the same start as the query grows', () => {
+    expect(mentionAt('look at @s', 10)?.start).toBe(8)
+    expect(mentionAt('look at @src', 12)?.start).toBe(8)
+  })
+
+  it('reports a different start for a different mention', () => {
+    const first = mentionAt('@a', 2)?.start
+    const second = mentionAt('@a @b', 5)?.start
+
+    expect(first).not.toBe(second)
+  })
+})

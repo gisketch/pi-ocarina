@@ -31,7 +31,12 @@
 
   // Where the caret is, so `@` knows which word it is inside.
   let caret = $state(0)
-  const mention = $derived(mentionAt(text, caret))
+  /** Where a mention the user dismissed started, so Escape sticks. Cleared as
+   *  soon as they type a different one — otherwise Escape would silently
+   *  disable the picker for the rest of the message. */
+  let dismissed = $state<number | null>(null)
+  const found = $derived(mentionAt(text, caret))
+  const mention = $derived(found && found.start === dismissed ? null : found)
   const paths = $derived(
     mention === null
       ? []
@@ -93,7 +98,6 @@
     // A message naming a real command runs it. Anything else starting with `/`
     // is just text someone typed, and is sent as written.
     const command = resolveSlash(text)
-    void chips
     if (command) {
       run(command)
       return
@@ -150,7 +154,7 @@
           event.preventDefault()
           event.stopPropagation()
           if (menu === 'slash') text = ''
-          else caret = 0
+          else dismissed = mention?.start ?? null
           return
       }
     }
