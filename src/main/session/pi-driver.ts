@@ -10,17 +10,10 @@ import type { CatalogStore } from '../catalog-store'
 import { ApprovalGate } from './approvals'
 import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
-import { WorkspaceService, type Sdk } from './workspaces'
+import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
+import { WorkspaceService } from './workspaces'
 
-// Derived from the factory: pi's ModelRuntime constructor is private.
-type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
-type ResourceLoaderOf = InstanceType<Sdk['DefaultResourceLoader']>
-
-/** A model named the way pi's config names it. */
-export interface ModelRef {
-  provider: string
-  id: string
-}
+export type { ModelRef } from './session-factory'
 
 export interface PiDriverOptions {
   emit: EmitEvent
@@ -35,12 +28,6 @@ interface Thread {
   unsubscribe: () => void
 }
 
-/** Lets the approval extension name its thread, which only exists once pi has
- *  created the session the extension is being built for. */
-interface ThreadHandle {
-  threadId: string
-}
-
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
  *
  *  Everything pi-shaped stops here: the driver speaks pi inwards and the shared
@@ -51,21 +38,18 @@ export class PiDriver implements SessionDriver {
   #threads = new Map<string, Thread>()
   /** Thread → queued steer text → its id, so delivery can be reported. */
   #steers = new Map<string, Map<string, string>>()
-  #sdk: Promise<Sdk> | null = null
-  #runtime: Promise<ModelRuntimeOf> | null = null
-
   readonly #emit: EmitEvent
-  readonly #model: ModelRef | undefined
   readonly #workspaces: WorkspaceService
   readonly #approvals: ApprovalGate
   readonly #catalog: CatalogStore
+  readonly #sessions: SessionFactory
 
   constructor({ emit, catalog, model }: PiDriverOptions) {
     this.#emit = emit
-    this.#model = model
     this.#catalog = catalog
-    this.#workspaces = new WorkspaceService(catalog, () => this.#load())
     this.#approvals = new ApprovalGate(emit, catalog)
+    this.#sessions = new SessionFactory(this.#approvals, model)
+    this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
   }
 
   async execute<N extends CommandName>(
@@ -172,60 +156,12 @@ export class PiDriver implements SessionDriver {
   }
 
   async #createThread(workspaceId: string): Promise<string> {
-    const { createAgentSession } = await this.#load()
     const cwd = this.#workspaces.pathOf(workspaceId)
-
-    // Credentials and the model catalogue stay in pi's config; the app only ever
-    // names a model, and names none at all unless asked to.
     const handle: ThreadHandle = { threadId: '' }
-    const { session } = await createAgentSession({
-      cwd,
-      model: await this.#resolveModel(),
-      resourceLoader: await this.#resources(cwd, workspaceId, handle),
-    })
 
+    const session = await this.#sessions.create(cwd, workspaceId, handle)
     handle.threadId = this.#adopt(session, cwd)
     return handle.threadId
-  }
-
-  /** Loads pi's usual resources plus one extension of ours: the approval gate.
-   *
-   *  `tool_call` is pi's only place to stand between the model and the disk, and
-   *  it can wait on a promise — so the handler simply asks the user and blocks
-   *  until they answer. */
-  async #resources(
-    cwd: string,
-    workspaceId: string,
-    handle: ThreadHandle,
-  ): Promise<ResourceLoaderOf> {
-    const { DefaultResourceLoader, getAgentDir } = await this.#load()
-    const gate = this.#approvals
-
-    const loader = new DefaultResourceLoader({
-      cwd,
-      agentDir: getAgentDir(),
-      extensionFactories: [
-        {
-          name: 'piocarina-approvals',
-          factory: (pi) => {
-            pi.on('tool_call', async (event) => {
-              const verdict = await gate.request({
-                threadId: handle.threadId,
-                workspaceId,
-                toolName: event.toolName,
-                input: event.input,
-              })
-              return verdict.blocked ? { block: true, reason: verdict.reason } : undefined
-            })
-          },
-        },
-      ],
-    })
-
-    // A freshly constructed loader holds nothing: without this the extension is
-    // never built, and the gate silently never runs. Learned the hard way.
-    await loader.reload()
-    return loader
   }
 
   /** Reopens a thread: its history is replayed as events before the live session
@@ -233,7 +169,7 @@ export class PiDriver implements SessionDriver {
   async #openThread(threadId: string): Promise<void> {
     if (this.#threads.has(threadId)) return
 
-    const { createAgentSession, SessionManager } = await this.#load()
+    const { SessionManager } = await this.#sessions.load()
     const { path, cwd } = await this.#workspaces.locate(threadId)
 
     const sessionManager = SessionManager.open(path)
@@ -241,12 +177,7 @@ export class PiDriver implements SessionDriver {
 
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
-    const { session } = await createAgentSession({
-      cwd,
-      sessionManager,
-      model: await this.#resolveModel(),
-      resourceLoader: await this.#resources(cwd, workspaceId, { threadId }),
-    })
+    const session = await this.#sessions.open(cwd, workspaceId, sessionManager, threadId)
     this.#adopt(session, cwd)
   }
 
@@ -254,8 +185,6 @@ export class PiDriver implements SessionDriver {
    *  it under pi's own session id so the thread survives a relaunch. */
   #adopt(session: AgentSession, cwd: string): string {
     const threadId = session.sessionId
-    void this.#bindToolsToWorkspace(session, cwd)
-
     const translator = new PiTranslator(() => session.getSessionStats().contextUsage?.contextWindow)
     const unsubscribe = session.subscribe((event) => {
       for (const translated of translator.translate(event)) this.#emit(threadId, translated)
@@ -366,47 +295,6 @@ export class PiDriver implements SessionDriver {
     }
   }
 
-  /** Points the built-in tools at the workspace folder.
-   *
-   *  pi 0.84's `createAgentSession({ cwd })` uses cwd to name the session file
-   *  and find project resources, but still builds its tools against
-   *  `process.cwd()` — verified directly: a session rooted at a temp folder read
-   *  files out of the Electron process's directory instead.
-   *
-   *  That is fatal here, where several workspaces run in one process and each is
-   *  a different folder, so the tools are rebuilt bound to the right cwd.
-   *  Replacing `agent.state.tools` is pi's own documented way to swap tools.
-   *  Revisit when pi honours cwd, or when sessions move to a utilityProcess. */
-  async #bindToolsToWorkspace(session: AgentSession, cwd: string): Promise<void> {
-    const sdk = await this.#load()
-    const rebound = [
-      sdk.createReadTool(cwd),
-      sdk.createBashTool(cwd),
-      sdk.createEditTool(cwd),
-      sdk.createWriteTool(cwd),
-      sdk.createGrepTool(cwd),
-      sdk.createFindTool(cwd),
-      sdk.createLsTool(cwd),
-    ]
-
-    const replaced = new Set(rebound.map((tool) => tool.name))
-    const kept = session.agent.state.tools.filter((tool) => !replaced.has(tool.name))
-    // Extension and custom tools are left alone — they bind their own cwd.
-    session.agent.state.tools = [...rebound, ...kept]
-  }
-
-  async #resolveModel(): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
-    if (!this.#model) return undefined
-
-    const { ModelRuntime } = await this.#load()
-    this.#runtime ??= ModelRuntime.create()
-    const model = (await this.#runtime).getModel(this.#model.provider, this.#model.id)
-    if (!model) {
-      throw new Error(`pi has no model "${this.#model.provider}/${this.#model.id}" configured`)
-    }
-    return model
-  }
-
   #thread(threadId: string): Thread {
     const thread = this.#threads.get(threadId)
     if (!thread) throw new Error(`unknown thread: ${threadId}`)
@@ -422,11 +310,5 @@ export class PiDriver implements SessionDriver {
     this.#steers.delete(threadId)
     thread.session.dispose()
     this.#threads.delete(threadId)
-  }
-
-  /** Loaded on first use: pi is a heavy import and the window should paint first. */
-  #load(): Promise<Sdk> {
-    this.#sdk ??= import('@earendil-works/pi-coding-agent')
-    return this.#sdk
   }
 }
