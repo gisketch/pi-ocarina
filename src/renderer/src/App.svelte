@@ -6,8 +6,11 @@
   import Composer from './components/Composer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
+  import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
+  import CommandPalette from './components/overlays/CommandPalette.svelte'
   import { app } from '$lib/state/app.svelte'
   import { shell } from '$lib/state/shell.svelte'
+  import type { CommandId } from '$lib/commands'
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -17,12 +20,39 @@
   })
 
   let composerInput = $state<HTMLInputElement | null>(null)
+  let paletteInput = $state<HTMLInputElement | null>(null)
   $effect(() => {
     shell.targets.composer = composerInput
+  })
+  $effect(() => {
+    shell.targets.palette = paletteInput
   })
 
   function onKeydown(event: KeyboardEvent): void {
     if (shell.handleKey(event)) event.preventDefault()
+  }
+
+  function runCommand(id: CommandId): void {
+    switch (id) {
+      case 'jump-workspace':
+        shell.openOverlay('switcher')
+        return
+      case 'open-keymap':
+        shell.openOverlay('keymap')
+        return
+      case 'next-thread':
+        app.moveThread(1)
+        break
+      case 'new-thread':
+        // Creating threads needs the session backend; jump to the fresh-thread
+        // workspace so the command still demonstrates its destination.
+        app.goWorkspace(app.workspaces.length - 1)
+        break
+      case 'switch-branch':
+      case 'compact-thread':
+        break
+    }
+    shell.closeOverlay()
   }
 </script>
 
@@ -51,6 +81,20 @@
 
   {#if shell.overlay === 'keymap'}
     <KeymapOverlay onclose={() => shell.closeOverlay()} />
+  {:else if shell.overlay === 'switcher'}
+    <SwitcherOverlay
+      onclose={() => shell.closeOverlay()}
+      onselect={(index) => {
+        app.goWorkspace(index)
+        shell.closeOverlay()
+      }}
+    />
+  {:else if shell.overlay === 'palette'}
+    <CommandPalette
+      bind:input={paletteInput}
+      onclose={() => shell.closeOverlay()}
+      onrun={runCommand}
+    />
   {/if}
 </div>
 

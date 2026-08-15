@@ -61,7 +61,7 @@ Status legend: `todo` · `in-progress` · `done`.
   cases (the spec's acceptance list is the test list); `pnpm check`.
 - Blocked by: T3
 
-## T5 — Overlays: switcher & command palette — `todo`
+## T5 — Overlays: switcher & command palette — `done`
 
 - Delivered behavior: `w`/leader-w workspace switcher (cards with identicon, note,
   branch, snippet, number chip; click/number selects; "pin a folder…" card inert);
