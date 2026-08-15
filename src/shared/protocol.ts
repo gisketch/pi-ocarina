@@ -36,6 +36,10 @@ export type UiEvent =
   | { kind: 'agent-message-delta'; id: string; text: string }
   | { kind: 'agent-message-end'; id: string }
   | { kind: 'tool-start'; id: string; tool: ToolKind; target: string; parentId?: string }
+  /** A summary for a row that has not finished — "run 4/10…", "214 files…".
+   *  Additive in protocol 1: a backend that never sends it costs nothing, and
+   *  a reader that predates it shows a `raw` row rather than breaking. */
+  | { kind: 'tool-progress'; id: string; meta: string }
   | { kind: 'tool-body'; id: string; body: ToolBody }
   | { kind: 'tool-end'; id: string; status: ToolStatus; meta?: string }
   | { kind: 'ask'; id: string; question: string; options: AskOption[] }
@@ -144,6 +148,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'agent-message-delta',
   'agent-message-end',
   'tool-start',
+  'tool-progress',
   'tool-body',
   'tool-end',
   'ask',

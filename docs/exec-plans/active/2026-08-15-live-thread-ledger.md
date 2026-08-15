@@ -7,7 +7,13 @@ pixels live.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## C1 — Thread reducer — `todo`
+## C1 — Thread reducer — `done`
+
+> Verified: all five reference threads project from recorded streams to exactly
+> the milestone-1 hand-written blocks (compared field by field; only ledger
+> block ids, which are render keys, and explicitly-false `streaming`/`open`
+> flags differ). Two contract points settled and written into the spec:
+> `status` vs `runState`, and the new `tool-progress` event.
 
 - Delivered behavior: a pure reducer `(viewModel, uiEvent) → viewModel` producing
   the spec's block list (`user-message`, `agent-message`, `ledger-group`, `ask`,

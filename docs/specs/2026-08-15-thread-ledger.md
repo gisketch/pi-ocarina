@@ -34,6 +34,22 @@ body (file preview, matches, diff, terminal output, todo list, skill manifest).
 Unknown event kinds render a visible fallback row showing the raw kind — never
 dropped.
 
+Two contract points settled while building the reducer (C1):
+
+- **`status` vs `runState`.** The view model carries both: `runState` is what the
+  backend last reported, `status` is what the header shows. They differ only
+  while a card is pending — answering an ask must return the thread to
+  `running`, which a single field cannot express. A `failed` or `interrupted`
+  thread keeps that state regardless of open cards.
+- **`tool-progress` added to the protocol** (`{ id, meta }`). The reference draws
+  running rows carrying a live summary ("run 4/10…", "214 files…") and nothing
+  in the vocabulary could say that: `tool-start` has no summary and `tool-end`
+  ends the row. Additive within protocol 1 — a backend that never sends it costs
+  nothing, and an older reader degrades it to a `raw` row.
+- **Nothing starts expanded.** `open` has no event behind it; a live turn that
+  expanded every body would bury the column. The mock catalog re-applies the
+  reference's pre-expanded rows as presentation data, and that retires with it.
+
 ## Acceptance Behavior
 
 - Streaming: agent text grows with the blinking caret block; ledger rows appear as

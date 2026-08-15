@@ -7,18 +7,27 @@
  *  see `raw`. */
 
 export type {
+  ApprovalOutcome,
   AskOption,
   CodeLine,
   DiffLine,
   MatchLine,
   TerminalLine,
+  ThreadRunState,
   TodoItem,
   ToolBody,
   ToolKind,
   ToolStatus,
 } from '../../../shared/vocabulary'
 
-import type { AskOption, ToolBody, ToolKind, ToolStatus } from '../../../shared/vocabulary'
+import type {
+  ApprovalOutcome,
+  AskOption,
+  ThreadRunState,
+  ToolBody,
+  ToolKind,
+  ToolStatus,
+} from '../../../shared/vocabulary'
 
 export interface ToolRow {
   id: string
@@ -40,8 +49,38 @@ export type Block =
   | { kind: 'user'; id: string; text: string }
   | { kind: 'agent'; id: string; text: string; streaming?: boolean }
   | { kind: 'ledger'; id: string; rows: ToolRow[] }
-  | { kind: 'ask'; id: string; question: string; options: AskOption[] }
-  | { kind: 'approve'; id: string; command: string; note?: string }
+  | { kind: 'ask'; id: string; question: string; options: AskOption[]; answeredIndex?: number }
+  | { kind: 'approve'; id: string; command: string; note?: string; outcome?: ApprovalOutcome }
+  | { kind: 'checkpoint'; id: string; label: string }
+  | {
+      kind: 'compaction'
+      id: string
+      running: boolean
+      beforePercent?: number
+      afterPercent?: number
+      summary?: string
+    }
+  /** Text waiting to be handed to a running turn. Removed once delivered. */
+  | { kind: 'steer'; id: string; text: string }
+  /** An event this build could not name, shown rather than swallowed. */
+  | { kind: 'raw'; id: string; rawKind: string; detail?: string }
+
+/** What one thread looks like right now. The reducer's only output. */
+export interface ThreadViewModel {
+  blocks: Block[]
+  /** What the header shows: `runState`, unless a card is waiting on a person. */
+  status: ThreadRunState
+  /** What the backend last reported, before pending gates were considered.
+   *  Kept apart from `status` so answering an ask restores the real state
+   *  instead of leaving the thread stuck at `waiting-input`. */
+  runState: ThreadRunState
+  /** Why the thread failed, when it did. */
+  reason?: string
+  usage?: { contextPercent: number; tokens: number; costUsd: number }
+  connectivity?: { state: 'degraded' | 'restored'; retryInSeconds?: number }
+}
+
+export const EMPTY_THREAD: ThreadViewModel = { blocks: [], status: 'idle', runState: 'idle' }
 
 export interface InlineSegment {
   text: string
