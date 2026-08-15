@@ -11,8 +11,6 @@ export function nodeTone(row: ToolRow): Tone {
     case 'fail':
     case 'denied':
       return 'err'
-    case 'timeout':
-      return 'warn'
     case 'ok':
       // Writes and edits stay accent; completed commands go green.
       return row.kind === 'write' || row.kind === 'edit' ? 'accent' : 'ok'
@@ -27,7 +25,6 @@ export function nodeTone(row: ToolRow): Tone {
 export function labelTone(row: ToolRow): Tone {
   if (row.status === 'running') return 'accent'
   if (row.status === 'fail' || row.status === 'denied') return 'err'
-  if (row.status === 'timeout') return 'warn'
   if (row.status === 'ok' && (row.kind === 'write' || row.kind === 'edit')) return 'accent'
   return 'muted'
 }
@@ -36,7 +33,6 @@ export function labelTone(row: ToolRow): Tone {
 export function metaTone(row: ToolRow): Tone {
   if (row.status === 'running') return 'muted'
   if (row.status === 'fail' || row.status === 'denied') return 'err'
-  if (row.status === 'timeout') return 'warn'
   if (row.status === 'ok' && row.kind === 'bash') return 'ok'
   return 'dim'
 }
@@ -81,7 +77,6 @@ export const STATUS_LABEL: Record<ToolStatus, string> = {
   running: 'running',
   ok: 'ok',
   fail: 'failed',
-  timeout: 'timed out',
   cancelled: 'cancelled',
   denied: 'denied',
   plain: '',

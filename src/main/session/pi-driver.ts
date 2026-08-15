@@ -12,6 +12,7 @@ import { PiTranslator } from './pi-translate'
 import { replayEntries } from './replay'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
+import { ThreadRegistry } from './thread-registry'
 import { WorkspaceService } from './workspaces'
 
 export type { ModelRef } from './session-factory'
@@ -24,15 +25,6 @@ export interface PiDriverOptions {
   model?: ModelRef
 }
 
-interface Thread {
-  session: AgentSession
-  unsubscribe: () => void
-  /** The last thing the user asked, so a failed turn can be run again. */
-  lastPrompt?: string
-  /** Counts prompts, so each user block gets an id of its own. */
-  prompts: number
-}
-
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
  *
  *  Everything pi-shaped stops here: the driver speaks pi inwards and the shared
@@ -40,7 +32,7 @@ interface Thread {
 export class PiDriver implements SessionDriver {
   readonly kind = 'pi'
 
-  #threads = new Map<string, Thread>()
+  readonly #threads: ThreadRegistry
   readonly #emit: EmitEvent
   readonly #workspaces: WorkspaceService
   readonly #approvals: ApprovalGate
@@ -54,6 +46,11 @@ export class PiDriver implements SessionDriver {
     this.#approvals = new ApprovalGate(emit, catalog)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, model)
+    this.#threads = new ThreadRegistry((threadId) => {
+      // Anything waiting on an answer is released rather than left hanging.
+      this.#approvals.abandon(threadId)
+      this.#steers.forget(threadId)
+    })
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
   }
 
@@ -140,7 +137,7 @@ export class PiDriver implements SessionDriver {
 
       case 'retryTurn': {
         const { threadId } = params as CommandParams<'retryTurn'>
-        const { lastPrompt } = this.#thread(threadId)
+        const { lastPrompt } = this.#threads.get(threadId)
         // Nothing to retry is not an error; the UI simply offered a button it
         // did not need to.
         if (lastPrompt) this.#startTurn(threadId, lastPrompt)
@@ -149,14 +146,18 @@ export class PiDriver implements SessionDriver {
 
       case 'cancelTurn': {
         const { threadId } = params as CommandParams<'cancelTurn'>
-        await this.#thread(threadId).session.abort()
+        const thread = this.#threads.get(threadId)
+        await thread.session.abort()
+        // pi reports nothing for the calls it abandoned, so the rows are
+        // settled here before the thread is called idle.
+        for (const event of thread.translator.abandonOpenTools()) this.#emit(threadId, event)
         this.#emit(threadId, { kind: 'thread-state', state: 'idle' })
         return { ok: true } as CommandResult<N>
       }
 
       case 'archiveThread': {
         const { threadId } = params as CommandParams<'archiveThread'>
-        this.#close(threadId)
+        this.#threads.close(threadId)
         return { ok: true } as CommandResult<N>
       }
 
@@ -173,29 +174,20 @@ export class PiDriver implements SessionDriver {
   }
 
   async dispose(): Promise<void> {
-    for (const threadId of [...this.#threads.keys()]) this.#close(threadId)
+    this.#threads.closeAll()
   }
 
-  /** Threads with a turn in flight. Quitting on top of these would abandon work
-   *  the user cannot see, so the app asks first. */
   runningThreads(): string[] {
-    return [...this.#threads]
-      .filter(([, thread]) => thread.session.isStreaming)
-      .map(([threadId]) => threadId)
+    return this.#threads.running()
   }
 
-  /** Stops every turn cleanly so the session files stay valid. */
-  async abortAll(): Promise<void> {
-    await Promise.all(
-      [...this.#threads.values()].map((thread) =>
-        thread.session.abort().catch(() => undefined),
-      ),
-    )
+  abortAll(): Promise<void> {
+    return this.#threads.abortAll()
   }
 
   /** The pi session file backing a thread — the transcript's real home. */
   sessionFile(threadId: string): string | undefined {
-    return this.#threads.get(threadId)?.session.sessionFile
+    return this.#threads.find(threadId)?.session.sessionFile
   }
 
   async #createThread(workspaceId: string): Promise<string> {
@@ -243,7 +235,7 @@ export class PiDriver implements SessionDriver {
       if (event.type === 'queue_update') this.#steers.sync(threadId, event.steering)
     })
 
-    this.#threads.set(threadId, { session, unsubscribe, prompts: 0 })
+    this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }
@@ -251,7 +243,7 @@ export class PiDriver implements SessionDriver {
   }
 
   #startTurn(threadId: string, text: string): void {
-    const thread = this.#thread(threadId)
+    const thread = this.#threads.get(threadId)
     const { session } = thread
     thread.lastPrompt = text
     thread.prompts += 1
@@ -271,7 +263,7 @@ export class PiDriver implements SessionDriver {
   /** Queues text for the running turn, or sends it as a prompt if nothing is
    *  running — the composer never has to know which case it is in. */
   async #steer(threadId: string, text: string): Promise<string> {
-    const { session } = this.#thread(threadId)
+    const { session } = this.#threads.get(threadId)
 
     if (!session.isStreaming) {
       this.#startTurn(threadId, text)
@@ -289,7 +281,7 @@ export class PiDriver implements SessionDriver {
    *  disk and nothing on the filesystem is touched. That is the honest promise
    *  the confirm dialog makes: your files keep their later edits. */
   async #restore(threadId: string, checkpointId: string): Promise<void> {
-    const { session } = this.#thread(threadId)
+    const { session } = this.#threads.get(threadId)
 
     const result = await session.navigateTree(checkpointId)
     if (result.cancelled) return
@@ -309,7 +301,7 @@ export class PiDriver implements SessionDriver {
    *  rejects — and it is not a thread failure. */
   async #compact(threadId: string): Promise<void> {
     try {
-      await this.#thread(threadId).session.compact()
+      await this.#threads.get(threadId).session.compact()
     } catch {
       // Already surfaced by the translator's `compaction_end` handling.
     }
@@ -330,20 +322,5 @@ export class PiDriver implements SessionDriver {
     }
   }
 
-  #thread(threadId: string): Thread {
-    const thread = this.#threads.get(threadId)
-    if (!thread) throw new Error(`unknown thread: ${threadId}`)
-    return thread
-  }
 
-  #close(threadId: string): void {
-    const thread = this.#threads.get(threadId)
-    if (!thread) return
-    thread.unsubscribe()
-    // Anything waiting on an answer is released rather than left hanging.
-    this.#approvals.abandon(threadId)
-    this.#steers.forget(threadId)
-    thread.session.dispose()
-    this.#threads.delete(threadId)
-  }
 }

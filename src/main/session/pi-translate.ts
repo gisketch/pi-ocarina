@@ -99,6 +99,10 @@ export class PiTranslator {
   #messages = 0
   #compactions = 0
   #outcome: 'ok' | 'failed' | 'aborted' = 'ok'
+  /** Calls that started and have not reported an end. pi sends nothing for a
+   *  call abandoned by an abort, so without this the row would pulse as
+   *  "running" for the rest of the thread's life. */
+  #open = new Set<string>()
 
   /** The model's context window, for turning token counts into percentages.
    *  Supplied by the driver, which can read the live session's stats. */
@@ -115,6 +119,20 @@ export class PiTranslator {
   ) {
     this.#contextWindow = contextWindow
     this.#wasBlocked = wasBlocked
+  }
+
+  /** Closes out every call still in flight, as cancelled.
+   *
+   *  Aborting a turn stops pi mid-call and it reports nothing further for the
+   *  work it abandoned. The rows are the user's record of what happened, so
+   *  they are settled here rather than left pulsing forever. Cancelled, not
+   *  failed: the user chose this. */
+  abandonOpenTools(): UiEvent[] {
+    const events = [...this.#open].map(
+      (id): UiEvent => ({ kind: 'tool-end', id, status: 'cancelled' }),
+    )
+    this.#open.clear()
+    return events
   }
 
   translate(event: AgentSessionEvent): UiEvent[] {
@@ -170,6 +188,7 @@ export class PiTranslator {
       }
 
       case 'tool_execution_start':
+        this.#open.add(event.toolCallId)
         return [
           {
             kind: 'tool-start',
@@ -180,6 +199,7 @@ export class PiTranslator {
         ]
 
       case 'tool_execution_end': {
+        this.#open.delete(event.toolCallId)
         const events: UiEvent[] = []
         const body = toolBody(event.toolName, event.result)
         if (body) events.push({ kind: 'tool-body', id: event.toolCallId, body })

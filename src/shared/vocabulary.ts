@@ -16,8 +16,13 @@ export type ToolKind =
   | 'agent'
   | 'raw'
 
-/** `plain` is a row that never had a status to report (a note, not an outcome). */
-export type ToolStatus = 'running' | 'ok' | 'fail' | 'timeout' | 'cancelled' | 'denied' | 'plain'
+/** How a tool call ended.
+ *
+ *  `plain` is a row that never had a status to report (a note, not an outcome).
+ *  There is no `timeout`: pi reports one boolean for every bad outcome, and
+ *  nothing this app owns can tell a slow tool from a broken one. A status with
+ *  no producer is a promise the ledger cannot keep. */
+export type ToolStatus = 'running' | 'ok' | 'fail' | 'cancelled' | 'denied' | 'plain'
 
 export type ThreadRunState =
   | 'idle'

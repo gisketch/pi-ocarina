@@ -18,11 +18,16 @@ describe('ledger tones', () => {
     expect(labelTone(row({ status: 'running' }))).toBe('accent')
   })
 
-  it('marks failures and denials red, timeouts amber', () => {
+  it('marks failures and denials red', () => {
     expect(nodeTone(row({ status: 'fail' }))).toBe('err')
     expect(nodeTone(row({ status: 'denied' }))).toBe('err')
-    expect(nodeTone(row({ status: 'timeout' }))).toBe('warn')
     expect(labelTone(row({ status: 'fail' }))).toBe('err')
+  })
+
+  it('dims a cancelled row rather than treating it as a failure', () => {
+    // Cancelling is the user's own decision, not something that went wrong.
+    expect(nodeTone(row({ status: 'cancelled' }))).toBe('dim')
+    expect(labelTone(row({ status: 'cancelled' }))).not.toBe('err')
   })
 
   it('keeps writes and edits accent but successful commands green', () => {

@@ -29,7 +29,7 @@ flag, markdown AST), `ledger-group` (list of tool rows), `ask`, `approve`,
 (`idle | running | waiting-input | failed | done | interrupted`). Tool row kinds:
 `read`, `grep`, `write`, `edit`, `bash`, `fetch`, `todo`, `skill`, `agent`
 (subagent, with nested child rows one level deep), each with status
-(`running | ok | fail | timeout | cancelled | denied`) and an optional expandable
+(`running | ok | fail | cancelled | denied | plain`) and an optional expandable
 body (file preview, matches, diff, terminal output, todo list, skill manifest).
 Unknown event kinds render a visible fallback row showing the raw kind — never
 dropped.
@@ -62,9 +62,9 @@ Three more settled while wiring the cards (C3):
   so no `ask` event is ever emitted and `answerAsk` has nothing to answer. The
   card, the command, and the seam all exist and are exercised by the mock
   catalog, ready for the day pi gains one.
-- **No `undo` on the compaction card.** The reference offers one; nothing in pi
-  0.84 can put a compacted context back. The control is omitted rather than
-  shipped dead. Open item, not a decision against it.
+- **No `undo` on the compaction card. Decided.** The reference offers one;
+  nothing in pi 0.84 can put a compacted context back, and the app will not
+  pretend otherwise. The control is omitted.
 
 And what pi 0.84 cannot express, found while building the error states (C4):
 
@@ -72,13 +72,27 @@ And what pi 0.84 cannot express, found while building the error states (C4):
   boolean (`isError`), so a command the user refused looked identical to one
   that crashed. The approval gate records the `toolCallId` it blocked and the
   adapter maps that to `denied`; the ledger blames the right party.
-- **No subagents.** pi 0.84 has no agent or task tool, and `ToolExecutionStart`
-  carries no parent reference, so nested rows have no producer. The reducer,
-  the nesting rule (one level, grandchildren adopted by the grandparent) and
-  the renderer are built and fixture-tested.
-- **No `timeout` or `cancelled` tool status, and no per-row retry.** Same single
-  boolean; and pi retries turns, not individual calls. The row variants exist;
-  the retry offered to the user is the thread-level `retryTurn`.
+- **No `timeout` status. Removed from the vocabulary.** pi reports one boolean,
+  and nothing this app owns can tell a slow tool from a broken one. A status
+  with no producer is a promise the ledger cannot keep.
+- **`cancelled` is ours to produce.** pi stops mid-call on an abort and reports
+  nothing further, which left rows pulsing as `running` forever. The adapter
+  tracks calls in flight and settles them as `cancelled` when a turn is
+  cancelled — the user's own decision, so dimmed and struck through, not red.
+- **Retry is per-turn, not per-row. Decided.** pi retries turns, not individual
+  calls. The failed-thread error row offers `retryTurn`; rows offer nothing.
+
+**Subagents moved out of this spec.** They are not a pi gap to work around but
+something this app will build. See
+[2026-08-15-subagents.md](2026-08-15-subagents.md) — needs grilling. The nesting
+rule stays here, because it is a rendering contract: `agent` rows nest child
+rows one level deep, and a grandchild is adopted by the grandparent. That rule
+is built and fixture-tested; only its producer is missing.
+
+**The ask card likewise.** pi has no elicitation, so the card, the
+`ask`/`ask-answered` events and the `answerAsk` command have no producer today.
+Building one is [2026-08-15-ask-tool.md](2026-08-15-ask-tool.md) — needs
+grilling. The card's behaviour above stands as the rendering contract.
 
 And how the scrollback budget is actually met (C5):
 
@@ -118,9 +132,10 @@ And how the scrollback budget is actually met (C5):
   summary card with before→after ctx %, `expand original`, `undo`.
 - Subagents: `agent` rows nest child tool rows one indent level; parallel subagents
   render as sibling rows updating independently.
-- Errors: timeout rows offer retry; cancelled rows render struck-through;
-  denied rows show `denied` in error color. Thread `failed` state matches the
-  failure-policy spec (red dot in column header, error row with manual retry).
+- Errors: cancelled rows render struck-through and dimmed; denied rows show
+  `denied` in error color. Thread `failed` state matches the failure-policy spec
+  (red dot in column header, error row with manual retry). Retry is offered on
+  the thread, never on a row — see the settled points below.
 - Long threads: scrollback virtualizes; collapsed bodies use
   `content-visibility`/`contain`. 5k-block threads scroll without jank.
 - Skeletons: while a thread's history replays on open, message/ledger skeletons

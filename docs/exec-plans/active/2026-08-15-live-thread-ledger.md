@@ -68,10 +68,11 @@ Status legend: `todo` · `in-progress` · `done`.
 > id it ends.
 >
 > Two scope notes. **pi 0.84 never emits an `ask`**, so the ask card is
-> mock-only today; the command is wired for the day pi gains elicitation.
-> **`undo` on the compaction card is not built** — nothing in pi can restore a
-> compacted context, and a dead button is worse than no button.
-> Composer-reply-answers-an-ask lands with D1, which owns send.
+> mock-only today. Building a producer is its own spec,
+> [2026-08-15-ask-tool.md](../../specs/2026-08-15-ask-tool.md), which needs
+> grilling. **`undo` on the compaction card is not built, and will not be** —
+> nothing in pi can restore a compacted context, and a dead button is worse than
+> no button. Composer-reply-answers-an-ask lands with D1, which owns send.
 
 - Delivered behavior: ask card answers via `answerAsk` (click or composer
   reply resolves it); approve card drives `resolveApproval` with allow-once /
@@ -97,12 +98,16 @@ Status legend: `todo` · `in-progress` · `done`.
 > **broke**. The approval gate now records the blocked `toolCallId` and the
 > translator maps it to `denied`.
 >
-> Three scope notes, all the same shape — pi 0.84 cannot produce them:
-> **subagents** (pi has no agent/task tool, and its tool events carry no parent
-> reference at all), **`timeout` and `cancelled` statuses** (pi reports one
-> boolean), and **per-row retry** (pi retries turns, not calls). Each is built
-> and fixture-tested, ready for a pi that emits them. The thread-level retry is
-> real and wired to `retryTurn`.
+> Scope notes, since pi 0.84 produces none of these:
+> **Subagents** are not a gap to work around but something this app will build —
+> moved to its own spec, [2026-08-15-subagents.md](../../specs/2026-08-15-subagents.md),
+> which needs grilling. The nesting rule and renderer stay here, built and
+> fixture-tested; only the producer is missing.
+> **`timeout` is removed** from the vocabulary — no producer, and a status the
+> ledger cannot keep is worse than none. **`cancelled` gained a real producer**:
+> cancelling a turn now settles the calls pi abandoned, which previously left
+> rows pulsing as running forever. **Retry is per-turn, decided** — pi retries
+> turns, not calls, and the failed-thread row is wired to `retryTurn`.
 
 - Delivered behavior: `agent` rows nest child tool rows one level deep; parallel
   subagents render as independently-updating sibling rows. Timeout rows offer
