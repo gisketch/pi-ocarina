@@ -1,18 +1,35 @@
 <script lang="ts">
+  import type { ApprovalOutcome } from '$lib/thread'
+
   interface Props {
     command: string
     note?: string
+    /** How the gate actually resolved, from the thread's own events. */
+    outcome?: ApprovalOutcome
+    /** Absent until C3 sends the decision to the session. */
+    onresolve?: (outcome: ApprovalOutcome) => void
   }
 
-  const { command, note }: Props = $props()
+  const { command, note, outcome, onresolve }: Props = $props()
 
-  // Decisions are local in the static shell; per-workspace policy lands with the
-  // session backend (see the approvals decision in the architecture spec).
-  let decision = $state<'allow' | 'deny' | null>(null)
+  let chosen = $state<ApprovalOutcome | null>(null)
+  const decision = $derived(outcome ?? chosen)
 
   const status = $derived(
-    decision === 'allow' ? 'allowed · running…' : decision === 'deny' ? 'denied' : '',
+    decision === null
+      ? ''
+      : decision === 'deny'
+        ? 'denied'
+        : decision === 'always'
+          ? 'always allowed · running…'
+          : 'allowed · running…',
   )
+
+  function resolve(next: ApprovalOutcome): void {
+    if (decision !== null) return
+    chosen = next
+    onresolve?.(next)
+  }
 </script>
 
 <div class="approve">
@@ -27,9 +44,9 @@
 
   {#if decision === null}
     <div class="actions">
-      <button type="button" class="primary" onclick={() => (decision = 'allow')}>allow once</button>
-      <button type="button" class="secondary" onclick={() => (decision = 'allow')}>always allow</button>
-      <button type="button" class="ghost" onclick={() => (decision = 'deny')}>deny</button>
+      <button type="button" class="primary" onclick={() => resolve('allow-once')}>allow once</button>
+      <button type="button" class="secondary" onclick={() => resolve('always')}>always allow</button>
+      <button type="button" class="ghost" onclick={() => resolve('deny')}>deny</button>
     </div>
   {/if}
 </div>

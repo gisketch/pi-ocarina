@@ -29,7 +29,20 @@ Status legend: `todo` · `in-progress` · `done`.
   including out-of-order tool settlement and interleaved threads; `pnpm test`.
 - Blocked by: B1 (event vocabulary)
 
-## C2 — Live streaming render — `todo`
+## C2 — Live streaming render — `done`
+
+> Verified: the reference columns render byte-identically from the live store,
+> and their header dots now come from the reducer (`retry backoff` reads
+> `waiting-input` on its open question, per the spec, where the static mock said
+> `done`). Picked up two things C2 had to own: the switcher's "pin a folder…"
+> card is wired to a native picker (B3 left the UI for C2), and the seam-demo
+> scaffolding is deleted now that threads render the stream themselves.
+> Rendering the new block kinds for the first time exposed a reducer bug —
+> `compaction-done` with no matching start was dropped, leaving the shimmer
+> running forever. Orphaned decisions now surface instead of vanishing.
+> **Outstanding for the user:** the DevTools frame capture of a streaming burst
+> on real hardware. The one-assignment-per-batch property it depends on is
+> covered headlessly.
 
 - Delivered behavior: thread columns render reducer output from the live driver
   stream: agent text grows with the blinking caret, ledger rows appear as tools

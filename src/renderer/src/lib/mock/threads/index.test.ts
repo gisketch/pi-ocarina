@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, ToolRow } from '../../thread'
 import { replayThread } from '../../thread-reducer'
+import { WORKSPACES } from '../workspaces'
 import { blocksFor, MOCK_THREADS } from './index'
 
 /** The reference columns, projected. These assertions are the milestone-1
@@ -28,6 +29,18 @@ describe('every reference thread', () => {
     for (const id of Object.keys(MOCK_THREADS)) {
       const ids = blocksFor(id).map((block) => block.id)
       expect(new Set(ids).size, id).toBe(ids.length)
+    }
+  })
+
+  // The listed status is only a guess until events arrive, but a demo catalog
+  // that contradicts its own recorded stream would be a confusing lie.
+  it('agrees with the status its own stream projects', () => {
+    for (const workspace of WORKSPACES) {
+      for (const thread of workspace.threads) {
+        const recorded = MOCK_THREADS[thread.id]
+        if (!recorded) continue
+        expect(replayThread(recorded.events).status, thread.id).toBe(thread.status)
+      }
     }
   })
 })

@@ -3,7 +3,7 @@
   import FreshThread from './FreshThread.svelte'
   import ThreadView from '../thread/ThreadView.svelte'
   import { app } from '$lib/state/app.svelte'
-  import { blocksFor } from '$lib/mock/threads'
+  import { threads } from '$lib/state/threads.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
   const workspace = $derived(app.workspace)
@@ -20,7 +20,7 @@
           <FreshThread {workspace} />
         {:else}
           <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
-            <ThreadView blocks={blocksFor(thread.id)} />
+            <ThreadView blocks={threads.get(thread.id).blocks} />
           </ThreadColumn>
         {/if}
       {/each}

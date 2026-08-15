@@ -1,24 +1,28 @@
-import { WORKSPACES } from '../mock/workspaces'
+import { catalog } from './catalog.svelte'
 import { clampThread } from '../strip'
-import type { Mode, Thread, Workspace } from '../types'
+import { threads } from './threads.svelte'
+import type { Mode, Thread, ThreadStatus, Workspace } from '../types'
 
 /** Single source of truth for shell state. Every chrome segment reads from here
  *  so real data becomes a drop-in replacement for the mock catalog. */
 class AppState {
-  readonly workspaces: Workspace[] = WORKSPACES
-
   workspaceIndex = $state(0)
   mode = $state<Mode>('NORMAL')
 
-  /** Focused thread per workspace — the design's `f` array. */
-  focus = $state<number[]>(WORKSPACES.map(() => 0))
+  /** Focused thread per workspace — the design's `f` array. Sparse on purpose:
+   *  a workspace not in it has never been visited, and starts at column 0. */
+  focus = $state<number[]>([])
+
+  get workspaces(): Workspace[] {
+    return catalog.workspaces
+  }
 
   get workspace(): Workspace {
-    return this.workspaces[this.workspaceIndex]
+    return this.workspaces[Math.min(this.workspaceIndex, this.workspaces.length - 1)]
   }
 
   get threadIndex(): number {
-    return this.focus[this.workspaceIndex]
+    return clampThread(this.focus[this.workspaceIndex] ?? 0, this.workspace.threads.length)
   }
 
   get thread(): Thread {
@@ -31,6 +35,14 @@ class AppState {
 
   get accented(): boolean {
     return this.mode === 'INSERT' || this.mode === 'LEADER'
+  }
+
+  /** What a column header should show. The live model wins as soon as the
+   *  thread has said anything: the catalog's listing is only ever a guess made
+   *  before the thread's events arrived. */
+  statusOf(thread: Thread): ThreadStatus {
+    const live = threads.get(thread.id)
+    return live.blocks.length > 0 ? live.status : thread.status
   }
 
   goWorkspace(index: number): void {

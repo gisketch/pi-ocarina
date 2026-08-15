@@ -4,12 +4,24 @@
   interface Props {
     question: string
     options: AskOption[]
+    /** The answer the thread's own events report, once one exists. */
+    answered?: number
+    /** Absent until C3 sends the answer to the session. */
+    onanswer?: (index: number) => void
   }
 
-  const { question, options }: Props = $props()
+  const { question, options, answered, onanswer }: Props = $props()
 
-  // Answering is local in the static shell; the session backend takes the answer later.
-  let selected = $state<number | null>(null)
+  // A click shows immediately; the thread's own `ask-answered` event is what
+  // makes it true. Until C3 wires that command, the local pick stands alone.
+  let picked = $state<number | null>(null)
+  const selected = $derived(answered ?? picked)
+
+  function answer(index: number): void {
+    if (selected !== null) return
+    picked = index
+    onanswer?.(index)
+  }
 </script>
 
 <div class="ask">
@@ -26,7 +38,7 @@
         class="option"
         class:selected={selected === i}
         class:dimmed={selected !== null && selected !== i}
-        onclick={() => (selected = i)}
+        onclick={() => answer(i)}
         aria-pressed={selected === i}
       >
         <span class="mark">{selected === i ? '■' : '□'}</span>{option.label}

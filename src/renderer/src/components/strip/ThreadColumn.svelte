@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { app } from '$lib/state/app.svelte'
   import { registerColumnBody } from '$lib/state/columns'
   import type { Thread } from '$lib/types'
 
@@ -12,16 +13,22 @@
 
   const { thread, focused, onfocus, children }: Props = $props()
 
+  // The live model outranks the catalog's listing once the thread has spoken.
+  const status = $derived(app.statusOf(thread))
+
   // Per the reference's thread-state dots: running pulses in the accent, failed is
-  // red, the focused column stays accent, and everything else recedes to grey.
+  // red, a thread waiting on a person is amber (the gate colour), the focused
+  // column stays accent, and everything else recedes to grey.
   const tone = $derived(
-    thread.status === 'failed'
+    status === 'failed'
       ? 'failed'
-      : thread.status === 'running'
-        ? 'running'
-        : focused
-          ? 'focused'
-          : 'idle',
+      : status === 'waiting-input'
+        ? 'waiting'
+        : status === 'running'
+          ? 'running'
+          : focused
+            ? 'focused'
+            : 'idle',
   )
 
   let body = $state<HTMLElement | null>(null)
@@ -95,6 +102,10 @@
   }
   .dot.failed {
     background: var(--err);
+  }
+  .dot.waiting {
+    background: var(--warn);
+    animation: pulse 1.1s ease-in-out infinite;
   }
 
   .title {

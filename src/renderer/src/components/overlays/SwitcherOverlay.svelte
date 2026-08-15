@@ -1,7 +1,9 @@
 <script lang="ts">
   import Backdrop from './Backdrop.svelte'
   import Identicon from '../Identicon.svelte'
+  import { isDesktop } from '$lib/bridge'
   import { app } from '$lib/state/app.svelte'
+  import { catalog } from '$lib/state/catalog.svelte'
 
   interface Props {
     onclose: () => void
@@ -9,6 +11,20 @@
   }
 
   const { onclose, onselect }: Props = $props()
+
+  let pinning = $state(false)
+
+  async function pin(): Promise<void> {
+    if (pinning) return
+    pinning = true
+    try {
+      // Closing only on success keeps the overlay in place when the user
+      // cancels the picker, which is where they were about to look anyway.
+      if (await catalog.pin()) onclose()
+    } finally {
+      pinning = false
+    }
+  }
 </script>
 
 <Backdrop {onclose} z={50} label="Workspace switcher">
@@ -30,11 +46,11 @@
       </button>
     {/each}
 
-    <div class="card empty">
+    <button type="button" class="card empty" class:pinning onclick={pin} disabled={!isDesktop}>
       <div class="ghost"></div>
-      pin a folder…
+      {pinning ? 'pinning…' : 'pin a folder…'}
       <div class="key plain">{app.workspaces.length + 1}</div>
-    </div>
+    </button>
   </div>
 </Backdrop>
 
@@ -102,10 +118,16 @@
     justify-content: center;
     color: var(--fg-dimmest);
     font-size: 10.5px;
+  }
+  .empty:disabled {
     cursor: default;
   }
-  .empty:hover {
+  .empty:disabled:hover {
     transform: none;
+  }
+  .empty:not(:disabled):hover {
+    color: var(--fg-dim);
+    border-color: rgba(255, 255, 255, 0.3);
   }
   .ghost {
     width: 52px;

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionClient } from '../../renderer/src/lib/session/client'
+import { replayThread } from '../../renderer/src/lib/thread-reducer'
 import type { UiEvent } from '../../shared/protocol'
 import { EventBatcher } from './batcher'
 import { StubDriver } from './stub-driver'
@@ -101,6 +102,36 @@ describe('session seam end to end', () => {
     const events = received.get(threadId)?.length ?? 0
     expect(events).toBeGreaterThan(10)
     expect(flushCount()).toBeLessThan(events)
+  })
+
+  it('lands as the blocks a column renders, not just as events', async () => {
+    // The full path: driver → batcher → JSON transport → client → reducer.
+    // If any link changed the vocabulary, this is where it would show.
+    const { driver, received, watch } = seam()
+    const { threadId } = await driver.execute('createThread', { workspaceId: 'w1' })
+    watch(threadId)
+
+    await driver.execute('prompt', { threadId, text: 'hello' })
+    await vi.advanceTimersByTimeAsync(2000)
+
+    const model = replayThread(received.get(threadId) ?? [])
+
+    expect(model.blocks.map((block) => block.kind)).toEqual(['user', 'agent', 'ledger', 'raw'])
+    expect(model.status).toBe('done')
+    expect(model.usage).toMatchObject({ tokens: 12_400 })
+
+    const agent = model.blocks[1]
+    expect(agent.kind === 'agent' && agent.text).toBe('Reading the fixture stream.')
+    expect(agent.kind === 'agent' && agent.streaming).toBe(false)
+
+    const ledger = model.blocks[2]
+    expect(ledger.kind === 'ledger' && ledger.rows[0]).toMatchObject({
+      kind: 'read',
+      status: 'ok',
+      meta: '2L',
+    })
+    // The body arrived before the row settled and must have survived it.
+    expect(ledger.kind === 'ledger' && ledger.rows[0].body?.type).toBe('code')
   })
 
   it('stops the stream when the turn is cancelled', async () => {

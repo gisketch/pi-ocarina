@@ -22,6 +22,11 @@ const api = {
     load: (): Promise<CatalogLoad> => ipcRenderer.invoke('catalog:load'),
     save: (position: CatalogPosition): Promise<void> => ipcRenderer.invoke('catalog:save', position),
   },
+  dialog: {
+    /** Native folder picker; null when the user cancels. The renderer never
+     *  sees a filesystem API, only the path a person deliberately chose. */
+    pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pick-directory'),
+  },
   session: {
     invoke: <N extends CommandName>(
       name: N,

@@ -10,11 +10,19 @@
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import type { CommandId } from '$lib/commands'
 
   $effect(() => startPersistence())
+
+  // The demo columns are seeded first so the window is never blank, then the
+  // real catalog replaces them if anything is pinned.
+  seedMockThreads()
+  $effect(() => {
+    void catalog.load()
+  })
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -48,9 +56,11 @@
         app.moveThread(1)
         break
       case 'new-thread':
-        // Creating threads needs the session backend; jump to the fresh-thread
-        // workspace so the command still demonstrates its destination.
-        app.goWorkspace(app.workspaces.length - 1)
+        // Real when a folder is pinned. With the demo catalog there is nothing
+        // to start a thread in, so the command shows its destination instead.
+        void catalog.newThread(app.workspace.id).then((threadId) => {
+          if (!threadId) app.goWorkspace(app.workspaces.length - 1)
+        })
         break
       case 'switch-branch':
       case 'compact-thread':

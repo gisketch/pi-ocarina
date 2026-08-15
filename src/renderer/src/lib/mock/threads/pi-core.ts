@@ -99,6 +99,10 @@ export const RETRY_BACKOFF: MockThread = {
       'a2',
       'Done. Retries only on 5xx, capped at 5 attempts (~4s worst case). All 18 sync tests pass.',
     ),
+    // The turn is over, but the question is not: the derived status is
+    // `waiting-input`, because a thread holding an open card is waiting on a
+    // person no matter what the last turn did.
+    { kind: 'thread-state', state: 'done' },
     {
       kind: 'ask',
       id: 'ask1',
@@ -156,6 +160,7 @@ export const QUEUE_REFACTOR: MockThread = {
     { kind: 'tool-end', id: 'r-heap', status: 'plain', meta: '+88 −41' },
     { kind: 'tool-start', id: 'r-qtest', tool: 'bash', target: 'pnpm test queue' },
     { kind: 'tool-end', id: 'r-qtest', status: 'ok', meta: 'exit 0' },
+    { kind: 'thread-state', state: 'done' },
   ],
 }
 

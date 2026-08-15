@@ -12,7 +12,14 @@ export const WORKSPACES: Workspace[] = [
     git: '↑1 +1~1',
     snippet: 'retry logic in sync worker',
     threads: [
-      { id: 'retry-backoff', title: 'retry backoff', status: 'done', meta: '14:02 · done ✓' },
+      // Statuses match what each recorded stream projects to; `retry-backoff`
+      // ends on an open question, which outranks its finished turn.
+      {
+        id: 'retry-backoff',
+        title: 'retry backoff',
+        status: 'waiting-input',
+        meta: '14:02 · done ✓',
+      },
       { id: 'flaky-e2e', title: 'flaky e2e on main', status: 'running', meta: 'running…' },
       { id: 'queue-refactor', title: 'queue refactor', status: 'done', meta: 'yesterday · done ✓' },
     ],
@@ -26,7 +33,7 @@ export const WORKSPACES: Workspace[] = [
     git: '+4~2',
     snippet: 'palette flicker on open',
     threads: [
-      { id: 'palette-flicker', title: 'palette flicker', status: 'running', meta: 'running…' },
+      { id: 'palette-flicker', title: 'palette flicker', status: 'waiting-input', meta: 'running…' },
       { id: 'icon-audit', title: 'icon set audit', status: 'idle', meta: 'idle' },
     ],
   },

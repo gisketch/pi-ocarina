@@ -44,6 +44,29 @@ describe('cards', () => {
 
     expect(model.blocks[0]).toMatchObject({ outcome: 'deny' })
   })
+
+  it('shows an answer whose question is missing rather than losing the decision', () => {
+    const model = run({ kind: 'ask-answered', id: 'ghost', optionIndex: 0 })
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'raw', detail: 'ghost' })
+  })
+
+  it('shows an approval outcome whose card is missing', () => {
+    const model = run({ kind: 'approve-resolved', id: 'ghost', outcome: 'always' })
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'raw', detail: 'ghost' })
+  })
+
+  it('does not let one card’s id resolve a different kind of card', () => {
+    const model = run(
+      { kind: 'approve', id: 'shared', command: 'pnpm i' },
+      { kind: 'ask-answered', id: 'shared', optionIndex: 0 },
+    )
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'approve' })
+    expect(model.blocks[0]).not.toHaveProperty('outcome')
+    expect(model.blocks[1]).toMatchObject({ kind: 'raw' })
+  })
 })
 
 describe('thread status', () => {
@@ -121,6 +144,32 @@ describe('checkpoints, compaction, steering', () => {
     })
 
     expect(model.blocks[0]).toMatchObject({ running: false, beforePercent: 82, afterPercent: 24 })
+  })
+
+  it('lands a compaction summary even when its start was never seen', () => {
+    // Attaching mid-compaction must not leave a shimmer running forever, and
+    // the compaction genuinely happened, so its result is shown.
+    const model = run({
+      kind: 'compaction-done',
+      id: 'k1',
+      beforePercent: 42,
+      afterPercent: 18,
+      summary: 'kept the plan',
+    })
+
+    expect(model.blocks[0]).toMatchObject({ kind: 'compaction', running: false, afterPercent: 18 })
+  })
+
+  it('never leaves two compaction blocks for one compaction', () => {
+    const model = run({ kind: 'compaction-start', id: 'k1' }, {
+      kind: 'compaction-done',
+      id: 'k1',
+      beforePercent: 42,
+      afterPercent: 18,
+      summary: 'kept the plan',
+    })
+
+    expect(model.blocks).toHaveLength(1)
   })
 
   it('holds a queued steer until it is delivered', () => {

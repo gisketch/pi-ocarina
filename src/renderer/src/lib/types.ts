@@ -1,10 +1,16 @@
+import type { ThreadRunState } from '../../../shared/vocabulary'
+
 export type Mode = 'NORMAL' | 'INSERT' | 'LEADER'
 
-export type ThreadStatus = 'running' | 'done' | 'idle' | 'failed'
+/** The column header speaks the same status the reducer produces, so a live
+ *  thread and a listed one cannot disagree about what a thread is doing. */
+export type ThreadStatus = ThreadRunState
 
 export interface Thread {
   id: string
   title: string
+  /** What the catalog knew at list time; the live model overrides it once the
+   *  thread's events arrive. */
   status: ThreadStatus
   /** Right-aligned label in the column header, e.g. "14:02 · done ✓". */
   meta: string

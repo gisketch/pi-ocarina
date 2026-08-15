@@ -80,7 +80,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'ask-answered':
-      return editBlock(model, event.id, (block) =>
+      return decide(model, event.id, event, (block) =>
         block.kind === 'ask' ? { ...block, answeredIndex: event.optionIndex } : block,
       )
 
@@ -93,7 +93,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'approve-resolved':
-      return editBlock(model, event.id, (block) =>
+      return decide(model, event.id, event, (block) =>
         block.kind === 'approve' ? { ...block, outcome: event.outcome } : block,
       )
 
@@ -104,17 +104,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return push(model, { kind: 'compaction', id: event.id, running: true })
 
     case 'compaction-done':
-      return editBlock(model, event.id, (block) =>
-        block.kind === 'compaction'
-          ? {
-              ...block,
-              running: false,
-              beforePercent: event.beforePercent,
-              afterPercent: event.afterPercent,
-              summary: event.summary,
-            }
-          : block,
-      )
+      return finishCompaction(model, event)
 
     case 'steer-queued':
       return push(model, { kind: 'steer', id: event.id, text: event.text })
@@ -169,6 +159,9 @@ function push(model: ThreadViewModel, block: Block): ThreadViewModel {
   return { ...model, blocks: [...model.blocks, block] }
 }
 
+/** Rewrites the block `id` names. Returns the model untouched when there is no
+ *  such block, or when `change` declined it — callers rely on that identity to
+ *  tell "applied" from "nothing to apply it to". */
 function editBlock(
   model: ThreadViewModel,
   id: string,
@@ -177,9 +170,56 @@ function editBlock(
   const index = model.blocks.findLastIndex((block) => block.id === id)
   if (index === -1) return model
 
+  const edited = change(model.blocks[index])
+  if (edited === model.blocks[index]) return model
+
   const blocks = model.blocks.slice()
-  blocks[index] = change(blocks[index])
+  blocks[index] = edited
   return { ...model, blocks }
+}
+
+/** Applies a decision to the card it names, or says so if that card is gone.
+ *
+ *  A decision is not decoration: an answer or an approval outcome is a record
+ *  of what a person chose. Losing one because its card never arrived would be
+ *  the same lie as dropping an unknown event. */
+function decide(
+  model: ThreadViewModel,
+  id: string,
+  event: UiEvent,
+  change: (block: Block) => Block,
+): ThreadViewModel {
+  const next = editBlock(model, id, change)
+  if (next !== model) return next
+
+  return push(model, {
+    kind: 'raw',
+    id: `orphan-${id}-${model.blocks.length}`,
+    rawKind: `${event.kind} for unknown card`,
+    detail: id,
+  })
+}
+
+/** Ends a compaction. If no running divider matches, the summary still lands as
+ *  a card of its own: a shimmer that never stops would claim the app is busy
+ *  forever, and the compaction did in fact happen. */
+function finishCompaction(
+  model: ThreadViewModel,
+  event: UiEvent & { kind: 'compaction-done' },
+): ThreadViewModel {
+  const done = {
+    running: false,
+    beforePercent: event.beforePercent,
+    afterPercent: event.afterPercent,
+    summary: event.summary,
+  }
+
+  const next = editBlock(model, event.id, (block) =>
+    block.kind === 'compaction' ? { ...block, ...done } : block,
+  )
+  if (next !== model) return next
+
+  return push(model, { kind: 'compaction', id: event.id, ...done })
 }
 
 function dropBlock(model: ThreadViewModel, id: string): ThreadViewModel {

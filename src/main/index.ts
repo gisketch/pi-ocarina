@@ -1,12 +1,11 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { CatalogPosition } from './catalog'
 import { CatalogStore } from './catalog-store'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
 import { PiDriver } from './session/pi-driver'
 import { registerSession } from './session'
-import { runSeamDemo } from './session/seam-demo'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -65,6 +64,23 @@ function registerWindowControls(): void {
   ipcMain.on('window:close', (event) => windowFromEvent(event)?.close())
 }
 
+/** The only way a folder path enters the app: a person picking one. */
+function registerDialogs(): void {
+  ipcMain.handle('dialog:pick-directory', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: 'Pin a workspace',
+      properties: ['openDirectory', 'createDirectory'],
+    }
+
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
+
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+}
+
 function registerCatalog(catalog: CatalogStore): void {
   ipcMain.handle('catalog:load', async () => {
     const { state, warning } = await catalog.load()
@@ -83,6 +99,7 @@ void app.whenReady().then(() => {
   const catalog = new CatalogStore(catalogFile())
 
   registerWindowControls()
+  registerDialogs()
   registerCatalog(catalog)
 
   const driver = registerSession(catalog)
@@ -98,9 +115,6 @@ void app.whenReady().then(() => {
 
   const win = createWindow()
   holdWindowOpen(win, lifecycle.isQuitting)
-  if (process.env.PIOCARINA_SEAM_DEMO) {
-    win.webContents.once('did-finish-load', () => void runSeamDemo(win))
-  }
 
   // Reopening from the dock shows the window that was hidden, rather than
   // building a second one on top of the running sessions.
