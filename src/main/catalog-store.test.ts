@@ -166,3 +166,23 @@ describe('closed threads', () => {
     expect(catalog.listArchived('never-seen')).toEqual([])
   })
 })
+
+describe('answering before anything has asked it to load', () => {
+  it('reports nothing pinned until the file has been read', async () => {
+    // The whole reason main must load the store before it serves a single
+    // command: an unloaded store honestly reports its empty defaults, and a
+    // returning user is told nothing is pinned.
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-store-'))
+    const file = join(dir, 'catalog.json')
+    const seeded = new CatalogStore(file)
+    await seeded.load()
+    seeded.pin('/repos/pi-core')
+    await seeded.flush()
+
+    const fresh = new CatalogStore(file)
+    expect(fresh.snapshot().workspaces).toEqual([])
+
+    await fresh.load()
+    expect(fresh.snapshot().workspaces).toHaveLength(1)
+  })
+})

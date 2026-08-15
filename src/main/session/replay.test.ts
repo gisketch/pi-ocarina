@@ -40,6 +40,46 @@ describe('replayEntries', () => {
     ])
   })
 
+  it('gives the checkpoint and the message it marks separate ids', () => {
+    // One session entry produces two blocks. Sharing an id made the block list
+    // throw on a duplicate key, which abandoned every update queued behind it
+    // and stranded unrelated chrome mid-frame.
+    const events = replayEntries(
+      entries(message('u1', { role: 'user', content: [{ type: 'text', text: 'hello' }] })),
+    )
+
+    const ids = events
+      .filter((event) => event.kind === 'checkpoint' || event.kind === 'user-message')
+      .map((event) => `${event.kind}:${'id' in event ? event.id : ''}`)
+
+    expect(ids).toEqual(['checkpoint:u1', 'user-message:user:u1'])
+  })
+
+  it('keeps the checkpoint on the session entry’s own id, which pi rewinds to', () => {
+    const events = replayEntries(
+      entries(message('entry-7', { role: 'user', content: [{ type: 'text', text: 'go' }] })),
+    )
+
+    const checkpoint = events.find((event) => event.kind === 'checkpoint')
+    expect(checkpoint).toMatchObject({ id: 'entry-7' })
+  })
+
+  it('leaves no two blocks calling themselves the same thing', () => {
+    const events = replayEntries(
+      entries(
+        message('u1', { role: 'user', content: [{ type: 'text', text: 'first' }] }),
+        message('a1', { role: 'assistant', content: [{ type: 'text', text: 'ok' }] }),
+        message('u2', { role: 'user', content: [{ type: 'text', text: 'second' }] }),
+      ),
+    )
+
+    const keys = events
+      .filter((event): event is typeof event & { id: string } => 'id' in event)
+      .map((event) => `${event.kind}:${event.id}`)
+
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
   it('rebuilds a tool call and its result', () => {
     const events = replayEntries(
       entries(

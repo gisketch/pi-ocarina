@@ -35,7 +35,12 @@
   const shown = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
 </script>
 
-{#each shown as block (block.id)}
+<!-- Keyed on kind and id together, because that is what identifies a block: the
+     reducer already looks blocks up that way, since one backend entry can
+     produce two of them. Keying on the id alone makes a collision fatal — the
+     list throws, and Svelte abandons every update queued behind it, which
+     strands unrelated chrome mid-frame. -->
+{#each shown as block (`${block.kind}:${block.id}`)}
   {#if block.kind === 'user'}
     <Message role="user" text={block.text} />
   {:else if block.kind === 'agent'}

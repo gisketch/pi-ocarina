@@ -82,11 +82,11 @@ function registerDialogs(): void {
 }
 
 function registerCatalog(catalog: CatalogStore): void {
-  ipcMain.handle('catalog:load', async () => {
-    const { state, warning } = await catalog.load()
-    if (warning) console.warn(`[catalog] ${warning} — starting from defaults`)
-    return { state, warning }
-  })
+  // The store is already loaded before any window exists, so this reports what
+  // main holds rather than reading the file again. A second read here would
+  // race the first: a folder pinned in between would be replaced by whatever
+  // the file said before it was written.
+  ipcMain.handle('catalog:load', () => ({ state: catalog.snapshot(), warning: catalog.warning }))
 
   // The renderer sends its position only. Workspaces belong to main, so a layout
   // save can never erase a pin.
@@ -95,8 +95,14 @@ function registerCatalog(catalog: CatalogStore): void {
   })
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   const catalog = new CatalogStore(catalogFile())
+  // Before anything can be asked about it. The driver answers `listWorkspaces`
+  // straight from this store, and the renderer asks the moment it starts, so a
+  // store still holding its empty defaults would report that nothing is pinned
+  // — and the app would greet a returning user with the welcome screen.
+  const { warning } = await catalog.load()
+  if (warning) console.warn(`[catalog] ${warning} — starting from defaults`)
 
   registerWindowControls()
   registerDialogs()

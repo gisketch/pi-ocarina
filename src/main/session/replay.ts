@@ -56,9 +56,14 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
 
       // Every user message is a point the conversation can be rewound to: it is
       // where a branch of the session tree begins, and pi can navigate back to
-      // that entry. The id is the session entry's, so it stays valid on disk.
+      // that entry. The checkpoint keeps the session entry's own id, because
+      // that is what `restoreCheckpoint` hands back to pi.
+      //
+      // The message gets a distinct id. One entry produces two blocks, and two
+      // blocks that call themselves the same thing are not two blocks — the
+      // list rendering them keys on the id and cannot tell them apart.
       events.push({ kind: 'checkpoint', id: entry.id, label: text.slice(0, 60) })
-      events.push({ kind: 'user-message', id: entry.id, text })
+      events.push({ kind: 'user-message', id: `user:${entry.id}`, text })
       continue
     }
 

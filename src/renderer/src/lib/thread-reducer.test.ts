@@ -216,3 +216,20 @@ describe('subagents', () => {
     expect(rows(model.blocks).map((row) => row.id)).toEqual(['orphan'])
   })
 })
+
+describe('block identity', () => {
+  it('identifies a block by its kind and id together', () => {
+    // The block list is keyed this way, so two blocks may share an id only if
+    // they are of different kinds. A collision within one kind would make the
+    // list throw and abandon the render.
+    const model = replayThread([
+      { kind: 'checkpoint', id: 'e1', label: 'hello' },
+      { kind: 'user-message', id: 'user:e1', text: 'hello' },
+      { kind: 'checkpoint', id: 'e2', label: 'again' },
+      { kind: 'user-message', id: 'user:e2', text: 'again' },
+    ])
+
+    const keys = model.blocks.map((block) => `${block.kind}:${block.id}`)
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+})
