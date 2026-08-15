@@ -27,6 +27,10 @@ export const SESSION_EVENTS_CHANNEL = 'session:events'
 /** What the backend says happened. The reducer turns these into blocks. */
 export type UiEvent =
   | { kind: 'thread-state'; state: ThreadRunState; reason?: string }
+  /** Discard the thread built so far; its history is about to be sent again.
+   *  Emitted after a checkpoint restore, where the conversation genuinely
+   *  changed shape and appending would duplicate it. */
+  | { kind: 'thread-reset' }
   | { kind: 'user-message'; id: string; text: string }
   | { kind: 'agent-message-start'; id: string }
   | { kind: 'agent-message-delta'; id: string; text: string }
@@ -134,6 +138,7 @@ export interface SessionDriver {
 
 const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'thread-state',
+  'thread-reset',
   'user-message',
   'agent-message-start',
   'agent-message-delta',

@@ -114,7 +114,13 @@ Status legend: `todo` · `in-progress` · `done`.
   fault-injection at the adapter; manual lifecycle pass.
 - Blocked by: B3
 
-## B6 — Checkpoint restore, steering, compaction — `todo`
+## B6 — Checkpoint restore, steering, compaction — `done`
+
+> Verified live: restoring a checkpoint rewinds the conversation while a file
+> written after it survives; a steer queued mid-turn is delivered at the next
+> step boundary; compaction settles either way without failing the thread. All
+> three pi assumptions are written up in the spec.
+
 
 - Delivered behavior: `restoreCheckpoint` forks/truncates the pi session at the
   checkpoint id and reopens the thread from the fork — the working tree is never

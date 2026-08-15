@@ -31,6 +31,7 @@ describe('replayEntries', () => {
     )
 
     expect(events.map((event) => event.kind)).toEqual([
+      'checkpoint',
       'user-message',
       'agent-message-start',
       'agent-message-delta',
@@ -136,6 +137,14 @@ describe('replay matches live', () => {
     const liveEvents = [
       { type: 'agent_start' },
       { type: 'message_start', message: { role: 'user' } },
+      {
+        type: 'entry_appended',
+        entry: {
+          type: 'message',
+          id: 'u1',
+          message: { role: 'user', content: [{ type: 'text', text: 'read it' }] },
+        },
+      },
       { type: 'tool_execution_start', toolCallId: 't1', toolName: 'read', args: { path: 'a.ts' } },
       {
         type: 'tool_execution_end',

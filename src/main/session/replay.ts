@@ -1,6 +1,6 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
-import { toolBody, toolKind, toolTarget } from './pi-translate'
+import { joinTextParts, toolBody, toolKind, toolTarget } from './pi-translate'
 
 // Colour codes reach the transcript when something formats for a terminal.
 // They are noise in a GUI, and they would make replay differ from live text.
@@ -48,8 +48,14 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
     const parts = Array.isArray(message.content) ? message.content : []
 
     if (message.role === 'user') {
-      const text = stripAnsi(joinText(parts))
-      if (text) events.push({ kind: 'user-message', id: entry.id, text })
+      const text = stripAnsi(joinTextParts(parts))
+      if (!text) continue
+
+      // Every user message is a point the conversation can be rewound to: it is
+      // where a branch of the session tree begins, and pi can navigate back to
+      // that entry. The id is the session entry's, so it stays valid on disk.
+      events.push({ kind: 'checkpoint', id: entry.id, label: text.slice(0, 60) })
+      events.push({ kind: 'user-message', id: entry.id, text })
       continue
     }
 
@@ -93,13 +99,4 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   // turn would have.
   events.push({ kind: 'thread-state', state: sawAssistant ? 'done' : 'idle' })
   return events
-}
-
-function joinText(parts: readonly unknown[]): string {
-  return parts
-    .map((part) => {
-      const content = part as { type?: string; text?: string }
-      return content.type === 'text' && content.text ? content.text : ''
-    })
-    .join('')
 }

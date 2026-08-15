@@ -151,6 +151,121 @@ describe.skipIf(!live)('approvals against a real session', () => {
   })
 })
 
+describe.skipIf(!live)('checkpoint restore against a real session', () => {
+  it('rewinds the conversation and leaves the files alone', { timeout: 180_000 }, async () => {
+    const { catalog, id: workspaceId, cwd } = await workspace()
+
+    const events: UiEvent[] = []
+    const driver = new PiDriver({
+      emit: (_threadId, event) => events.push(event),
+      catalog,
+      model: MODEL,
+    })
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+
+    await driver.execute('prompt', { threadId, text: 'Reply with the single word: first' })
+    await waitFor(() => events.some((event) => isState(event, 'done')), 90_000)
+
+    const before = events.length
+    await driver.execute('prompt', { threadId, text: 'Reply with the single word: second' })
+    await waitFor(() => events.slice(before).some((event) => isState(event, 'done')), 90_000)
+    expect(textOf(events).toLowerCase()).toContain('second')
+
+    // A file written after the checkpoint. Restoring must not remove it — that
+    // is the promise the confirm dialog makes to the user.
+    const witness = join(cwd, 'written-after.txt')
+    await writeFile(witness, 'still here\n', 'utf8')
+
+    // Reopen the thread's history to learn the checkpoint ids on disk.
+    const history: UiEvent[] = []
+    const reader = new PiDriver({
+      emit: (_threadId, event) => history.push(event),
+      catalog,
+      model: MODEL,
+    })
+    await reader.execute('listThreads', { workspaceId })
+    await driver.execute('archiveThread', { threadId })
+    await reader.execute('openThread', { threadId })
+
+    const checkpoints = history.filter((event) => event.kind === 'checkpoint')
+    expect(checkpoints.length).toBeGreaterThanOrEqual(2)
+
+    // Restoring to the second checkpoint undoes the second turn and keeps the
+    // first. (pi rewinds to *before* the chosen user message, so restoring to
+    // the first checkpoint would empty the thread entirely.)
+    const second = checkpoints[1]
+    if (second.kind !== 'checkpoint') throw new Error('no checkpoint')
+
+    const after = history.length
+    await reader.execute('restoreCheckpoint', { threadId, checkpointId: second.id })
+    const restored = history.slice(after)
+
+    console.log('[pi-live restore]', JSON.stringify(restored.map((event) => event.kind)))
+
+    // The thread is rebuilt, not appended to: the first turn survives and the
+    // second is gone.
+    expect(restored[0]).toEqual({ kind: 'thread-reset' })
+    expect(textOf(restored).toLowerCase()).toContain('first')
+    expect(textOf(restored).toLowerCase()).not.toContain('second')
+
+    // The working tree is untouched.
+    expect(existsSync(witness)).toBe(true)
+
+    await reader.dispose()
+    await driver.dispose()
+  })
+})
+
+describe.skipIf(!live)('steering and compaction against a real session', () => {
+  it('queues a steer mid-turn and compacts the thread', { timeout: 180_000 }, async () => {
+    const { catalog, id: workspaceId } = await workspace()
+
+    const events: UiEvent[] = []
+    const driver = new PiDriver({
+      emit: (_threadId, event) => events.push(event),
+      catalog,
+      model: MODEL,
+    })
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+
+    // Long enough that there is a turn in flight to steer into.
+    await driver.execute('prompt', {
+      threadId,
+      text: 'Count from 1 to 40, one number per line, with no other words.',
+    })
+    await waitFor(() => events.some((event) => isState(event, 'running')), 60_000)
+
+    const { steerId } = await driver.execute('steer', { threadId, text: 'Also say: steered.' })
+    expect(steerId).not.toBe('')
+    expect(events.some((event) => event.kind === 'steer-queued')).toBe(true)
+
+    await waitFor(() => events.some((event) => isState(event, 'done')), 120_000)
+
+    // Delivery is the risky half: pi reports the queue, not its transitions.
+    console.log('[pi-live steer]', JSON.stringify(events.map((event) => event.kind)))
+    expect(events.some((event) => event.kind === 'steer-delivered')).toBe(true)
+
+    const before = events.length
+    await driver.execute('compact', { threadId })
+
+    console.log('[pi-live compact]', JSON.stringify(events.slice(before), null, 1))
+    const compaction = events.slice(before)
+    expect(compaction[0]).toMatchObject({ kind: 'compaction-start' })
+
+    // pi decides whether there is anything worth compacting. Either answer is
+    // valid; what must never happen is the thread being marked failed for it.
+    const settled = compaction.some(
+      (event) =>
+        event.kind === 'compaction-done' ||
+        (event.kind === 'raw' && event.rawKind === 'compaction-skipped'),
+    )
+    expect(settled).toBe(true)
+    expect(compaction.some((event) => isState(event, 'failed'))).toBe(false)
+
+    await driver.dispose()
+  })
+})
+
 function textOf(events: UiEvent[]): string {
   return events
     .filter((event) => event.kind === 'agent-message-delta')

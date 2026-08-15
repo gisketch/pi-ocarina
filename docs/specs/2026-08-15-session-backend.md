@@ -125,6 +125,23 @@ Rendering, git status (git-terminal spec), pty management (git-terminal spec).
 - `tool_call` fires *after* `tool_execution_start`, so the ledger row opens, the
   approve card appears, and the row then settles — which is what the design's
   approve card already implies.
+- **Checkpoint restore: confirmed, and it is non-destructive.**
+  `session.navigateTree(entryId)` moves within the session tree, so the
+  abandoned branch stays on disk and the filesystem is never touched — verified
+  by writing a file after a checkpoint and finding it intact after restoring.
+  Checkpoints are user-message entry ids. Note the semantics: pi rewinds to
+  *before* the chosen message (it hands the text back for re-editing), so
+  restoring to the first checkpoint empties the thread. The rebuilt conversation
+  comes from `buildContextEntries()`, preceded by a `thread-reset` event.
+- **Steering: confirmed.** `session.steer(text)` queues during a turn and is
+  delivered at the next step boundary. pi reports the queue's *contents* via
+  `queue_update`, never its transitions, so delivery is detected by watching an
+  entry leave the queue.
+- **Compaction: confirmed, and it belongs to the event stream, not the command.**
+  pi also compacts on its own at a threshold, so translating `compaction_start`
+  / `compaction_end` is the only way automatic runs are visible. A refusal
+  (`result: undefined`, e.g. "nothing to compact") is reported as a skipped
+  note, never as a failed thread.
 
 ## Risks
 

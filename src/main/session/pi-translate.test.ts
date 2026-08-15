@@ -180,6 +180,81 @@ describe('PiTranslator', () => {
     expect(events[0].kind).toBe('tool-end')
   })
 
+  it('reports a finished compaction with before and after percentages', () => {
+    const translator = new PiTranslator(() => 200_000)
+    const events = [
+      { type: 'compaction_start', reason: 'threshold' },
+      {
+        type: 'compaction_end',
+        reason: 'threshold',
+        aborted: false,
+        willRetry: false,
+        result: { summary: 'we did things', tokensBefore: 100_000, estimatedTokensAfter: 20_000 },
+      },
+    ].flatMap((event) => translator.translate(pi(event)))
+
+    expect(events[0]).toMatchObject({ kind: 'compaction-start' })
+    expect(events[1]).toMatchObject({
+      kind: 'compaction-done',
+      beforePercent: 50,
+      afterPercent: 10,
+      summary: 'we did things',
+    })
+  })
+
+  it('pairs a compaction with the run that started it', () => {
+    const translator = new PiTranslator(() => 100)
+    const first = translator.translate(pi({ type: 'compaction_start', reason: 'manual' }))
+    translator.translate(
+      pi({
+        type: 'compaction_end',
+        reason: 'manual',
+        aborted: false,
+        willRetry: false,
+        result: { summary: 's', tokensBefore: 50, estimatedTokensAfter: 10 },
+      }),
+    )
+    const second = translator.translate(pi({ type: 'compaction_start', reason: 'manual' }))
+
+    expect(first[0].kind === 'compaction-start' && first[0].id).not.toBe(
+      second[0].kind === 'compaction-start' && second[0].id,
+    )
+  })
+
+  it('treats a refused compaction as a note, not a broken thread', () => {
+    const translator = new PiTranslator(() => 200_000)
+    translator.translate(pi({ type: 'compaction_start', reason: 'manual' }))
+    const events = translator.translate(
+      pi({
+        type: 'compaction_end',
+        reason: 'manual',
+        aborted: false,
+        willRetry: false,
+        result: undefined,
+        errorMessage: 'Nothing to compact (session too small)',
+      }),
+    )
+
+    expect(events[0]).toMatchObject({ kind: 'raw', rawKind: 'compaction-skipped' })
+    expect(events.some((event) => event.kind === 'thread-state')).toBe(false)
+  })
+
+  it('reports zero percentages rather than guessing without a context window', () => {
+    const translator = new PiTranslator()
+    translator.translate(pi({ type: 'compaction_start', reason: 'manual' }))
+    const [done] = translator.translate(
+      pi({
+        type: 'compaction_end',
+        reason: 'manual',
+        aborted: false,
+        willRetry: false,
+        result: { summary: 's', tokensBefore: 100, estimatedTokensAfter: 10 },
+      }),
+    )
+
+    expect(done).toMatchObject({ beforePercent: 0, afterPercent: 0 })
+  })
+
   it('surfaces an event kind it has never seen instead of dropping it', () => {
     const events = run([{ type: 'auto_retry_start', attempt: 2 }])
 

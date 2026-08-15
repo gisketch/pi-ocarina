@@ -62,6 +62,17 @@ export function resultText(result: unknown): string {
   return ''
 }
 
+/** Joins the text parts of a message's content, ignoring thinking and tool
+ *  calls. Shared with replay so both paths read a message the same way. */
+export function joinTextParts(parts: readonly unknown[]): string {
+  return parts
+    .map((part) => {
+      const content = part as { type?: string; text?: string }
+      return content.type === 'text' && content.text ? content.text : ''
+    })
+    .join('')
+}
+
 /** Shared with replay so a tool looks the same live and on reopen. */
 export function toolBody(toolName: string, result: unknown): ToolBody | undefined {
   const text = resultText(result)
@@ -86,7 +97,16 @@ export function toolBody(toolName: string, result: unknown): ToolBody | undefine
 export class PiTranslator {
   #messageId: string | null = null
   #messages = 0
+  #compactions = 0
   #outcome: 'ok' | 'failed' | 'aborted' = 'ok'
+
+  /** The model's context window, for turning token counts into percentages.
+   *  Supplied by the driver, which can read the live session's stats. */
+  readonly #contextWindow: () => number | undefined
+
+  constructor(contextWindow: () => number | undefined = () => undefined) {
+    this.#contextWindow = contextWindow
+  }
 
   translate(event: AgentSessionEvent): UiEvent[] {
     switch (event.type) {
@@ -160,6 +180,58 @@ export class PiTranslator {
           status: event.isError ? 'fail' : 'ok',
         })
         return events
+      }
+
+      // Every user message is a point the thread can be rewound to. Marking it
+      // live as well as on replay means a thread you just watched has the same
+      // restore points as one you reopened.
+      case 'entry_appended': {
+        const entry = event.entry as { type?: string; id?: string; message?: unknown }
+        if (entry.type !== 'message' || !entry.id) return []
+
+        const message = entry.message as { role?: string; content?: unknown }
+        if (message?.role !== 'user') return []
+
+        const parts = Array.isArray(message.content) ? message.content : []
+        const text = joinTextParts(parts)
+        return text ? [{ kind: 'checkpoint', id: entry.id, label: text.slice(0, 60) }] : []
+      }
+
+      // Compaction is translated here rather than raised by the compact command,
+      // because pi also compacts on its own when the context fills up. Handling
+      // only the command would leave those automatic runs invisible.
+      case 'compaction_start': {
+        this.#compactions += 1
+        return [{ kind: 'compaction-start', id: `compaction-${this.#compactions}` }]
+      }
+
+      case 'compaction_end': {
+        const id = `compaction-${this.#compactions}`
+        if (!event.result) {
+          // Refusing to compact a small session is an answer, not a failure —
+          // reporting it as a broken thread would be a lie.
+          return [
+            {
+              kind: 'raw',
+              rawKind: 'compaction-skipped',
+              detail: event.errorMessage ?? (event.aborted ? 'aborted' : 'nothing to compact'),
+            },
+          ]
+        }
+
+        const window = this.#contextWindow()
+        const percent = (tokens: number | undefined): number =>
+          window && tokens ? Math.round((tokens / window) * 1000) / 10 : 0
+
+        return [
+          {
+            kind: 'compaction-done',
+            id,
+            beforePercent: percent(event.result.tokensBefore),
+            afterPercent: percent(event.result.estimatedTokensAfter),
+            summary: event.result.summary,
+          },
+        ]
       }
 
       // Streaming tool output and turn boundaries carry nothing the ledger shows
