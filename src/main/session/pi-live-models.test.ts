@@ -67,4 +67,32 @@ describe.skipIf(!live)('models against a real session', () => {
 
     await driver.dispose()
   })
+
+  it('says the model again when a created thread is opened', { timeout: 60_000 }, async () => {
+    // The renderer subscribes only once `createThread` has returned, so the
+    // announce made while the session was adopted reached nobody. Without this
+    // the titlebar chip reads "pi default" for the life of the thread.
+    const { catalog, id: workspaceId } = await workspace()
+
+    const events: UiEvent[] = []
+    const driver = new PiDriver({
+      emit: (_threadId, event) => events.push(event),
+      catalog,
+      model: MODEL,
+    })
+
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+    events.length = 0
+
+    await driver.execute('openThread', { threadId })
+
+    expect(events.filter((event) => event.kind === 'model').at(-1)).toMatchObject({
+      provider: MODEL.provider,
+      id: MODEL.id,
+    })
+    // The meter has something to read before the thread's first turn ends.
+    expect(events.some((event) => event.kind === 'usage')).toBe(true)
+
+    await driver.dispose()
+  })
 })

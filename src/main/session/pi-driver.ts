@@ -198,7 +198,17 @@ export class PiDriver implements SessionDriver {
   /** Reopens a thread: its history is replayed as events before the live session
    *  is attached, so watching a thread and returning to it look the same. */
   async #openThread(threadId: string): Promise<void> {
-    if (this.#threads.has(threadId)) return
+    // Already open. That is the normal path for a thread the renderer just
+    // created: it subscribes only once `createThread` has returned, so the
+    // model and usage announced while the session was being adopted were
+    // emitted before anyone was listening. Saying them again costs two events
+    // and is the difference between a real model name and "pi default".
+    if (this.#threads.has(threadId)) {
+      const session = this.#threads.find(threadId)?.session
+      this.#models.announce(threadId, session, this.#emit)
+      if (session) this.#emitUsage(threadId, session)
+      return
+    }
 
     const { SessionManager } = await this.#sessions.load()
     const { path, cwd } = await this.#workspaces.locate(threadId)
@@ -233,6 +243,9 @@ export class PiDriver implements SessionDriver {
 
     this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
     this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
+    // A reopened thread carries its whole history's accounting; without this
+    // the meter would read zero until the thread's next turn ended.
+    this.#emitUsage(threadId, session)
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }

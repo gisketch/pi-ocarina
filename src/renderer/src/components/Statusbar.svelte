@@ -1,9 +1,14 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte'
+  import { threads } from '$lib/state/threads.svelte'
+  import { formatUsage } from '$lib/usage-format'
 
-  // Static in milestone 1; sourced from pi usage events once the backend lands.
-  const ctxPercent = 38
-  const usage = '12.4k tok · $0.31'
+  // pi's own accounting for the focused thread. A thread that has not run a
+  // turn has no usage, and the segment stays blank rather than showing zeros
+  // that would read as a measurement.
+  const model = $derived(threads.get(app.thread.id))
+  const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
+  const usage = $derived(formatUsage(model.usage))
 </script>
 
 <footer class="statusbar">

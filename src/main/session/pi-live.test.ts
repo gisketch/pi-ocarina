@@ -66,8 +66,10 @@ describe.skipIf(!live)('pi driver against a real session', () => {
     // reads whatever sits in the Electron process's directory.
     expect(events.filter((event) => event.kind === 'tool-end' && event.status === 'fail')).toEqual([])
 
-    // The usage risk: pi reports its own figures and we pass them through.
-    const usage = events.find((event) => event.kind === 'usage')
+    // The usage risk: pi reports its own figures and we pass them through. The
+    // last one, not the first: a thread also reports its accounting the moment
+    // it opens, and a thread that has run nothing yet honestly reports zero.
+    const usage = events.filter((event) => event.kind === 'usage').at(-1)
     expect(usage?.kind === 'usage' && usage.tokens).toBeGreaterThan(0)
 
     expect(existsSync(driver.sessionFile(threadId) ?? '')).toBe(true)
