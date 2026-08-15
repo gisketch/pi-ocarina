@@ -68,6 +68,20 @@ describe('leader x', () => {
     expect(shell.pendingClose).toBeNull()
   })
 
+  it('ignores a modifier pressed on its own', () => {
+    threads.seed('s1', { ...EMPTY_THREAD, runState: 'running' })
+    const close = vi.spyOn(catalog, 'closeThread').mockImplementation(() => {})
+    shell.requestClose()
+
+    // Reaching for a capital must not dismiss the question and leave the
+    // person unsure whether the thread closed.
+    for (const key of ['Shift', 'Meta', 'Control', 'Alt', 'CapsLock']) {
+      expect(shell.handleKey({ key })).toBe(false)
+      expect(shell.pendingClose).toBe('s1')
+    }
+    expect(close).not.toHaveBeenCalled()
+  })
+
   it('backs out on any other key, and eats it', () => {
     threads.seed('s1', { ...EMPTY_THREAD, runState: 'running' })
     const close = vi.spyOn(catalog, 'closeThread').mockImplementation(() => {})

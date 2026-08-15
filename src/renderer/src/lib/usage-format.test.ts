@@ -49,11 +49,14 @@ describe('the whole segment', () => {
   })
 
   it('stays blank for a thread that has not run a turn', () => {
-    // Zeros would read as a measurement rather than the absence of one.
+    // A thread reports its accounting the moment it opens, so "nothing yet"
+    // arrives as zeros rather than as nothing at all. Both read as blank:
+    // "0 tok · $0.00" would look like a measurement.
     expect(formatUsage(undefined)).toBe('')
+    expect(formatUsage({ tokens: 0, costUsd: 0 })).toBe('')
   })
 
-  it('still reports a turn that cost nothing', () => {
+  it('still reports a turn that spent tokens but cost nothing', () => {
     expect(formatUsage({ tokens: 120, costUsd: 0 })).toBe('120 tok · $0.00')
   })
 })

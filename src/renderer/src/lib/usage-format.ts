@@ -19,11 +19,15 @@ export function formatCost(costUsd: number): string {
   return `$${costUsd.toFixed(2)}`
 }
 
-/** The whole segment, or an empty string for a thread that has not run a turn
- *  yet. A zeroed "0 tok · $0.00" would look like a measurement rather than the
- *  absence of one. */
+/** The whole segment, or an empty string for a thread that has not run a turn.
+ *
+ *  A thread reports its accounting the moment it opens, so "has not run a turn"
+ *  arrives as zeros rather than as nothing at all. Both are treated the same:
+ *  "0 tok · $0.00" reads as a measurement, and there is nothing yet to
+ *  measure. */
 export function formatUsage(usage?: { tokens: number; costUsd: number }): string {
   if (!usage) return ''
+  if (usage.tokens === 0 && usage.costUsd === 0) return ''
 
   const parts = [formatTokens(usage.tokens), formatCost(usage.costUsd)].filter(
     (part) => part !== '',

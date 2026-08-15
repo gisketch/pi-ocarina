@@ -17,6 +17,17 @@ const NO_WORKSPACE: Workspace = Object.freeze({
   threads: Object.freeze([]) as unknown as Thread[],
 })
 
+/** What a thread is called before it has said anything. Shared with the catalog
+ *  so the two cannot drift; a header that fell back on a different string would
+ *  simply stop falling back. */
+export const PLACEHOLDER_TITLE = 'new thread'
+
+/** The first non-empty line, trimmed to what a column header can hold. */
+function firstLine(text: string): string {
+  const line = text.split('\n').find((candidate) => candidate.trim().length > 0)
+  return line ? line.trim().slice(0, 80) : PLACEHOLDER_TITLE
+}
+
 const NO_THREAD: Thread = Object.freeze({
   id: '',
   title: '',
@@ -82,6 +93,19 @@ class AppState {
   statusOf(thread: Thread): ThreadStatus {
     const live = threads.get(thread.id)
     return live.blocks.length > 0 ? live.status : thread.status
+  }
+
+  /** What a column header should call a thread.
+   *
+   *  A thread created in this session is listed before it has said anything, so
+   *  the catalog only has a placeholder for it. pi names a session from its
+   *  first message but the app never re-lists, so the thread's own first
+   *  message is what the header uses until a relaunch reads pi's name. */
+  titleOf(thread: Thread): string {
+    if (thread.title !== PLACEHOLDER_TITLE) return thread.title
+
+    const first = threads.get(thread.id).blocks.find((block) => block.kind === 'user')
+    return first ? firstLine(first.text) : thread.title
   }
 
   goWorkspace(index: number): void {

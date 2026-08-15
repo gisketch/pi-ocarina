@@ -9,7 +9,7 @@ symbol, and the exact change. Verify a named line still says what the ticket
 claims before editing it — the ticket was written against the tree at
 `399fd5e`.
 
-## G1 — Welcome screen, demo behind the harness — `todo`
+## G1 — Welcome screen, demo behind the harness — `done`
 
 Delivered behavior: Electron with nothing pinned shows a welcome screen; the
 demo catalog renders only in the browser harness.
@@ -65,7 +65,7 @@ action; existing catalog tests updated for the `'empty'` initializer;
 
 Blocked by: —
 
-## G2 — Leader `n` creates a real thread; no disk round-trip — `todo`
+## G2 — Leader `n` creates a real thread; no disk round-trip — `done`
 
 Delivered behavior: leader `n` makes a focused, composer-ready column; a
 send-created thread never loses its column; empty threads do not survive
@@ -122,7 +122,7 @@ session-file timing fact; `pnpm check`.
 
 Blocked by: G1 (shares the `pinWorkspace` action and empty-state guards)
 
-## G3 — Leader `x` closes the focused thread — `todo`
+## G3 — Leader `x` closes the focused thread — `done`
 
 Delivered behavior: leader `x` hides the focused thread's column, with one
 confirm when it is running; hidden threads stay hidden across restarts;
@@ -177,7 +177,7 @@ unarchive round-trip; `pnpm check`.
 
 Blocked by: G2 (local insert/remove pattern, shared effect helpers)
 
-## G4 — Live status bar & the model-chip race — `todo`
+## G4 — Live status bar & the model-chip race — `done`
 
 Delivered behavior: every chrome segment reads the focused thread's real
 data; the model chip never sticks on "pi default" for a real thread.

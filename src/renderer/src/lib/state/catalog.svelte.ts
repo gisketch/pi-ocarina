@@ -5,7 +5,7 @@ import { WORKSPACES } from '../mock/workspaces'
 import { session } from '../session'
 import { replayThread } from '../thread-reducer'
 import type { Thread, Workspace } from '../types'
-import { app } from './app.svelte'
+import { app, PLACEHOLDER_TITLE } from './app.svelte'
 import { threads } from './threads.svelte'
 
 /** Where the strip's workspaces come from.
@@ -130,7 +130,7 @@ class Catalog {
   /** Puts a just-created thread on the end of its workspace's strip. The fresh
    *  placeholder is replaced, not kept beside it: it stands for "this workspace
    *  has no thread yet", which has stopped being true. */
-  #insert(workspaceId: string, threadId: string, title = 'new thread'): void {
+  #insert(workspaceId: string, threadId: string, title = PLACEHOLDER_TITLE): void {
     this.workspaces = this.workspaces.map((workspace) =>
       workspace.id === workspaceId
         ? {

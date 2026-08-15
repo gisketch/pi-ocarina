@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { app } from './app.svelte'
+import { threads } from './threads.svelte'
+import { EMPTY_THREAD } from '../thread'
 import { stripOffset } from '../strip'
 
 beforeEach(() => {
@@ -78,5 +80,40 @@ describe('mode', () => {
     expect(app.accented).toBe(true)
     app.mode = 'NORMAL'
     expect(app.accented).toBe(false)
+  })
+})
+
+describe('what a column header calls a thread', () => {
+  const placeholder = { id: 'p1', title: 'new thread', status: 'idle' as const, meta: '' }
+
+  it('keeps a real title from the catalog', () => {
+    expect(app.titleOf({ ...placeholder, title: 'retry backoff' })).toBe('retry backoff')
+  })
+
+  it('uses the thread’s own first message while the title is a placeholder', () => {
+    // pi names a session from its first message, but a thread created in this
+    // session was listed before it had said anything and the app never
+    // re-lists.
+    threads.seed('p1', {
+      ...EMPTY_THREAD,
+      blocks: [{ kind: 'user', id: 'u1', text: 'Add retry with exponential backoff' }],
+    })
+
+    expect(app.titleOf(placeholder)).toBe('Add retry with exponential backoff')
+  })
+
+  it('takes only the first line, trimmed to what a header holds', () => {
+    threads.seed('p2', {
+      ...EMPTY_THREAD,
+      blocks: [{ kind: 'user', id: 'u1', text: '\n  fix the flaky test  \nand then explain why' }],
+    })
+
+    expect(app.titleOf({ ...placeholder, id: 'p2' })).toBe('fix the flaky test')
+  })
+
+  it('stays on the placeholder until the thread says something', () => {
+    threads.seed('p3', EMPTY_THREAD)
+
+    expect(app.titleOf({ ...placeholder, id: 'p3' })).toBe('new thread')
   })
 })

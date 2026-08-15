@@ -42,13 +42,13 @@
 <section
   class="column"
   class:focused
-  aria-label={thread.title}
+  aria-label={app.titleOf(thread)}
   onclickcapture={onfocus}
   role="presentation"
 >
   <header class="head">
     <span class="dot {tone}"></span>
-    <span class="title">{thread.title}</span>
+    <span class="title">{app.titleOf(thread)}</span>
     <span class="meta">{thread.meta}</span>
   </header>
 

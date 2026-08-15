@@ -13,6 +13,17 @@ import {
   reduceKey,
 } from '../keyboard'
 
+/** Keys that only ever modify another key. Pressing one is not an answer to
+ *  anything, so a modal question must let them pass rather than read them as a
+ *  decline. */
+const MODIFIER_KEYS: ReadonlySet<string> = new Set([
+  'Shift',
+  'Control',
+  'Alt',
+  'Meta',
+  'CapsLock',
+])
+
 /** Focus targets the keyboard layer drives. Registered by the components that own
  *  the elements so the machine itself stays DOM-free. */
 export interface FocusTargets {
@@ -111,6 +122,10 @@ class ShellState {
     // what happens to work already in flight, so no other binding may run
     // underneath it. Only an explicit yes goes ahead; anything else backs out.
     if (this.pendingClose !== null) {
+      // A modifier on its own is not an answer. Reaching for a capital must not
+      // dismiss the question and leave the person unsure what they just did.
+      if (MODIFIER_KEYS.has(event.key)) return false
+
       const confirmed = event.key === 'y' || event.key === 'Enter'
       const threadId = this.pendingClose
       this.pendingClose = null
