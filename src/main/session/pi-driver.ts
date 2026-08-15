@@ -26,6 +26,8 @@ export interface PiDriverOptions {
 interface Thread {
   session: AgentSession
   unsubscribe: () => void
+  /** The last thing the user asked, so a failed turn can be run again. */
+  lastPrompt?: string
 }
 
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
@@ -127,6 +129,15 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
+      case 'retryTurn': {
+        const { threadId } = params as CommandParams<'retryTurn'>
+        const { lastPrompt } = this.#thread(threadId)
+        // Nothing to retry is not an error; the UI simply offered a button it
+        // did not need to.
+        if (lastPrompt) this.#startTurn(threadId, lastPrompt)
+        return { ok: true } as CommandResult<N>
+      }
+
       case 'cancelTurn': {
         const { threadId } = params as CommandParams<'cancelTurn'>
         await this.#thread(threadId).session.abort()
@@ -148,6 +159,23 @@ export class PiDriver implements SessionDriver {
 
   async dispose(): Promise<void> {
     for (const threadId of [...this.#threads.keys()]) this.#close(threadId)
+  }
+
+  /** Threads with a turn in flight. Quitting on top of these would abandon work
+   *  the user cannot see, so the app asks first. */
+  runningThreads(): string[] {
+    return [...this.#threads]
+      .filter(([, thread]) => thread.session.isStreaming)
+      .map(([threadId]) => threadId)
+  }
+
+  /** Stops every turn cleanly so the session files stay valid. */
+  async abortAll(): Promise<void> {
+    await Promise.all(
+      [...this.#threads.values()].map((thread) =>
+        thread.session.abort().catch(() => undefined),
+      ),
+    )
   }
 
   /** The pi session file backing a thread — the transcript's real home. */
@@ -200,7 +228,9 @@ export class PiDriver implements SessionDriver {
   }
 
   #startTurn(threadId: string, text: string): void {
-    const { session } = this.#thread(threadId)
+    const thread = this.#thread(threadId)
+    const { session } = thread
+    thread.lastPrompt = text
     this.#emit(threadId, { kind: 'user-message', id: `user-${session.sessionId}-${text.length}`, text })
 
     // Deliberately not awaited: a turn runs for minutes and the caller's IPC

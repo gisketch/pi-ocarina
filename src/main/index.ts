@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import type { CatalogPosition } from './catalog'
 import { CatalogStore } from './catalog-store'
+import { holdWindowOpen, registerLifecycle } from './lifecycle'
+import { PiDriver } from './session/pi-driver'
 import { registerSession } from './session'
 import { runSeamDemo } from './session/seam-demo'
 
@@ -84,18 +86,28 @@ void app.whenReady().then(() => {
   registerCatalog(catalog)
 
   const driver = registerSession(catalog)
+  const lifecycle = registerLifecycle({
+    runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
+    abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),
+  })
+
   app.on('will-quit', () => {
     void driver.dispose()
     void catalog.flush()
   })
 
   const win = createWindow()
+  holdWindowOpen(win, lifecycle.isQuitting)
   if (process.env.PIOCARINA_SEAM_DEMO) {
     win.webContents.once('did-finish-load', () => void runSeamDemo(win))
   }
 
+  // Reopening from the dock shows the window that was hidden, rather than
+  // building a second one on top of the running sessions.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    const [existing] = BrowserWindow.getAllWindows()
+    if (existing) existing.show()
+    else holdWindowOpen(createWindow(), lifecycle.isQuitting)
   })
 })
 

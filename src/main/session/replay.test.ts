@@ -116,13 +116,24 @@ describe('replayEntries', () => {
     expect(events[0]).toMatchObject({ kind: 'raw', rawKind: 'time_travel' })
   })
 
-  it('reopens a finished thread as done and an empty one as idle', () => {
+  it('reopens a turn that never answered as interrupted', () => {
+    const events = replayEntries(
+      entries(
+        message('u1', { role: 'user', content: [{ type: 'text', text: 'first' }] }),
+        message('a1', { role: 'assistant', content: [{ type: 'text', text: 'done' }] }),
+        // The app died here, after the prompt and before any reply.
+        message('u2', { role: 'user', content: [{ type: 'text', text: 'second' }] }),
+      ),
+    )
+
+    expect(events.at(-1)).toMatchObject({ kind: 'thread-state', state: 'interrupted' })
+  })
+
+  it('reopens a finished thread as done and an untouched one as idle', () => {
     const withReply = replayEntries(
       entries(message('a1', { role: 'assistant', content: [{ type: 'text', text: 'hi' }] })),
     )
-    const empty = replayEntries(
-      entries(message('u1', { role: 'user', content: [{ type: 'text', text: 'hi' }] })),
-    )
+    const empty = replayEntries(entries({ type: 'session' }))
 
     expect(withReply.at(-1)).toMatchObject({ state: 'done' })
     expect(empty.at(-1)).toMatchObject({ state: 'idle' })

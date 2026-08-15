@@ -97,7 +97,22 @@ Status legend: `todo` · `in-progress` · `done`.
   a real permission-gated tool call through each of the three answers.
 - Blocked by: B2
 
-## B5 — Failure policy & app lifecycle — `todo`
+## B5 — Failure policy & app lifecycle — `done`
+
+> pi runs its own retry loop, so the app reports that one rather than adding a
+> second: `auto_retry_start`/`_end` become `degraded`/`restored`, and exhausted
+> retries become a `failed` thread with `retryTurn` to run it again. A transcript
+> ending on the user's own words reopens as `interrupted`. Lifecycle wiring
+> (hide on close, native notification for background completion, quit
+> confirmation with a clean abort) is in `src/main/lifecycle.ts`; its decisions
+> are unit-tested, but **the window and dialog behaviour needs a human to click
+> it** — see the note below.
+>
+> Two deliberate deviations from the spec text: the quit confirmation uses a
+> native dialog rather than the design's modal (the renderer grows that in E4),
+> and toasts are left to the renderer, which already sees the thread-state
+> events a toast would be built from.
+
 
 - Delivered behavior: transient errors auto-retry with capped backoff emitting
   `degraded` (with countdown) / `restored` events; hard errors emit thread

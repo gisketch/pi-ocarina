@@ -8,6 +8,7 @@ import {
   type SessionDriver,
 } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
+import { notifyFinished } from '../lifecycle'
 import { EventBatcher } from './batcher'
 import { PiDriver } from './pi-driver'
 import { StubDriver } from './stub-driver'
@@ -24,8 +25,12 @@ function broadcast(batches: EventBatch[]): void {
  *  above this function knows the difference. */
 export function registerSession(catalog: CatalogStore): SessionDriver {
   const batcher = new EventBatcher(broadcast)
-  const emit = (threadId: string, event: Parameters<typeof batcher.push>[1]): void =>
+  const emit = (threadId: string, event: Parameters<typeof batcher.push>[1]): void => {
     batcher.push(threadId, event)
+    // Every event passes through here, which makes it the one place that can
+    // tell when work finished while the user was looking elsewhere.
+    notifyFinished(threadId, event)
+  }
 
   // The stub stays available for seam work and demos; pi is the real backend.
   const driver: SessionDriver =

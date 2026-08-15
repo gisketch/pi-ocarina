@@ -180,6 +180,47 @@ describe('PiTranslator', () => {
     expect(events[0].kind).toBe('tool-end')
   })
 
+  it('reports pi retrying a flaky provider as a degraded connection', () => {
+    const [event] = run([
+      { type: 'auto_retry_start', attempt: 1, maxAttempts: 3, delayMs: 4000, errorMessage: '503' },
+    ])
+
+    expect(event).toMatchObject({ kind: 'connectivity', state: 'degraded', retryInSeconds: 4 })
+  })
+
+  it('never shows a countdown of zero seconds', () => {
+    const [event] = run([
+      { type: 'auto_retry_start', attempt: 1, maxAttempts: 3, delayMs: 200, errorMessage: 'x' },
+    ])
+
+    expect(event).toMatchObject({ retryInSeconds: 1 })
+  })
+
+  it('clears the banner when a retry succeeds', () => {
+    const events = run([{ type: 'auto_retry_end', success: true, attempt: 2 }])
+
+    expect(events).toEqual([{ kind: 'connectivity', state: 'restored' }])
+  })
+
+  it('turns exhausted retries into a failure the user can act on', () => {
+    const events = run([
+      { type: 'auto_retry_end', success: false, attempt: 3, finalError: 'provider unreachable' },
+    ])
+
+    expect(events[0]).toMatchObject({ kind: 'connectivity', state: 'restored' })
+    expect(events[1]).toMatchObject({ kind: 'thread-state', state: 'failed' })
+    expect(events[1]).toMatchObject({ reason: 'provider unreachable' })
+  })
+
+  it('does not then claim the turn finished successfully', () => {
+    const events = run([
+      { type: 'auto_retry_end', success: false, attempt: 3, finalError: 'nope' },
+      { type: 'agent_end', willRetry: false },
+    ])
+
+    expect(events.filter((event) => event.kind === 'thread-state')).toHaveLength(1)
+  })
+
   it('reports a finished compaction with before and after percentages', () => {
     const translator = new PiTranslator(() => 200_000)
     const events = [
@@ -256,8 +297,8 @@ describe('PiTranslator', () => {
   })
 
   it('surfaces an event kind it has never seen instead of dropping it', () => {
-    const events = run([{ type: 'auto_retry_start', attempt: 2 }])
+    const events = run([{ type: 'summarization_retry_scheduled', attempt: 2 }])
 
-    expect(events[0]).toMatchObject({ kind: 'raw', rawKind: 'auto_retry_start' })
+    expect(events[0]).toMatchObject({ kind: 'raw', rawKind: 'summarization_retry_scheduled' })
   })
 })

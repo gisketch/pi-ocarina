@@ -29,6 +29,7 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   const events: UiEvent[] = []
   let messages = 0
   let sawAssistant = false
+  let lastRole: string | undefined
 
   for (const entry of entries) {
     if (entry.type !== 'message') {
@@ -46,6 +47,8 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       isError?: boolean
     }
     const parts = Array.isArray(message.content) ? message.content : []
+
+    if (typeof message.role === 'string') lastRole = message.role
 
     if (message.role === 'user') {
       const text = stripAnsi(joinTextParts(parts))
@@ -95,8 +98,11 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
     }
   }
 
-  // A reopened thread is finished, not running — say so, the way the last live
-  // turn would have.
-  events.push({ kind: 'thread-state', state: sawAssistant ? 'done' : 'idle' })
+  // A transcript that stops on the user's own words is a turn that never
+  // finished — the app was closed or killed mid-flight. Saying "done" there
+  // would hide that the agent never answered; the user gets to decide whether
+  // to continue it.
+  const state = lastRole === 'user' ? 'interrupted' : sawAssistant ? 'done' : 'idle'
+  events.push({ kind: 'thread-state', state })
   return events
 }

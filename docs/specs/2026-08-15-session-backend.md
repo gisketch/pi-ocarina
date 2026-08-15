@@ -137,6 +137,10 @@ Rendering, git status (git-terminal spec), pty management (git-terminal spec).
   delivered at the next step boundary. pi reports the queue's *contents* via
   `queue_update`, never its transitions, so delivery is detected by watching an
   entry leave the queue.
+- **Retries: pi already has them.** `auto_retry_start` carries the attempt and
+  delay, `auto_retry_end` the outcome. The app translates these into the
+  connectivity banner instead of running a second retry loop of its own, which
+  would fight pi's.
 - **Compaction: confirmed, and it belongs to the event stream, not the command.**
   pi also compacts on its own at a threshold, so translating `compaction_start`
   / `compaction_end` is the only way automatic runs are visible. A refusal

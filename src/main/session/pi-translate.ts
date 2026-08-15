@@ -182,6 +182,30 @@ export class PiTranslator {
         return events
       }
 
+      // pi retries transient provider failures itself, so the app does not
+      // implement a retry loop — it reports the one already happening.
+      case 'auto_retry_start':
+        return [
+          {
+            kind: 'connectivity',
+            state: 'degraded',
+            retryInSeconds: Math.max(1, Math.round(event.delayMs / 1000)),
+          },
+        ]
+
+      case 'auto_retry_end':
+        if (event.success) return [{ kind: 'connectivity', state: 'restored' }]
+        // Out of retries: this is now a hard failure the user must act on.
+        this.#outcome = 'failed'
+        return [
+          { kind: 'connectivity', state: 'restored' },
+          {
+            kind: 'thread-state',
+            state: 'failed',
+            reason: event.finalError ?? 'the provider kept failing',
+          },
+        ]
+
       // Every user message is a point the thread can be rewound to. Marking it
       // live as well as on replay means a thread you just watched has the same
       // restore points as one you reopened.
