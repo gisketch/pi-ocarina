@@ -22,6 +22,8 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
 - [2026-08-16-core-usability.md](2026-08-16-core-usability.md) — welcome screen,
   real new/close thread, live status bar, model-chip race. **Ships before git
   & terminal.**
+- [2026-08-16-turn-structure.md](2026-08-16-turn-structure.md) — how a
+  tool-calling turn projects into blocks. Amends the thread & ledger spec.
 - [2026-08-15-git-terminal.md](2026-08-15-git-terminal.md) — git status pipeline,
   commit card, pty drawer, toasts/modals/banner.
 
