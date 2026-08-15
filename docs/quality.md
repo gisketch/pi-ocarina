@@ -19,6 +19,7 @@ Keep this as the project verification menu. Add commands only after they pass lo
 | Unit tests | `pnpm test` (vitest) | verified |
 | Build | `pnpm build` (main + preload + renderer → `dist/`) | verified |
 | Visual review vs reference | `pnpm dev:web` on :5273, compare with `docs/reference/design/` | verified |
+| Session seam round trip | `PIOCARINA_SEAM_DEMO=1 pnpm dev` (prints `[seam-demo]` to stdout) | verified |
 | Observe failures | Electron DevTools console + main-process stdout | verified |
 | Reset/cleanup | Quit app; delete `~/Library/Application Support/PiOcarina/catalog.json` | verified |
 

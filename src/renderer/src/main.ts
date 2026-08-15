@@ -1,5 +1,7 @@
 import { mount } from 'svelte'
 import './styles/global.css'
+// Side-effect import: connects the session client to the bridge before mount.
+import '$lib/session'
 import App from './App.svelte'
 
 const target = document.getElementById('app')

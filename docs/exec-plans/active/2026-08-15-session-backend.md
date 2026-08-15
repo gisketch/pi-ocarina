@@ -10,7 +10,12 @@ where reality differs, the spec is updated before the ticket closes.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## B1 — Driver seam & event vocabulary — `todo`
+## B1 — Driver seam & event vocabulary — `done`
+
+> Verified: the whole path (renderer → preload → main → driver → batcher →
+> renderer) round-trips a scripted turn in a real Electron run, unknown kinds
+> included. Run it with `PIOCARINA_SEAM_DEMO=1 pnpm dev`.
+
 
 - Delivered behavior: the `SessionDriver` contract exists as code: typed command
   surface (`createThread`, `openThread`, `prompt`, `steer`, `answerAsk`,

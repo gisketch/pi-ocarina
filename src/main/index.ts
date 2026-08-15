@@ -2,6 +2,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { type CatalogState, readCatalog, writeCatalog } from './catalog'
+import { registerSession } from './session'
+import { runSeamDemo } from './session/seam-demo'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -80,7 +82,14 @@ function registerCatalog(): void {
 void app.whenReady().then(() => {
   registerWindowControls()
   registerCatalog()
-  createWindow()
+
+  const driver = registerSession()
+  app.on('will-quit', () => void driver.dispose())
+
+  const win = createWindow()
+  if (process.env.PIOCARINA_SEAM_DEMO) {
+    win.webContents.once('did-finish-load', () => void runSeamDemo(win))
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

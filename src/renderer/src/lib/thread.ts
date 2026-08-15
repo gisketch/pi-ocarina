@@ -1,57 +1,24 @@
 /** Thread view model.
  *
- *  This is the vocabulary the session-backend reducer will produce; the static
- *  shell renders it from fixtures so the components are already written against
- *  the real contract. Unknown row kinds must stay renderable — see `raw`. */
+ *  The vocabulary itself is shared with the session backend (one definition, in
+ *  `src/shared/vocabulary.ts`) and re-exported here so components keep a single
+ *  import. What this file adds is the shape of a *rendered* thread: rows,
+ *  blocks, and the inline splitter. Unknown row kinds must stay renderable —
+ *  see `raw`. */
 
-export type ToolKind =
-  | 'read'
-  | 'grep'
-  | 'write'
-  | 'edit'
-  | 'bash'
-  | 'fetch'
-  | 'todo'
-  | 'skill'
-  | 'agent'
-  | 'raw'
+export type {
+  AskOption,
+  CodeLine,
+  DiffLine,
+  MatchLine,
+  TerminalLine,
+  TodoItem,
+  ToolBody,
+  ToolKind,
+  ToolStatus,
+} from '../../../shared/vocabulary'
 
-export type ToolStatus = 'running' | 'ok' | 'fail' | 'timeout' | 'cancelled' | 'denied' | 'plain'
-
-/** A line of source with an optional trailing comment rendered dimmer. */
-export interface CodeLine {
-  text: string
-  comment?: string
-}
-
-export interface MatchLine {
-  location: string
-  before: string
-  match: string
-  after: string
-}
-
-export interface DiffLine {
-  sign: '+' | '-' | ' '
-  text: string
-}
-
-export interface TerminalLine {
-  text: string
-  tone?: 'prompt' | 'ok' | 'err' | 'dim'
-}
-
-export interface TodoItem {
-  done: boolean
-  text: string
-}
-
-export type ToolBody =
-  | { type: 'code'; lines: CodeLine[] }
-  | { type: 'matches'; lines: MatchLine[] }
-  | { type: 'diff'; lines: DiffLine[] }
-  | { type: 'terminal'; lines: TerminalLine[]; tone?: 'normal' | 'error' }
-  | { type: 'todo'; items: TodoItem[] }
+import type { AskOption, ToolBody, ToolKind, ToolStatus } from '../../../shared/vocabulary'
 
 export interface ToolRow {
   id: string
@@ -67,10 +34,6 @@ export interface ToolRow {
   open?: boolean
   /** Nested subagent rows, one level deep. */
   children?: ToolRow[]
-}
-
-export interface AskOption {
-  label: string
 }
 
 export type Block =
