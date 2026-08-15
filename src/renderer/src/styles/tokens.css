@@ -1,0 +1,74 @@
+/* Design tokens — values are transcribed from docs/reference/design.
+   Nothing in the app may hardcode a colour that belongs here. */
+:root {
+  /* surfaces */
+  --bg: #0d0d10;
+  --bg-panel: #141417;
+  --bg-deep: #0a0a0c;
+  --bg-raise: rgba(255, 255, 255, 0.015);
+  --bg-raise-2: rgba(255, 255, 255, 0.02);
+  --bg-raise-3: rgba(255, 255, 255, 0.025);
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --bg-hover-2: rgba(255, 255, 255, 0.05);
+  --bg-chip: rgba(255, 255, 255, 0.07);
+
+  /* text */
+  --fg-bright: #efefea;
+  --fg-body: #e8e8e3;
+  --fg: #d6d6d2;
+  --fg-agent: #c9c9c4;
+  --fg-muted: #9a9aa2;
+  --fg-dim: #8d8d93;
+  --fg-dimmer: #6c6c74;
+  --fg-dimmest: #5c5c64;
+  --fg-faint: #4a4a52;
+  --fg-ghost: #3a3a40;
+
+  /* lines */
+  --line-faint: rgba(255, 255, 255, 0.035);
+  --line: rgba(255, 255, 255, 0.05);
+  --line-mid: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.1);
+
+  /* semantic */
+  --ok: #7fd7a4;
+  --ok-soft: rgba(127, 215, 164, 0.07);
+  --ok-text: #a5e5c2;
+  --err: #e07a6b;
+  --err-soft: rgba(224, 122, 107, 0.08);
+  --err-text: #e8a49a;
+  --warn: #e9c46a;
+  --warn-soft: rgba(233, 196, 106, 0.04);
+
+  /* workspace-seeded accent — re-assigned per active workspace */
+  --accent-hue: 152;
+  --accent: oklch(0.76 0.14 var(--accent-hue));
+  --accent-soft: oklch(0.76 0.14 var(--accent-hue) / 0.13);
+  --accent-tint: radial-gradient(
+    1000px 520px at 72% -12%,
+    oklch(0.5 0.1 var(--accent-hue) / 0.05),
+    transparent 70%
+  );
+
+  /* type */
+  --font-chrome: 'Departure Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-body: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* metrics */
+  --titlebar-h: 40px;
+  --statusbar-h: 28px;
+  --rail-w: 44px;
+  --column-w: 780px;
+  --column-gap: 22px;
+
+  /* motion */
+  --ease-strip: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-strip: 0.5s;
+  --grain-opacity: 0.07;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-strip: 0s;
+  }
+}

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'Departure Mono';src:url('https://cdn.jsdelivr.net/npm/departure-mono/assets/DepartureMono-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+html,body{margin:0;padding:0;background:#0d0d10;overflow:hidden}
+a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:underline}
+::selection{background:rgba(154,230,195,.25)}
+@keyframes caret{0%,45%{opacity:1}50%,95%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes ping{0%{opacity:0;transform:scale(.7)}18%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(1.45)}}
+@keyframes slideup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="height:100vh;display:flex;flex-direction:column;background:#0d0d10;color:#d6d6d2;font-family:'Departure Mono','JetBrains Mono',ui-monospace,monospace;font-size:12px;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;pointer-events:none;background:{{ tintBg }};transition:background .5s ease"></div>
+  <div style="position:absolute;inset:0;pointer-events:none;z-index:80;opacity:{{ grainGlobal }};background-image:url(&quot;data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='120'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.8'%20numOctaves='3'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='120'%20height='120'%20filter='url(%23n)'/%3E%3C/svg%3E&quot;)"></div>
+
+  <!-- titlebar -->
+  <div style="height:40px;flex:none;display:flex;align-items:center;gap:16px;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.035);position:relative;z-index:2">
+    <div style="display:flex;gap:7px;flex:none">
+      <div style="width:10px;height:10px;background:#3a3a40"></div>
+      <div style="width:10px;height:10px;background:#3a3a40"></div>
+      <div style="width:10px;height:10px;background:#3a3a40"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <span style="font-size:14px;color:#efefea">PI<span style="color:#6c6c74">OCARINA</span></span>
+      <span style="display:inline-flex;gap:3px;align-items:center">
+        <span style="width:4px;height:4px;background:{{ accent }};transition:background .4s"></span>
+        <span style="width:4px;height:4px;background:#4a4a52"></span>
+        <span style="width:4px;height:4px;background:#4a4a52"></span>
+        <span style="width:4px;height:4px;background:#4a4a52"></span>
+      </span>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:#6c6c74;white-space:nowrap">
+      <span style="color:{{ accent }};flex:none">♪ {{ wsNote }}</span>
+      <span style="color:#8d8d93">{{ wsName }}</span>
+      <span style="color:#4a4a52">·</span>
+      <span style="color:#8d8d93">thread {{ thrLabel }}</span>
+      <span style="color:#4a4a52">·</span>
+      <span style="border:1px solid rgba(255,255,255,.08);padding:3px 8px;background:rgba(255,255,255,.03)">pi-2.5-pro</span>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;min-height:0;position:relative;z-index:1">
+    <!-- workspace rail -->
+    <div style="width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 0 12px;border-right:1px solid rgba(255,255,255,.03)">
+      <sc-for list="{{ pins }}" as="p" hint-placeholder-count="3">
+        <div onClick="{{ p.go }}" title="{{ p.name }}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;opacity:{{ p.op }};transition:opacity .2s" style-hover="opacity:1">
+          <div style="width:22px;height:22px;position:relative">
+            <span style="display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);width:100%;height:100%">
+              <sc-for list="{{ p.px }}" as="d" hint-placeholder-count="25"><span style="background:{{ d.bg }}"></span></sc-for>
+            </span>
+            
+          </div>
+        </div>
+      </sc-for>
+      <div onClick="{{ openSwitcher }}" title="pin a workspace (w)" style="width:22px;height:22px;border:1px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:#5c5c64;cursor:pointer;font-size:12px" style-hover="color:#9a9aa2;border-color:rgba(255,255,255,.35)">+</div>
+      <div onClick="{{ openKeys }}" title="keymap (?)" style="margin-top:auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:#5c5c64;cursor:pointer;font-size:10px" style-hover="color:#9a9aa2">?</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <!-- niri-style thread strip -->
+      <div style="flex:1;overflow:hidden;position:relative">
+
+        <sc-if value="{{ ws1 }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:50%;top:18px;bottom:14px;display:flex;gap:22px;transform:{{ stripX }};transition:{{ stripTrans }}">
+            <!-- col 0: retry backoff -->
+            <div sc-ref="c00" onClick="{{ focA0 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ ba0 }};background:rgba(255,255,255,.015);opacity:{{ da0 }};transition:opacity .4s,border-color .4s;overflow:hidden">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:{{ accent }}"></span>
+                <span style="color:#efefea">retry backoff</span>
+                <span style="margin-left:auto;color:#5c5c64">14:02 · done ✓</span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:#2c2c33 transparent;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+                  <div style="color:#e8e8e3;line-height:1.65">Add retry with exponential backoff to the sync worker, then run the sync tests.</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">Wrapping <code style="background:rgba(255,255,255,.07);padding:1px 5px;font-size:12px;color:#e8e8e3">runSync()</code> in a bounded retry loop — 5 attempts, jittered backoff from 250ms.</div>
+                </div>
+                <!-- timeline ledger -->
+                <div style="position:relative;border-left:1px solid rgba(255,255,255,.08);margin-left:3px;padding-left:16px;display:flex;flex-direction:column;gap:2px">
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#6c6c74"></span>
+                    <div onClick="{{ tog1 }}" style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;cursor:pointer;font-size:12px" style-hover="background:rgba(255,255,255,.03)">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">read</span>
+                      <span style="color:#d6d6d2">src/sync/worker.ts</span>
+                      <span style="margin-left:auto;color:#5c5c64;font-size:11px">142L {{ chev1 }}</span>
+                    </div>
+                    <sc-if value="{{ t1 }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin:2px 6px 6px;padding:9px 12px;font-size:11.5px;line-height:1.7;color:#8d8d93;white-space:pre;background:#0a0a0c;border:1px solid rgba(255,255,255,.03)">export async function runSync(job: SyncJob) {
+  const res = await push(job.changes)   <span style="color:#5c5c64">// throws on 5xx</span>
+  await ack(job.id, res.cursor)
+}</div>
+                    </sc-if>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#6c6c74"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">grep</span>
+                      <span style="color:#d6d6d2">"backoff" · src/**</span>
+                      <span style="margin-left:auto;color:#5c5c64;font-size:11px">3 matches</span>
+                    </div>
+                    <div style="margin:2px 6px 6px;padding:8px 12px;font-size:11.5px;line-height:1.8;background:#0a0a0c;border:1px solid rgba(255,255,255,.03)">
+                      <div><span style="color:#5c5c64">src/lib/net.ts:41</span>  <span style="color:#8d8d93">const <span style="color:{{ accent }};background:{{ accentSoft }}">backoff</span>Ms = base * 2 ** attempt</span></div>
+                      <div><span style="color:#5c5c64">src/lib/net.ts:58</span>  <span style="color:#8d8d93">jitter(<span style="color:{{ accent }};background:{{ accentSoft }}">backoff</span>Ms)</span></div>
+                      <div><span style="color:#5c5c64">docs/adr/007.md:12</span> <span style="color:#8d8d93">exponential <span style="color:{{ accent }};background:{{ accentSoft }}">backoff</span> policy</span></div>
+                    </div>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:{{ accent }}"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};width:36px;flex:none">write</span>
+                      <span style="color:#d6d6d2">src/sync/retry.ts</span>
+                      <span style="margin-left:auto;font-size:11px"><span style="color:#7fd7a4">+38L</span> <span style="color:#5c5c64">new file</span></span>
+                    </div>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:{{ accent }}"></span>
+                    <div onClick="{{ tog2 }}" style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;cursor:pointer;font-size:12px" style-hover="background:rgba(255,255,255,.03)">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};width:36px;flex:none">edit</span>
+                      <span style="color:#d6d6d2">src/sync/worker.ts</span>
+                      <span style="margin-left:auto;font-size:11px"><span style="color:#7fd7a4">+14</span> <span style="color:#e07a6b">−3</span> <span style="color:#5c5c64">{{ chev2 }}</span></span>
+                    </div>
+                    <sc-if value="{{ t2 }}" hint-placeholder-val="{{ true }}">
+                      <div style="margin:2px 6px 6px;font-size:11.5px;line-height:1.75;background:#0a0a0c;border:1px solid rgba(255,255,255,.03)">
+                        <div style="padding:2px 12px;color:#e8a49a;background:rgba(224,122,107,.08)">- const res = await push(job.changes)</div>
+                        <div style="padding:2px 12px;color:#a5e5c2;background:rgba(127,215,164,.07)">+ const res = await withRetry(() =&gt; push(job.changes), {</div>
+                        <div style="padding:2px 12px;color:#a5e5c2;background:rgba(127,215,164,.07)">+   attempts: 5, baseMs: 250, jitter: true,</div>
+                        <div style="padding:2px 12px;color:#a5e5c2;background:rgba(127,215,164,.07)">+   retryOn: (e) =&gt; e.status &gt;= 500,</div>
+                        <div style="padding:2px 12px;color:#a5e5c2;background:rgba(127,215,164,.07)">+ })</div>
+                        <div style="padding:2px 12px;color:#6c6c74">  await ack(job.id, res.cursor)</div>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#7fd7a4"></span>
+                    <div onClick="{{ tog3 }}" style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;cursor:pointer;font-size:12px" style-hover="background:rgba(255,255,255,.03)">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">bash</span>
+                      <span style="color:#d6d6d2">pnpm test sync</span>
+                      <span style="margin-left:auto;color:#7fd7a4;font-size:11px">exit 0 · 3.2s <span style="color:#5c5c64">{{ chev3 }}</span></span>
+                    </div>
+                    <sc-if value="{{ t3 }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin:2px 6px 6px;padding:9px 12px;font-size:11.5px;line-height:1.7;background:#0a0a0c;border:1px solid rgba(255,255,255,.05);white-space:pre"><span style="color:#5c5c64">$</span> pnpm test sync
+<span style="color:#8d8d93">sync/worker.spec.ts</span>  <span style="color:#7fd7a4">✓ 12 passed</span>
+<span style="color:#8d8d93">sync/retry.spec.ts</span>   <span style="color:#7fd7a4">✓ 6 passed</span></div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">Done. Retries only on 5xx, capped at 5 attempts (~4s worst case). All 18 sync tests pass.</div>
+                </div>
+                <div style="border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02)">
+                  <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.035)">
+                    <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};flex:none">? ASK</span>
+                    <span style="color:#d6d6d2;font-size:12px">Add a metrics counter for retry exhaustion?</span>
+                    <span style="margin-left:auto;color:#5c5c64;font-size:10px;font-family:'Departure Mono',monospace;white-space:nowrap">{{ askStatus }}</span>
+                  </div>
+                  <div style="padding:8px;display:flex;flex-direction:column;gap:4px">
+                    <sc-for list="{{ askOpts }}" as="q" hint-placeholder-count="3">
+                      <div onClick="{{ q.pick }}" style="display:flex;align-items:center;gap:10px;padding:7px 10px;cursor:pointer;border:1px solid {{ q.border }};background:{{ q.bg }};color:{{ q.fg }};font-size:12px;transition:all .15s" style-hover="border-color:rgba(255,255,255,.2)">
+                        <span style="width:12px;color:{{ q.markc }};flex:none">{{ q.mark }}</span>{{ q.label }}
+                      </div>
+                    </sc-for>
+                    <div style="padding:6px 10px 2px;color:#5c5c64;font-size:10px;font-family:'Departure Mono',monospace">click to answer · or reply in composer</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- col 1: flaky CI -->
+            <div sc-ref="c01" onClick="{{ focA1 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ ba1 }};background:rgba(255,255,255,.015);opacity:{{ da1 }};transition:opacity .4s,border-color .4s;overflow:hidden;cursor:pointer">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:{{ accent }};animation:pulse 1.1s ease-in-out infinite"></span>
+                <span style="color:#efefea">flaky e2e on main</span>
+                <span style="margin-left:auto;color:#5c5c64">running…</span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+                  <div style="color:#e8e8e3;line-height:1.65">Why does checkout.e2e fail 1 in 5 runs on main?</div>
+                </div>
+                <div style="position:relative;border-left:1px solid rgba(255,255,255,.08);margin-left:3px;padding-left:16px;display:flex;flex-direction:column;gap:2px">
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#e07a6b"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#e07a6b;width:36px;flex:none">bash</span>
+                      <span style="color:#d6d6d2">pnpm e2e checkout</span>
+                      <span style="margin-left:auto;color:#e07a6b;font-size:11px">exit 1 · 41s</span>
+                    </div>
+                    <div style="margin:2px 6px 6px;padding:8px 12px;font-size:11.5px;line-height:1.7;background:rgba(224,122,107,.06);border:1px solid rgba(224,122,107,.25);white-space:pre"><span style="color:#e8a49a">✗ expect(cart.items).toHaveLength(2)</span>
+<span style="color:#8d8d93">  received: 1 — checkout.e2e.ts:88</span></div>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:{{ accent }};animation:pulse 1.1s ease-in-out infinite"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};width:36px;flex:none">bash</span>
+                      <span style="color:#d6d6d2">pnpm e2e checkout --repeat 10</span>
+                      <span style="margin-left:auto;color:#8d8d93;font-size:11px">run 4/10…</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">Reproducing first — early signal points at a race in the cart fixture<span style="display:inline-block;width:7px;height:14px;background:{{ accent }};margin-left:5px;vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+                </div>
+              </div>
+            </div>
+            <!-- col 2: queue refactor -->
+            <div sc-ref="c02" onClick="{{ focA2 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ ba2 }};background:rgba(255,255,255,.015);opacity:{{ da2 }};transition:opacity .4s,border-color .4s;overflow:hidden;cursor:pointer">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:#5c5c64"></span>
+                <span style="color:#efefea">queue refactor</span>
+                <span style="margin-left:auto;color:#5c5c64">yesterday · done ✓</span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">Moved job scheduling to a priority heap; dropped p95 dequeue latency from 40ms → 6ms. 9 files touched, all tests green.</div>
+                </div>
+                <div style="position:relative;border-left:1px solid rgba(255,255,255,.08);margin-left:3px;padding-left:16px;display:flex;flex-direction:column;gap:2px">
+                  <div style="position:relative"><span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#6c6c74"></span><div style="display:flex;gap:8px;padding:5px 6px;font-size:12px"><span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">edit</span><span style="color:#d6d6d2">src/queue/heap.ts</span><span style="margin-left:auto;font-size:11px"><span style="color:#7fd7a4">+88</span> <span style="color:#e07a6b">−41</span></span></div></div>
+                  <div style="position:relative"><span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#7fd7a4"></span><div style="display:flex;gap:8px;padding:5px 6px;font-size:12px"><span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">bash</span><span style="color:#d6d6d2">pnpm test queue</span><span style="margin-left:auto;color:#7fd7a4;font-size:11px">exit 0</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ ws2 }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:50%;top:18px;bottom:14px;display:flex;gap:22px;transform:{{ stripX }};transition:{{ stripTrans }}">
+            <div sc-ref="c10" onClick="{{ focB0 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ bb0 }};background:rgba(255,255,255,.015);opacity:{{ db0 }};transition:opacity .4s,border-color .4s;overflow:hidden">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:{{ accent }};animation:pulse 1.1s ease-in-out infinite"></span>
+                <span style="color:#efefea">palette flicker</span>
+                <span style="margin-left:auto;color:#5c5c64">running…</span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+                  <div style="color:#e8e8e3;line-height:1.65">The command palette flickers when it opens — find where that comes from.</div>
+                </div>
+                <div style="position:relative;border-left:1px solid rgba(255,255,255,.08);margin-left:3px;padding-left:16px">
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:{{ accent }};animation:pulse 1.1s ease-in-out infinite"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};width:36px;flex:none">grep</span>
+                      <span style="color:#d6d6d2">"palette" · src/**</span>
+                      <span style="margin-left:auto;color:#8d8d93;font-size:11px">214 files…</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="border:1px solid rgba(233,196,106,.28);background:rgba(233,196,106,.04)">
+                  <div style="display:flex;align-items:center;gap:9px;padding:9px 12px">
+                    <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#e9c46a;flex:none">! APPROVE</span>
+                    <span style="color:#d6d6d2;font-size:12px">pi wants to run <code style="background:rgba(255,255,255,.07);padding:1px 5px;font-size:11.5px">npx playwright install</code> <span style="color:#8d8d93">(~120MB browsers)</span></span>
+                    <span style="margin-left:auto;color:#8d8d93;font-size:10px;font-family:'Departure Mono',monospace;white-space:nowrap">{{ permStatus }}</span>
+                  </div>
+                  <sc-if value="{{ permPending }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:8px;padding:0 12px 11px">
+                      <div onClick="{{ permAllow }}" style="padding:5px 14px;background:#e9c46a;color:#0d0d10;cursor:pointer;font-size:10.5px;font-family:'Departure Mono',monospace" style-hover="background:#f2d488">allow once</div>
+                      <div onClick="{{ permAllow }}" style="padding:5px 14px;border:1px solid rgba(233,196,106,.4);color:#e9c46a;cursor:pointer;font-size:10.5px;font-family:'Departure Mono',monospace" style-hover="background:rgba(233,196,106,.08)">always allow</div>
+                      <div onClick="{{ permDeny }}" style="padding:5px 14px;border:1px solid rgba(255,255,255,.1);color:#8d8d93;cursor:pointer;font-size:10.5px;font-family:'Departure Mono',monospace" style-hover="border-color:rgba(255,255,255,.3)">deny</div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">The panel mounts before its enter class applies — likely a missing <code style="background:rgba(255,255,255,.07);padding:1px 5px;font-size:12px">requestAnimationFrame</code> in<span style="display:inline-block;width:7px;height:14px;background:{{ accent }};margin-left:5px;vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+                </div>
+              </div>
+            </div>
+            <div sc-ref="c11" onClick="{{ focB1 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ bb1 }};background:rgba(255,255,255,.015);opacity:{{ db1 }};transition:opacity .4s,border-color .4s;overflow:hidden;cursor:pointer">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:#5c5c64"></span>
+                <span style="color:#efefea">icon set audit</span>
+                <span style="margin-left:auto;color:#5c5c64">idle</span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+                  <div style="color:#e8e8e3;line-height:1.65">List every icon we import but never render.</div>
+                </div>
+                <div style="position:relative;border-left:1px solid rgba(255,255,255,.08);margin-left:3px;padding-left:16px;display:flex;flex-direction:column;gap:2px">
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#6c6c74"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">fetch</span>
+                      <span style="color:#d6d6d2">registry.npmjs.org/lucide-react</span>
+                      <span style="margin-left:auto;color:#5c5c64;font-size:11px">200 · 12kb</span>
+                    </div>
+                  </div>
+                  <div style="position:relative">
+                    <span style="position:absolute;left:-20px;top:9px;width:7px;height:7px;background:#7fd7a4"></span>
+                    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 6px;font-size:12px">
+                      <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;width:36px;flex:none">todo</span>
+                      <span style="color:#d6d6d2">audit icon imports</span>
+                      <span style="margin-left:auto;color:#5c5c64;font-size:11px">3/3 ✓</span>
+                    </div>
+                    <div style="margin:2px 6px 6px;padding:8px 12px;font-size:11.5px;line-height:1.9;background:#0a0a0c;border:1px solid rgba(255,255,255,.03)">
+                      <div style="color:#5c5c64"><span style="color:#7fd7a4">▣</span> <span style="text-decoration:line-through">scan import statements</span></div>
+                      <div style="color:#5c5c64"><span style="color:#7fd7a4">▣</span> <span style="text-decoration:line-through">cross-check JSX usage</span></div>
+                      <div style="color:#5c5c64"><span style="color:#7fd7a4">▣</span> <span style="text-decoration:line-through">compile dead list</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+                  <div style="color:#c9c9c4;line-height:1.7">Found 11 dead imports across 6 files. Want a cleanup diff?</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ ws3 }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:50%;top:18px;bottom:14px;display:flex;transform:{{ stripX }};transition:{{ stripTrans }}">
+            <div style="width:780px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.015);animation:rise .35s ease">
+              <div style="width:70px;height:70px;position:relative">
+                <span style="display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);width:100%;height:100%">
+                  <sc-for list="{{ sigilPx }}" as="d" hint-placeholder-count="25"><span style="background:{{ d.bg }}"></span></sc-for>
+                </span>
+                
+              </div>
+              <div style="font-size:20px;color:#efefea">docs-site</div>
+              <div style="color:#8d8d93;font-size:11px">fresh thread — no history yet · <span style="color:{{ accent }}">♪ A</span></div>
+              <div style="display:flex;gap:14px;color:#5c5c64;font-size:10.5px;margin-top:4px">
+                <span><span style="border:1px solid rgba(255,255,255,.1);padding:1px 5px;color:#9a9aa2">i</span> compose</span>
+                <span><span style="border:1px solid rgba(255,255,255,.1);padding:1px 5px;color:#9a9aa2">␣</span> leader</span>
+                <span><span style="border:1px solid rgba(255,255,255,.1);padding:1px 5px;color:#9a9aa2">⌘K</span> commands</span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- terminal drawer -->
+      <sc-if value="{{ term }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;margin:0 28px 12px;border:1px solid rgba(255,255,255,.035);background:#0a0a0c;animation:slideup .18s ease;max-width:780px;width:100%;align-self:center">
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px;letter-spacing:.1em;color:#8d8d93">
+            <span style="width:6px;height:6px;background:{{ accent }}"></span>TERMINAL · bash — {{ wsName }}
+            <span style="margin-left:auto;display:flex;gap:8px;align-items:center;color:#5c5c64"><span style="border:1px solid rgba(255,255,255,.05);padding:1px 5px">t</span><span onClick="{{ termClose }}" style="cursor:pointer" style-hover="color:#e07a6b">✕</span></span>
+          </div>
+          <div style="padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.85;white-space:pre;max-height:200px;overflow-y:auto"><span style="color:#5c5c64">~/dev/{{ wsName }}</span> <span style="color:{{ accent }}"> {{ wsBranch }}</span> <span style="color:{{ accent }}">❯</span> git status -sb
+<span style="color:#8d8d93">## {{ wsBranch }}...origin/{{ wsBranch }} <span style="color:#e9c46a">[ahead 1]</span></span>
+<span style="color:#e9c46a"> M</span> <span style="color:#8d8d93">src/sync/worker.ts</span>
+<span style="color:#7fd7a4"> A</span> <span style="color:#8d8d93">src/sync/retry.ts</span>
+<span style="color:#5c5c64">~/dev/{{ wsName }}</span> <span style="color:#e9c46a"> {{ wsBranch }}*</span> <span style="color:{{ accent }}">❯</span> <span style="display:inline-block;width:7px;height:13px;background:{{ accent }};vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+        </div>
+      </sc-if>
+
+      <!-- composer -->
+      <div style="flex:none;padding:0 28px 14px">
+        <div style="max-width:780px;margin:0 auto;display:flex;align-items:center;gap:10px;border:1px solid {{ composerBorder }};background:rgba(255,255,255,.025);padding:11px 14px;transition:border-color .2s;box-shadow:{{ composerGlow }}">
+          <span style="color:{{ accent }}">&gt;</span>
+          <input sc-ref="inp" onFocus="{{ onFocus }}" onBlur="{{ onBlur }}" placeholder="{{ placeholder }}" style="flex:1;background:transparent;border:none;outline:none;color:#e8e8e3;font-family:'JetBrains Mono',monospace;font-size:13px;caret-color:{{ accent }}">
+          <span style="color:#5c5c64;font-size:10px;display:flex;gap:10px;flex:none">
+            <span><span style="border:1px solid rgba(255,255,255,.09);padding:1px 5px">⏎</span> send</span>
+            <span><span style="border:1px solid rgba(255,255,255,.09);padding:1px 5px">esc</span> normal</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- statusbar -->
+  <div style="height:28px;flex:none;display:flex;align-items:stretch;font-size:10.5px;border-top:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);position:relative;z-index:2;user-select:none;white-space:nowrap">
+    <div style="display:flex;align-items:center;padding:0 12px;letter-spacing:.1em;background:{{ modeBg }};color:{{ modeFg }};transition:all .2s">{{ mode }}</div>
+    <div style="display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid rgba(255,255,255,.04);color:#c9c9c4"><span style="color:{{ accent }};flex:none">♪ {{ wsNote }}</span>{{ wsName }}</div>
+    <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-right:1px solid rgba(255,255,255,.04);color:#8d8d93"> {{ wsBranch }}<span style="color:#e9c46a">{{ wsGit }}</span></div>
+    <div style="display:flex;align-items:center;padding:0 12px;border-right:1px solid rgba(255,255,255,.04);color:#8d8d93">thread {{ thrLabel }}</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid rgba(255,255,255,.04);color:#8d8d93">ctx<span style="width:54px;height:4px;background:rgba(255,255,255,.09);overflow:hidden;display:inline-block"><span style="display:block;width:38%;height:100%;background:{{ accent }};transition:background .4s"></span></span>38%</div>
+    <div style="display:flex;align-items:center;padding:0 12px;border-left:1px solid rgba(255,255,255,.04);color:#8d8d93">12.4k tok · $0.31</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 12px;border-left:1px solid rgba(255,255,255,.04);color:#5c5c64"><span><span style="color:#9a9aa2">h/l</span> threads</span><span><span style="color:#9a9aa2">␣</span> leader</span><span><span style="color:#9a9aa2">⌘K</span> commands</span></div>
+  </div>
+
+  <!-- leader hint bar -->
+  <sc-if value="{{ leader }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:0;right:0;bottom:28px;z-index:40;background:#141417;border-top:1px solid rgba(255,255,255,.09);padding:10px 18px;display:flex;align-items:center;gap:18px;font-size:10.5px;animation:slideup .15s ease;box-shadow:0 -12px 40px rgba(0,0,0,.4)">
+      <span style="color:{{ accent }};letter-spacing:.1em;font-size:10px">LEADER</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">1–3</span>jump workspace</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">h/l</span>prev / next thread</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">w</span>switcher</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">n</span>new thread</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">t</span>terminal</span>
+      <span style="color:#c9c9c4"><span style="border:1px solid rgba(255,255,255,.11);padding:1px 6px;color:#efefea;margin-right:6px">k</span>keymap</span>
+      <span style="margin-left:auto;color:#5c5c64"><span style="border:1px solid rgba(255,255,255,.09);padding:1px 6px">esc</span> cancel</span>
+    </div>
+  </sc-if>
+
+  <!-- switcher overlay -->
+  <sc-if value="{{ switcher }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:50;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:fade .18s ease">
+      <div style="display:flex;gap:16px;align-items:stretch">
+        <sc-for list="{{ pins }}" as="c" hint-placeholder-count="3">
+          <div onClick="{{ c.go }}" style="width:190px;padding:22px 18px 16px;border:1px solid {{ c.border }};background:#141417;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;animation:rise .25s ease;transition:transform .15s" style-hover="transform:translateY(-3px)">
+            <div style="width:52px;height:52px;position:relative">
+              <span style="display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);width:100%;height:100%">
+                <sc-for list="{{ c.px }}" as="d" hint-placeholder-count="25"><span style="background:{{ d.bg }}"></span></sc-for>
+              </span>
+              
+            </div>
+            <div style="font-size:14px;color:#efefea">{{ c.name }}</div>
+            <div style="font-size:10.5px;color:{{ c.color }}">♪ {{ c.note }}</div>
+            <div style="font-size:10px;color:#6c6c74"> {{ c.branch }}</div>
+            <div style="font-size:10px;color:#5c5c64;text-align:center;line-height:1.5">{{ c.snippet }}</div>
+            <div style="margin-top:auto;font-size:9.5px;color:#8d8d93;border:1px solid rgba(255,255,255,.1);padding:1px 7px">{{ c.k }}</div>
+          </div>
+        </sc-for>
+        <div style="width:190px;border:1px dashed rgba(255,255,255,.1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#5c5c64;font-size:10.5px">
+          <div style="width:52px;height:52px;border:1px dashed rgba(255,255,255,.12)"></div>
+          pin a folder…
+          <div style="font-size:9.5px;border:1px solid rgba(255,255,255,.09);padding:1px 7px">4</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- command palette -->
+  <sc-if value="{{ palette }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:60;background:rgba(8,8,10,.55);backdrop-filter:blur(5px);display:flex;justify-content:center;padding-top:14vh;animation:fade .15s ease">
+      <div onClick="{{ eat }}" style="width:560px;height:fit-content;border:1px solid rgba(255,255,255,.055);background:#141417;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;animation:rise .2s ease">
+        <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.07)">
+          <span style="color:{{ accent }}">&gt;</span>
+          <input sc-ref="pinp" placeholder="Type a command…" style="flex:1;background:transparent;border:none;outline:none;color:#e8e8e3;font-family:'JetBrains Mono',monospace;font-size:13px;caret-color:{{ accent }}">
+          <span style="font-size:9.5px;color:#5c5c64;border:1px solid rgba(255,255,255,.09);padding:1px 5px">esc</span>
+        </div>
+        <div style="padding:6px">
+          <sc-for list="{{ commands }}" as="cmd" hint-placeholder-count="6">
+            <div onClick="{{ cmd.run }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;cursor:pointer;color:#c9c9c4;font-size:11.5px" style-hover="background:rgba(255,255,255,.05)">
+              <span style="color:#5c5c64;font-size:10.5px;width:14px">{{ cmd.icon }}</span>{{ cmd.label }}
+              <span style="margin-left:auto;font-size:9.5px;color:#6c6c74;border:1px solid rgba(255,255,255,.055);padding:1px 6px">{{ cmd.kbd }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- keymap overlay -->
+  <sc-if value="{{ keysOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:55;background:rgba(8,8,10,.6);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:fade .15s ease">
+      <div style="width:780px;border:1px solid rgba(255,255,255,.055);background:#141417;padding:26px 30px;animation:rise .2s ease">
+        <div style="font-size:16px;color:#efefea;margin-bottom:18px">KEYMAP <span style="color:#6c6c74;font-size:11px">— play it like a song</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:24px;font-size:11px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="color:{{ accent }};font-size:10px;letter-spacing:.12em">NAVIGATE</div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>jump workspace</span><span style="color:#8d8d93">1–3</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>prev/next thread</span><span style="color:#8d8d93">h / l</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>switcher</span><span style="color:#8d8d93">w</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>commands</span><span style="color:#8d8d93">⌘K</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>terminal</span><span style="color:#8d8d93">t</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="color:{{ accent }};font-size:10px;letter-spacing:.12em">LEADER ␣</div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>␣ 1–3 jump</span><span style="color:#8d8d93">chord</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>␣ n new thread</span><span style="color:#8d8d93">chord</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>␣ c compact</span><span style="color:#8d8d93">chord</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>␣ k keymap</span><span style="color:#8d8d93">chord</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="color:{{ accent }};font-size:10px;letter-spacing:.12em">THREAD</div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>scroll</span><span style="color:#8d8d93">j / k</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>toggle tool call</span><span style="color:#8d8d93">click</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>yank last code</span><span style="color:#8d8d93">y</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="color:{{ accent }};font-size:10px;letter-spacing:.12em">COMPOSE</div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>insert mode</span><span style="color:#8d8d93">i</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>normal mode</span><span style="color:#8d8d93">esc</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>send</span><span style="color:#8d8d93">⏎</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;grain&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Texture&quot;}, &quot;motion&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Motion&quot;}}">
+class Component extends DCLogic {
+  state = { ws: 0, f: [0, 0, 0], askSel: null, perm: null, term: false, palette: false, keysOpen: false, switcher: false, insert: false, leader: false, ping: null, t1: false, t2: true, t3: false };
+  WS = [
+    { name: 'pi-core',    note: 'D',  hue: 152, branch: 'main',         snippet: 'retry logic in sync worker', threads: 3, git: '↑1 +1~1' },
+    { name: 'ocarina-ui', note: 'F♯', hue: 265, branch: 'feat/palette', snippet: 'palette flicker on open',    threads: 2, git: '+4~2' },
+    { name: 'docs-site',  note: 'A',  hue: 45,  branch: 'main',         snippet: 'fresh thread',               threads: 1, git: '' },
+  ];
+  px(name, hue) {
+    let h = 0;
+    for (const ch of name) h = (h * 33 + ch.charCodeAt(0)) >>> 0;
+    const cells = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+      const cc = c < 3 ? c : 4 - c;
+      const on = (h >> ((r * 3 + cc) % 31)) & 1;
+      const shade = (h >> ((r * 3 + cc + 7) % 29)) & 1;
+      cells.push({ bg: on ? (shade ? `oklch(0.78 0.14 ${hue})` : `oklch(0.58 0.13 ${hue})`) : 'transparent' });
+    }
+    return cells;
+  }
+  componentDidMount() {
+    this.kd = (e) => {
+      const s = this.state;
+      if (e.key === 'Escape') {
+        clearTimeout(this.lt);
+        this.setState({ palette: false, keysOpen: false, switcher: false, insert: false, leader: false });
+        if (this.refs?.inp) this.refs.inp.blur();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.setState({ palette: !s.palette, keysOpen: false, switcher: false, leader: false }, () => {
+          if (this.state.palette && this.refs?.pinp) this.refs.pinp.focus();
+        });
+        return;
+      }
+      const anyOverlay = s.palette || s.keysOpen || s.switcher;
+      const typing = s.insert || (s.palette && document.activeElement === this.refs?.pinp);
+      if (s.leader) {
+        clearTimeout(this.lt);
+        const done = { leader: false };
+        if (['1','2','3'].includes(e.key)) { this.setState(done); this.go(Number(e.key) - 1); }
+        else if (e.key === 'w') this.setState({ ...done, switcher: true });
+        else if (e.key === 'k') this.setState({ ...done, keysOpen: true });
+        else if (e.key === 'n') { this.setState(done); this.go(2); }
+        else if (e.key === 't') this.setState({ ...done, term: !s.term });
+        else if (e.key === 'h' || e.key === 'l') { this.setState(done); this.moveThread(e.key === 'l' ? 1 : -1); }
+        else this.setState(done);
+        e.preventDefault();
+        return;
+      }
+      if (['1','2','3'].includes(e.key) && (!typing || anyOverlay)) { this.go(Number(e.key) - 1); return; }
+      if (typing) return;
+      if (e.key === ' ') {
+        e.preventDefault();
+        this.setState({ leader: true });
+        this.lt = setTimeout(() => this.setState({ leader: false }), 2600);
+        return;
+      }
+      if (e.key === 'h' || e.key === 'ArrowLeft') { this.moveThread(-1); return; }
+      if (e.key === 'l' || e.key === 'ArrowRight') { this.moveThread(1); return; }
+      if (e.key === 't') { this.setState({ term: !s.term }); return; }
+      if (e.key === 'w') { this.setState({ switcher: !s.switcher, palette: false, keysOpen: false }); return; }
+      if (e.key === '?') { this.setState({ keysOpen: !s.keysOpen, palette: false, switcher: false }); return; }
+      if (e.key === 'i') { e.preventDefault(); if (this.refs?.inp) this.refs.inp.focus(); return; }
+      if (e.key === 'j' || e.key === 'k') {
+        const col = this.refs?.[`c${s.ws}${s.f[s.ws]}`];
+        if (col) col.scrollBy({ top: e.key === 'j' ? 100 : -100, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('keydown', this.kd);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.kd); clearTimeout(this.lt); clearTimeout(this.pt); }
+  moveThread(d) {
+    const s = this.state, max = this.WS[s.ws].threads - 1;
+    const f = s.f.slice();
+    f[s.ws] = Math.min(max, Math.max(0, f[s.ws] + d));
+    this.setState({ f });
+  }
+  focus(w, i) { const f = this.state.f.slice(); f[w] = i; this.setState({ f }); }
+  go(i) {
+    this.setState({ ws: i, palette: false, keysOpen: false, switcher: false, leader: false });
+  }
+  renderVals() {
+    const s = this.state, w = this.WS[s.ws];
+    const motion = this.props.motion ?? true;
+    const grain = this.props.grain ?? true;
+    const accent = `oklch(0.76 0.14 ${w.hue})`;
+    const accentSoft = `oklch(0.76 0.14 ${w.hue} / 0.13)`;
+    const f = s.f[s.ws];
+    const COL = 802;
+    const mkPin = (ws, i) => ({
+      k: String(i + 1), name: ws.name, note: ws.note, branch: ws.branch, snippet: ws.snippet,
+      color: `oklch(0.76 0.14 ${ws.hue})`,
+      px: this.px(ws.name, ws.hue),
+      glow: 'none',
+      border: i === s.ws ? `oklch(0.76 0.14 ${ws.hue} / 0.45)` : 'rgba(255,255,255,0.09)',
+      op: i === s.ws ? 1 : 0.35,
+      kfg: i === s.ws ? '#efefea' : '#5c5c64',
+      go: () => this.go(i),
+    });
+    const dim = (w_, i) => (s.ws === w_ && s.f[w_] === i ? 1 : 0.4);
+    const bord = (w_, i) => (s.ws === w_ && s.f[w_] === i ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)');
+    return {
+      ws1: s.ws === 0, ws2: s.ws === 1, ws3: s.ws === 2,
+      wsName: w.name, wsNote: w.note, wsBranch: w.branch,
+      wsGit: w.git,
+      term: s.term,
+      termClose: () => this.setState({ term: false }),
+      accent, accentSoft,
+      tintBg: `radial-gradient(1000px 520px at 72% -12%, oklch(0.5 0.1 ${w.hue} / 0.05), transparent 70%)`,
+      grainGlobal: grain ? 0.07 : 0,
+      grainOp: grain ? 0.5 : 0,
+      sigilPx: this.px(w.name, w.hue),
+      pins: this.WS.map(mkPin),
+      stripX: `translateX(${-(390 + f * COL)}px)`,
+      stripTrans: motion ? 'transform .5s cubic-bezier(.22,1,.36,1)' : 'none',
+      thrLabel: `${f + 1}/${w.threads}`,
+      da0: dim(0,0), da1: dim(0,1), da2: dim(0,2), ba0: bord(0,0), ba1: bord(0,1), ba2: bord(0,2),
+      db0: dim(1,0), db1: dim(1,1), bb0: bord(1,0), bb1: bord(1,1),
+      focA0: () => this.focus(0,0), focA1: () => this.focus(0,1), focA2: () => this.focus(0,2),
+      focB0: () => this.focus(1,0), focB1: () => this.focus(1,1),
+      t1: s.t1, t2: s.t2, t3: s.t3,
+      chev1: s.t1 ? '▾' : '▸', chev2: s.t2 ? '▾' : '▸', chev3: s.t3 ? '▾' : '▸',
+      tog1: () => this.setState({ t1: !s.t1 }), tog2: () => this.setState({ t2: !s.t2 }), tog3: () => this.setState({ t3: !s.t3 }),
+      askStatus: s.askSel === null ? 'awaiting input' : 'answered ✓',
+      askOpts: ['Yes — counter + alert', 'Just the counter', 'No, ship as is'].map((label, i) => {
+        const sel = s.askSel === i, dimmed = s.askSel !== null && !sel;
+        return {
+          label, pick: () => this.setState({ askSel: i }),
+          border: sel ? `oklch(0.76 0.14 ${w.hue} / 0.5)` : 'rgba(255,255,255,0.07)',
+          bg: sel ? accentSoft : 'transparent',
+          fg: sel ? '#efefea' : (dimmed ? '#6c6c74' : '#c9c9c4'),
+          mark: sel ? '■' : '□', markc: sel ? accent : '#5c5c64',
+        };
+      }),
+      permPending: s.perm === null,
+      permStatus: s.perm === 'y' ? 'allowed · running…' : s.perm === 'n' ? 'denied' : '',
+      permAllow: () => this.setState({ perm: 'y' }),
+      permDeny: () => this.setState({ perm: 'n' }),
+      switcher: s.switcher, palette: s.palette, keysOpen: s.keysOpen, leader: s.leader,
+      openSwitcher: () => this.setState({ switcher: true }),
+      openKeys: () => this.setState({ keysOpen: true }),
+      closeAll: () => this.setState({ switcher: false, palette: false, keysOpen: false }),
+      eat: (e) => e.stopPropagation(),
+      mode: s.leader ? 'LEADER' : (s.insert ? 'INSERT' : 'NORMAL'),
+      modeBg: s.insert || s.leader ? accent : 'rgba(255,255,255,0.07)',
+      modeFg: s.insert || s.leader ? '#0d0d10' : '#9a9aa2',
+      composerBorder: s.insert ? accent : 'rgba(255,255,255,0.07)',
+      composerGlow: s.insert ? `0 0 0 3px ${accentSoft}` : 'none',
+      placeholder: `Message pi in ${w.name}…  (i to focus)`,
+      onFocus: () => this.setState({ insert: true }),
+      onBlur: () => this.setState({ insert: false }),
+      commands: [
+        { icon: '♪', label: 'Jump to workspace…', kbd: '␣ 1–3', run: () => this.setState({ palette: false, switcher: true }) },
+        { icon: '+', label: 'New thread in this workspace', kbd: '␣ n', run: () => this.go(2) },
+        { icon: '⟷', label: 'Next thread column', kbd: 'l', run: () => { this.setState({ palette: false }); this.moveThread(1); } },
+        { icon: '⎇', label: 'Switch branch', kbd: '⌘B', run: () => {} },
+        { icon: '⌫', label: 'Compact thread (summarize context)', kbd: '␣ c', run: () => {} },
+        { icon: '?', label: 'Open keymap', kbd: '␣ k', run: () => this.setState({ palette: false, keysOpen: true }) },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
+

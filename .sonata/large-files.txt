@@ -1,0 +1,4 @@
+# repo-relative path<TAB>reason; keep exceptions narrow
+docs/reference/design/support.js	imported Claude Design preview runtime; verbatim reference artifact, never shipped
+docs/reference/design/PiOcarina v2.dc.html	imported design reference; verbatim artifact
+docs/reference/design/PiOcarina Components.dc.html	imported design reference; verbatim artifact

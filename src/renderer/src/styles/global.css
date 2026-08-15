@@ -1,0 +1,145 @@
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import './tokens.css';
+
+/* Bundled locally (SIL OFL 1.1) — see assets/fonts/DepartureMono-LICENSE.txt.
+   No network font requests: the app must render identically offline. */
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('../assets/fonts/DepartureMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+body {
+  color: var(--fg);
+  font-family: var(--font-chrome);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: #9ae6c3;
+  text-decoration: none;
+}
+a:hover {
+  color: #c2f5dd;
+  text-decoration: underline;
+}
+
+::selection {
+  background: rgba(154, 230, 195, 0.25);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c2c33;
+}
+
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0;
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ping {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  18% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+@keyframes slideup {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pixelshift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 120px 0;
+  }
+}
+@keyframes blinkpx {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
