@@ -3,9 +3,10 @@
   import { threads } from '$lib/state/threads.svelte'
   import { windowControls } from '$lib/bridge'
 
-  // One dot per workspace slot plus a trailing empty slot, per the design's
-  // "ocarina dots — active workspace indicator".
-  const dotCount = $derived(app.workspaces.length + 1)
+  // One dot per thread in the focused workspace, the focused thread's dot lit.
+  // The dots mirror the strip, not the rail: the rail already shows which
+  // workspace is active, and nothing else showed where you were among threads.
+  const dotCount = $derived(app.workspace.threads.length)
 
   const { onmodel }: { onmodel?: () => void } = $props()
 
@@ -35,7 +36,7 @@
     <span class="wordmark">PI<span class="wordmark-dim">OCARINA</span></span>
     <span class="dots">
       {#each { length: dotCount } as _, i (i)}
-        <span class="dot" class:active={i === app.workspaceIndex}></span>
+        <span class="dot" class:active={i === app.threadIndex}></span>
       {/each}
     </span>
   </div>

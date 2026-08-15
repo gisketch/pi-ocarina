@@ -63,7 +63,12 @@ class Catalog {
   }
 
   /** Starts a real thread in a pinned workspace. Returns its id, or null when
-   *  the catalog is still the demo state and there is nothing to start it in. */
+   *  there is no live workspace to start it in.
+   *
+   *  The new column is built from the id the backend just returned rather than
+   *  by re-listing the workspace. pi may not have written the session file yet,
+   *  so a listing taken now can come back without the thread in it — and the
+   *  column would vanish underneath a turn that is already running. */
   async newThread(workspaceId: string): Promise<string | null> {
     if (this.source !== 'live') return null
     this.error = null
@@ -71,12 +76,29 @@ class Catalog {
     try {
       const { threadId } = await session.invoke('createThread', { workspaceId })
       threads.follow(threadId)
-      await this.load()
+      this.#insert(workspaceId, threadId)
       return threadId
     } catch (cause) {
       this.error = describe(cause)
       return null
     }
+  }
+
+  /** Puts a just-created thread on the end of its workspace's strip. The fresh
+   *  placeholder is replaced, not kept beside it: it stands for "this workspace
+   *  has no thread yet", which has stopped being true. */
+  #insert(workspaceId: string, threadId: string): void {
+    this.workspaces = this.workspaces.map((workspace) =>
+      workspace.id === workspaceId
+        ? {
+            ...workspace,
+            threads: [
+              ...workspace.threads.filter((thread) => !thread.fresh),
+              { id: threadId, title: 'new thread', status: 'idle' as const, meta: '' },
+            ],
+          }
+        : workspace,
+    )
   }
 
   async #listWorkspaces(): Promise<WorkspaceSummary[]> {

@@ -49,6 +49,37 @@ class ShellState {
     this.terminal = !this.terminal
   }
 
+  focusComposer(): void {
+    queueMicrotask(() => this.targets.composer?.focus())
+  }
+
+  /** Creates a thread and hands it the caret, so leader-n leaves the person
+   *  ready to type rather than looking at a new column they must still reach.
+   *
+   *  With nothing pinned there is no workspace to create it in, so the same
+   *  keystroke starts the pin flow — the destination either way. */
+  newThread(): void {
+    if (catalog.source !== 'live') {
+      void catalog.pin()
+      return
+    }
+
+    const workspaceId = app.workspace.id
+    void catalog.newThread(workspaceId).then((threadId) => {
+      if (!threadId) return
+      // The person may have moved on while the backend was working. The thread
+      // is theirs either way, but stealing the caret back would be rude.
+      if (app.workspace.id !== workspaceId) return
+
+      const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
+      if (column === -1) return
+
+      app.focusThread(column)
+      app.mode = 'INSERT'
+      this.focusComposer()
+    })
+  }
+
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
     const before = this.keyState
@@ -80,7 +111,7 @@ class ShellState {
         scrollColumn(app.thread.id, action.delta)
         break
       case 'focusComposer':
-        queueMicrotask(() => this.targets.composer?.focus())
+        this.focusComposer()
         break
       case 'blurComposer':
         this.targets.composer?.blur()
@@ -98,8 +129,7 @@ class ShellState {
         void yankNewestCodeBlock()
         break
       case 'newThread':
-        // Creating a thread needs a pinned workspace; the command palette owns
-        // that path, where there is somewhere to report failure.
+        this.newThread()
         break
       case 'pinWorkspace':
         // Failure lands on `catalog.error`, which the welcome screen renders.

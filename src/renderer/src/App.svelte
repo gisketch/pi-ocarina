@@ -131,11 +131,8 @@
         app.moveThread(1)
         break
       case 'new-thread':
-        // Real when a folder is pinned. With the demo catalog there is nothing
-        // to start a thread in, so the command shows its destination instead.
-        void catalog.newThread(app.workspace.id).then((threadId) => {
-          if (!threadId) app.goWorkspace(app.workspaces.length - 1)
-        })
+        // The same path as leader n, so the two cannot drift apart.
+        shell.newThread()
         break
       case 'switch-branch':
       case 'compact-thread':
