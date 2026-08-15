@@ -84,6 +84,17 @@ class ThreadStore {
    *  resolved on a resolved promise would be showing an outcome the backend
    *  had not confirmed. Failures land on the thread rather than in a console
    *  nobody is reading. */
+  /** Starts a turn. The user's own message comes back as an event, so the
+   *  composer never draws it locally — one projection, one truth. */
+  prompt(threadId: string, text: string): void {
+    this.#command(threadId, 'prompt', { threadId, text })
+  }
+
+  /** Queues text into the turn already running. */
+  steer(threadId: string, text: string): void {
+    this.#command(threadId, 'steer', { threadId, text })
+  }
+
   answer(threadId: string, askId: string, optionIndex: number): void {
     this.#command(threadId, 'answerAsk', { threadId, askId, optionIndex })
   }

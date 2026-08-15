@@ -15,9 +15,11 @@ import {
 /** Focus targets the keyboard layer drives. Registered by the components that own
  *  the elements so the machine itself stays DOM-free. */
 export interface FocusTargets {
-  composer?: HTMLInputElement | null
-  palette?: HTMLInputElement | null
-  switcher?: HTMLInputElement | null
+  /** Any element the keyboard layer can hand the caret to. The composer is a
+   *  textarea and the overlays are inputs; both only need focus and blur. */
+  composer?: HTMLElement | null
+  palette?: HTMLElement | null
+  switcher?: HTMLElement | null
 }
 
 /** Bridges the pure key machine to app state, DOM focus and the leader timeout. */

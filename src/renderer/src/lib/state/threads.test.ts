@@ -260,3 +260,43 @@ describe('seeding', () => {
     expect(invoke).not.toHaveBeenCalled()
   })
 })
+
+describe('sending', () => {
+  it('starts a turn with the text as typed', () => {
+    const id = freshId()
+    const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+
+    threads.prompt(id, 'fix the sync worker')
+
+    expect(invoke).toHaveBeenCalledWith('prompt', { threadId: id, text: 'fix the sync worker' })
+  })
+
+  it('queues a steer into a running turn', () => {
+    const id = freshId()
+    const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ steerId: 's1' } as never)
+
+    threads.steer(id, 'also cap retries')
+
+    expect(invoke).toHaveBeenCalledWith('steer', { threadId: id, text: 'also cap retries' })
+  })
+
+  it('does not draw the user’s own message — the thread’s events do', () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+
+    threads.prompt(id, 'hello')
+
+    expect(threads.get(id).blocks).toEqual([])
+  })
+
+  it('reports a prompt the backend refused', async () => {
+    const id = freshId()
+    vi.spyOn(session, 'invoke').mockRejectedValue(new Error('thread is not open'))
+
+    threads.prompt(id, 'hello')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(threads.errorFor(id)).toBe('thread is not open')
+  })
+})

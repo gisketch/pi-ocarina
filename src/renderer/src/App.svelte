@@ -38,7 +38,7 @@
     document.documentElement.dataset.motion = preferences.motion ? 'on' : 'off'
   })
 
-  let composerInput = $state<HTMLInputElement | null>(null)
+  let composerInput = $state<HTMLTextAreaElement | null>(null)
   let paletteInput = $state<HTMLInputElement | null>(null)
   let switcherInput = $state<HTMLInputElement | null>(null)
   $effect(() => {

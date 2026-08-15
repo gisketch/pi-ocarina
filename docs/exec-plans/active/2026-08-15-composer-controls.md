@@ -6,7 +6,21 @@ Visual truth: `PiOcarina Components.dc.html` sections 06, 09, 10, 12, 14
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## D1 — Real send & queue semantics — `todo`
+## D1 — Real send & queue semantics — `done`
+
+> Verified in the running app: the composer is a textarea that grows with the
+> text, `⇧⏎` newlines, and the hint beside `⏎` reads **send** on an idle thread
+> and **queue** on a running one — so it says which of the two it will do before
+> the user commits.
+>
+> Two decisions worth naming. The branch is on `runState`, not the displayed
+> status: a thread reading `waiting-input` because a card is open may still have
+> a turn in flight, and typing into that must queue rather than start a second
+> turn on top of it. And **sending in a fresh column creates the thread**, so
+> the hero is not a dead end.
+>
+> The composer never draws the user's own message. It comes back as an event
+> like everything else — one projection, one truth.
 
 - Delivered behavior: the milestone-1 composer sends for real: thread idle →
   `⏎` issues `prompt` and the message appears as a user block; thread running →
