@@ -60,14 +60,25 @@
 </div>
 
 <style>
+  /* The spine is drawn inside the box rather than as a border on its edge, and
+     the padding leaves room for the node dots that sit on it. Scrollback
+     virtualization gives every block paint containment, which clips to the
+     padding box — a dot centred on a border-left would be sliced in half. */
   .ledger {
     position: relative;
-    border-left: 1px solid var(--line-mid);
-    margin-left: 3px;
-    padding-left: 16px;
+    padding-left: 20px;
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .ledger::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-mid);
   }
 
   .entry {
@@ -77,6 +88,8 @@
     contain: layout style;
   }
 
+  /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the
+     dot's left edge exactly on the ledger's padding edge and nothing overflows. */
   .node {
     position: absolute;
     left: -20px;

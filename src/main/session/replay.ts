@@ -30,6 +30,9 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   let messages = 0
   let sawAssistant = false
   let lastRole: string | undefined
+  // Calls that started and never reported back. A turn interrupted mid-tool
+  // writes the call to the transcript and never writes its result.
+  const openCalls = new Set<string>()
 
   for (const entry of entries) {
     if (entry.type !== 'message') {
@@ -70,6 +73,7 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
     if (message.role === 'toolResult') {
       const id = message.toolCallId
       if (!id) continue
+      openCalls.delete(id)
       const body = toolBody(message.toolName ?? '', message)
       if (body) events.push({ kind: 'tool-body', id, body })
       events.push({ kind: 'tool-end', id, status: message.isError ? 'fail' : 'ok' })
@@ -95,6 +99,7 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       }
 
       if (content.type === 'toolCall' && content.id) {
+        openCalls.add(content.id)
         events.push({
           kind: 'tool-start',
           id: content.id,
@@ -106,6 +111,11 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       // Thinking is dropped, exactly as it is live.
     }
   }
+
+  // A call with no result is a call that was still running when the turn ended
+  // — interrupted, or the app was closed. Left open it pulses forever, claiming
+  // to be working on something nothing is working on.
+  for (const id of openCalls) events.push({ kind: 'tool-end', id, status: 'cancelled' })
 
   // A transcript that stops on the user's own words is a turn that never
   // finished — the app was closed or killed mid-flight. Saying "done" there
