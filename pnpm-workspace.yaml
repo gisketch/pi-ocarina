@@ -1,3 +1,7 @@
 allowBuilds:
+  # Transitive deps of pi's Google provider, which this app never loads.
+  # Denied rather than left undecided so `pnpm install` stays non-interactive.
+  '@google/genai': false
+  protobufjs: false
   electron: true
   esbuild: true

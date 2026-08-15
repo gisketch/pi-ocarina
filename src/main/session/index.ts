@@ -8,6 +8,7 @@ import {
   type SessionDriver,
 } from '../../shared/protocol'
 import { EventBatcher } from './batcher'
+import { PiDriver } from './pi-driver'
 import { StubDriver } from './stub-driver'
 
 function broadcast(batches: EventBatch[]): void {
@@ -22,7 +23,14 @@ function broadcast(batches: EventBatch[]): void {
  *  above this function knows the difference. */
 export function registerSession(): SessionDriver {
   const batcher = new EventBatcher(broadcast)
-  const driver = new StubDriver((threadId, event) => batcher.push(threadId, event))
+  const emit = (threadId: string, event: Parameters<typeof batcher.push>[1]): void =>
+    batcher.push(threadId, event)
+
+  // The stub stays available for seam work and demos; pi is the real backend.
+  const driver: SessionDriver =
+    process.env.PIOCARINA_DRIVER === 'stub'
+      ? new StubDriver(emit)
+      : new PiDriver({ emit, resolveWorkspace: () => process.cwd() })
 
   ipcMain.handle(
     SESSION_COMMAND_CHANNEL,

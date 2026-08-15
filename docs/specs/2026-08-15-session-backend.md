@@ -83,9 +83,33 @@ Rendering, git status (git-terminal spec), pty management (git-terminal spec).
   (approval hook, session fork, usage events, steering, compaction) and the spec
   updated where reality differs.
 
+## Verified against pi 0.84.2 (B2, 2026-08-15)
+
+- **Usage events: confirmed.** `session.getSessionStats()` returns pi's own
+  token, cost, and context-window figures. The backend passes them through and
+  estimates nothing.
+- **Event granularity: confirmed sufficient.** `message_start` / `message_update`
+  (`text_delta`) / `message_end` and `tool_execution_start` / `_update` / `_end`
+  cover the streaming and ledger vocabulary. Thinking deltas exist and are
+  currently dropped.
+- **Failures are not events.** A refused or broken model call arrives as an
+  ordinary assistant message with `stopReason: "error"` and an `errorMessage` —
+  there is no error event. Anything that only listens for events will report a
+  failed turn as a successful one. The adapter checks the stop reason.
+- **pi ignores `cwd` when building tools.** `createAgentSession({ cwd })` uses
+  cwd for the session file and project resources, but its built-in tools resolve
+  paths against `process.cwd()`. Verified directly: a session rooted at a temp
+  folder read files from the Electron process's directory. Since workspaces are
+  folders and several run in one process, the driver rebuilds the built-in tools
+  bound to the workspace cwd and replaces `agent.state.tools`. Re-test on every
+  pi upgrade; a utilityProcess per workspace would remove the need.
+- Tool names `find` and `ls` have no row in the design's vocabulary and render as
+  `raw` rather than being mislabelled. The design may want a listing row.
+
 ## Risks
 
-- pi SDK surface assumptions (above) — highest uncertainty in the project.
+- pi SDK surface assumptions for approvals, fork, steering and compaction remain
+  unverified — B4 and B6 close them.
 - Session-file format drift across pi versions: absorbed here only; pin the pi
   package version and treat upgrades as Behavior-lane changes with fixture re-runs.
 - In-process stall blast radius (accepted): a pathological session can stall the

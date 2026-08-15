@@ -32,7 +32,14 @@ Status legend: `todo` · `in-progress` · `done`.
   `pnpm check`; fixture stream visible via a temporary debug tap.
 - Blocked by: —
 
-## B2 — pi vertical slice: live prompt → stream — `todo`
+## B2 — pi vertical slice: live prompt → stream — `done`
+
+> Verified live against pi 0.84.2: prompt → tool call → streamed text → usage →
+> done, with the session file on disk. Two pi behaviours had to be worked around
+> (silent failed turns, and tools ignoring cwd); both are written up in the
+> spec's "Verified against pi" section. Run it with
+> `PIOCARINA_PI_LIVE=1 pnpm test`.
+
 
 - Delivered behavior: `AgentSession` from `@earendil-works/pi-coding-agent` runs
   in-process in main behind the driver. Creating a thread creates a pi session
