@@ -38,11 +38,12 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 3,
+      version: 4,
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
       approvals: {},
+      archived: {},
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -52,11 +53,12 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 3,
+      version: 4,
       workspaces: [],
       workspaceIndex: 2,
       focus: [1, 0],
       approvals: {},
+      archived: {},
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -165,11 +167,12 @@ describe('writeCatalog', () => {
   it('round-trips state', async () => {
     const file = await tempFile()
     const state: CatalogState = {
-      version: 3,
+      version: 4,
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
       approvals: { w1: ['bash:pnpm', 'write'] },
+      archived: { w1: ['s-old'] },
       preferences: { grain: false, motion: false, leaderTimeoutMs: 1800 },
     }
 
@@ -237,10 +240,42 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(3)
+    expect(state.version).toBe(4)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences).toEqual(DEFAULT_PREFERENCES)
+  })
+
+  it('upgrades a version 3 catalog, keeping pins, approvals and preferences', () => {
+    const { state, warning } = parseCatalog(
+      JSON.stringify({
+        version: 3,
+        workspaces: [workspace],
+        workspaceIndex: 1,
+        focus: [0, 1],
+        approvals: { w1: ['bash:pnpm'] },
+        preferences: { grain: false, motion: true, leaderTimeoutMs: 1200 },
+      }),
+    )
+
+    expect(warning).toBeUndefined()
+    expect(state.version).toBe(4)
+    expect(state.workspaces).toEqual([workspace])
+    expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
+    expect(state.preferences.leaderTimeoutMs).toBe(1200)
+    // Version 3 had no closed threads, so nothing starts hidden.
+    expect(state.archived).toEqual({})
+  })
+
+  it('reads a stored archived list, dropping entries it cannot read', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({
+        version: 4,
+        archived: { w1: ['s1', 7, '', null], w2: 'all', w3: [] },
+      }),
+    )
+
+    expect(state.archived).toEqual({ w1: ['s1'] })
   })
 
   it('still refuses a version it has never heard of', () => {

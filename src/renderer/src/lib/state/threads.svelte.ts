@@ -138,6 +138,10 @@ class ThreadStore {
     this.#command(threadId, 'retryTurn', { threadId })
   }
 
+  cancel(threadId: string): void {
+    this.#command(threadId, 'cancelTurn', { threadId })
+  }
+
   #command<N extends CommandName>(threadId: string, name: N, params: CommandParams<N>): void {
     const box = this.#box(threadId)
     box.error = null

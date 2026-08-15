@@ -68,6 +68,35 @@ describe.skipIf(!live)('models against a real session', () => {
     await driver.dispose()
   })
 
+  it('hides a closed thread from the strip but not from search', { timeout: 120_000 }, async () => {
+    const { catalog, id: workspaceId } = await workspace()
+
+    const driver = new PiDriver({ emit: () => {}, catalog, model: MODEL })
+    const { threadId } = await driver.execute('createThread', { workspaceId })
+    // pi writes no session file until the first message, so a thread has to say
+    // something before there is anything to close.
+    await driver.execute('prompt', { threadId, text: 'Say the word ocarina and nothing else.' })
+    await waitFor(async () => {
+      const { threads } = await driver.execute('listThreads', { workspaceId })
+      return threads.some((thread) => thread.id === threadId)
+    }, 60_000)
+
+    await driver.execute('archiveThread', { threadId })
+
+    const { threads: visible } = await driver.execute('listThreads', { workspaceId })
+    expect(visible.map((thread) => thread.id)).not.toContain(threadId)
+
+    // Closing hides a column; it does not delete history. Search is the way back.
+    const { hits } = await driver.execute('searchThreads', { query: 'ocarina' })
+    expect(hits.map((hit) => hit.threadId)).toContain(threadId)
+
+    await driver.execute('unarchiveThread', { threadId })
+    const { threads: back } = await driver.execute('listThreads', { workspaceId })
+    expect(back.map((thread) => thread.id)).toContain(threadId)
+
+    await driver.dispose()
+  })
+
   it('says the model again when a created thread is opened', { timeout: 60_000 }, async () => {
     // The renderer subscribes only once `createThread` has returned, so the
     // announce made while the session was adopted reached nobody. Without this
@@ -96,3 +125,13 @@ describe.skipIf(!live)('models against a real session', () => {
     await driver.dispose()
   })
 })
+
+/** Polls until the condition holds. The condition may be async: some of these
+ *  wait on the filesystem rather than on an event already in hand. */
+async function waitFor(done: () => boolean | Promise<boolean>, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!(await done())) {
+    if (Date.now() > deadline) throw new Error('timed out waiting for pi')
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  }
+}

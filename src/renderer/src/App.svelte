@@ -7,6 +7,7 @@
   import Composer from './components/Composer.svelte'
   import TerminalDrawer from './components/TerminalDrawer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
+  import CloseConfirm from './components/CloseConfirm.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
@@ -99,13 +100,21 @@
 
   /** Puts a thread from somewhere else on screen: the right workspace, then the
    *  right column within it. */
-  function jumpTo(workspaceId: string, threadId: string): void {
+  async function jumpTo(workspaceId: string, threadId: string, title: string): Promise<void> {
     const workspace = app.workspaces.findIndex((candidate) => candidate.id === workspaceId)
     if (workspace === -1) return
     app.goWorkspace(workspace)
 
     const column = app.workspaces[workspace].threads.findIndex((thread) => thread.id === threadId)
-    if (column !== -1) app.focusThread(column)
+    if (column !== -1) {
+      app.focusThread(column)
+      return
+    }
+
+    // Not on the strip means the user closed it. Search is how a closed thread
+    // comes back, so jumping to one reopens it rather than doing nothing.
+    const reopened = await catalog.reopen(workspaceId, threadId, title)
+    if (reopened !== -1) app.focusThread(reopened)
   }
 
   /** Moves the focused thread's reasoning one level. pi clamps it to what the
@@ -177,6 +186,10 @@
     <LeaderBar />
   {/if}
 
+  {#if shell.pendingClose !== null}
+    <CloseConfirm />
+  {/if}
+
   {#if shell.overlay === 'keymap'}
     <KeymapOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'switcher'}
@@ -212,7 +225,7 @@
     <SearchOverlay
       onclose={() => shell.closeOverlay()}
       onjump={(hit) => {
-        jumpTo(hit.workspaceId, hit.threadId)
+        void jumpTo(hit.workspaceId, hit.threadId, hit.title)
         shell.closeOverlay()
       }}
     />

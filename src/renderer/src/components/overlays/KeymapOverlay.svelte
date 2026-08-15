@@ -22,6 +22,7 @@
       rows: [
         ['␣ 1–3 jump', 'chord'],
         ['␣ n new thread', 'chord'],
+        ['␣ x close thread', 'chord'],
         ['␣ c compact', 'chord'],
         ['␣ f find thread', 'chord'],
         ['␣ m model', 'chord'],

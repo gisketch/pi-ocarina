@@ -14,6 +14,7 @@ export type Action =
   | { type: 'moveThread'; delta: number }
   | { type: 'scrollColumn'; delta: number }
   | { type: 'newThread' }
+  | { type: 'closeThread' }
   | { type: 'pinWorkspace' }
   | { type: 'compact' }
   | { type: 'yank' }
@@ -194,6 +195,8 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'search' }, focusFor('search'), true, 'clear')
     case 'n':
       return result({ ...done, overlay: null }, [{ type: 'newThread' }], true, 'clear')
+    case 'x':
+      return result({ ...done, overlay: null }, [{ type: 'closeThread' }], true, 'clear')
     case 't':
       return result({ ...done, terminal: !state.terminal }, [], true, 'clear')
     case 'c':

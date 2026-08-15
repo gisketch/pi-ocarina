@@ -154,6 +154,13 @@ export class PiDriver implements SessionDriver {
       case 'archiveThread': {
         const { threadId } = params as CommandParams<'archiveThread'>
         this.#threads.close(threadId)
+        await this.#workspaces.setArchived(threadId, true)
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'unarchiveThread': {
+        const { threadId } = params as CommandParams<'unarchiveThread'>
+        await this.#workspaces.setArchived(threadId, false)
         return { ok: true } as CommandResult<N>
       }
 
@@ -339,6 +346,4 @@ export class PiDriver implements SessionDriver {
       // Stats are a nicety; losing them must never break a turn.
     }
   }
-
-
 }

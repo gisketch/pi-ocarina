@@ -105,3 +105,64 @@ describe('CatalogStore', () => {
     expect(catalog.workspace('nope')).toBeUndefined()
   })
 })
+
+describe('closed threads', () => {
+  it('remembers a closed thread across a relaunch', async () => {
+    const { store: catalog, file } = await store()
+    const workspace = catalog.pin('/repos/pi-core')
+
+    catalog.archive(workspace.id, 's1')
+    await catalog.flush()
+
+    expect((await readCatalog(file)).state.archived).toEqual({ [workspace.id]: ['s1'] })
+  })
+
+  it('forgets it again when the thread is reopened', async () => {
+    const { store: catalog, file } = await store()
+    const workspace = catalog.pin('/repos/pi-core')
+    catalog.archive(workspace.id, 's1')
+    catalog.archive(workspace.id, 's2')
+
+    catalog.unarchive(workspace.id, 's1')
+    await catalog.flush()
+
+    expect((await readCatalog(file)).state.archived).toEqual({ [workspace.id]: ['s2'] })
+  })
+
+  it('drops the workspace entry entirely when nothing is left closed', async () => {
+    const { store: catalog } = await store()
+    const workspace = catalog.pin('/repos/pi-core')
+    catalog.archive(workspace.id, 's1')
+
+    catalog.unarchive(workspace.id, 's1')
+
+    expect(catalog.snapshot().archived).toEqual({})
+  })
+
+  it('does not let the same thread pile up', async () => {
+    const { store: catalog } = await store()
+    const workspace = catalog.pin('/repos/pi-core')
+
+    catalog.archive(workspace.id, 's1')
+    catalog.archive(workspace.id, 's1')
+
+    expect(catalog.listArchived(workspace.id)).toEqual(['s1'])
+  })
+
+  it('forgets a workspace’s closed threads when it is unpinned', async () => {
+    const { store: catalog } = await store()
+    const workspace = catalog.pin('/repos/pi-core')
+    catalog.archive(workspace.id, 's1')
+
+    catalog.unpin(workspace.id)
+
+    // A folder that is no longer pinned has no strip to hide threads from.
+    expect(catalog.snapshot().archived).toEqual({})
+  })
+
+  it('reports nothing closed for a workspace that never closed one', async () => {
+    const { store: catalog } = await store()
+
+    expect(catalog.listArchived('never-seen')).toEqual([])
+  })
+})

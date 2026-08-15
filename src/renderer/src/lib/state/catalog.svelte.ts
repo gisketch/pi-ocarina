@@ -84,17 +84,62 @@ class Catalog {
     }
   }
 
+  /** Takes a thread off the strip. Its session file is untouched: closing hides
+   *  a column, so history search still finds the thread and `reopen` brings it
+   *  back. A workspace left with no threads gets its fresh column again, rather
+   *  than becoming a workspace you cannot type into. */
+  closeThread(threadId: string): void {
+    this.error = null
+    this.workspaces = this.workspaces.map((workspace) => {
+      if (!workspace.threads.some((thread) => thread.id === threadId)) return workspace
+
+      const remaining = workspace.threads.filter((thread) => thread.id !== threadId)
+      return {
+        ...workspace,
+        threads: remaining.length > 0 ? remaining : [freshThread(workspace)],
+      }
+    })
+    app.reconcile()
+
+    void session.invoke('archiveThread', { threadId }).catch((cause: unknown) => {
+      // The column is already gone, which is what was asked for. This only
+      // means it will be back after a relaunch.
+      this.error = describe(cause)
+    })
+  }
+
+  /** Brings a closed thread back onto its workspace's strip, and returns its
+   *  column. Used when a search hit lands on a thread the user had closed. */
+  async reopen(workspaceId: string, threadId: string, title: string): Promise<number> {
+    this.error = null
+
+    try {
+      await session.invoke('unarchiveThread', { threadId })
+    } catch (cause) {
+      // It can still be shown now; it just will not persist as reopened.
+      this.error = describe(cause)
+    }
+
+    threads.follow(threadId)
+    this.#insert(workspaceId, threadId, title)
+    return this.workspaces
+      .find((workspace) => workspace.id === workspaceId)
+      ?.threads.findIndex((thread) => thread.id === threadId) ?? -1
+  }
+
   /** Puts a just-created thread on the end of its workspace's strip. The fresh
    *  placeholder is replaced, not kept beside it: it stands for "this workspace
    *  has no thread yet", which has stopped being true. */
-  #insert(workspaceId: string, threadId: string): void {
+  #insert(workspaceId: string, threadId: string, title = 'new thread'): void {
     this.workspaces = this.workspaces.map((workspace) =>
       workspace.id === workspaceId
         ? {
             ...workspace,
             threads: [
-              ...workspace.threads.filter((thread) => !thread.fresh),
-              { id: threadId, title: 'new thread', status: 'idle' as const, meta: '' },
+              ...workspace.threads.filter(
+                (thread) => !thread.fresh && thread.id !== threadId,
+              ),
+              { id: threadId, title, status: 'idle' as const, meta: '' },
             ],
           }
         : workspace,
@@ -157,7 +202,7 @@ function toThread(summary: ThreadSummary): Thread {
   }
 }
 
-function freshThread(workspace: WorkspaceSummary): Thread {
+function freshThread(workspace: { id: string; name: string }): Thread {
   return {
     id: `fresh:${workspace.id}`,
     title: workspace.name,

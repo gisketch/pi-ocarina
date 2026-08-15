@@ -30,7 +30,11 @@ export async function searchThreads(
   const unread: { workspaceId: string; thread: ThreadSummary }[] = []
 
   for (const workspace of workspaces.list()) {
-    const threads = await workspaces.listThreads(workspace.id).catch(() => [])
+    // Closed threads are searched too. Closing hides a column; the history is
+    // still the user's, and search is how they get back to it.
+    const threads = await workspaces
+      .listThreads(workspace.id, { includeArchived: true })
+      .catch(() => [])
 
     for (const thread of threads) {
       if (thread.title.toLowerCase().includes(needle)) {

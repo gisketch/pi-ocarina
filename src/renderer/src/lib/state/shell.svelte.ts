@@ -28,6 +28,9 @@ class ShellState {
   overlay = $state<KeyState['overlay']>(initialKeyState.overlay)
   terminal = $state(initialKeyState.terminal)
 
+  /** The thread waiting on a "close this running turn?" answer, if any. */
+  pendingClose = $state<string | null>(null)
+
   readonly targets: FocusTargets = {}
 
   private leaderTimer: ReturnType<typeof setTimeout> | null = null
@@ -80,8 +83,41 @@ class ShellState {
     })
   }
 
+  /** Closes the focused thread, asking first if a turn is running.
+   *
+   *  Closing cancels the turn, and a turn is work the person is waiting on, so
+   *  a single keystroke must not throw it away. An idle thread has nothing to
+   *  lose, so it closes at once. */
+  requestClose(): void {
+    const thread = app.thread
+    // The fresh placeholder is not a thread; there is nothing to close.
+    if (thread.fresh || thread.id === '') return
+
+    if (threads.get(thread.id).runState === 'running') {
+      this.pendingClose = thread.id
+      return
+    }
+    this.closeThread(thread.id, { cancelTurn: false })
+  }
+
+  closeThread(threadId: string, { cancelTurn }: { cancelTurn: boolean }): void {
+    if (cancelTurn) threads.cancel(threadId)
+    catalog.closeThread(threadId)
+  }
+
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
+    // A pending confirmation is modal: it is asked because the answer changes
+    // what happens to work already in flight, so no other binding may run
+    // underneath it. Only an explicit yes goes ahead; anything else backs out.
+    if (this.pendingClose !== null) {
+      const confirmed = event.key === 'y' || event.key === 'Enter'
+      const threadId = this.pendingClose
+      this.pendingClose = null
+      if (confirmed) this.closeThread(threadId, { cancelTurn: true })
+      return true
+    }
+
     const before = this.keyState
     const { state, actions, preventDefault, timer } = reduceKey(before, event, {
       workspaceCount: app.workspaces.length,
@@ -130,6 +166,9 @@ class ShellState {
         break
       case 'newThread':
         this.newThread()
+        break
+      case 'closeThread':
+        this.requestClose()
         break
       case 'pinWorkspace':
         // Failure lands on `catalog.error`, which the welcome screen renders.

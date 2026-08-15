@@ -19,12 +19,16 @@ export interface WorkspaceEntry {
  *  session store is the truth about what threads exist, so it cannot drift out
  *  of sync here. */
 export interface CatalogState {
-  version: 3
+  version: 4
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
   /** Workspace id → "always allow" rule keys. Policy lives in main only. */
   approvals: Record<string, string[]>
+  /** Workspace id → thread ids the user closed. Closing hides a thread from the
+   *  strip; the session file stays on disk, so history search still finds it
+   *  and opening it from there brings the column back. */
+  archived: Record<string, string[]>
   preferences: Preferences
 }
 
@@ -35,11 +39,12 @@ export interface CatalogState {
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
   return {
-    version: 3,
+    version: 4,
     workspaces: [],
     workspaceIndex: 0,
     focus: [],
     approvals: {},
+    archived: {},
     preferences: { ...DEFAULT_PREFERENCES },
   }
 }
@@ -93,10 +98,13 @@ function parseWorkspaces(value: unknown): WorkspaceEntry[] {
   return entries
 }
 
-/** Approval rules are security-relevant, so anything malformed is dropped
+/** A map of id → list of ids, with anything unreadable dropped. Used for both
+ *  approval rules and the archived-thread list.
+ *
+ *  Approval rules are security-relevant, so anything malformed is dropped
  *  rather than coerced: a rule we cannot read must never become a rule that
  *  silently allows something. */
-function parseApprovals(value: unknown): Record<string, string[]> {
+function parseIdLists(value: unknown): Record<string, string[]> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
 
   const rules: Record<string, string[]> = {}
@@ -131,9 +139,10 @@ export function parseCatalog(raw: string): CatalogLoad {
     return { state: { ...defaultCatalog(), workspaceIndex, focus } }
   }
 
-  // Version 2 is version 3 without preferences, so it upgrades by taking the
-  // defaults. Nothing the user pinned or approved is lost.
-  if (record.version !== 2 && record.version !== 3) {
+  // Version 2 lacked preferences and version 3 lacked the archived list, so
+  // both upgrade by taking the defaults for what they never stored. Nothing the
+  // user pinned or approved is lost.
+  if (record.version !== 2 && record.version !== 3 && record.version !== 4) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -142,11 +151,12 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 3,
+      version: 4,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,
-      approvals: parseApprovals(record.approvals),
+      approvals: parseIdLists(record.approvals),
+      archived: parseIdLists(record.archived),
       preferences: parsePreferences(record.preferences),
     },
   }

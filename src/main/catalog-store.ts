@@ -39,7 +39,33 @@ export class CatalogStore {
       workspaces: [...this.#state.workspaces],
       focus: [...this.#state.focus],
       approvals: structuredClone(this.#state.approvals),
+      archived: structuredClone(this.#state.archived),
     }
+  }
+
+  /** Hides a thread from its workspace's strip. The session file is untouched —
+   *  closing a thread is not deleting its history. */
+  archive(workspaceId: string, threadId: string): void {
+    const existing = this.#state.archived[workspaceId] ?? []
+    if (existing.includes(threadId)) return
+
+    this.#state.archived[workspaceId] = [...existing, threadId]
+    this.#persist()
+  }
+
+  /** Brings a closed thread back, which is what jumping to it from search does. */
+  unarchive(workspaceId: string, threadId: string): void {
+    const existing = this.#state.archived[workspaceId]
+    if (!existing?.includes(threadId)) return
+
+    const remaining = existing.filter((candidate) => candidate !== threadId)
+    if (remaining.length > 0) this.#state.archived[workspaceId] = remaining
+    else delete this.#state.archived[workspaceId]
+    this.#persist()
+  }
+
+  listArchived(workspaceId: string): string[] {
+    return [...(this.#state.archived[workspaceId] ?? [])]
   }
 
   hasApproval(workspaceId: string, key: string): boolean {
@@ -103,6 +129,8 @@ export class CatalogStore {
     this.#state.focus.splice(index, 1)
     // Unpinning revokes what was allowed there; re-pinning should ask again.
     delete this.#state.approvals[removed.id]
+    // A folder that is no longer pinned has no strip to hide threads from.
+    delete this.#state.archived[removed.id]
     this.#state.workspaceIndex = Math.min(
       this.#state.workspaceIndex,
       Math.max(0, this.#state.workspaces.length - 1),

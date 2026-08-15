@@ -59,22 +59,50 @@ export class WorkspaceService {
     return this.list().find((workspace) => workspace.path === path)?.id ?? path
   }
 
-  async listThreads(workspaceId: string): Promise<ThreadSummary[]> {
+  /** The workspace's threads, newest first.
+   *
+   *  Threads the user closed are left out, because the strip is what "closed"
+   *  means. `includeArchived` is for history search, which must still find them
+   *  — closing a thread hides its column, it does not delete its history. */
+  async listThreads(
+    workspaceId: string,
+    { includeArchived = false }: { includeArchived?: boolean } = {},
+  ): Promise<ThreadSummary[]> {
     const cwd = this.pathOf(workspaceId)
     const { SessionManager } = await this.#load()
     const sessions = await SessionManager.list(cwd)
+    // Every session is located, closed ones included: `locate` is how search
+    // reads a transcript and how a closed thread is reopened, and a thread we
+    // cannot find is a thread that cannot come back.
+    for (const session of sessions) {
+      this.#located.set(session.id, { path: session.path, cwd: session.cwd || cwd })
+    }
+
+    const hidden = includeArchived ? [] : this.#store.listArchived(workspaceId)
 
     return sessions
-      .map((session) => {
-        this.#located.set(session.id, { path: session.path, cwd: session.cwd || cwd })
-        return {
-          id: session.id,
-          title: session.name ?? firstLine(session.firstMessage) ?? 'untitled',
-          modified: session.modified.toISOString(),
-          messageCount: session.messageCount,
-        }
-      })
+      .filter((session) => !hidden.includes(session.id))
+      .map((session) => ({
+        id: session.id,
+        title: session.name ?? firstLine(session.firstMessage) ?? 'untitled',
+        modified: session.modified.toISOString(),
+        messageCount: session.messageCount,
+      }))
       .sort((a, b) => b.modified.localeCompare(a.modified))
+  }
+
+  /** Records, or forgets, that a thread is hidden from its workspace's strip.
+   *
+   *  The workspace comes from where the session file lives, since a thread only
+   *  ever knows its own folder. A thread whose folder is no longer pinned has no
+   *  strip to be hidden from, so there is nothing to record. */
+  async setArchived(threadId: string, archived: boolean): Promise<void> {
+    const location = await this.locate(threadId).catch(() => null)
+    if (!location) return
+
+    const workspaceId = this.idForPath(location.cwd)
+    if (archived) this.#store.archive(workspaceId, threadId)
+    else this.#store.unarchive(workspaceId, threadId)
   }
 
   /** Remembers a session created in this run, so it can be reopened without a
