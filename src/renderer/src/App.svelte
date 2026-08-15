@@ -3,8 +3,11 @@
   import Statusbar from './components/Statusbar.svelte'
   import Rail from './components/Rail.svelte'
   import Strip from './components/strip/Strip.svelte'
+  import Composer from './components/Composer.svelte'
+  import LeaderBar from './components/LeaderBar.svelte'
+  import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
-  import { scrollColumn } from '$lib/state/columns'
+  import { shell } from '$lib/state/shell.svelte'
 
   // The accent tokens are substituted where they are declared (:root), so the
   // seeded hue must be written to the document element — setting it on .shell
@@ -13,32 +16,13 @@
     document.documentElement.style.setProperty('--accent-hue', String(app.workspace.hue))
   })
 
-  // Interim bindings: replaced wholesale by the mode state machine in T4.
+  let composerInput = $state<HTMLInputElement | null>(null)
+  $effect(() => {
+    shell.targets.composer = composerInput
+  })
+
   function onKeydown(event: KeyboardEvent): void {
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-
-    const digit = Number(event.key)
-    if (Number.isInteger(digit) && digit >= 1 && digit <= app.workspaces.length) {
-      app.goWorkspace(digit - 1)
-      return
-    }
-
-    switch (event.key) {
-      case 'h':
-      case 'ArrowLeft':
-        app.moveThread(-1)
-        break
-      case 'l':
-      case 'ArrowRight':
-        app.moveThread(1)
-        break
-      case 'j':
-        scrollColumn(app.thread.id, 100)
-        break
-      case 'k':
-        scrollColumn(app.thread.id, -100)
-        break
-    }
+    if (shell.handleKey(event)) event.preventDefault()
   }
 </script>
 
@@ -51,11 +35,23 @@
   <Titlebar />
 
   <div class="body">
-    <Rail />
-    <Strip />
+    <Rail onPin={() => shell.openOverlay('switcher')} onKeymap={() => shell.openOverlay('keymap')} />
+
+    <div class="main">
+      <Strip />
+      <Composer bind:input={composerInput} />
+    </div>
   </div>
 
   <Statusbar />
+
+  {#if app.mode === 'LEADER'}
+    <LeaderBar />
+  {/if}
+
+  {#if shell.overlay === 'keymap'}
+    <KeymapOverlay onclose={() => shell.closeOverlay()} />
+  {/if}
 </div>
 
 <style>
@@ -95,5 +91,12 @@
     min-height: 0;
     position: relative;
     z-index: 1;
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
 </style>

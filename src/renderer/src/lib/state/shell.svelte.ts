@@ -1,0 +1,108 @@
+import { app } from './app.svelte'
+import { scrollColumn } from './columns'
+import {
+  type Action,
+  type KeyEventLike,
+  type KeyState,
+  LEADER_TIMEOUT_MS,
+  initialKeyState,
+  reduceKey,
+} from '../keyboard'
+
+/** Focus targets the keyboard layer drives. Registered by the components that own
+ *  the elements so the machine itself stays DOM-free. */
+export interface FocusTargets {
+  composer?: HTMLInputElement | null
+  palette?: HTMLInputElement | null
+}
+
+/** Bridges the pure key machine to app state, DOM focus and the leader timeout. */
+class ShellState {
+  overlay = $state<KeyState['overlay']>(initialKeyState.overlay)
+  terminal = $state(initialKeyState.terminal)
+
+  readonly targets: FocusTargets = {}
+
+  private leaderTimer: ReturnType<typeof setTimeout> | null = null
+
+  private get keyState(): KeyState {
+    return { mode: app.mode, overlay: this.overlay, terminal: this.terminal }
+  }
+
+  closeOverlay(): void {
+    this.overlay = null
+  }
+
+  openOverlay(overlay: KeyState['overlay']): void {
+    this.overlay = overlay
+    if (overlay === 'palette') queueMicrotask(() => this.targets.palette?.focus())
+  }
+
+  toggleTerminal(): void {
+    this.terminal = !this.terminal
+  }
+
+  /** Returns true when the event was consumed and should be prevented. */
+  handleKey(event: KeyEventLike): boolean {
+    const before = this.keyState
+    const { state, actions, preventDefault, timer } = reduceKey(before, event, {
+      workspaceCount: app.workspaces.length,
+    })
+
+    app.mode = state.mode
+    this.overlay = state.overlay
+    this.terminal = state.terminal
+
+    if (timer === 'clear') this.clearLeaderTimer()
+    if (timer === 'start') this.startLeaderTimer()
+
+    for (const action of actions) this.run(action)
+
+    return preventDefault
+  }
+
+  private run(action: Action): void {
+    switch (action.type) {
+      case 'goWorkspace':
+        app.goWorkspace(action.index)
+        break
+      case 'moveThread':
+        app.moveThread(action.delta)
+        break
+      case 'scrollColumn':
+        scrollColumn(app.thread.id, action.delta)
+        break
+      case 'focusComposer':
+        queueMicrotask(() => this.targets.composer?.focus())
+        break
+      case 'blurComposer':
+        this.targets.composer?.blur()
+        break
+      case 'focusPalette':
+        queueMicrotask(() => this.targets.palette?.focus())
+        break
+      case 'newThread':
+      case 'compact':
+      case 'yank':
+        // Wired to real behaviour with the session backend; the binding exists so
+        // the keyboard contract is complete in the static shell.
+        break
+    }
+  }
+
+  private startLeaderTimer(): void {
+    this.clearLeaderTimer()
+    this.leaderTimer = setTimeout(() => {
+      if (app.mode === 'LEADER') app.mode = 'NORMAL'
+      this.leaderTimer = null
+    }, LEADER_TIMEOUT_MS)
+  }
+
+  private clearLeaderTimer(): void {
+    if (this.leaderTimer === null) return
+    clearTimeout(this.leaderTimer)
+    this.leaderTimer = null
+  }
+}
+
+export const shell = new ShellState()

@@ -47,7 +47,7 @@ Status legend: `todo` · `in-progress` · `done`.
   smoothness check; `pnpm check`.
 - Blocked by: T2
 
-## T4 — Keyboard layer: modes, leader, keymap — `todo`
+## T4 — Keyboard layer: modes, leader, keymap — `done`
 
 - Delivered behavior: the full mode state machine (NORMAL/INSERT/LEADER) as a pure
   module driving focus; composer strip present as the INSERT target (`i`/`esc`,
