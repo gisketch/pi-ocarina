@@ -1,8 +1,10 @@
 <script lang="ts">
   import ThreadColumn from './ThreadColumn.svelte'
   import FreshThread from './FreshThread.svelte'
+  import ThreadView from '../thread/ThreadView.svelte'
   import { app } from '$lib/state/app.svelte'
-  import { COLUMN_GAP, COLUMN_WIDTH, stripOffset } from '$lib/strip'
+  import { blocksFor } from '$lib/mock/threads'
+  import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
   const workspace = $derived(app.workspace)
   // The strip is pinned at left:50% and slid so the focused column sits centred;
@@ -17,11 +19,9 @@
         {#if thread.fresh}
           <FreshThread {workspace} />
         {:else}
-          <ThreadColumn
-            {thread}
-            focused={i === app.threadIndex}
-            onfocus={() => app.focusThread(i)}
-          />
+          <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
+            <ThreadView blocks={blocksFor(thread.id)} />
+          </ThreadColumn>
         {/if}
       {/each}
     </div>

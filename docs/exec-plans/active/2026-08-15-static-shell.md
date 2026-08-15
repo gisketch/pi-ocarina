@@ -73,7 +73,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: headless tests for exclusivity + palette filter/act; visual review.
 - Blocked by: T4
 
-## T6 — Static thread interiors — `todo`
+## T6 — Static thread interiors — `done`
 
 - Delivered behavior: the reference's mock threads rendered inside columns from
   static view-model fixtures (thread-ledger visual vocabulary, no reducer): user/

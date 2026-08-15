@@ -1,0 +1,140 @@
+<script lang="ts">
+  import type { ToolBody } from '$lib/thread'
+
+  const { body }: { body: ToolBody } = $props()
+</script>
+
+{#if body.type === 'code'}
+  <div class="panel code">{#each body.lines as line, i (i)}<div class="line">{line.text}{#if line.comment}<span class="comment">{line.comment}</span>{/if}</div>{/each}</div>
+{:else if body.type === 'matches'}
+  <div class="panel matches">
+    {#each body.lines as line, i (i)}
+      <div>
+        <span class="location">{line.location}</span>
+        <span class="text">{line.before}<span class="hit">{line.match}</span>{line.after}</span>
+      </div>
+    {/each}
+  </div>
+{:else if body.type === 'diff'}
+  <div class="panel diff">
+    {#each body.lines as line, i (i)}
+      <div
+        class="dline"
+        class:add={line.sign === '+'}
+        class:del={line.sign === '-'}
+        class:ctx={line.sign === ' '}
+      >{line.sign} {line.text}</div>
+    {/each}
+  </div>
+{:else if body.type === 'terminal'}
+  <div class="panel terminal" class:error={body.tone === 'error'}>{#each body.lines as line, i (i)}<div class={line.tone ?? ''}>{line.text}</div>{/each}</div>
+{:else if body.type === 'todo'}
+  <div class="panel todo">
+    {#each body.items as item, i (i)}
+      <div class:done={item.done}>
+        <span class="box">{item.done ? '▣' : '□'}</span>
+        <span class="label">{item.text}</span>
+      </div>
+    {/each}
+  </div>
+{/if}
+
+<style>
+  .panel {
+    margin: 2px 6px 6px;
+    font-size: 11.5px;
+    background: var(--bg-deep);
+    border: 1px solid var(--bg-hover);
+  }
+
+  .code {
+    padding: 9px 12px;
+    line-height: 1.7;
+    color: var(--fg-dim);
+    white-space: pre;
+    font-family: var(--font-body);
+  }
+  .comment {
+    color: var(--fg-dimmest);
+  }
+
+  .matches {
+    padding: 8px 12px;
+    line-height: 1.8;
+    font-family: var(--font-body);
+  }
+  .location {
+    color: var(--fg-dimmest);
+  }
+  .text {
+    color: var(--fg-dim);
+  }
+  .hit {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .diff {
+    line-height: 1.75;
+    font-family: var(--font-body);
+  }
+  .dline {
+    padding: 2px 12px;
+    white-space: pre;
+  }
+  .dline.add {
+    color: var(--ok-text);
+    background: var(--ok-soft);
+  }
+  .dline.del {
+    color: var(--err-text);
+    background: var(--err-soft);
+  }
+  .dline.ctx {
+    color: var(--fg-dimmer);
+  }
+
+  .terminal {
+    padding: 9px 12px;
+    line-height: 1.7;
+    white-space: pre;
+    font-family: var(--font-body);
+    border-color: var(--line);
+    color: var(--fg-dim);
+  }
+  .terminal.error {
+    background: rgba(224, 122, 107, 0.06);
+    border-color: rgba(224, 122, 107, 0.25);
+  }
+  .terminal :global(.prompt) {
+    color: var(--fg-dimmest);
+  }
+  .terminal :global(.ok) {
+    color: var(--ok);
+  }
+  .terminal :global(.err) {
+    color: var(--err-text);
+  }
+  .terminal :global(.dim) {
+    color: var(--fg-dim);
+  }
+
+  .todo {
+    padding: 8px 12px;
+    line-height: 1.9;
+    font-family: var(--font-body);
+    color: var(--fg-agent);
+  }
+  .todo .done {
+    color: var(--fg-dimmest);
+  }
+  .todo .box {
+    color: var(--fg-dim);
+  }
+  .todo .done .box {
+    color: var(--ok);
+  }
+  .todo .done .label {
+    text-decoration: line-through;
+  }
+</style>
