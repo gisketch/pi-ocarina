@@ -44,12 +44,28 @@ describe('NORMAL bindings', () => {
     expect(actions).toEqual([{ type: 'focusComposer' }])
   })
 
-  it('toggles terminal, switcher and keymap', () => {
+  it('toggles terminal and keymap', () => {
     expect(press(NORMAL, 't').state.terminal).toBe(true)
     expect(press(NORMAL, 't', 't').state.terminal).toBe(false)
-    expect(press(NORMAL, 'w').state.overlay).toBe('switcher')
-    expect(press(NORMAL, 'w', 'w').state.overlay).toBe(null)
     expect(press(NORMAL, '?').state.overlay).toBe('keymap')
+    expect(press(NORMAL, '?', '?').state.overlay).toBe(null)
+  })
+
+  it('opens the switcher on w and focuses its filter', () => {
+    const { state, actions } = press(NORMAL, 'w')
+    expect(state.overlay).toBe('switcher')
+    expect(actions).toEqual([{ type: 'focusSwitcher' }])
+  })
+
+  it('a second w types into the filter instead of closing the switcher', () => {
+    // The switcher owns a caret once it is open. Letting `w` still toggle it
+    // would make the workspace named "web" unfilterable.
+    expect(press(NORMAL, 'w', 'w').state.overlay).toBe('switcher')
+    expect(press(NORMAL, 'w', 'w').last.preventDefault).toBe(false)
+  })
+
+  it('escape closes the switcher', () => {
+    expect(press(NORMAL, 'w', 'Escape').state.overlay).toBe(null)
   })
 
   it('yanks the last code block on y', () => {
@@ -71,7 +87,7 @@ describe('LEADER chords', () => {
   it('runs each documented chord and always ends the chord', () => {
     const cases: [string, Partial<KeyState>, unknown[]][] = [
       ['1', { overlay: null }, [{ type: 'goWorkspace', index: 0 }]],
-      ['w', { overlay: 'switcher' }, []],
+      ['w', { overlay: 'switcher' }, [{ type: 'focusSwitcher' }]],
       ['k', { overlay: 'keymap' }, []],
       ['n', { overlay: null }, [{ type: 'newThread' }]],
       ['t', { terminal: true }, []],

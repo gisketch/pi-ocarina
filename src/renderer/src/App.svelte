@@ -30,11 +30,15 @@
 
   let composerInput = $state<HTMLInputElement | null>(null)
   let paletteInput = $state<HTMLInputElement | null>(null)
+  let switcherInput = $state<HTMLInputElement | null>(null)
   $effect(() => {
     shell.targets.composer = composerInput
   })
   $effect(() => {
     shell.targets.palette = paletteInput
+  })
+  $effect(() => {
+    shell.targets.switcher = switcherInput
   })
 
   function onKeydown(event: KeyboardEvent): void {
@@ -97,6 +101,7 @@
     <KeymapOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'switcher'}
     <SwitcherOverlay
+      bind:input={switcherInput}
       onclose={() => shell.closeOverlay()}
       onselect={(index) => {
         app.goWorkspace(index)

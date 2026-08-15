@@ -16,6 +16,7 @@ import {
 export interface FocusTargets {
   composer?: HTMLInputElement | null
   palette?: HTMLInputElement | null
+  switcher?: HTMLInputElement | null
 }
 
 /** Bridges the pure key machine to app state, DOM focus and the leader timeout. */
@@ -82,6 +83,9 @@ class ShellState {
         break
       case 'focusPalette':
         queueMicrotask(() => this.targets.palette?.focus())
+        break
+      case 'focusSwitcher':
+        queueMicrotask(() => this.targets.switcher?.focus())
         break
       case 'compact':
         threads.compact(app.thread.id)

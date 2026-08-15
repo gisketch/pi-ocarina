@@ -40,7 +40,13 @@ D5). Everything the frozen shell spec already covers.
 A detached input floats above the workspace card grid, autofocused on open
 (`>` prompt, "fuzzy filter workspaces… ⏎ picks first", `esc` chip). Typing
 filters the cards live; `⏎` picks the first match; number keys and clicks still
-select; the "pin a folder…" card keeps the next number key.
+select; the "pin a folder…" card keeps the next number key. A filtered card
+keeps its workspace's number, not its position in the filtered grid — the chip
+is an address, not a row label.
+
+Because the overlay now owns a caret, **`w` no longer toggles it closed**; it
+types. `esc` and a backdrop click close it. The frozen shell spec's `w` toggle
+still opens it.
 
 ### Settings overlay
 

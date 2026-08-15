@@ -6,7 +6,21 @@ Spec: [2026-08-15-selectors-settings.md](../../specs/2026-08-15-selectors-settin
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## F1 — Spotlight primitive & switcher fzf — `todo`
+## F1 — Spotlight primitive & switcher fzf — `done`
+
+> Verified in the running app: the detached input floats above the card grid,
+> typing filters live, and `⏎` picks the first match and jumps. A filtered card
+> keeps its **workspace** number, not its row number, so `3` still means the
+> third pinned workspace after filtering.
+>
+> One behaviour change worth naming: **a second `w` no longer closes the
+> switcher.** The overlay now owns a caret, so `w` types. Closing is `esc` or a
+> backdrop click. Leaving `w` as a toggle would make a workspace named "web"
+> impossible to filter for.
+>
+> The three fuzzy matchers became one (`lib/fuzzy.ts`). The palette had its own;
+> the switcher and D5's selector would have been two more, and a user who learns
+> filtering in one place should have learned it in all three.
 
 - Delivered behavior: the detached-input-over-panel spotlight as one shared,
   parameterized component; the workspace switcher rebuilt on it — autofocused

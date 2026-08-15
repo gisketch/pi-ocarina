@@ -19,6 +19,7 @@ export type Action =
   | { type: 'focusComposer' }
   | { type: 'blurComposer' }
   | { type: 'focusPalette' }
+  | { type: 'focusSwitcher' }
 
 export interface KeyEventLike {
   key: string
@@ -69,10 +70,19 @@ function goWorkspace(state: KeyState, index: number): KeyResult {
   ])
 }
 
+/** Overlays that own a text caret. Their input must receive every keystroke
+ *  the shell would otherwise read as a binding. */
+const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher'])
+
+function focusFor(overlay: Overlay | null): Action[] {
+  if (overlay === 'palette') return [{ type: 'focusPalette' }]
+  if (overlay === 'switcher') return [{ type: 'focusSwitcher' }]
+  return []
+}
+
 function toggleOverlay(state: KeyState, overlay: Overlay): KeyResult {
   const next = state.overlay === overlay ? null : overlay
-  const actions: Action[] = next === 'palette' ? [{ type: 'focusPalette' }] : []
-  return result({ ...state, overlay: next }, actions)
+  return result({ ...state, overlay: next }, focusFor(next))
 }
 
 /** Resolves one key against the shell's modal model.
@@ -109,8 +119,9 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   if (state.mode === 'LEADER') return reduceLeader(state, key, ctx)
 
   const anyOverlay = state.overlay !== null
-  // The palette owns the caret whenever it is open.
-  const typing = state.mode === 'INSERT' || state.overlay === 'palette'
+  // An overlay with an input owns the caret whenever it is open.
+  const typing =
+    state.mode === 'INSERT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
 
   // Digits jump workspaces even from a focused palette — the design's escape hatch.
   const index = digitFor(key, ctx.workspaceCount)
@@ -158,7 +169,7 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
 
   switch (key) {
     case 'w':
-      return result({ ...done, overlay: 'switcher' }, [], true, 'clear')
+      return result({ ...done, overlay: 'switcher' }, focusFor('switcher'), true, 'clear')
     case 'k':
       return result({ ...done, overlay: 'keymap' }, [], true, 'clear')
     case 'n':

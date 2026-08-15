@@ -1,18 +1,37 @@
 <script lang="ts">
-  import Backdrop from './Backdrop.svelte'
+  import Spotlight from './Spotlight.svelte'
   import Identicon from '../Identicon.svelte'
   import { isDesktop } from '$lib/bridge'
+  import { fuzzyFilter } from '$lib/fuzzy'
   import { app } from '$lib/state/app.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
 
   interface Props {
     onclose: () => void
     onselect: (index: number) => void
+    input?: HTMLInputElement | null
   }
 
-  const { onclose, onselect }: Props = $props()
+  let { onclose, onselect, input = $bindable(null) }: Props = $props()
 
+  let query = $state('')
   let pinning = $state(false)
+
+  // Cards carry their own index so a filtered grid still selects the right
+  // workspace — the number chip is the workspace's position, not the row's.
+  const cards = $derived(
+    fuzzyFilter(
+      app.workspaces.map((workspace, index) => ({ workspace, index })),
+      query,
+      ({ workspace }) => workspace.name,
+    ),
+  )
+
+  function onkeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    if (cards.length > 0) onselect(cards[0].index)
+  }
 
   async function pin(): Promise<void> {
     if (pinning) return
@@ -28,26 +47,34 @@
   }
 </script>
 
-<Backdrop {onclose} z={50} label="Workspace switcher">
+<Spotlight
+  {onclose}
+  z={50}
+  label="Workspace switcher"
+  placeholder="fuzzy filter workspaces… ⏎ picks first"
+  bind:value={query}
+  bind:input
+  {onkeydown}
+>
   <div class="cards">
-    {#each app.workspaces as ws, i (ws.id)}
+    {#each cards as { workspace, index } (workspace.id)}
       <button
         type="button"
         class="card"
-        class:active={i === app.workspaceIndex}
-        style:--card-hue={ws.hue}
-        onclick={() => onselect(i)}
+        class:active={index === app.workspaceIndex}
+        style:--card-hue={workspace.hue}
+        onclick={() => onselect(index)}
       >
-        <Identicon name={ws.name} hue={ws.hue} size={52} />
-        <div class="name">{ws.name}</div>
-        <div class="note">♪ {ws.note}</div>
-        <div class="branch"> {ws.branch}</div>
-        <div class="snippet">{ws.snippet}</div>
-        <div class="key">{i + 1}</div>
+        <Identicon name={workspace.name} hue={workspace.hue} size={52} />
+        <div class="name">{workspace.name}</div>
+        <div class="note">♪ {workspace.note}</div>
+        <div class="branch"> {workspace.branch}</div>
+        <div class="snippet">{workspace.snippet}</div>
+        <div class="key">{index + 1}</div>
       </button>
     {/each}
 
-    <button type="button" class="card empty" class:pinning onclick={pin} disabled={!isDesktop}>
+    <button type="button" class="card empty" onclick={pin} disabled={!isDesktop}>
       <div class="ghost"></div>
       {pinning ? 'pinning…' : 'pin a folder…'}
       <div class="key plain">{app.workspaces.length + 1}</div>
@@ -57,7 +84,7 @@
   {#if catalog.error}
     <div class="failed">could not pin that folder — {catalog.error}</div>
   {/if}
-</Backdrop>
+</Spotlight>
 
 <style>
   .cards {
@@ -145,7 +172,6 @@
   }
 
   .failed {
-    margin-top: 14px;
     padding: 7px 12px;
     border: 1px solid rgba(224, 122, 107, 0.28);
     background: var(--err-soft);
