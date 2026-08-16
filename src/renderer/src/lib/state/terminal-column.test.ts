@@ -19,6 +19,7 @@ vi.mock('../bridge', () => ({
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
+import { termMode } from './term-mode.svelte'
 import { terminals } from './terminal.svelte'
 import { terminalId } from '../types'
 
@@ -54,7 +55,7 @@ describe('opening the terminal column', () => {
   it('creates it once, focuses it, and lands in TERM ready to type', () => {
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
 
-    shell.openTerminal()
+    termMode.open()
 
     expect(create).toHaveBeenCalledWith('w1')
     expect(app.thread.id).toBe(TERM_ID)
@@ -64,12 +65,12 @@ describe('opening the terminal column', () => {
 
   it('jumps to the shell that is already there rather than making a second', () => {
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
     app.focusThread(0)
     app.mode = 'NORMAL'
     create.mockClear()
 
-    shell.openTerminal()
+    termMode.open()
 
     expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
     expect(app.thread.id).toBe(TERM_ID)
@@ -78,12 +79,12 @@ describe('opening the terminal column', () => {
 
   it('revives a shell the user exited, without closing the column first', () => {
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
     app.mode = 'NORMAL'
     create.mockClear()
 
     // The column outlives its pty; `create` is a no-op while one is running.
-    shell.openTerminal()
+    termMode.open()
 
     expect(create).toHaveBeenCalledWith('w1')
     expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
@@ -93,7 +94,7 @@ describe('opening the terminal column', () => {
     catalog.source = 'empty'
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
 
-    shell.openTerminal()
+    termMode.open()
 
     expect(create).not.toHaveBeenCalled()
   })
@@ -102,14 +103,14 @@ describe('opening the terminal column', () => {
 describe('leaving TERM', () => {
   beforeEach(() => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
   })
 
   it('sends nothing to the pty on a single escape', () => {
     const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
     vi.spyOn(Date, 'now').mockReturnValue(1000)
 
-    shell.termEscape()
+    termMode.escape()
 
     expect(write).not.toHaveBeenCalled()
   })
@@ -118,10 +119,10 @@ describe('leaving TERM', () => {
     const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1000)
-    shell.termEscape()
+    termMode.escape()
 
     now.mockReturnValue(1100)
-    shell.termEscape()
+    termMode.escape()
 
     expect(write).toHaveBeenCalledWith('w1', ESC)
     expect(app.mode).toBe('TERM')
@@ -131,10 +132,10 @@ describe('leaving TERM', () => {
     const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1000)
-    shell.termEscape()
+    termMode.escape()
 
     now.mockReturnValue(9000)
-    shell.termEscape()
+    termMode.escape()
 
     expect(write).not.toHaveBeenCalled()
   })
@@ -145,7 +146,7 @@ describe('esc esc through the real key path', () => {
   // so the second one arrives in NORMAL and would never reach the TERM branch.
   beforeEach(() => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
   })
 
   it('sends a literal escape on two presses inside the window', () => {

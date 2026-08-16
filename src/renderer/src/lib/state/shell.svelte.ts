@@ -2,27 +2,21 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
-import { terminalId, workspaceOfTerminal } from '../types'
+import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
+import { termMode } from './term-mode.svelte'
 import { scrollColumn } from './columns'
+import { blockFocus } from './block-focus.svelte'
+import { navBlocks } from '../blocks'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
-/** How long after leaving TERM a second `esc` still means "send it through".
- *
- *  Measured against a person deliberately double-tapping, not a machine: half a
- *  second is comfortable to hit on purpose and still short enough that an
- *  unrelated later `esc` is not mistaken for the second half of a chord. */
-const TERM_ESCAPE_WINDOW_MS = 500
-
-/** What a real escape key sends, for the TUIs that need one. */
-const ESCAPE = String.fromCharCode(27)
-
 import {
   type Action,
   type KeyEventLike,
   type KeyState,
   LEADER_TIMEOUT_MS,
+  SCROLL_STEP,
   initialKeyState,
   reduceKey,
 } from '../keyboard'
@@ -144,74 +138,16 @@ class ShellState {
     catalog.closeThread(threadId)
   }
 
-  /** Brings the workspace's shell up, or jumps to it if it is already there.
-   *
-   *  Landing in TERM is the point: a shell you asked for is a shell you meant
-   *  to type into, the same reasoning that focuses the composer on leader-n. */
-  openTerminal(): void {
-    if (catalog.source !== 'live') return
-
-    const workspaceId = app.workspace.id
-    const id = terminalId(workspaceId)
-    const existing = app.workspace.threads.findIndex((thread) => thread.id === id)
-
-    if (existing !== -1) {
-      app.focusThread(existing)
-      this.#enterTerm()
-      // A shell the user exited leaves its column behind. `create` is a no-op
-      // while one is running, so asking again is how you get a live shell back
-      // without closing the column first.
-      void terminals.create(workspaceId).catch(() => {})
+  /** `j` and `k`. A thread column moves its block ring; a shell has no blocks,
+   *  so it scrolls the way it always did. */
+  moveBlock(delta: number): void {
+    if (app.thread.terminal) {
+      scrollColumn(app.thread.id, delta * SCROLL_STEP)
       return
     }
 
-    catalog.openTerminal(workspaceId)
-    // A shell that cannot start is the documented native-module failure. The
-    // column goes away again rather than sitting blank forever in TERM.
-    void terminals.create(workspaceId).catch((cause: unknown) => {
-      catalog.failColumn(terminalId(workspaceId), cause)
-      // Checked on the mode, not the column: the column has just been taken
-      // away, so asking whether a terminal is focused always says no.
-      if (app.mode === 'TERM') app.mode = 'NORMAL'
-    })
-
-    const column = app.workspace.threads.findIndex((thread) => thread.id === id)
-    if (column === -1) return
-    app.focusThread(column)
-    this.#enterTerm()
+    blockFocus.move(app.thread.id, navBlocks(threads.get(app.thread.id).blocks), delta)
   }
-
-  #enterTerm(): void {
-    // A timestamp left armed from an earlier exit would turn the next single
-    // escape into a literal one.
-    this.#lastTermEscape = 0
-    app.mode = 'TERM'
-  }
-
-  /** `esc` left TERM. A second one straight after means the person wanted the
-   *  shell to see an escape — vim and lazygit both need one, and the mode key
-   *  had already eaten it. */
-  termEscape(): void {
-    // Escape is reported from every mode so the second half of the chord is
-    // seen; only a focused shell can mean anything by it.
-    if (!app.thread.terminal) {
-      this.#lastTermEscape = 0
-      return
-    }
-
-    const now = Date.now()
-    const since = now - this.#lastTermEscape
-    // A negative gap is not a fast second press — it is a clock that moved
-    // backwards. Treating it as one would send an escape nobody asked for.
-    const doubled = since >= 0 && since < TERM_ESCAPE_WINDOW_MS
-    this.#lastTermEscape = doubled ? 0 : now
-    if (!doubled) return
-
-    if (!app.thread.terminal) return
-    terminals.write(app.workspace.id, ESCAPE)
-    app.mode = 'TERM'
-  }
-
   /** Moves the focused column itself, rather than the focus. */
   moveColumn(delta: number): void {
     const from = app.threadIndex
@@ -245,6 +181,13 @@ class ShellState {
     }
 
     const before = this.keyState
+    // `esc` backs out of one thing at a time. An overlay or a mode is the
+    // nearer thing, so the block ring is only released once the column is
+    // otherwise plain — which is also the only state it is visible in.
+    if (event.key === 'Escape' && before.overlay === null && before.mode === 'NORMAL') {
+      blockFocus.clear(app.thread.id)
+    }
+
     const { state, actions, preventDefault, timer } = reduceKey(before, event, {
       workspaceCount: app.workspaces.length,
     })
@@ -268,14 +211,19 @@ class ShellState {
       case 'moveThread':
         app.moveThread(action.delta)
         break
-      case 'scrollColumn':
-        scrollColumn(app.thread.id, action.delta)
+      case 'moveBlock':
+        this.moveBlock(action.delta)
         break
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is
         // TERM, not the composer — which is not even on screen.
-        if (app.thread.terminal) this.#enterTerm()
-        else this.focusComposer()
+        if (app.thread.terminal) termMode.enter()
+        else {
+          // A half-dimmed transcript behind a live caret reads as broken. The
+          // reader has stopped navigating; give the column its plain look back.
+          blockFocus.clear(app.thread.id)
+          this.focusComposer()
+        }
         break
       case 'blurComposer':
         this.targets.composer?.blur()
@@ -299,10 +247,10 @@ class ShellState {
         this.requestClose()
         break
       case 'openTerminal':
-        this.openTerminal()
+        termMode.open()
         break
       case 'termEscape':
-        this.termEscape()
+        termMode.escape()
         break
       case 'moveColumn':
         this.moveColumn(action.delta)

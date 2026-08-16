@@ -11,7 +11,7 @@ export interface KeyState {
 export type Action =
   | { type: 'goWorkspace'; index: number }
   | { type: 'moveThread'; delta: number }
-  | { type: 'scrollColumn'; delta: number }
+  | { type: 'moveBlock'; delta: number }
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
@@ -47,6 +47,8 @@ export interface KeyResult {
 }
 
 export const LEADER_TIMEOUT_MS = 2600
+/** How far a terminal column scrolls per keypress. Thread columns move by a
+ *  block instead, so this is the pty's step only. */
 export const SCROLL_STEP = 100
 
 export const initialKeyState: KeyState = { mode: 'NORMAL', overlay: null }
@@ -171,9 +173,9 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     case 'ArrowRight':
       return result(state, [{ type: 'moveThread', delta: 1 }])
     case 'j':
-      return result(state, [{ type: 'scrollColumn', delta: SCROLL_STEP }])
+      return result(state, [{ type: 'moveBlock', delta: 1 }])
     case 'k':
-      return result(state, [{ type: 'scrollColumn', delta: -SCROLL_STEP }])
+      return result(state, [{ type: 'moveBlock', delta: -1 }])
     case 't':
       return result(state, [{ type: 'openTerminal' }])
     case 'w':

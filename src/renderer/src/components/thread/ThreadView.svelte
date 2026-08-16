@@ -9,6 +9,7 @@
   import QueuedSteer from './QueuedSteer.svelte'
   import RawBlock from './RawBlock.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
+  import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
   import { marksTurnStart } from '$lib/thread-turn'
@@ -41,6 +42,10 @@
   // said once, above the first thing the agent did, rather than once per
   // message — which is what made a four-tool turn read as four separate PIs.
   const opensTurn = $derived(marksTurnStart(shown))
+
+  // Null until the reader starts navigating. That is what keeps a column
+  // nobody has touched looking exactly as it always did: no ring, no dim.
+  const focused = $derived(blockFocus.idOf(threadId))
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -52,50 +57,89 @@
   {#if opensTurn[i]}
     <AgentLabel />
   {/if}
-  {#if block.kind === 'user'}
-    <Message role="user" text={block.text} />
-  {:else if block.kind === 'agent'}
-    <Message role="agent" text={block.text} streaming={block.streaming} labelled={false} />
-  {:else if block.kind === 'ledger'}
-    <Ledger rows={block.rows} />
-  {:else if block.kind === 'ask'}
-    <AskCard
-      question={block.question}
-      options={block.options}
-      answered={block.answeredIndex}
-      onanswer={wired ? (index) => threads.answer(threadId, block.id, index) : undefined}
-    />
-  {:else if block.kind === 'approve'}
-    <ApproveCard
-      command={block.command}
-      note={block.note}
-      outcome={block.outcome}
-      onresolve={wired
-        ? (outcome) => threads.resolveApproval(threadId, block.id, outcome)
-        : undefined}
+  {#if block.kind === 'ledger'}
+    <!-- A ledger is not one thing to point at: each of its rows is. It draws
+         its own rings, so the wrapper below would only dim the whole spine. -->
+    <Ledger
+      rows={block.rows}
+      {threadId}
+      blockId={block.id}
+      focusedNav={focused}
+      dimmed={focused !== null}
     />
   {:else if block.kind === 'checkpoint'}
+    <!-- Not a thing to point at: it is a rule drawn between two blocks, and
+         the message below it is what a restore actually rewinds to. -->
     <Checkpoint
       label={block.label}
       onrestore={wired ? () => threads.restore(threadId, block.id) : undefined}
     />
-  {:else if block.kind === 'compaction'}
-    <Compaction
-      running={block.running}
-      beforePercent={block.beforePercent}
-      afterPercent={block.afterPercent}
-      summary={block.summary}
-      skipped={block.skipped}
-      hidden={block.id === marker ? cut : 0}
-      collapsed={block.id === marker && hidden > 0}
-      ontoggle={() => (expandedFor = expandedFor === marker ? null : marker)}
-    />
-  {:else if block.kind === 'steer'}
-    <QueuedSteer
-      text={block.text}
-      oncancel={wired ? () => threads.cancelSteer(threadId, block.id) : undefined}
-    />
-  {:else if block.kind === 'raw'}
-    <RawBlock rawKind={block.rawKind} detail={block.detail} />
+  {:else}
+    <div
+      class="nav"
+      class:dim={focused !== null && focused !== block.id}
+      class:ring={focused === block.id}
+      use:navTarget={{ threadId, navId: block.id }}
+    >
+      {#if block.kind === 'user'}
+        <Message role="user" text={block.text} />
+      {:else if block.kind === 'agent'}
+        <Message role="agent" text={block.text} streaming={block.streaming} labelled={false} />
+      {:else if block.kind === 'ask'}
+        <AskCard
+          question={block.question}
+          options={block.options}
+          answered={block.answeredIndex}
+          onanswer={wired ? (index) => threads.answer(threadId, block.id, index) : undefined}
+        />
+      {:else if block.kind === 'approve'}
+        <ApproveCard
+          command={block.command}
+          note={block.note}
+          outcome={block.outcome}
+          onresolve={wired
+            ? (outcome) => threads.resolveApproval(threadId, block.id, outcome)
+            : undefined}
+        />
+      {:else if block.kind === 'compaction'}
+        <Compaction
+          running={block.running}
+          beforePercent={block.beforePercent}
+          afterPercent={block.afterPercent}
+          summary={block.summary}
+          skipped={block.skipped}
+          hidden={block.id === marker ? cut : 0}
+          collapsed={block.id === marker && hidden > 0}
+          ontoggle={() => (expandedFor = expandedFor === marker ? null : marker)}
+        />
+      {:else if block.kind === 'steer'}
+        <QueuedSteer
+          text={block.text}
+          oncancel={wired ? () => threads.cancelSteer(threadId, block.id) : undefined}
+        />
+      {:else if block.kind === 'raw'}
+        <RawBlock rawKind={block.rawKind} detail={block.detail} />
+      {/if}
+    </div>
   {/if}
 {/each}
+
+<style>
+  /* The ring and the dim are the whole of the navigation's appearance. Both
+     are cheap on purpose: opacity and a border compose on the GPU, so walking
+     a long transcript never asks for a layout pass. */
+  .nav {
+    transition: opacity 0.12s ease;
+    /* Blocks are independent of one another, so dimming one never re-lays-out
+       the rest of the thread. */
+    contain: layout style;
+  }
+  .nav.dim {
+    opacity: 0.5;
+  }
+  .nav.ring {
+    box-shadow: inset 2px 0 0 var(--accent);
+    padding-left: 8px;
+    margin-left: -10px;
+  }
+</style>

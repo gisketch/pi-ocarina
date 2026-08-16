@@ -55,8 +55,8 @@ describe('NORMAL bindings', () => {
   })
 
   it('scrolls the focused column with j/k', () => {
-    expect(press(NORMAL, 'j').actions).toEqual([{ type: 'scrollColumn', delta: 100 }])
-    expect(press(NORMAL, 'k').actions).toEqual([{ type: 'scrollColumn', delta: -100 }])
+    expect(press(NORMAL, 'j').actions).toEqual([{ type: 'moveBlock', delta: 1 }])
+    expect(press(NORMAL, 'k').actions).toEqual([{ type: 'moveBlock', delta: -1 }])
   })
 
   it('enters INSERT on i and focuses the composer', () => {

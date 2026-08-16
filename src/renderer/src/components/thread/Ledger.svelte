@@ -1,9 +1,27 @@
 <script lang="ts">
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
+  import { navTarget } from '$lib/state/block-focus.svelte'
   import type { ToolRow } from '$lib/thread'
 
-  const { rows }: { rows: ToolRow[] } = $props()
+  interface Props {
+    rows: ToolRow[]
+    /** Which thread this ledger belongs to, for the focus registry. */
+    threadId: string
+    /** The ledger block's own id. A row's nav id is built from both, because a
+     *  tool call id is only unique within the call, not within the thread. */
+    blockId: string
+    /** The focused nav id anywhere in this thread, or null when the reader has
+     *  not started navigating. */
+    focusedNav: string | null
+    /** Whether anything in the thread is focused — which is what turns the
+     *  dim on for every row that is not it. */
+    dimmed: boolean
+  }
+
+  const { rows, threadId, blockId, focusedNav, dimmed }: Props = $props()
+
+  const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
   // Each row carries its own default expansion; user toggles layer on top so rows
   // that arrive later (streaming) still open with their intended default.
@@ -17,7 +35,15 @@
 </script>
 
 {#snippet entry(row: ToolRow, nested: boolean)}
-  <div class="entry">
+  <!-- Nested rows belong to the row that spawned them, so only a top-level row
+       registers: pointing at a subagent's third read is not something the
+       reader can ask for, and a hidden nav id would swallow a `j`. -->
+  <div
+    class="entry"
+    class:dim={!nested && dimmed && focusedNav !== navIdOf(row)}
+    class:ring={!nested && focusedNav === navIdOf(row)}
+    use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
+  >
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
 
     <svelte:element
@@ -83,9 +109,18 @@
 
   .entry {
     position: relative;
+    transition: opacity 0.12s ease;
     /* Rows are independent of each other, so a change in one never forces the
        rest of a long ledger to be re-laid-out. */
     contain: layout style;
+  }
+  .entry.dim {
+    opacity: 0.5;
+  }
+  /* The ring sits on the spine side, where the node dots already are, so a
+     focused row reads as "this one on the spine" rather than as a new box. */
+  .entry.ring {
+    box-shadow: inset 2px 0 0 var(--accent);
   }
 
   /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the

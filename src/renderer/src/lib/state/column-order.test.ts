@@ -20,6 +20,7 @@ vi.mock('../bridge', () => ({
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
+import { termMode } from './term-mode.svelte'
 import { terminals } from './terminal.svelte'
 import { terminalId } from '../types'
 
@@ -74,7 +75,7 @@ describe('moving columns', () => {
 
   it('moves the terminal like any other column', () => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
 
     shell.moveColumn(-1)
 
@@ -85,7 +86,7 @@ describe('moving columns', () => {
 describe('closing the terminal column', () => {
   beforeEach(() => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
     app.mode = 'NORMAL'
   })
 
@@ -130,7 +131,7 @@ describe('when the shell cannot start', () => {
     // empty column in TERM and an unhandled rejection nobody sees.
     vi.spyOn(terminals, 'create').mockRejectedValue(new Error('node-pty ABI mismatch'))
 
-    shell.openTerminal()
+    termMode.open()
     await settle()
 
     expect(app.workspace.threads.some((thread) => thread.terminal)).toBe(false)
@@ -142,7 +143,7 @@ describe('when the shell cannot start', () => {
 describe('closing the shell named by the column', () => {
   it('kills that workspace’s shell even if focus moved while it was asked', async () => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
     const kill = vi.spyOn(terminals, 'kill').mockImplementation(() => {})
 
     // The id carries the workspace, so a focus change cannot redirect the kill.
@@ -177,7 +178,7 @@ describe('remembered column order', () => {
 describe('typing at a focused shell', () => {
   it('sends `i` to TERM rather than to a composer that is not there', () => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
+    termMode.open()
     app.mode = 'NORMAL'
     const focus = vi.spyOn(shell, 'focusComposer').mockImplementation(() => {})
 
