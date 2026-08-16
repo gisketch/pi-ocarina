@@ -242,7 +242,7 @@ describe('leaping', () => {
     // Enough blocks to force two-character labels.
     const many = Array.from({ length: LEAP_KEYS.length + 2 }, (_, i) => `b${i}`)
     const { release } = layout('p1', many, 10, 4000)
-    const wide = many.map((id) => ({ id, kind: 'user' as const, blockId: id, label: id }))
+    const wide = many.map((id) => ({ id, kind: 'user' as const, blockId: id, label: id, text: id }))
 
     blockFocus.startLeap('p1', wide)
     const first = blockFocus.leap!.labels[0]

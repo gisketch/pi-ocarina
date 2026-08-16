@@ -14,6 +14,7 @@ export type Action =
   | { type: 'moveBlock'; delta: number }
   | { type: 'page'; delta: number }
   | { type: 'leap' }
+  | { type: 'openBlockMenu' }
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
@@ -47,6 +48,17 @@ export interface KeyResult {
   /** Leader timeout lifecycle for the caller to honour. */
   timer: 'start' | 'clear' | null
 }
+
+/** Keys that only ever modify another key. Pressing one is not an answer to
+ *  anything, so a modal question must let them pass rather than read it as a
+ *  decline. */
+export const MODIFIER_KEYS: ReadonlySet<string> = new Set([
+  'Shift',
+  'Control',
+  'Alt',
+  'Meta',
+  'CapsLock',
+])
 
 export const LEADER_TIMEOUT_MS = 2600
 /** How far a terminal column scrolls per keypress. Thread columns move by a
@@ -205,6 +217,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'search')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
+    case 'a':
+      // The reducer does not know whether a block is focused; the shell drops
+      // the action when there is nothing to act on.
+      return result(state, [{ type: 'openBlockMenu' }])
     case 's':
       return result(state, [{ type: 'leap' }])
     case 'y':

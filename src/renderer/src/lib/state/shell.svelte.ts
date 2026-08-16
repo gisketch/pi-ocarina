@@ -5,9 +5,8 @@ import { confirm } from './confirm.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
-import { scrollColumn } from './columns'
-import { blockFocus } from './block-focus.svelte'
-import { navBlocks } from '../blocks'
+import { blockMenu } from './block-menu.svelte'
+import { blockNav } from './block-nav.svelte'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
@@ -16,25 +15,10 @@ import {
   type KeyEventLike,
   type KeyState,
   LEADER_TIMEOUT_MS,
-  SCROLL_STEP,
+  MODIFIER_KEYS,
   initialKeyState,
   reduceKey,
 } from '../keyboard'
-
-/** How many `j` presses a half-page press is worth to a column that scrolls by
- *  a step rather than to a block. */
-const PAGE_MULTIPLE = 5
-
-/** Keys that only ever modify another key. Pressing one is not an answer to
- *  anything, so a modal question must let them pass rather than read them as a
- *  decline. */
-const MODIFIER_KEYS: ReadonlySet<string> = new Set([
-  'Shift',
-  'Control',
-  'Alt',
-  'Meta',
-  'CapsLock',
-])
 
 /** Focus targets the keyboard layer drives. Registered by the components that own
  *  the elements so the machine itself stays DOM-free. */
@@ -142,51 +126,6 @@ class ShellState {
     catalog.closeThread(threadId)
   }
 
-  /** One key while hints are on screen. Always consumed: a keystroke that fell
-   *  through to a binding would move the very ring the reader is aiming. */
-  #handleLeapKey(event: KeyEventLike): boolean {
-    // A bare modifier is not an answer, and neither is a chord: reaching for
-    // a capital, or for ⌘K, must not silently throw the hints away.
-    if (MODIFIER_KEYS.has(event.key)) return false
-    if (event.key === 'Escape' || event.metaKey || event.ctrlKey || event.altKey) {
-      blockFocus.cancelLeap()
-      return true
-    }
-
-    // Labels are single characters. Anything longer is a named key — an arrow,
-    // a function key — which no label can be, so it ends the mode.
-    if (event.key.length !== 1) blockFocus.cancelLeap()
-    else blockFocus.typeLeap(event.key)
-    return true
-  }
-
-  /** `s`. Labels what the reader can see, so the next key is a destination. */
-  leap(): void {
-    if (app.thread.terminal) return
-    blockFocus.startLeap(app.thread.id, navBlocks(threads.get(app.thread.id).blocks))
-  }
-
-  /** `j` and `k`. A thread column moves its block ring; a shell has no blocks,
-   *  so it scrolls the way it always did. */
-  moveBlock(delta: number): void {
-    if (app.thread.terminal) {
-      scrollColumn(app.thread.id, delta * SCROLL_STEP)
-      return
-    }
-
-    blockFocus.move(app.thread.id, navBlocks(threads.get(app.thread.id).blocks), delta)
-  }
-  /** `ctrl-d` and `ctrl-u`. A shell has no blocks to land on, so it scrolls by
-   *  the same magnitude instead — half a screen either way. */
-  page(delta: number): void {
-    if (app.thread.terminal) {
-      scrollColumn(app.thread.id, delta * SCROLL_STEP * PAGE_MULTIPLE)
-      return
-    }
-
-    blockFocus.page(app.thread.id, navBlocks(threads.get(app.thread.id).blocks), delta)
-  }
-
   /** Moves the focused column itself, rather than the focus. */
   moveColumn(delta: number): void {
     const from = app.threadIndex
@@ -204,11 +143,18 @@ class ShellState {
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
 
+    // The block menu is a list with a highlight, and it is modal: it ranks
+    // below the two questions above and above the hint mode, which is not.
+    if (blockMenu.open) {
+      if (MODIFIER_KEYS.has(event.key)) return false
+      return blockMenu.handleKey(event)
+    }
+
     // Hints own every key while they are on screen — that is what lets a label
     // be `j` without colliding with the binding. They rank below the modals
     // above, which are asked because an answer changes work already in flight,
     // and above everything below, which is ordinary navigation.
-    if (blockFocus.leap !== null) return this.#handleLeapKey(event)
+    if (blockNav.leaping) return blockNav.handleLeapKey(event)
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run
@@ -230,7 +176,7 @@ class ShellState {
     // nearer thing, so the block ring is only released once the column is
     // otherwise plain — which is also the only state it is visible in.
     if (event.key === 'Escape' && before.overlay === null && before.mode === 'NORMAL') {
-      blockFocus.clear(app.thread.id)
+      blockNav.release()
     }
 
     const { state, actions, preventDefault, timer } = reduceKey(before, event, {
@@ -257,13 +203,16 @@ class ShellState {
         app.moveThread(action.delta)
         break
       case 'moveBlock':
-        this.moveBlock(action.delta)
+        blockNav.moveBlock(action.delta)
         break
       case 'page':
-        this.page(action.delta)
+        blockNav.page(action.delta)
         break
       case 'leap':
-        this.leap()
+        blockNav.leap()
+        break
+      case 'openBlockMenu':
+        blockNav.openBlockMenu()
         break
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is
@@ -272,7 +221,7 @@ class ShellState {
         else {
           // A half-dimmed transcript behind a live caret reads as broken. The
           // reader has stopped navigating; give the column its plain look back.
-          blockFocus.clear(app.thread.id)
+          blockNav.release()
           this.focusComposer()
         }
         break

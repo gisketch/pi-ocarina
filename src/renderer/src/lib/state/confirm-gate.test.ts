@@ -30,6 +30,9 @@ import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { shell } from './shell.svelte'
 import { blockFocus, registerBlock } from './block-focus.svelte'
+import { blockMenu } from './block-menu.svelte'
+import { navBlocks } from '../blocks'
+import { threads } from './threads.svelte'
 import { registerColumnBody } from './columns'
 
 const WORKSPACE = {
@@ -58,6 +61,7 @@ beforeEach(() => {
   commit.close()
   blockFocus.cancelLeap()
   blockFocus.clear('s1')
+  blockMenu.close()
 })
 
 /** Puts one labelled block on screen in the focused thread. */
@@ -214,5 +218,110 @@ describe('the hint mode through the real key path', () => {
     expect(commit.open).toBe(false)
     expect(blockFocus.leap).not.toBeNull()
     release()
+  })
+})
+
+
+// The menu is modal, and its rank is the whole point: below the two questions
+// that are asked because work is in flight, above the hints that are not.
+describe('the block menu through the real key path', () => {
+  const block = navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0]
+
+  it('swallows a key that would otherwise move the focus', () => {
+    blockMenu.openOn('s1', block)
+
+    expect(shell.handleKey({ key: 'l' })).toBe(true)
+    expect(app.focus[0]).toBe(0)
+    expect(blockMenu.open).toBe(true)
+  })
+
+  it('lets a bare modifier through rather than reading it as a choice', () => {
+    blockMenu.openOn('s1', block)
+
+    expect(shell.handleKey({ key: 'Shift' })).toBe(false)
+    expect(blockMenu.open).toBe(true)
+  })
+
+  it('closes on escape', () => {
+    blockMenu.openOn('s1', block)
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(blockMenu.open).toBe(false)
+  })
+
+  it('yields to the destructive modal, which outranks it', () => {
+    blockMenu.openOn('s1', block)
+    void confirm.ask(QUESTION)
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(confirm.pending).toBe(false)
+    expect(blockMenu.open).toBe(true)
+  })
+
+  it('outranks the hint mode, which is not modal', () => {
+    blockMenu.openOn('s1', block)
+    blockFocus.leap = { threadId: 's1', ids: ['u1'], labels: ['a'], typed: '' }
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(blockMenu.open).toBe(false)
+    expect(blockFocus.leap).not.toBeNull()
+  })
+})
+
+
+// The state modules can all be right while nothing reaches them. This drives
+// the real key path and asserts on the ring itself, which is the seam the
+// per-module tests step over.
+describe('the transcript through the real key path', () => {
+  beforeEach(() => {
+    threads.seed('s1', {
+      blocks: [
+        { kind: 'user', id: 'u1', text: 'hello' },
+        { kind: 'agent', id: 'a1', text: 'sure' },
+      ],
+      status: 'idle',
+      runState: 'idle',
+    })
+  })
+
+  it('moves the ring on j and k', () => {
+    shell.handleKey({ key: 'j' })
+    expect(blockFocus.idOf('s1')).toBe('u1')
+
+    shell.handleKey({ key: 'j' })
+    expect(blockFocus.idOf('s1')).toBe('a1')
+
+    shell.handleKey({ key: 'k' })
+    expect(blockFocus.idOf('s1')).toBe('u1')
+  })
+
+  it('releases the ring on escape', () => {
+    shell.handleKey({ key: 'j' })
+    shell.handleKey({ key: 'Escape' })
+
+    expect(blockFocus.idOf('s1')).toBeNull()
+  })
+
+  it('opens the menu on a with the focused block, and does nothing without one', () => {
+    shell.handleKey({ key: 'a' })
+    expect(blockMenu.open).toBe(false)
+
+    shell.handleKey({ key: 'j' })
+    shell.handleKey({ key: 'a' })
+
+    expect(blockMenu.open).toBe(true)
+    expect(blockMenu.block?.id).toBe('u1')
+    expect(blockMenu.threadId).toBe('s1')
+  })
+
+  it('gives the transcript back its plain look when the composer takes the caret', () => {
+    shell.handleKey({ key: 'j' })
+    shell.handleKey({ key: 'i' })
+
+    expect(blockFocus.idOf('s1')).toBeNull()
+    app.mode = 'NORMAL'
   })
 })

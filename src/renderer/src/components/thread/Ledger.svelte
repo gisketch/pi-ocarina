@@ -1,7 +1,9 @@
 <script lang="ts">
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
+  import BlockMenu from './BlockMenu.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
+  import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
 
   interface Props {
@@ -46,6 +48,9 @@
   >
     {#if !nested && blockFocus.labelOf(threadId, navIdOf(row))}
       <span class="hint">{blockFocus.labelOf(threadId, navIdOf(row))}</span>
+    {/if}
+    {#if !nested && blockMenu.threadId === threadId && blockMenu.block?.id === navIdOf(row)}
+      <BlockMenu />
     {/if}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
 

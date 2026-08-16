@@ -4,12 +4,13 @@
   import AskCard from './AskCard.svelte'
   import ApproveCard from './ApproveCard.svelte'
   import AgentLabel from './AgentLabel.svelte'
-  import Checkpoint from './Checkpoint.svelte'
   import Compaction from './Compaction.svelte'
   import QueuedSteer from './QueuedSteer.svelte'
   import RawBlock from './RawBlock.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
+  import BlockMenu from './BlockMenu.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
+  import { blockMenu } from '$lib/state/block-menu.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
   import { marksTurnStart } from '$lib/thread-turn'
@@ -72,12 +73,9 @@
       dimmed={focused !== null && !hinting}
     />
   {:else if block.kind === 'checkpoint'}
-    <!-- Not a thing to point at: it is a rule drawn between two blocks, and
-         the message below it is what a restore actually rewinds to. -->
-    <Checkpoint
-      label={block.label}
-      onrestore={wired ? () => threads.restore(threadId, block.id) : undefined}
-    />
+    <!-- Nothing is drawn. A checkpoint is a place in the session, not a thing
+         in the conversation; the message it belongs to carries it, and the
+         block menu is where restoring it lives. -->
   {:else}
     <div
       class="nav"
@@ -87,6 +85,9 @@
     >
       {#if blockFocus.labelOf(threadId, block.id)}
         <span class="hint">{blockFocus.labelOf(threadId, block.id)}</span>
+      {/if}
+      {#if blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === block.id}
+        <BlockMenu />
       {/if}
       {#if block.kind === 'user'}
         <Message role="user" text={block.text} />

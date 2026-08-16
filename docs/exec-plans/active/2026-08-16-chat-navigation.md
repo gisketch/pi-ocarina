@@ -254,7 +254,7 @@ the commit card still outrank the hint mode; CDP pass; `pnpm check`.
 
 Blocked by: H1
 
-## H4 — `a` opens a block menu; the checkpoint separator retires — `todo`
+## H4 — `a` opens a block menu; the checkpoint separator retires — `done`
 
 Delivered behavior: `a` on a focused block opens a small menu beside it with
 `copy` and, on a user message, `restore checkpoint`. The dashed CHECKPOINT rule

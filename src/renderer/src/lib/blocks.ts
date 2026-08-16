@@ -23,8 +23,10 @@ export interface NavBlock {
   rowId?: string
   /** The session entry this message can be rewound to, when it is one. */
   checkpointId?: string
-  /** Short human label — leap hints and the block menu both show it. */
+  /** Short human label — the block menu's header shows it. */
   label: string
+  /** What `copy` takes: the whole message, or a tool row's target. */
+  text: string
 }
 
 const LABEL_MAX = 40
@@ -59,6 +61,9 @@ function toolEntry(blockId: string, row: ToolRow): NavBlock {
     blockId,
     rowId: row.id,
     label: short(`${row.kind} ${row.target}`),
+    // The target, not the whole row: a path or a command is the thing a reader
+    // wants in the clipboard, and "read src/a.ts" pastes into nothing.
+    text: row.target,
   }
 }
 
@@ -93,6 +98,7 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
         kind: 'user',
         blockId: block.id,
         label: short(block.text),
+        text: block.text,
         ...(pendingCheckpoint === null ? {} : { checkpointId: pendingCheckpoint }),
       })
       pendingCheckpoint = null
@@ -104,6 +110,7 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
       kind: block.kind,
       blockId: block.id,
       label: block.kind === 'agent' ? short(block.text) : cardLabel(block),
+      text: block.kind === 'agent' ? block.text : cardLabel(block),
     })
     pendingCheckpoint = null
   }
