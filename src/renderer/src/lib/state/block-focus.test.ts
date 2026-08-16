@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { blockElement, blockFocus, registerBlock, revealBlock } from './block-focus.svelte'
+import { registerColumnBody } from './columns'
 import { navBlocks } from '../blocks'
 import type { Block } from '../thread'
 
@@ -108,5 +109,73 @@ describe('reveal', () => {
     revealBlock('t3', 'u1')
     expect(spy).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
     off()
+  })
+})
+
+
+/** A column of blocks laid out at a fixed pitch, so paging arithmetic can be
+ *  checked against numbers rather than against a browser. */
+function layout(threadId: string, ids: string[], pitch: number, viewport: number) {
+  const body = {
+    scrollTop: 0,
+    clientHeight: viewport,
+    getBoundingClientRect: () => ({ top: -body.scrollTop }) as DOMRect,
+    scrollBy() {},
+  }
+  const offs = [registerColumnBody(threadId, body as unknown as HTMLElement)]
+
+  ids.forEach((id, i) => {
+    const el = {
+      getBoundingClientRect: () => ({ top: i * pitch - body.scrollTop }) as DOMRect,
+      scrollIntoView() {
+        body.scrollTop = i * pitch
+      },
+    }
+    offs.push(registerBlock(threadId, id, el as unknown as HTMLElement))
+  })
+
+  return { body, release: () => offs.forEach((off) => off()) }
+}
+
+describe('paging', () => {
+  const ids = ['u1', 'a1', 'l1:r1']
+
+  beforeEach(() => blockFocus.clear('p1'))
+
+  it('lands on the first block at or below the new top', () => {
+    // Blocks every 100px, a 400px viewport: half a page is 200px, which is the
+    // third block exactly.
+    const { body, release } = layout('p1', ids, 100, 400)
+
+    blockFocus.page('p1', list, 1)
+    expect(blockFocus.idOf('p1')).toBe('l1:r1')
+    expect(body.scrollTop).toBe(200)
+    release()
+  })
+
+  it('stops at the last block it drew rather than running off the end', () => {
+    const { release } = layout('p1', ids, 100, 4000)
+
+    blockFocus.page('p1', list, 1)
+    expect(blockFocus.idOf('p1')).toBe('l1:r1')
+    release()
+  })
+
+  it('comes back up, and stops at the first block', () => {
+    const { body, release } = layout('p1', ids, 100, 400)
+
+    blockFocus.page('p1', list, 1)
+    blockFocus.page('p1', list, -1)
+    expect(blockFocus.idOf('p1')).toBe('u1')
+    expect(body.scrollTop).toBe(0)
+    release()
+  })
+
+  it('moves one block when the column has no measurable page', () => {
+    // A terminal column, or one that has not painted: there is no scroll box
+    // registered, so there is no half of anything to take.
+    blockFocus.page('p2', list, 1)
+    expect(blockFocus.idOf('p2')).toBe('u1')
+    blockFocus.clear('p2')
   })
 })

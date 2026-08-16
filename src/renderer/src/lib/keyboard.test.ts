@@ -59,6 +59,41 @@ describe('NORMAL bindings', () => {
     expect(press(NORMAL, 'k').actions).toEqual([{ type: 'moveBlock', delta: -1 }])
   })
 
+  it('pages half a screen on ctrl-d and ctrl-u', () => {
+    expect(press(NORMAL, { key: 'd', ctrlKey: true }).actions).toEqual([
+      { type: 'page', delta: 1 },
+    ])
+    expect(press(NORMAL, { key: 'u', ctrlKey: true }).actions).toEqual([
+      { type: 'page', delta: -1 },
+    ])
+  })
+
+  it('leaves ctrl-u to the composer, where it clears the line', () => {
+    const result = reduceKey(INSERT, { key: 'u', ctrlKey: true }, ctx)
+
+    expect(result.actions).toEqual([])
+    expect(result.preventDefault).toBe(false)
+  })
+
+  it('leaves ctrl-d to an overlay that owns a caret', () => {
+    const searching: KeyState = { ...NORMAL, overlay: 'search' }
+
+    expect(reduceKey(searching, { key: 'd', ctrlKey: true }, ctx).actions).toEqual([])
+  })
+
+  it('does not read a paging chord as one when another modifier is held', () => {
+    expect(press(NORMAL, { key: 'd', ctrlKey: true, altKey: true }).actions).toEqual([])
+    expect(press(NORMAL, { key: 'd', ctrlKey: true, metaKey: true }).actions).toEqual([])
+  })
+
+  it('leaves both paging chords to the pty in TERM', () => {
+    const term: KeyState = { ...initialKeyState, mode: 'TERM' }
+    const result = reduceKey(term, { key: 'd', ctrlKey: true }, ctx)
+
+    expect(result.actions).toEqual([])
+    expect(result.preventDefault).toBe(false)
+  })
+
   it('enters INSERT on i and focuses the composer', () => {
     const { state, actions } = press(NORMAL, 'i')
     expect(state.mode).toBe('INSERT')

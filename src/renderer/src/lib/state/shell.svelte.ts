@@ -21,6 +21,10 @@ import {
   reduceKey,
 } from '../keyboard'
 
+/** How many `j` presses a half-page press is worth to a column that scrolls by
+ *  a step rather than to a block. */
+const PAGE_MULTIPLE = 5
+
 /** Keys that only ever modify another key. Pressing one is not an answer to
  *  anything, so a modal question must let them pass rather than read them as a
  *  decline. */
@@ -148,6 +152,17 @@ class ShellState {
 
     blockFocus.move(app.thread.id, navBlocks(threads.get(app.thread.id).blocks), delta)
   }
+  /** `ctrl-d` and `ctrl-u`. A shell has no blocks to land on, so it scrolls by
+   *  the same magnitude instead — half a screen either way. */
+  page(delta: number): void {
+    if (app.thread.terminal) {
+      scrollColumn(app.thread.id, delta * SCROLL_STEP * PAGE_MULTIPLE)
+      return
+    }
+
+    blockFocus.page(app.thread.id, navBlocks(threads.get(app.thread.id).blocks), delta)
+  }
+
   /** Moves the focused column itself, rather than the focus. */
   moveColumn(delta: number): void {
     const from = app.threadIndex
@@ -213,6 +228,9 @@ class ShellState {
         break
       case 'moveBlock':
         this.moveBlock(action.delta)
+        break
+      case 'page':
+        this.page(action.delta)
         break
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is

@@ -140,7 +140,7 @@ the dim classes and for scroll-into-view on an off-screen block; `pnpm check`.
 
 Blocked by: —
 
-## H2 — `ctrl-u` and `ctrl-d` page the transcript — `todo`
+## H2 — `ctrl-u` and `ctrl-d` page the transcript — `done`
 
 Delivered behavior: `ctrl-d` moves down half a viewport, `ctrl-u` moves up half
 a viewport, and the block focus lands on the first block now at the top of the

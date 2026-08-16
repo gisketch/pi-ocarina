@@ -5,6 +5,7 @@
   import { WebglAddon } from '@xterm/addon-webgl'
   import { app } from '$lib/state/app.svelte'
   import { registerColumnScroller } from '$lib/state/columns'
+  import { SCROLL_STEP } from '$lib/keyboard'
   import { xtermShouldHandle } from '$lib/terminal-keys'
   import { terminalId } from '$lib/types'
   import { terminals } from '$lib/state/terminal.svelte'
@@ -89,7 +90,12 @@
     // is. xterm keeps its scrollback in a buffer of its own rather than as DOM
     // overflow, so it registers its scroll call instead of an element.
     const unregister = registerColumnScroller(terminalId(workspaceId), (top) => {
-      term?.scrollLines(Math.sign(top) * SCROLL_LINES)
+      // The magnitude is in the thread column's pixels; a terminal counts in
+      // lines. Converting keeps one contract — a scroller is asked to move by
+      // an amount — so a half-page press moves a shell about as far as it
+      // moves a transcript.
+      const steps = Math.max(1, Math.round(Math.abs(top) / SCROLL_STEP))
+      term?.scrollLines(Math.sign(top) * SCROLL_LINES * steps)
     })
 
     return () => {

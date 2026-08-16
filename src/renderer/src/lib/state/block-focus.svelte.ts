@@ -8,6 +8,7 @@
  *  drew, and this module never queries the DOM by class or tag. */
 
 import { type NavBlock, step } from '../blocks'
+import { columnBody } from './columns'
 
 const elements = new Map<string, Map<string, HTMLElement>>()
 
@@ -68,6 +69,51 @@ class BlockFocus {
 
     this.set(threadId, next)
     revealBlock(threadId, next)
+  }
+
+  /** `ctrl-d` and `ctrl-u`. Half a viewport, and the ring goes with the view.
+   *
+   *  There is one scroll, not two: the ring lands on the first block that would
+   *  be at the new top, and revealing that block from `start` is what performs
+   *  the move. Scrolling first and then revealing would fight itself, because
+   *  a smooth scroll has not landed by the time the next rect is read. */
+  page(threadId: string, list: NavBlock[], delta: number): void {
+    const body = columnBody(threadId)
+    if (!body || list.length === 0) {
+      // A terminal column, or one that has not painted. One block is a
+      // truthful answer to "page" when there is no page to measure.
+      this.move(threadId, list, delta)
+      return
+    }
+
+    const target = body.scrollTop + (delta * body.clientHeight) / 2
+    const origin = body.getBoundingClientRect().top - body.scrollTop
+
+    let chosen: string | null = null
+    let last: string | null = null
+    for (const entry of list) {
+      const el = blockElement(threadId, entry.id)
+      if (!el) continue
+
+      last = entry.id
+      // Rounded to whole pixels: a sub-pixel top on the block already at the
+      // target would otherwise read as "below it" and skip one.
+      if (Math.round(el.getBoundingClientRect().top - origin) >= Math.round(target)) {
+        chosen = entry.id
+        break
+      }
+    }
+
+    // Nothing below the target means the target is past the end. The last
+    // block that was actually drawn is as far as paging can go.
+    const next = chosen ?? last
+    if (next === null) {
+      this.move(threadId, list, delta)
+      return
+    }
+
+    this.set(threadId, next)
+    blockElement(threadId, next)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 }
 

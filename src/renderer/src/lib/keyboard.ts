@@ -12,6 +12,7 @@ export type Action =
   | { type: 'goWorkspace'; index: number }
   | { type: 'moveThread'; delta: number }
   | { type: 'moveBlock'; delta: number }
+  | { type: 'page'; delta: number }
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
@@ -86,6 +87,12 @@ function focusFor(overlay: Overlay | null): Action[] {
   return []
 }
 
+/** Whether something on screen owns the caret. Everything the shell would
+ *  otherwise read as a binding must reach it untouched. */
+function isTyping(state: KeyState): boolean {
+  return state.mode === 'INSERT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
+}
+
 function toggleOverlay(state: KeyState, overlay: Overlay): KeyResult {
   const next = state.overlay === overlay ? null : overlay
   return result({ ...state, overlay: next }, focusFor(next))
@@ -135,14 +142,20 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     )
   }
 
+  // Half-page paging, by the convention every pager and editor already taught.
+  // It has to be resolved above the bail-out below, which exists so that every
+  // other control chord reaches whatever has the caret.
+  if (event.ctrlKey && !event.metaKey && !event.altKey && !isTyping(state)) {
+    if (key === 'd') return result(state, [{ type: 'page', delta: 1 }])
+    if (key === 'u') return result(state, [{ type: 'page', delta: -1 }])
+  }
+
   if (event.altKey || mod) return result(state, [], false)
 
   if (state.mode === 'LEADER') return reduceLeader(state, key, ctx)
 
   const anyOverlay = state.overlay !== null
-  // An overlay with an input owns the caret whenever it is open.
-  const typing =
-    state.mode === 'INSERT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
+  const typing = isTyping(state)
 
   // Digits jump workspaces even from a focused palette — the design's escape hatch.
   const index = digitFor(key, ctx.workspaceCount)

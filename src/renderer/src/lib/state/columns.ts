@@ -13,9 +13,26 @@ export function registerColumnScroller(id: string, scroll: (top: number) => void
   }
 }
 
+/** The elements thread columns scroll. A terminal has no entry here: its
+ *  buffer belongs to xterm and is not DOM overflow. */
+const bodies = new Map<string, HTMLElement>()
+
 /** Registers a scrollable element, which is how thread columns scroll. */
 export function registerColumnBody(id: string, el: HTMLElement): () => void {
-  return registerColumnScroller(id, (top) => el.scrollBy({ top, behavior: 'smooth' }))
+  bodies.set(id, el)
+  const unscroll = registerColumnScroller(id, (top) => el.scrollBy({ top, behavior: 'smooth' }))
+
+  return () => {
+    unscroll()
+    if (bodies.get(id) === el) bodies.delete(id)
+  }
+}
+
+/** The column's scroll box, for readers that need its height rather than a
+ *  way to move it. Absent for a terminal column, and for one that has not
+ *  painted yet. */
+export function columnBody(id: string): HTMLElement | undefined {
+  return bodies.get(id)
 }
 
 export function scrollColumn(id: string, top: number): void {
