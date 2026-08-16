@@ -1,6 +1,8 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
 import type { TerminalLine, ToolBody, ToolKind } from '../../shared/vocabulary'
+import type { CallChange } from './change-log'
+import { countChanges, diffLines } from './file-diff'
 
 /** Longest tool body we forward. A tool that prints a megabyte should not cost
  *  a megabyte of IPC; the ledger only ever shows a preview anyway. */
@@ -89,6 +91,22 @@ export function toolBody(toolName: string, result: unknown): ToolBody | undefine
   return undefined
 }
 
+/** The diff of one call, as the ledger's body. */
+function diffBody(change: CallChange): ToolBody | undefined {
+  const lines = diffLines(change.before, change.after, { path: change.path })
+  // A call that changed nothing — an edit that replaced text with itself — has
+  // nothing to show, and an empty panel says less than no panel.
+  return lines.length === 0 ? undefined : { type: 'diff', lines }
+}
+
+/** The row's right-hand summary: `+14 −3`, or `new file`. */
+function changeMeta(change: CallChange): string | undefined {
+  const { added, removed } = countChanges(diffLines(change.before, change.after, { path: change.path }))
+  if (added === 0 && removed === 0) return undefined
+  if (change.before === '') return `+${added} new file`
+  return removed === 0 ? `+${added}` : `+${added} −${removed}`
+}
+
 /** Translates one pi session's events into the UI vocabulary.
  *
  *  Stateful only where pi is: pi streams text without naming the message, so
@@ -107,6 +125,10 @@ export class PiTranslator {
   /** The model's context window, for turning token counts into percentages.
    *  Supplied by the driver, which can read the live session's stats. */
   readonly #contextWindow: () => number | undefined
+  /** What a call did to its file, when the driver was watching the file. Only
+   *  the driver can know this: pi reports which tool ran, never what the file
+   *  looked like on either side of it. */
+  #takeChange: (toolCallId: string) => CallChange | null = () => null
 
   /** Whether the approval gate stopped a call. pi reports every failure the
    *  same way (`isError`), so without this a command the user refused would
@@ -119,6 +141,11 @@ export class PiTranslator {
   ) {
     this.#contextWindow = contextWindow
     this.#wasBlocked = wasBlocked
+  }
+
+  /** Told once, by the driver that owns the snapshots. */
+  watchChanges(take: (toolCallId: string) => CallChange | null): void {
+    this.#takeChange = take
   }
 
   /** Closes out every call still in flight, as cancelled.
@@ -201,7 +228,12 @@ export class PiTranslator {
       case 'tool_execution_end': {
         this.#open.delete(event.toolCallId)
         const events: UiEvent[] = []
-        const body = toolBody(event.toolName, event.result)
+        // A file the driver was watching answers for itself: the diff is the
+        // two snapshots, not anything pi said about them.
+        const change = this.#takeChange(event.toolCallId)
+        const body = change
+          ? diffBody(change)
+          : toolBody(event.toolName, event.result)
         if (body) events.push({ kind: 'tool-body', id: event.toolCallId, body })
 
         const blocked = this.#wasBlocked(event.toolCallId)
@@ -209,7 +241,7 @@ export class PiTranslator {
           kind: 'tool-end',
           id: event.toolCallId,
           status: blocked ? 'denied' : event.isError ? 'fail' : 'ok',
-          meta: blocked ? 'denied' : undefined,
+          meta: blocked ? 'denied' : change ? changeMeta(change) : undefined,
         })
         return events
       }

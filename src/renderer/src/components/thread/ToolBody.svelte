@@ -18,12 +18,16 @@
 {:else if body.type === 'diff'}
   <div class="panel diff">
     {#each body.lines as line, i (i)}
-      <div
-        class="dline"
-        class:add={line.sign === '+'}
-        class:del={line.sign === '-'}
-        class:ctx={line.sign === ' '}
-      >{line.sign} {line.text}</div>
+      {#if line.sign === '@'}
+        <div class="dline skip">{line.text}</div>
+      {:else}
+        <div
+          class="dline"
+          class:add={line.sign === '+'}
+          class:del={line.sign === '-'}
+          class:ctx={line.sign === ' '}
+        ><span class="num">{line.line ?? ''}</span>{line.sign} {line.text}</div>
+      {/if}
     {/each}
   </div>
 {:else if body.type === 'terminal'}
@@ -92,6 +96,25 @@
   }
   .dline.ctx {
     color: var(--fg-dimmer);
+  }
+  /* Fixed width, right-aligned: the signs line up under each other, which is
+     what lets a reader scan the left edge for what changed rather than reading
+     every line. Four digits covers the files anyone reviews by eye. */
+  .num {
+    display: inline-block;
+    width: 34px;
+    margin-right: 10px;
+    text-align: right;
+    color: var(--fg-ghost);
+    user-select: none;
+  }
+  /* Not a line of the file. It says the file continues, so it is drawn as an
+     aside rather than as content. */
+  .skip {
+    color: var(--fg-ghost);
+    font-size: 10.5px;
+    padding: 4px 12px;
+    font-family: var(--font-chrome);
   }
 
   .terminal {

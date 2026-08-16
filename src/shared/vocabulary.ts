@@ -75,8 +75,14 @@ export interface MatchLine {
 }
 
 export interface DiffLine {
-  sign: '+' | '-' | ' '
+  /** `@` is not a line of the file: it marks unchanged text the diff skipped,
+   *  so a reader can see that the file continues past what is drawn. */
+  sign: '+' | '-' | ' ' | '@'
   text: string
+  /** Where the line sits in the file — before the change for a removal, after
+   *  it for everything else. Absent on a `@` marker, and on a diff that was
+   *  written by hand rather than computed. */
+  line?: number
 }
 
 export interface TerminalLine {

@@ -8,12 +8,14 @@ import type {
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
-import { describeAttachments, readImages } from './attachments'
 import { ApprovalGate } from './approvals'
+import { ChangeLog } from './change-log'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { PiTranslator } from './pi-translate'
 import { emitUsage, replayInto } from './session-report'
+import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
+import { subscribeSession } from './session-events'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
 import { ThreadRegistry } from './thread-registry'
@@ -47,6 +49,7 @@ export class PiDriver implements SessionDriver {
   readonly #steers: SteerQueue
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
+  readonly #changes = new ChangeLog()
 
   constructor({ emit, catalog, model, onUnpin }: PiDriverOptions) {
     this.#emit = emit
@@ -61,6 +64,7 @@ export class PiDriver implements SessionDriver {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)
       this.#steers.forget(threadId)
+      this.#changes.forget(threadId)
     })
   }
 
@@ -86,7 +90,7 @@ export class PiDriver implements SessionDriver {
 
       case 'prompt': {
         const { threadId, text, attachments } = params as CommandParams<'prompt'>
-        await this.#startTurn(threadId, text, attachments ?? [])
+        await startTurn(this.#emit, threadId, this.#threads.get(threadId), text, attachments ?? [])
         return { ok: true } as CommandResult<N>
       }
 
@@ -98,7 +102,7 @@ export class PiDriver implements SessionDriver {
 
       case 'steer': {
         const { threadId, text } = params as CommandParams<'steer'>
-        return { steerId: await this.#steer(threadId, text) } as CommandResult<N>
+        return { steerId: await steerTurn(this.#emit, this.#steers, threadId, this.#threads.get(threadId), text) } as CommandResult<N>
       }
 
       case 'cancelQueuedSteer': {
@@ -109,13 +113,13 @@ export class PiDriver implements SessionDriver {
 
       case 'restoreCheckpoint': {
         const { threadId, checkpointId } = params as CommandParams<'restoreCheckpoint'>
-        await this.#restore(threadId, checkpointId)
+        await restoreCheckpoint(this.#emit, threadId, this.#threads.get(threadId), checkpointId)
         return { threadId } as CommandResult<N>
       }
 
       case 'compact': {
         const { threadId } = params as CommandParams<'compact'>
-        await this.#compact(threadId)
+        await compactThread(this.#threads.get(threadId))
         return { ok: true } as CommandResult<N>
       }
 
@@ -138,7 +142,7 @@ export class PiDriver implements SessionDriver {
         const { lastPrompt } = this.#threads.get(threadId)
         // Nothing to retry is not an error; the UI simply offered a button it
         // did not need to.
-        if (lastPrompt) void this.#startTurn(threadId, lastPrompt)
+        if (lastPrompt) void startTurn(this.#emit, threadId, this.#threads.get(threadId), lastPrompt)
         return { ok: true } as CommandResult<N>
       }
 
@@ -256,10 +260,14 @@ export class PiDriver implements SessionDriver {
       () => session.getSessionStats().contextUsage?.contextWindow,
       (toolCallId) => this.#approvals.takeBlocked(toolCallId),
     )
-    const unsubscribe = session.subscribe((event) => {
-      for (const translated of translator.translate(event)) this.#emit(threadId, translated)
-      if (event.type === 'turn_end') emitUsage(this.#emit, threadId, session)
-      if (event.type === 'queue_update') this.#steers.sync(threadId, event.steering)
+    const unsubscribe = subscribeSession({
+      session,
+      threadId,
+      cwd,
+      translator,
+      emit: this.#emit,
+      changes: this.#changes,
+      steers: this.#steers,
     })
 
     this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
@@ -271,74 +279,6 @@ export class PiDriver implements SessionDriver {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }
     return threadId
-  }
-
-  /** Starts a turn.
-   *
-   *  Attachments are resolved before the turn begins: images become bytes pi
-   *  can see, and everything else is named in the message for pi to open with
-   *  its read tool — pi 0.84 takes text and images, and nothing else. */
-  async #startTurn(threadId: string, text: string, attachments: AttachmentRef[] = []): Promise<void> {
-    const thread = this.#threads.get(threadId)
-    const { session } = thread
-    const images = await readImages(attachments)
-    const prompt = text + describeAttachments(attachments)
-
-    thread.lastPrompt = text
-    thread.prompts += 1
-    this.#emit(threadId, { kind: 'user-message', id: `user-${thread.prompts}`, text: prompt })
-
-    // Deliberately not awaited: a turn runs for minutes and the caller's IPC
-    // reply must not wait for it. Progress and failure both arrive as events.
-    void session.prompt(prompt, images.length > 0 ? { images } : undefined).catch((error: unknown) => {
-      this.#emit(threadId, {
-        kind: 'thread-state',
-        state: 'failed',
-        reason: error instanceof Error ? error.message : String(error),
-      })
-    })
-  }
-
-  /** Queues text for the running turn, or sends it as a prompt if nothing is
-   *  running — the composer never has to know which case it is in. */
-  async #steer(threadId: string, text: string): Promise<string> {
-    const { session } = this.#threads.get(threadId)
-
-    if (!session.isStreaming) {
-      this.#startTurn(threadId, text)
-      return ''
-    }
-
-    const steerId = this.#steers.add(threadId, text)
-    await session.steer(text)
-    return steerId
-  }
-
-  /** Rewinds the conversation to a checkpoint — and only the conversation.
-   *
-   *  pi navigates within the session tree, so the abandoned branch is still on
-   *  disk and nothing on the filesystem is touched. That is the honest promise
-   *  the confirm dialog makes: your files keep their later edits. */
-  async #restore(threadId: string, checkpointId: string): Promise<void> {
-    const { session } = this.#threads.get(threadId)
-
-    const result = await session.navigateTree(checkpointId)
-    if (result.cancelled) return
-
-    // The active branch as pi would send it to the model — which is exactly the
-    // conversation the user should now see.
-    replayInto(this.#emit, threadId, session.sessionManager.buildContextEntries())
-  }
-
-  /** Asks pi to compact. Progress and outcome both arrive as session events, so
-   *  a refusal ("nothing to compact") is already reported by the time this
-   *  rejects — and it is not a thread failure. */
-  async #compact(threadId: string): Promise<void> {
-    try {
-      await this.#threads.get(threadId).session.compact()
-    } catch {
-      // Already surfaced by the translator's `compaction_end` handling.
-    }
   }
 
 }

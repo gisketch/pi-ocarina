@@ -239,3 +239,61 @@ describe('PiTranslator', () => {
     expect(events[0].kind).toBe('tool-end')
   })
 })
+
+describe('a call that changed a file', () => {
+  const change = { path: '/w/a.ts', before: 'one\ntwo\n', after: 'one\nTWO\n' }
+
+  const runEdit = (take: (id: string) => typeof change | null) => {
+    const translator = new PiTranslator()
+    translator.watchChanges(take)
+    translator.translate({
+      type: 'tool_execution_start',
+      toolCallId: 'c1',
+      toolName: 'edit',
+      args: { path: 'a.ts' },
+    } as never)
+    return translator.translate({
+      type: 'tool_execution_end',
+      toolCallId: 'c1',
+      toolName: 'edit',
+      result: 'ok',
+      isError: false,
+    } as never)
+  }
+
+  it('renders the snapshots rather than what pi said about them', () => {
+    const events = runEdit(() => change)
+    const body = events.find((event) => event.kind === 'tool-body')
+
+    expect(body).toBeDefined()
+    expect(body?.kind === 'tool-body' && body.body.type).toBe('diff')
+    if (body?.kind !== 'tool-body' || body.body.type !== 'diff') throw new Error('not a diff')
+    expect(body.body.lines.map((line) => `${line.sign}${line.text}`)).toEqual([
+      ' one',
+      '-two',
+      '+TWO',
+    ])
+  })
+
+  it('counts the change in the row summary', () => {
+    const end = runEdit(() => change).find((event) => event.kind === 'tool-end')
+    expect(end?.kind === 'tool-end' && end.meta).toBe('+1 −1')
+  })
+
+  it('says new file when there was nothing before', () => {
+    const end = runEdit(() => ({ path: '/w/n.ts', before: '', after: 'a\nb\n' })).find(
+      (event) => event.kind === 'tool-end',
+    )
+    expect(end?.kind === 'tool-end' && end.meta).toBe('+2 new file')
+  })
+
+  it('draws no panel for an edit that changed nothing', () => {
+    const same = { path: '/w/a.ts', before: 'x\n', after: 'x\n' }
+    expect(runEdit(() => same).some((event) => event.kind === 'tool-body')).toBe(false)
+  })
+
+  it('falls back to pi when the driver was not watching', () => {
+    // A tool kind we do not snapshot must keep the behaviour it had.
+    expect(runEdit(() => null).some((event) => event.kind === 'tool-body')).toBe(false)
+  })
+})
