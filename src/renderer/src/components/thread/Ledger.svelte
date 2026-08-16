@@ -124,8 +124,7 @@
   /* The spine belongs to the group, not to any one row, so it fades with the
      rows rather than staying lit above them. */
   .ledger.dim::before {
-    opacity: 0.5;
-    filter: grayscale(1);
+    background: var(--fg-ghost);
   }
   .ledger.hosting {
     content-visibility: visible;
@@ -149,9 +148,21 @@
        rest of a long ledger to be re-laid-out. */
     contain: layout style;
   }
+  /* Muted by colour, not by `opacity` and `filter` — see ThreadView. */
   .entry.dim {
-    opacity: 0.5;
-    filter: grayscale(1);
+    --fg-bright: var(--fg-dimmer);
+    --fg-body: var(--fg-dimmer);
+    --fg: var(--fg-dimmer);
+    --fg-agent: var(--fg-dimmer);
+    --fg-muted: var(--fg-dimmer);
+    --fg-dim: var(--fg-dimmer);
+    --fg-dimmest: var(--fg-dimmer);
+    --accent: var(--fg-dimmer);
+    --ok: var(--fg-dimmer);
+    --ok-text: var(--fg-dimmer);
+    --err: var(--fg-dimmer);
+    --err-text: var(--fg-dimmer);
+    --warn: var(--fg-dimmer);
   }
   /* A row contains its own layout and paint, which would slice the menu off at
      the row's own height. The ledger's spine is drawn by the parent, so

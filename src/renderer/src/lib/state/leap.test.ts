@@ -18,18 +18,30 @@ function column(
    *  other — with both at zero, the conversion in `#search` is untested. */
   frame = { top: 40, left: 12, scrollTop: 0 },
 ): () => void {
+  // One block per line, each holding one text node — the shape the walk
+  // actually sees: it bisects the scroller's children, then opens only the
+  // blocks that are on screen.
   const nodes = lines.map((line, i) => {
-    const node = { data: line.text, isConnected: true, parentElement: {} } as unknown as Text
-    ;(node as { parentElement: unknown }).parentElement = {
-      closest: () => ({ dataset: { navId: line.navId } }),
-    }
-    return { node, top: i * 20 }
+    const text = { data: line.text, isConnected: true } as unknown as Text
+    const top = i * 20 + frame.top
+    const rect = (): DOMRect =>
+      ({ top: top - frame.scrollTop, bottom: top + 16 - frame.scrollTop }) as DOMRect
+
+    const block = {
+      dataset: { navId: line.navId },
+      getBoundingClientRect: rect,
+      matches: (selector: string) => selector === '[data-nav-id]',
+      querySelectorAll: () => [],
+    } as unknown as HTMLElement
+
+    return { text, block, top }
   })
 
   const body = {
     scrollTop: frame.scrollTop,
     scrollLeft: 0,
     clientHeight: 400,
+    children: nodes.map((n) => n.block),
     getBoundingClientRect: () =>
       ({ top: frame.top, bottom: frame.top + 400, left: frame.left }) as DOMRect,
     scrollBy() {},
@@ -38,35 +50,32 @@ function column(
   }
 
   vi.stubGlobal('document', {
-    createTreeWalker: () => {
-      let at = -1
+    createTreeWalker: (root: unknown) => {
+      // Rooted at a block, so it yields that block's own text and nothing else.
+      const owned = nodes.find((n) => n.block === root)
+      let done = false
       return {
         nextNode: () => {
-          at += 1
-          return nodes[at]?.node ?? null
+          if (done || !owned) return null
+          done = true
+          return owned.text
         },
       }
     },
     createRange: () => {
-      let owner: { data: string } | null = null
+      let owner: Text | null = null
       let from = 0
       return {
-        selectNodeContents(node: { data: string }) {
-          owner = node
-          from = 0
-        },
-        setStart(node: { data: string }, at: number) {
+        setStart(node: Text, at: number) {
           owner = node
           from = at
         },
         setEnd() {},
         getBoundingClientRect: () => {
-          const line = nodes.find((n) => n.node === (owner as unknown as Text))
-          // Characters are 8px wide and lines 20px apart. Enough geometry to
-          // tell "on screen" from "not", which is all this module asks.
+          const line = nodes.find((n) => n.text === owner)
           // Laid out in content space, then reported in client space, exactly
-          // as a real scroller does.
-          const top = (line?.top ?? 0) + frame.top - frame.scrollTop
+          // as a real scroller does. Characters are 8px wide.
+          const top = (line?.top ?? 0) - frame.scrollTop
           const left = from * 8 + frame.left
           return { top, bottom: top + 16, left, right: left + 16 } as DOMRect
         },

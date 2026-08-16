@@ -119,6 +119,38 @@ path in `block-keys.test.ts`; and a browser pass on the real walk and paint.
 
 Blocked by: H1
 
+## Perf evidence for the slice (2026-08-16)
+
+Measured on a seeded 5,000-block thread (108,000px of scrollback), sweeping the
+column in 120 steps. Two methodologies, because they answer different questions
+— see the note in [quality.md](../../quality.md).
+
+Forced layout, the way C5 measured: **0ms median, 0/120 over budget** in all
+three states (no ring, ring + dim, mid-leap). The slice costs no layout;
+`content-visibility` still holds.
+
+Frame interval, which includes paint — relative numbers only, since a sweep
+moving ~900px per frame is harsher than any person:
+
+| | median | worst |
+|---|---|---|
+| no ring (baseline) | 35.8ms | 54.6ms |
+| ring + dim | 44.5ms | 61.7ms |
+| mid-leap | 42.4ms | 49.5ms |
+
+Two regressions were found and fixed by this measurement, neither visible to
+the test suite:
+
+1. The dim was `opacity` + `filter: grayscale(1)` on every block, costing about
+   a third more paint per frame. It re-points colour tokens instead — the same
+   mechanism the leap already used, and one that an overlay can outshine.
+2. The leap re-walked the column on every scroll frame, at 106ms worst. Two
+   attempts to make the walk cheaper both made it worse (224ms, then 129ms):
+   finding the visible window at all means reading rects that
+   `content-visibility` had deliberately skipped, which lays out what it had
+   skipped. The leap now ends on scroll instead, which is also the honest
+   behaviour — a label is a promise about a view that scrolling invalidates.
+
 ## H1 — `j` and `k` focus a block — `done`
 
 Delivered behavior: in a thread column, `j` and `k` move a focus ring from

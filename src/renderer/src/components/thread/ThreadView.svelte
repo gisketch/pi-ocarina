@@ -49,7 +49,6 @@
   // Null until the reader starts navigating. That is what keeps a column
   // nobody has touched looking exactly as it always did: no ring, no dim.
   const focused = $derived(blockFocus.idOf(threadId))
-  const nav = $derived(navBlocks(shown))
 
   // A leap mutes the whole column at the column's own level, by colour. The
   // opacity dim stands down while it does: stacking the two would take the
@@ -60,7 +59,14 @@
 
   // Which block the ring is on — a tool row reports its ledger, since the name
   // above a turn belongs to the whole turn and not to one row of it.
-  const focusedBlock = $derived(nav.find((entry) => entry.id === focused)?.blockId ?? null)
+  //
+  // Guarded on there being a ring at all. `navBlocks` walks the whole thread,
+  // and `shown` changes on every token of a streaming turn: without the guard
+  // a five-thousand-block thread rebuilds five thousand entries per token, to
+  // answer a question nobody is asking while nothing is focused.
+  const focusedBlock = $derived(
+    focused === null ? null : (navBlocks(shown).find((entry) => entry.id === focused)?.blockId ?? null),
+  )
 
   // The agent name that introduces the focused block, so it stays lit with it.
   const litLabel = $derived(labelOwning(shown, opensTurn, focusedBlock))
@@ -161,13 +167,29 @@
     contain: layout style;
   }
   /* Colour is the focused block's alone. Draining it from the rest widens the
-     gap far more than opacity can on its own: a green PI label or a red failed
-     tool row still pulls the eye at half brightness, and the whole point of
-     the dim is that it should not. */
+     gap far more than brightness can on its own: a green PI label or a red
+     failed tool row still pulls the eye when it is only faded.
+
+     Done by re-pointing the colour tokens rather than with `opacity` and
+     `filter`, for two reasons. Those two cost real paint — measured at about a
+     third more per frame on a five-thousand-block thread — and they take any
+     overlay down with them, which is how the leap's match paint ended up grey.
+     One mechanism for both, and neither problem. */
   .nav.dim,
   .turn.dim {
-    opacity: 0.5;
-    filter: grayscale(1);
+    --fg-bright: var(--fg-dimmer);
+    --fg-body: var(--fg-dimmer);
+    --fg: var(--fg-dimmer);
+    --fg-agent: var(--fg-dimmer);
+    --fg-muted: var(--fg-dimmer);
+    --fg-dim: var(--fg-dimmer);
+    --fg-dimmest: var(--fg-dimmer);
+    --accent: var(--fg-dimmer);
+    --ok: var(--fg-dimmer);
+    --ok-text: var(--fg-dimmer);
+    --err: var(--fg-dimmer);
+    --err-text: var(--fg-dimmer);
+    --warn: var(--fg-dimmer);
   }
 
   /* The column gives every block `content-visibility: auto`, which brings paint

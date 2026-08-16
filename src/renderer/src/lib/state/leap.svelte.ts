@@ -41,32 +41,64 @@ function highlights(): { set: (name: string, h: unknown) => void; delete: (name:
   }
 }
 
-/** Every text node in the column that the reader can actually see.
+/** Every text node the reader can actually see, and the block it belongs to.
  *
  *  Nothing is skipped by tag: a match inside a tool body's code line is as
  *  good a destination as one in a message. What is skipped is what is not on
- *  screen — a hint is a promise that the destination is in front of you. */
+ *  screen — a hint is a promise that the destination is in front of you, and
+ *  `#search` measures each match again so a node straddling the fold offers
+ *  only the half of itself that is visible. */
+/** The first child of the scroller that reaches into the viewport.
+ *
+ *  Found by bisection, not by scanning. Reading a rect on a block that
+ *  `content-visibility: auto` had skipped forces it to be laid out — so a scan
+ *  from the top lays out every block above the fold and undoes the very
+ *  virtualization that makes a long thread scrollable. Children are in
+ *  document order and their positions only increase, so about a dozen reads
+ *  find the edge instead of five thousand. */
+function firstInView(children: HTMLElement[], top: number): number {
+  let low = 0
+  let high = children.length - 1
+  let at = children.length
+
+  while (low <= high) {
+    const mid = (low + high) >> 1
+    if ((children[mid]?.getBoundingClientRect().bottom ?? 0) > top) {
+      at = mid
+      high = mid - 1
+    } else {
+      low = mid + 1
+    }
+  }
+
+  return at
+}
+
 function candidates(body: HTMLElement): Candidate[] {
   const box = body.getBoundingClientRect()
-  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+  const children = Array.from(body.children) as HTMLElement[]
   const found: Candidate[] = []
 
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const text = node as Text
-    if (text.data.trim() === '') continue
+  for (let i = firstInView(children, box.top); i < children.length; i += 1) {
+    const child = children[i]
+    if (!child || child.getBoundingClientRect().top >= box.bottom) break
 
-    const owner = text.parentElement?.closest<HTMLElement>('[data-nav-id]')
-    const navId = owner?.dataset.navId
-    if (!navId) continue
+    // A child is either a block itself or a ledger holding several.
+    const blocks = child.matches('[data-nav-id]')
+      ? [child]
+      : Array.from(child.querySelectorAll<HTMLElement>('[data-nav-id]'))
 
-    // Measured on the node, not on its block: a long message can be half on
-    // screen, and the half that is not must not offer destinations.
-    const range = document.createRange()
-    range.selectNodeContents(text)
-    const rect = range.getBoundingClientRect()
-    if (rect.bottom <= box.top || rect.top >= box.bottom) continue
+    for (const block of blocks) {
+      const navId = block.dataset.navId
+      if (!navId) continue
 
-    found.push({ node: text, navId })
+      const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+        const text = node as Text
+        if (text.data.trim() === '') continue
+        found.push({ node: text, navId })
+      }
+    }
   }
 
   return found
@@ -128,9 +160,17 @@ class Leap {
     this.targets = []
     this.#ranges = []
 
-    const refresh = (): void => this.refresh()
-    body.addEventListener('scroll', refresh, { passive: true })
-    this.#release = () => body.removeEventListener('scroll', refresh)
+    // A leap labels what is on screen. Scrolling changes what is on screen, so
+    // every label becomes a promise about a view that no longer exists — the
+    // mode ends rather than trying to follow.
+    //
+    // Re-walking instead was measured and rejected: on a five-thousand-block
+    // thread it cost upwards of 100ms a frame however the walk was written,
+    // because finding the visible window at all means reading rects that
+    // `content-visibility` had deliberately skipped.
+    const onScroll = (): void => this.end()
+    body.addEventListener('scroll', onScroll, { passive: true })
+    this.#release = () => body.removeEventListener('scroll', onScroll)
   }
 
   /** Adds a character to the pattern and re-paints. Returns the match to jump
@@ -195,15 +235,6 @@ class Leap {
     this.#pool = []
     this.#ranges = []
     highlights()?.delete(HIGHLIGHT)
-  }
-
-  /** The column moved under a live leap — a wheel scroll, a resize, a turn
-   *  streaming above the matches. Re-runs the search rather than shifting the
-   *  chips: what is in view has changed too, so the destinations have. */
-  refresh(): void {
-    if (!this.active || this.typed === '') return
-    this.#pool = candidates(columnBody(this.threadId ?? '') ?? document.body)
-    this.#search(this.typed)
   }
 
   #search(pattern: string): void {

@@ -27,6 +27,15 @@ Keep this as the project verification menu. Add commands only after they pass lo
 
 Notes:
 
+- The scrollback budget has two methodologies and they answer different
+  questions. C5's numbers are **forced-layout** timing: step the scroll, read
+  `offsetHeight`, time that. Use it to ask "does `content-visibility` still
+  hold" — it answers 0ms whether or not paint is expensive. A **frame-interval**
+  sweep (step the scroll once per `requestAnimationFrame`, record the interval)
+  includes paint and composite and is the only way to see the cost of a filter
+  or an overlay. Its absolute numbers are not comparable to 8.34ms, because a
+  sweep that moves ~900px per frame is far harsher than a person scrolling —
+  compare states against each other, not against the budget.
 - `pnpm dev:web` runs the renderer alone in a browser (no Electron APIs) purely for
   visual comparison against the design reference. Animation smoothness cannot be
   judged there — a headless pane never composites, so transitions do not advance;
