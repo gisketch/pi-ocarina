@@ -1,6 +1,7 @@
 # Change review: read what the agent wrote
 
-Status: **NEED GRILLING.** High-level. Not an approved contract.
+Status: **GRILLED 2026-08-16, awaiting approval.** Fifteen decisions settled
+in the session below. Not yet an approved contract.
 
 Ranked first in the landscape read
 ([docs/reference/2026-08-16-agent-harness-landscape.html](../reference/2026-08-16-agent-harness-landscape.html)).
@@ -73,6 +74,40 @@ and there is one place to read all of it together when the row is too small.
     are flex containers today and cannot share a measurement, so the ledger
     becomes the grid and the rows become its items.
 
+11. **The viewer is its own mode, with two panes.** `Mode` gains `DIFF`
+    alongside `NORMAL | READ | INSERT | LEADER | TERM`, and the statusbar
+    colours it the way it colours READ. The mode owns every key while it is up,
+    which is the same contract READ already has and the reason a reader never
+    has to guess who is listening.
+12. **`d` opens it; `esc` closes it.** `d` is free in NORMAL and in READ — the
+    reducer's letter cases are `a c f h i j k l m n s t w x y` — and it is the
+    letter the reader is already thinking. `␣ d` does the same thing, so the
+    which-key bar can teach it. From READ, `a` on a capped row opens the viewer
+    at that row's file, which is decision 5.
+13. **A body is capped at 24 lines.** Enough for the edits an agent actually
+    makes, short of taking the column. The hidden remainder is stated on the
+    row, not silently dropped: `+38 more lines · a`. The translator's existing
+    `MAX_BODY_LINES = 40` stays what crosses the wire; 24 is what is drawn.
+14. **The viewer follows the thread live.** It is derived from the same
+    snapshots the ledger uses, so freezing it on open would show a reader stale
+    text while the agent is still working. One rule protects the reader from the
+    motion: an arriving file is appended and never moves the focused pane's
+    selection.
+15. **An empty change set is a sentence, not an empty window.** A thread that
+    has changed nothing says so and offers nothing to navigate.
+
+## Keys in DIFF mode
+
+| Key | Meaning |
+| --- | --- |
+| `j` `k` | move within the focused pane — file, or hunk |
+| `tab` `h` `l` | switch pane |
+| `gg` `G` | first, last |
+| `n` `N` | next, previous hunk, across files |
+| `/` | filter the file list |
+| `y` | copy the focused hunk |
+| `esc` | close, returning to the mode that opened it |
+
 ## What pi gives us
 
 Established during the grill, so the design does not have to guess:
@@ -144,10 +179,29 @@ Established during the grill, so the design does not have to guess:
 - A perf pass on a thread of large edits, measured as `docs/quality.md` requires.
 - A CDP pass: the row paints, the viewer opens, the keys move the right pane.
 
-## Questions the grill must answer
+## Risks
 
-1. The hotkey, and whether it is modal or a chord.
-2. The cap: how many lines, and what the hidden remainder says.
-3. Whether the viewer follows the agent live while it edits, or freezes on open.
-4. Whether the file list is a spotlight (which exists) or its own pane.
-5. What the viewer does for a thread with no changes.
+- **The gutter measurement is a layout read on a list that can hold thousands of
+  rows.** The transcript's perf work has already shown that reading a rect on a
+  `content-visibility: auto` element forces its layout. The measurement must be
+  CSS, not JavaScript, or it undoes that work.
+- **The viewer floats over a column that has paint containment.** The block menu
+  has been clipped by this twice. The viewer must not be a child of the column.
+- **Snapshots hold file contents in memory for the life of a thread.** A thread
+  that edits a large file fifty times must not grow without bound; only the
+  first and last snapshot of each file are needed once a call has ended.
+- **A file the agent edits outside the tool** — through `bash`, say — produces a
+  snapshot pair that attributes someone else's change to the agent.
+
+## Settled by omission
+
+These were open and are now closed by the decisions above, recorded so a later
+reader does not reopen them:
+
+1. The hotkey, and whether it is modal or a chord. → decision 12.
+2. The cap, and what the hidden remainder says. → decision 13.
+3. Whether the viewer follows live. → decision 14.
+4. Whether the file list is a spotlight or a pane. → decision 11, a pane.
+5. What the viewer does with no changes. → decision 15.
+
+Nothing is open. The spec is ready for approval, not yet approved.
