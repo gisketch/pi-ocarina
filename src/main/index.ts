@@ -10,6 +10,26 @@ import { registerSession } from './session'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
+/** Whether a URL is the app itself rather than somewhere else.
+ *
+ *  Compared as a parsed origin and path, not as a string prefix. A prefix is
+ *  the wrong primitive here twice over: `http://localhost:51730` starts with
+ *  `http://localhost:5173`, and `…/index.html/../secret.html` starts with
+ *  `…/index.html`. Neither is reachable today — nothing can produce a `file:`
+ *  navigation — but a guard is only worth having if it holds when the thing in
+ *  front of it stops holding. */
+function isOwn(url: string, devServer: string | undefined): boolean {
+  try {
+    const target = new URL(url)
+    if (devServer) return target.origin === new URL(devServer).origin
+
+    const entry = new URL(`file://${join(dirname, '../renderer/index.html')}`)
+    return target.protocol === 'file:' && target.pathname === entry.pathname
+  } catch {
+    return false
+  }
+}
+
 /** Schemes the app will hand to the operating system.
  *
  *  An allow-list, not a deny-list. `openExternal` will launch whatever the OS
@@ -63,8 +83,7 @@ function createWindow(): BrowserWindow {
   // message, and without this a click on one replaces the whole app with a web
   // page — every column, every running turn, gone, with no way back.
   win.webContents.on('will-navigate', (event, url) => {
-    const here = devServer ?? `file://${join(dirname, '../renderer/index.html')}`
-    if (url === win.webContents.getURL() || url.startsWith(here)) return
+    if (isOwn(url, devServer)) return
 
     event.preventDefault()
     if (isExternal(url)) void shell.openExternal(url)

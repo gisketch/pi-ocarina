@@ -29,7 +29,7 @@ export type MarkdownNode =
   | { type: 'paragraph'; segments: InlineSegment[] }
   | { type: 'heading'; level: 1 | 2 | 3; segments: InlineSegment[] }
   | { type: 'rule' }
-  | { type: 'list'; ordered: boolean; items: ListItem[] }
+  | { type: 'list'; ordered: boolean; items: ListItem[]; start?: number }
   | { type: 'code'; lang: string; text: string }
   | { type: 'quote'; segments: InlineSegment[] }
   | { type: 'table'; head: TableCell[]; rows: TableCell[][] }

@@ -26,6 +26,13 @@ describe('what a link may be', () => {
   it('completes a bare www, which is how agents usually write one', () => {
     expect(safeHref('www.example.com')).toBe('https://www.example.com')
   })
+
+  it('refuses a bare host that is not the host it reads as', () => {
+    // `www.paypal.com@evil.test` resolves to evil.test, and a reader has no
+    // way to see that from the text.
+    expect(safeHref('www.paypal.com@evil.test')).toBeNull()
+    expect(safeHref('www.example.com/a@b')).toBe('https://www.example.com/a@b')
+  })
 })
 
 describe('links', () => {
@@ -110,5 +117,29 @@ describe('marks', () => {
     for (const [input, expected] of cases) {
       expect(parseInline(input).map((part) => part.text).join('')).toBe(expected)
     }
+  })
+})
+
+
+describe('untrusted input cannot stall the column', () => {
+  // A message is re-parsed on every streamed token, so a line that takes half
+  // a second to parse takes it once per token and freezes the thread.
+  const under = (text: string, ms: number) => {
+    const started = Date.now()
+    parseInline(text)
+    return Date.now() - started < ms
+  }
+
+  it('stays linear on a line of unclosed brackets', () => {
+    expect(under('[a]('.repeat(80_000), 400)).toBe(true)
+  })
+
+  it('stays linear on a line of unclosed markers', () => {
+    expect(under('*a '.repeat(80_000), 400)).toBe(true)
+    expect(under('~~a '.repeat(80_000), 400)).toBe(true)
+  })
+
+  it('stays linear on a line that is all candidates', () => {
+    expect(under('a **b** [c](https://x.test) `d` '.repeat(20_000), 400)).toBe(true)
   })
 })

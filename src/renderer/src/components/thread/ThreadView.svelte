@@ -84,8 +84,14 @@
   const owns = (block: Block): boolean => block.kind !== 'user' && block.kind !== 'agent'
 
   /** Whether the menu is open on this exact block. */
-  const menuOn = (navId: string): boolean =>
-    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.blockId === navId
+  /** Cards only. A message renders the menu inside the segment the ring is on,
+   *  because a menu pinned to the top of a screen-tall answer opens nowhere
+   *  near the block being pointed at. */
+  const menuOn = (block: Block): boolean =>
+    owns(block) &&
+    blockMenu.open &&
+    blockMenu.threadId === threadId &&
+    blockMenu.block?.id === block.id
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -117,10 +123,10 @@
     <div
       class="nav"
       class:dim={dimming && focusedBlock !== block.id}
-      class:hosting={menuOn(block.id)}
+      class:hosting={menuOn(block)}
       use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
-      {#if menuOn(block.id)}
+      {#if menuOn(block)}
         <BlockMenu />
       {/if}
       {#if block.kind === 'user'}

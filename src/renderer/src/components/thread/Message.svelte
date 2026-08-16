@@ -1,12 +1,14 @@
 <script lang="ts">
   import { parseMarkdown, type ListItem, type MarkdownNode } from '$lib/thread'
+  import BlockMenu from './BlockMenu.svelte'
+  import { blockMenu } from '$lib/state/block-menu.svelte'
+  import Fence from './md/Fence.svelte'
   import Inline from './md/Inline.svelte'
   import Picture from './md/Picture.svelte'
   import Quote from './md/Quote.svelte'
   import Table from './md/Table.svelte'
 
   import { segmentsOf } from '$lib/markdown-segments'
-  import { CLEAN, highlightLine, type LineState } from '$lib/highlight'
   import { navTarget } from '$lib/state/block-focus.svelte'
 
   interface Props {
@@ -49,21 +51,18 @@
   /** The caret belongs on the last thing the agent wrote. */
   const lastSegment = $derived(segments.length - 1)
 
+  /** Whether the menu is open on this exact segment.
+   *
+   *  Rendered here rather than on the message's wrapper: a long answer is
+   *  taller than the screen, and a menu pinned to the top of it opens far above
+   *  the block the reader is pointing at — often off-screen, which reads as
+   *  the key doing nothing at all. */
+  const menuOn = (at: number): boolean =>
+    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navIdOf(at)
+
   /** Whether the caret already has a paragraph to sit on. */
   const endsInParagraph = $derived(nodes[nodes.length - 1]?.type === 'paragraph')
 
-  /** Lines of a fenced block, each carrying the state the one above ended in.
-   *
-   *  Tokenised per line rather than per block: a streaming fence changes only
-   *  its last line, and Svelte re-renders only the line whose tokens changed. */
-  function codeLines(node: MarkdownNode & { type: 'code' }) {
-    let state: LineState = CLEAN
-    return node.text.split('\n').map((line) => {
-      const { tokens, to } = highlightLine(line, node.lang, state)
-      state = to
-      return tokens
-    })
-  }
 </script>
 
 {#snippet items(list: ListItem[])}{#each list as item, j (j)}<li
@@ -84,17 +83,12 @@
     <div class="rule" role="separator"></div>
   {:else if node.type === 'list'}
     {#if node.ordered}
-      <ol>{@render items(node.items)}</ol>
+      <ol start={node.start ?? 1}>{@render items(node.items)}</ol>
     {:else}
       <ul>{@render items(node.items)}</ul>
     {/if}
   {:else if node.type === 'code'}
-    <pre class="fence"><span class="lang">{node.lang || 'text'}</span><code
-        >{#each codeLines(node) as tokens, line (line)}<span class="cl"
-          >{#each tokens as token, t (t)}<span class="tok-{token.kind}">{token.text}</span
-            >{/each}</span
-        >{/each}</code
-      ></pre>
+    <Fence {node} />
   {:else}
     <!-- Kinds with markup of their own. A new one lands here as a rule in
          `markdown-block.ts`, a node type, a component, and one branch — and
@@ -119,8 +113,10 @@
       <div
         class="seg"
         class:dim={dimmed && segments.length > 1 && focusedNav !== navIdOf(at)}
+        class:hosting={menuOn(at)}
         use:navTarget={{ threadId: threadId ?? '', navId: threadId ? navIdOf(at) : null }}
       >
+        {#if menuOn(at)}<BlockMenu />{/if}
         {#each segment as node, i (i)}
           {@render render(node, streaming && at === lastSegment && i === segment.length - 1 && node.type === 'paragraph')}
         {/each}
@@ -173,9 +169,17 @@
   }
 
   .seg {
+    position: relative;
     display: flex;
     flex-direction: column;
     transition: opacity 0.12s ease;
+  }
+  /* The block carries paint containment from the column; a menu taller than
+     its segment would be sliced off without this. */
+  .seg.hosting {
+    content-visibility: visible;
+    contain: none;
+    z-index: 5;
   }
   /* Muted by colour, the way every other dim in the column works — an overlay
      painted over the text cannot escape `opacity` or `filter`. */
@@ -240,7 +244,7 @@
      two characters of punctuation reads as noise rather than as progress. */
   .text :global(li.task) {
     list-style: none;
-    margin-left: -18px;
+    margin-left: -30px;
   }
   /* Both states are the same square. Sized rather than left to its contents:
      an empty box has only a space in it, which collapses to nothing and makes
@@ -267,32 +271,18 @@
     margin: 4px 0 0;
   }
 
-  .cl {
-    display: block;
-  }
   /* An empty line still needs a line's height, or a blank line in a fence
      collapses and the code shifts under the reader. */
-  .cl:empty::before {
-    content: '\200b';
-  }
   .text :global(p + p),
   .text :global(ul),
   .text :global(ol),
-  .fence {
-    margin: 8px 0 0;
-  }
-
-  code {
-    background: var(--bg-chip);
-    padding: 1px 5px;
-    font-size: 12px;
-    color: var(--fg-body);
-    font-family: var(--font-body);
-  }
 
   ul,
   ol {
-    padding-left: 18px;
+    /* Wide enough for a three-digit marker. The global reset zeroes list
+       padding, and a marker is drawn outside the content box — too little room
+       and `10.` hangs off the left of the column and is clipped by it. */
+    padding-left: 30px;
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -318,15 +308,6 @@
     font-size: 11.5px;
     line-height: 1.6;
     white-space: pre;
-  }
-  .lang {
-    position: absolute;
-    top: 5px;
-    left: 12px;
-    font-family: var(--font-chrome);
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    color: var(--fg-dimmest);
   }
 
   .caret {

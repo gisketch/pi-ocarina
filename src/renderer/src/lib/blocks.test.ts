@@ -177,3 +177,14 @@ describe('step', () => {
     expect(step([], null, 1)).toBeNull()
   })
 })
+
+
+describe('what a segment calls itself', () => {
+  it('names the kind, because a bare source does not read as one', () => {
+    const text = 'words\n\n![a](https://x.test/s.png)\n\n| a | b |\n|---|---|\n| 1 | 2 |'
+    const labels = navBlocks([{ kind: 'agent', id: 'a1', text }]).map((entry) => entry.label)
+
+    expect(labels[1].startsWith('image ')).toBe(true)
+    expect(labels[2].startsWith('table ')).toBe(true)
+  })
+})

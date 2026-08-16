@@ -83,3 +83,24 @@ describe('the rule set is what makes a stop', () => {
     expect([...STANDALONE].sort()).toEqual(['code', 'image', 'table'])
   })
 })
+
+
+describe('ordered lists keep the number the agent wrote', () => {
+  it('starts where the agent started', () => {
+    const [node] = parseMarkdown('10. ten\n11. eleven')
+    if (node.type !== 'list') throw new Error('not a list')
+    expect(node.start).toBe(10)
+  })
+
+  it('says nothing when it starts at one, which is the default', () => {
+    const [node] = parseMarkdown('1. one\n2. two')
+    if (node.type !== 'list') throw new Error('not a list')
+    expect(node.start).toBeUndefined()
+  })
+
+  it('leaves a bullet list alone', () => {
+    const [node] = parseMarkdown('- a\n- b')
+    if (node.type !== 'list') throw new Error('not a list')
+    expect(node.start).toBeUndefined()
+  })
+})

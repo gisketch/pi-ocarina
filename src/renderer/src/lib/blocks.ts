@@ -76,6 +76,16 @@ function toolEntry(blockId: string, row: ToolRow): NavBlock {
   }
 }
 
+/** What a segment calls itself in the block menu's header. A standalone kind
+ *  says which kind it is, because its source alone — a URL, a row of cells —
+ *  does not read as one. */
+function labelFor(kind: string | undefined, source: string): string {
+  if (kind === 'code') return `code ${source}`
+  if (kind === 'image') return `image ${source}`
+  if (kind === 'table') return `table ${source.split('\n')[0] ?? ''}`
+  return source
+}
+
 /** One message's stops.
  *
  *  A message with no fenced block is one stop, keeping the block's own id — so
@@ -96,7 +106,7 @@ function messageEntries(kind: 'user' | 'agent', blockId: string, text: string): 
       kind,
       blockId,
       segment: at,
-      label: short(segment[0]?.type === 'code' ? `code ${source}` : source),
+      label: short(labelFor(segment[0]?.type, source)),
       text: source,
     }
   })

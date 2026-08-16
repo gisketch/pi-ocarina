@@ -16,6 +16,20 @@
   >{/if}{/each}
 
 <style>
+  /* Inline code lives here now, so its style does too. Svelte scopes a rule to
+     the component that wrote the element, and leaving this behind in Message
+     silently un-styled every backticked word in the app. */
+  code {
+    background: var(--bg-chip);
+    padding: 1px 5px;
+    font-size: 12px;
+    color: var(--fg-body);
+    font-family: var(--font-body);
+  }
+  code.b {
+    font-weight: 700;
+  }
+
   .b {
     font-weight: 700;
     color: var(--fg-bright);

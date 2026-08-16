@@ -37,10 +37,15 @@ class ListBuilder {
   readonly ordered: boolean
   readonly indent: number
   readonly items: ListItem[] = []
+  /** The number the agent actually wrote first. A list that starts at 10 is
+   *  usually the second half of one, and renumbering it from 1 tells the
+   *  reader something the agent did not. */
+  readonly start: number
 
-  constructor(ordered: boolean, indent: number) {
+  constructor(ordered: boolean, indent: number, start: number) {
     this.ordered = ordered
     this.indent = indent
+    this.start = start
   }
 
   add(indent: number, text: string, ordered: boolean): void {
@@ -78,7 +83,12 @@ export function parseMarkdown(text: string): MarkdownNode[] {
       paragraph = []
     }
     if (list) {
-      nodes.push({ type: 'list', ordered: list.ordered, items: list.items })
+      nodes.push({
+        type: 'list',
+        ordered: list.ordered,
+        items: list.items,
+        ...(list.ordered && list.start !== 1 ? { start: list.start } : {}),
+      })
       list = null
     }
   }
@@ -107,7 +117,7 @@ export function parseMarkdown(text: string): MarkdownNode[] {
       const indent = entry[1].length
       if (paragraph.length > 0) flush()
       if (list && !list.accepts(indent, ordered)) flush()
-      list ??= new ListBuilder(ordered, indent)
+      list ??= new ListBuilder(ordered, indent, Number(/^\s*(\d+)/.exec(line)?.[1] ?? 1))
       list.add(indent, entry[2], ordered)
       continue
     }
