@@ -8,7 +8,6 @@
  *  drew, and this module never queries the DOM by class or tag. */
 
 import { type NavBlock, step } from '../blocks'
-import { labelsFor, matchLabel } from '../leap'
 import { columnBody } from './columns'
 
 const elements = new Map<string, Map<string, HTMLElement>>()
@@ -43,39 +42,13 @@ export function revealBlock(threadId: string, navId: string): void {
   blockElement(threadId, navId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 }
 
-/** Hints on screen, waiting for the reader to name one. */
-export interface Leap {
-  threadId: string
-  /** Nav id per label, same index. */
-  ids: string[]
-  labels: string[]
-  /** What has been typed so far. */
-  typed: string
-}
-
 class BlockFocus {
   /** Keyed by thread id. Absent means "this reader has not started
    *  navigating", which is what keeps a fresh column undimmed. */
   #focused = $state<Record<string, string | null>>({})
 
-  /** Non-null only while hints are on screen. The whole mode is one object, so
-   *  a component can ask "is this block labelled" without a second lookup. */
-  leap = $state<Leap | null>(null)
-
   idOf(threadId: string): string | null {
     return this.#focused[threadId] ?? null
-  }
-
-  /** The label drawn on a block, or null when it has none. */
-  labelOf(threadId: string, navId: string): string | null {
-    const leap = this.leap
-    if (leap === null || leap.threadId !== threadId) return null
-
-    const at = leap.ids.indexOf(navId)
-    if (at === -1) return null
-    // A label the reader has already diverged from is not a destination any
-    // more. Hiding it narrows the screen to what is still reachable.
-    return leap.labels[at]?.startsWith(leap.typed) ? (leap.labels[at] ?? null) : null
   }
 
   set(threadId: string, navId: string | null): void {
@@ -91,7 +64,6 @@ class BlockFocus {
     const next = { ...this.#focused }
     delete next[threadId]
     this.#focused = next
-    if (this.leap?.threadId === threadId) this.leap = null
   }
 
   clear(threadId: string): void {
@@ -189,52 +161,6 @@ class BlockFocus {
     blockElement(threadId, next)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 
-  /** Labels every block the reader can currently see.
-   *
-   *  Only what is on screen: a hint is a promise that the destination is in
-   *  front of you, and labelling a block two thousand rows down would make the
-   *  keystroke a jump rather than a leap. */
-  startLeap(threadId: string, list: NavBlock[]): void {
-    const ids = this.#visible(threadId, list).map((entry) => entry.id)
-
-    // Nothing visible is not a mode worth entering: it would swallow the next
-    // keystroke and then cancel itself.
-    if (ids.length === 0) return
-
-    this.leap = { threadId, ids, labels: labelsFor(ids.length), typed: '' }
-  }
-
-  /** One key against the labels on screen. */
-  typeLeap(key: string): void {
-    const leap = this.leap
-    if (leap === null) return
-
-    const typed = leap.typed + key.toLowerCase()
-    const { hit, live } = matchLabel(leap.labels, typed)
-
-    if (hit !== null) {
-      const target = leap.ids[hit]
-      this.leap = null
-      if (target === undefined) return
-
-      this.set(leap.threadId, target)
-      revealBlock(leap.threadId, target)
-      return
-    }
-
-    // A key no label can complete ends the mode and leaves the ring where it
-    // was. Guessing at what was meant is worse than doing nothing.
-    if (!live) {
-      this.leap = null
-      return
-    }
-
-    this.leap = { ...leap, typed }
-  }
-
-  cancelLeap(): void {
-    this.leap = null
-  }
 }
 
 export const blockFocus = new BlockFocus()
@@ -258,8 +184,14 @@ export function navTarget(
   el: HTMLElement,
   ids: NavTarget,
 ): { update: (next: NavTarget) => void; destroy: () => void } {
-  const attach = (target: NavTarget): (() => void) =>
-    target.navId === null ? NOOP : registerBlock(target.threadId, target.navId, el)
+  const attach = (target: NavTarget): (() => void) => {
+    if (target.navId === null) return NOOP
+    // Stamped as well as registered: leap walks up from a text node to find
+    // which block it is in, and an attribute is the only way to ask the DOM
+    // that question without holding the map upside down.
+    el.dataset.navId = target.navId
+    return registerBlock(target.threadId, target.navId, el)
+  }
 
   let off = attach(ids)
 

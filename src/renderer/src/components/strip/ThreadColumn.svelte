@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte'
   import { app } from '$lib/state/app.svelte'
   import { registerColumnBody } from '$lib/state/columns'
+  import LeapOverlay from '../thread/LeapOverlay.svelte'
   import type { Thread } from '$lib/types'
 
   interface Props {
@@ -54,6 +55,7 @@
 
   <div class="body" bind:this={body}>
     {@render children?.()}
+    <LeapOverlay threadId={thread.id} />
   </div>
 </section>
 
@@ -119,6 +121,8 @@
 
   .body {
     flex: 1;
+    /* The leap overlay is positioned in this box's content coordinates. */
+    position: relative;
     overflow-y: auto;
     padding: 18px;
     display: flex;

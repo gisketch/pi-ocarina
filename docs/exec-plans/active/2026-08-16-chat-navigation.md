@@ -104,6 +104,21 @@ changed are recorded here rather than left to the diff.
 21. **Expansion is keyed by nav id.** A tool call id is unique within its call,
     not within the thread — which is why the nav id is built from both.
 
+## H5 — leap searches text, not blocks — `done`
+
+Spec: [2026-08-16-leap.md](../../specs/2026-08-16-leap.md), which supersedes
+H3's block labelling and carries the settled decisions.
+
+Delivered behavior: `s` dims the transcript; one character paints every
+occurrence of it; a second narrows and labels them; the label focuses the block
+holding that occurrence.
+
+Validation: `leap.test.ts` for the pure search, labels and paging;
+`state/leap.test.ts` for the three phases against a stubbed column; the key
+path in `block-keys.test.ts`; and a browser pass on the real walk and paint.
+
+Blocked by: H1
+
 ## H1 — `j` and `k` focus a block — `done`
 
 Delivered behavior: in a thread column, `j` and `k` move a focus ring from

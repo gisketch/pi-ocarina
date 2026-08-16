@@ -9,6 +9,7 @@ import { navBlocks } from '../blocks'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
+import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { scrollColumn } from './columns'
 import { threads } from './threads.svelte'
@@ -20,7 +21,7 @@ const PAGE_MULTIPLE = 5
 
 class BlockNav {
   get leaping(): boolean {
-    return blockFocus.leap !== null
+    return leap.active
   }
 
   /** The nav list of the focused thread. Rebuilt per keypress rather than
@@ -51,11 +52,15 @@ class BlockNav {
    *  keys do is worse than no chip at all. */
   reconcileMode(): void {
     if (app.mode !== 'READ') return
+    // A leap is READ without a ring yet: the reader is choosing where it will
+    // go. Reconciling mid-leap would drop the mode the leap is running in.
+    if (leap.active) return
     if (app.thread.terminal || blockFocus.idOf(app.thread.id) === null) app.mode = 'NORMAL'
   }
 
   /** Everything a closed column was remembering. */
   forget(threadId: string): void {
+    if (leap.activeFor(threadId)) leap.end()
     blockFocus.forget(threadId)
     toolOpen.forget(threadId)
     if (blockMenu.threadId === threadId) blockMenu.close()
@@ -82,8 +87,7 @@ class BlockNav {
       if (gone) blockMenu.close()
     }
 
-    const leap = blockFocus.leap
-    if (leap !== null && leap.threadId !== here) blockFocus.cancelLeap()
+    if (leap.active && !leap.activeFor(here)) leap.end()
   }
 
   /** `l` and `h` in READ. A tool row opens and closes; anything else has
@@ -103,22 +107,63 @@ class BlockNav {
     if (open) revealBlock(threadId, navId)
   }
 
-  /** One key while hints are on screen. Always consumed: a keystroke that fell
-   *  through to a binding would move the very ring the reader is aiming. */
+  /** One key while a leap is up. Always consumed: a keystroke that fell
+   *  through to a binding would move the very focus the reader is aiming.
+   *
+   *  The key means a different thing in each of the mode's phases, which is
+   *  the whole reason the mode has to own all of them: a searched character
+   *  can be `a`, and a label can be `j`. */
   handleLeapKey(event: KeyEventLike): boolean {
-    // A bare modifier is not an answer, and neither is a chord: reaching for
-    // a capital, or for ⌘K, must not silently throw the hints away.
+    // A bare modifier is not an answer, and neither is a chord: reaching for a
+    // capital, or for ⌘K, must not silently throw the search away.
     if (MODIFIER_KEYS.has(event.key)) return false
     if (event.key === 'Escape' || event.metaKey || event.ctrlKey || event.altKey) {
-      blockFocus.cancelLeap()
+      leap.end()
       return true
     }
 
-    // Labels are single characters. Anything longer is a named key — an arrow,
-    // a function key — which no label can be, so it ends the mode.
-    if (event.key.length !== 1) blockFocus.cancelLeap()
-    else blockFocus.typeLeap(event.key)
+    if (event.key === 'Backspace') {
+      if (leap.labelled) leap.page(-1)
+      else leap.backspace()
+      return true
+    }
+
+    if (event.key === ' ' && leap.labelled) {
+      leap.page(1)
+      return true
+    }
+
+    // Anything longer than a character is a named key — an arrow, a function
+    // key — which neither a pattern nor a label can be.
+    if (event.key.length !== 1) {
+      leap.end()
+      return true
+    }
+
+    if (leap.labelled) {
+      const at = leap.resolve(event.key)
+      if (at === null) leap.end()
+      else this.#land(at)
+      return true
+    }
+
+    const only = leap.type(event.key)
+    if (only !== null) this.#land(only)
     return true
+  }
+
+  /** Focuses the block holding a match, and closes the mode. The match itself
+   *  is only ever how the reader aimed; the block is the destination. */
+  #land(index: number): void {
+    const threadId = leap.threadId
+    const target = leap.targets[index]
+    leap.end()
+    if (threadId === null || !target) return
+
+    blockFocus.set(threadId, target.navId)
+    revealBlock(threadId, target.navId)
+    // A leap is a way into the transcript as well as a way around it.
+    app.mode = 'READ'
   }
 
   /** `a`. Opens the menu on the focused block, and does nothing when there is
@@ -136,10 +181,11 @@ class BlockNav {
     blockMenu.openOn(threadId, block)
   }
 
-  /** `s`. Labels what the reader can see, so the next key is a destination. */
+  /** `s`. Paints nothing yet — the first character is what shows the reader
+   *  whether they are aiming somewhere dense or somewhere rare. */
   leap(): void {
     if (app.thread.terminal) return
-    blockFocus.startLeap(app.thread.id, this.#list())
+    leap.start(app.thread.id)
   }
 
   /** `j` and `k`. A thread column moves its block ring; a shell has no blocks,

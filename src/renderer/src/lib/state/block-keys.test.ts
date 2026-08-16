@@ -7,6 +7,7 @@ import { WORKSPACE } from './fixtures'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
 import { blockFocus, registerBlock } from './block-focus.svelte'
+import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { threads } from './threads.svelte'
@@ -27,7 +28,7 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'NORMAL'
   shell.pendingClose = null
-  blockFocus.cancelLeap()
+  leap.end()
   blockFocus.forget('s1')
   blockFocus.forget('s2')
   blockMenu.close()
@@ -233,12 +234,14 @@ describe('overlays that lose their block', () => {
     app.focusThread(0)
   })
 
-  it('cancels hints left behind on another column', () => {
-    blockFocus.leap = { threadId: 's2', ids: ['u1'], labels: ['a'], typed: '' }
+  it('cancels a leap left behind on another column', () => {
+    leap.threadId = 's2'
+    leap.typed = 'ab'
+    leap.targets = [{ navId: 'u1', top: 0, left: 0 }]
 
     shell.handleKey({ key: 'l' })
 
-    expect(blockFocus.leap).toBeNull()
+    expect(leap.active).toBe(false)
     app.focusThread(0)
   })
 
@@ -248,5 +251,58 @@ describe('overlays that lose their block', () => {
     shell.closeThread('s2', { cancelTurn: false })
 
     expect(blockFocus.idOf('s2')).toBeNull()
+  })
+})
+
+
+// The leap runs inside READ, and READ has no ring until the leap lands. The
+// mode must survive the gap.
+describe('a leap through the real key path', () => {
+  beforeEach(() => {
+    threads.seed('s1', {
+      blocks: [{ kind: 'user', id: 'u1', text: 'hello' }],
+      status: 'idle',
+      runState: 'idle',
+    })
+    app.mode = 'NORMAL'
+  })
+
+  it('keeps READ while the reader is still choosing', () => {
+    leap.threadId = 's1'
+    leap.typed = 'ab'
+    leap.targets = [{ navId: 'u1', top: 0, left: 0 }]
+    app.mode = 'READ'
+
+    // Any key at all runs the reconcile on its way past.
+    shell.handleKey({ key: 'Shift' })
+
+    expect(app.mode).toBe('READ')
+    leap.end()
+  })
+
+  it('is in READ once it lands, with the ring on the block it found', () => {
+    leap.threadId = 's1'
+    leap.typed = 'ab'
+    leap.targets = [{ navId: 'u1', top: 0, left: 0 }]
+    app.mode = 'READ'
+
+    shell.handleKey({ key: 's' })
+
+    expect(leap.active).toBe(false)
+    expect(blockFocus.idOf('s1')).toBe('u1')
+    expect(app.mode).toBe('READ')
+  })
+
+  it('does not strand READ when a leap is abandoned', () => {
+    leap.threadId = 's1'
+    leap.typed = 'ab'
+    leap.targets = [{ navId: 'u1', top: 0, left: 0 }]
+    app.mode = 'READ'
+
+    shell.handleKey({ key: 'Escape' })
+    // The ring was never set, so the next key reconciles the mode away.
+    shell.handleKey({ key: 'Shift' })
+
+    expect(app.mode).toBe('NORMAL')
   })
 })

@@ -11,6 +11,7 @@
   import BlockMenu from './BlockMenu.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
+  import { leap } from '$lib/state/leap.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
   import { marksTurnStart } from '$lib/thread-turn'
@@ -48,9 +49,10 @@
   // nobody has touched looking exactly as it always did: no ring, no dim.
   const focused = $derived(blockFocus.idOf(threadId))
 
-  // While hints are up the dim comes off: every label must be readable, and a
-  // half-faded one reads as "not a destination".
-  const hinting = $derived(blockFocus.leap?.threadId === threadId)
+  // Leaping dims everything, focused block included: the reader is choosing
+  // between matches, so the matches should be the only lit thing on screen.
+  const leaping = $derived(leap.activeFor(threadId))
+  const dimAll = $derived(leaping || focused !== null)
 
   /** Whether the menu is open on this exact block. */
   const menuOn = (navId: string): boolean =>
@@ -66,7 +68,7 @@
   {#if opensTurn[i]}
     <!-- The name is not a block anyone can point at, so while the ring is out
          it is always the quiet half of the contrast. -->
-    <div class="turn" class:dim={focused !== null}><AgentLabel /></div>
+    <div class="turn" class:dim={dimAll}><AgentLabel /></div>
   {/if}
   {#if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
@@ -76,7 +78,8 @@
       {threadId}
       blockId={block.id}
       focusedNav={focused}
-      dimmed={focused !== null && !hinting}
+      dimmed={dimAll}
+      dimFocused={leaping}
     />
   {:else if block.kind === 'checkpoint'}
     <!-- Nothing is drawn. A checkpoint is a place in the session, not a thing
@@ -85,13 +88,10 @@
   {:else}
     <div
       class="nav"
-      class:dim={focused !== null && focused !== block.id && !hinting}
+      class:dim={dimAll && (leaping || focused !== block.id)}
       class:hosting={menuOn(block.id)}
       use:navTarget={{ threadId, navId: block.id }}
     >
-      {#if blockFocus.labelOf(threadId, block.id)}
-        <span class="hint">{blockFocus.labelOf(threadId, block.id)}</span>
-      {/if}
       {#if menuOn(block.id)}
         <BlockMenu />
       {/if}
@@ -168,20 +168,5 @@
     content-visibility: visible;
     contain: none;
     z-index: 5;
-  }
-  /* Over the block's own top-left rather than beside it: the column is narrow,
-     and a gutter wide enough for a label would cost every block the width. */
-  .hint {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 2;
-    background: var(--accent);
-    color: var(--bg);
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    line-height: 1;
-    padding: 2px 4px;
-    pointer-events: none;
   }
 </style>

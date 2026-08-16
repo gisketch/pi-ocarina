@@ -2,7 +2,7 @@
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
   import BlockMenu from './BlockMenu.svelte'
-  import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
+  import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
@@ -20,9 +20,11 @@
     /** Whether anything in the thread is focused — which is what turns the
      *  dim on for every row that is not it. */
     dimmed: boolean
+    /** Whether even the focused row dims, which is what a leap does. */
+    dimFocused: boolean
   }
 
-  const { rows, threadId, blockId, focusedNav, dimmed }: Props = $props()
+  const { rows, threadId, blockId, focusedNav, dimmed, dimFocused }: Props = $props()
 
   const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
@@ -53,13 +55,10 @@
        reader can ask for, and a hidden nav id would swallow a `j`. -->
   <div
     class="entry"
-    class:dim={!nested && dimmed && focusedNav !== navIdOf(row)}
+    class:dim={!nested && dimmed && (dimFocused || focusedNav !== navIdOf(row))}
     class:hosting={!nested && menuOn(navIdOf(row))}
     use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
   >
-    {#if !nested && blockFocus.labelOf(threadId, navIdOf(row))}
-      <span class="hint">{blockFocus.labelOf(threadId, navIdOf(row))}</span>
-    {/if}
     {#if !nested && menuOn(navIdOf(row))}
       <BlockMenu />
     {/if}
@@ -104,7 +103,7 @@
      did. Lifting it on the row alone was half a fix. -->
 <div
   class="ledger"
-  class:dim={dimmed && !rows.some((row) => focusedNav === navIdOf(row))}
+  class:dim={dimmed && (dimFocused || !rows.some((row) => focusedNav === navIdOf(row)))}
   class:hosting={rows.some((row) => menuOn(navIdOf(row)))}
 >
   {#each rows as row (row.id)}
@@ -162,21 +161,6 @@
   .entry.hosting {
     contain: none;
     z-index: 5;
-  }
-  /* On the spine side, where the row's own left edge is: a label over the kind
-     column would hide the one word that says what the row did. */
-  .entry .hint {
-    position: absolute;
-    top: 2px;
-    left: -20px;
-    z-index: 2;
-    background: var(--accent);
-    color: var(--bg);
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    line-height: 1;
-    padding: 2px 4px;
-    pointer-events: none;
   }
 
   /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the
