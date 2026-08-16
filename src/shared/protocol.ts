@@ -8,6 +8,7 @@ import type {
   ApprovalOutcome,
   AskOption,
   AttachmentRef,
+  DiffLine,
   ReasoningLevel,
   ThreadRunState,
   ToolBody,
@@ -172,6 +173,17 @@ export interface SearchHit {
 }
 
 /** A thread that exists on disk, whether this app or the pi CLI started it. */
+/** One file a thread changed, with the whole of its change. */
+export interface ChangedFile {
+  /** Relative to the workspace, which is what a reader recognises. */
+  path: string
+  added: number
+  removed: number
+  /** Absent before the thread touched it: this file is new. */
+  existed: boolean
+  lines: DiffLine[]
+}
+
 export interface ThreadSummary {
   id: string
   title: string
@@ -221,6 +233,13 @@ export interface SessionCommands {
     params: { query: string }
     result: { hits: SearchHit[]; complete: boolean }
   }
+  /** Every file this thread changed, and the change as one diff each.
+   *
+   *  The span is the thread's whole life: the file as it was before the thread
+   *  first touched it, against the file as it is now. The ledger answers the
+   *  other question — what each call did — and both come from the same
+   *  snapshots through the same diff, so the two cannot disagree. */
+  listChanges: { params: { threadId: string }; result: { files: ChangedFile[] } }
   listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
   setModel: {
     params: { threadId: string; provider: string; model: string }

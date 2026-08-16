@@ -11,6 +11,7 @@ import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
+import { changes } from './changes.svelte'
 import { columnBody, scrollColumn } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
@@ -61,6 +62,12 @@ class BlockNav {
   /** Everything a closed column was remembering. */
   forget(threadId: string): void {
     if (leap.activeFor(threadId)) leap.end()
+    // The viewer is modal and owns every key. Left open on a column that has
+    // gone, it would swallow the keyboard with nothing behind it to act on.
+    if (changes.threadId === threadId) {
+      changes.close()
+      app.mode = 'NORMAL'
+    }
     blockFocus.forget(threadId)
     toolOpen.forget(threadId)
     if (blockMenu.threadId === threadId) blockMenu.close()

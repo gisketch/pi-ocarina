@@ -7,6 +7,7 @@ import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
+import { changes } from './changes.svelte'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
@@ -145,6 +146,11 @@ class ShellState {
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
 
+    // The viewer is modal and floats over everything: while it is up it owns
+    // every key, which is what lets a filter be `/` and a jump be `gg` without
+    // colliding with the bindings underneath.
+    if (changes.open) return changes.handleKey(event)
+
     // A menu or a set of hints can outlive what they point at: a column can be
     // clicked away, a restore can take the block, a compaction can fold it out
     // of sight. Either would then swallow every key from behind a surface that
@@ -233,6 +239,11 @@ class ShellState {
         break
       case 'leap':
         blockNav.leap()
+        break
+      case 'openChanges':
+        // A shell has no changes to show; the mode reconciles straight back.
+        if (app.thread.terminal) app.mode = 'NORMAL'
+        else void changes.show(app.thread.id)
         break
       case 'openBlockMenu':
         blockNav.openBlockMenu()

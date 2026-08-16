@@ -69,6 +69,11 @@ export class StubDriver implements SessionDriver {
         return { steerId } as CommandResult<N>
       }
 
+      case 'listChanges':
+        // The stub changes no files, and says so — the default `{ ok: true }`
+        // would hand the viewer a result with no `files` in it.
+        return { files: [] } as CommandResult<N>
+
       default:
         // Every other command is accepted and does nothing: the stub proves the
         // shape of the seam, not the behaviour behind it.

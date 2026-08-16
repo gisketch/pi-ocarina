@@ -15,6 +15,7 @@ export type Action =
   | { type: 'page'; delta: number }
   | { type: 'scroll'; delta: number }
   | { type: 'leap' }
+  | { type: 'openChanges' }
   | { type: 'openBlockMenu' }
   | { type: 'expandBlock'; open: boolean }
   | { type: 'newThread' }
@@ -225,6 +226,13 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       case 'ArrowLeft':
         return result(state, [{ type: 'expandBlock', open: false }])
     }
+  }
+
+  // The change viewer, from either mode that has a thread under it. Resolved
+  // above the NORMAL bindings so READ reaches it too — a reader who has just
+  // read the edit in the ledger is the one most likely to want all of it.
+  if (key === 'd' && (state.mode === 'NORMAL' || state.mode === 'READ')) {
+    return result({ ...state, mode: 'DIFF' }, [{ type: 'openChanges' }])
   }
 
   // Shift moves the column itself rather than the focus — the same relationship

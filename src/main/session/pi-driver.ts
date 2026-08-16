@@ -2,12 +2,14 @@ import type { AgentSession, SessionEntry } from '@earendil-works/pi-coding-agent
 import type {
   CommandName,
   CommandParams,
+  ChangedFile,
   CommandResult,
   EmitEvent,
   SessionDriver,
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
+import { countChanges, diffLines } from './file-diff'
 import { ApprovalGate } from './approvals'
 import { ChangeLog } from './change-log'
 import { ModelControl } from './model-control'
@@ -115,6 +117,11 @@ export class PiDriver implements SessionDriver {
         const { threadId, checkpointId } = params as CommandParams<'restoreCheckpoint'>
         await restoreCheckpoint(this.#emit, threadId, this.#threads.get(threadId), checkpointId)
         return { threadId } as CommandResult<N>
+      }
+
+      case 'listChanges': {
+        const { threadId } = params as CommandParams<'listChanges'>
+        return { files: this.#changedFiles(threadId) } as CommandResult<N>
       }
 
       case 'compact': {
@@ -254,6 +261,27 @@ export class PiDriver implements SessionDriver {
 
   /** Takes ownership of a session: binds its tools, wires its events, and files
    *  it under pi's own session id so the thread survives a relaunch. */
+  /** Every file a thread changed, as one diff each.
+   *
+   *  The same `diffLines` the ledger's rows go through, given a longer span:
+   *  the file before the thread's first edit against the file after its last.
+   *  A second differ here is how the two views would come to disagree. */
+  #changedFiles(threadId: string): ChangedFile[] {
+    const cwd = this.#workspaces.cwdOf(threadId)
+
+    return this.#changes.changes(threadId).map((change) => {
+      const lines = diffLines(change.before, change.after, { path: change.path })
+      const { added, removed } = countChanges(lines)
+      return {
+        path: cwd && change.path.startsWith(cwd) ? change.path.slice(cwd.length + 1) : change.path,
+        added,
+        removed,
+        existed: change.before !== '',
+        lines,
+      }
+    })
+  }
+
   #adopt(session: AgentSession, cwd: string): string {
     const threadId = session.sessionId
     const translator = new PiTranslator(

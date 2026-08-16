@@ -10,6 +10,7 @@
   import ConfirmModal from './components/ConfirmModal.svelte'
   import ConnectivityBanner from './components/ConnectivityBanner.svelte'
   import Toasts from './components/Toasts.svelte'
+  import DiffViewer from './components/overlays/DiffViewer.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
@@ -20,6 +21,7 @@
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { changes } from '$lib/state/changes.svelte'
   import { commit } from '$lib/state/commit.svelte'
   import { git } from '$lib/state/git.svelte'
   import { attachments } from '$lib/state/attachments.svelte'
@@ -191,6 +193,10 @@
 
   {#if commit.open}
     <CommitCard />
+  {/if}
+
+  {#if changes.open}
+    <DiffViewer />
   {/if}
 
   <ConfirmModal />

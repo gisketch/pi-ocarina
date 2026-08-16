@@ -111,6 +111,13 @@ export class WorkspaceService {
     this.#located.set(threadId, location)
   }
 
+  /** The working directory of a thread already seen, without the scan `locate`
+   *  would do. A caller that only wants to shorten a path should not pay for a
+   *  workspace walk to do it. */
+  cwdOf(threadId: string): string | undefined {
+    return this.#located.get(threadId)?.cwd
+  }
+
   /** Finds a thread, scanning pinned workspaces only if it has not been seen. */
   async locate(threadId: string): Promise<ThreadLocation> {
     const known = this.#located.get(threadId)
