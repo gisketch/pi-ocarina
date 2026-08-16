@@ -33,8 +33,11 @@ ledger diffs (Later/Not Now).
   `commit + push`, `edit message`. Commit runs git directly in main (defaults
   decision: not through pi). Push failure → error toast with retry (failure-policy
   grammar). The card never auto-commits.
-- **Terminal drawer**: `t` toggles per-workspace pty (login shell, cwd =
-  workspace root), xterm.js + WebGL renderer, 200px-class drawer per reference.
+- **Terminal drawer** *(superseded 2026-08-16: the terminal is a strip column
+  now, one per workspace — see the E3 ticket and Components §15; the pty,
+  focus and lifecycle decisions below still hold)*: `t` toggles per-workspace
+  pty (login shell, cwd = workspace root), xterm.js + WebGL renderer,
+  200px-class drawer per reference.
   The pty survives drawer close (toggle = visibility); it dies with the app
   (no-daemon decision). Focus rules: drawer focused → keys go to the pty except
   `esc` (returns to NORMAL) — the shell mode machine remains the arbiter.

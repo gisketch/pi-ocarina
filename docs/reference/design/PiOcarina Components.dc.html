@@ -715,8 +715,8 @@ await sleep(jitter(backoffMs))</div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;width:560px">
-          <span style="font-size:9.5px;color:#5c5c64">terminal drawer — per-workspace shell, toggles with t</span>
-          <div style="border:1px solid rgba(255,255,255,.05);background:#0a0a0c">
+          <span style="font-size:9.5px;color:#5c5c64">terminal drawer — <span style="color:#e9c46a">superseded by §15</span>: the shell is a strip column now</span>
+          <div style="border:1px solid rgba(255,255,255,.05);background:#0a0a0c;opacity:.45">
             <div style="display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">
               <span style="width:6px;height:6px;background:oklch(0.76 0.14 152)"></span>TERMINAL · bash — pi-core
               <span style="margin-left:auto;display:flex;gap:8px;align-items:center;color:#5c5c64"><span style="border:1px solid rgba(255,255,255,.09);padding:1px 5px">t</span><span style="cursor:pointer" style-hover="color:#e07a6b">✕</span></span>
@@ -846,6 +846,49 @@ await sleep(jitter(backoffMs))</div>
               <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;color:#c9c9c4;border-left:2px solid transparent;cursor:pointer" style-hover="background:rgba(255,255,255,.03)">leader timeout<span style="margin-left:auto;color:#efefea">2.6s</span><span style="color:#5c5c64;font-size:10px">h/l</span></div>
             </div>
             <div style="display:flex;gap:14px;padding:9px 18px;border-top:1px solid rgba(255,255,255,.04);font-size:10px;color:#5c5c64">j/k move · ⏎ change · esc close</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 terminal column -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">15 · TERMINAL COLUMN — the workspace's shell lives in the strip</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:8px;width:560px">
+          <span style="font-size:9.5px;color:#5c5c64">one per workspace, not per thread · created by t, full column height · supersedes the §13 drawer</span>
+          <div style="height:440px;display:flex;flex-direction:column;border:1px solid oklch(0.76 0.14 152 / 0.4);background:#0a0a0c;overflow:hidden">
+            <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+              <span style="width:6px;height:6px;background:oklch(0.76 0.14 152)"></span>
+              <span style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">TERMINAL · zsh</span>
+              <span style="color:#efefea">pi-core</span>
+              <span style="margin-left:auto;color:#5c5c64;font-size:10px;display:flex;gap:8px"><span style="border:1px solid rgba(255,255,255,.09);padding:1px 5px">t</span></span>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.85;white-space:pre"><span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:oklch(0.76 0.14 152)"> main</span> <span style="color:oklch(0.76 0.14 152)">❯</span> git status -sb
+<span style="color:#8d8d93">## main...origin/main <span style="color:#e9c46a">[ahead 1]</span></span>
+<span style="color:#e9c46a"> M</span> <span style="color:#8d8d93">src/sync/worker.ts</span>
+<span style="color:#7fd7a4"> A</span> <span style="color:#8d8d93">src/sync/retry.ts</span>
+<span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:oklch(0.76 0.14 152)"> main</span> <span style="color:oklch(0.76 0.14 152)">❯</span> pnpm test sync
+<span style="color:#8d8d93">Test Files  4 passed (4)</span>
+<span style="color:#8d8d93">     Tests  <span style="color:#7fd7a4">18 passed</span> (18)</span>
+<span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:#e9c46a"> main*</span> <span style="color:oklch(0.76 0.14 152)">❯</span> <span style="display:inline-block;width:7px;height:13px;background:oklch(0.76 0.14 152);vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+            <div style="flex:none;display:flex;gap:14px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.035);font-family:'Departure Mono',monospace;font-size:10px;color:#5c5c64"><span><span style="color:#8d8d93">i</span> type</span><span><span style="color:#8d8d93">esc</span> normal</span><span><span style="color:#8d8d93">esc esc</span> literal esc</span><span><span style="color:#8d8d93">⇧H/⇧L</span> move column</span><span style="margin-left:auto"><span style="color:#8d8d93">␣x</span> close</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:400px">
+          <span style="font-size:9.5px;color:#5c5c64">TERM mode — the pty owns every key except esc</span>
+          <div style="height:28px;display:flex;align-items:stretch;font-size:10.5px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);white-space:nowrap;width:fit-content">
+            <div style="display:flex;align-items:center;padding:0 12px;letter-spacing:.1em;background:oklch(0.76 0.14 152);color:#0d0d10">TERM</div>
+            <div style="display:flex;align-items:center;gap:6px;padding:0 12px;color:#8d8d93">♪ D pi-core</div>
+            <div style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid rgba(255,255,255,.04);color:#8d8d93">terminal</div>
+          </div>
+          <span style="font-size:9.5px;color:#5c5c64;margin-top:12px">rules</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:14px 16px;display:flex;flex-direction:column;gap:7px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#8d8d93;line-height:1.6">
+            <div><span style="color:#c9c9c4">t</span> creates the column the first time, then jumps to it — landing in TERM, caret ready.</div>
+            <div><span style="color:#c9c9c4">NORMAL</span>: h/l move columns, j/k scroll the scrollback; the column behaves like any other.</div>
+            <div><span style="color:#c9c9c4">TERM</span>: every key goes to the pty. esc returns to NORMAL; esc esc within the window sends one literal escape.</div>
+            <div><span style="color:#c9c9c4">␣x</span> closes the column and kills the pty — with the running confirm when something is still running.</div>
+            <div><span style="color:#c9c9c4">⇧H/⇧L</span> move any focused column, thread or terminal; the order is remembered per workspace.</div>
           </div>
         </div>
       </div>

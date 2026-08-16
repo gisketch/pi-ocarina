@@ -239,6 +239,26 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
                 </div>
               </div>
             </div>
+
+            <!-- terminal column — the workspace's shell, one per workspace.
+                 On demand via t, moved with ⇧H/⇧L, closed with ␣x. -->
+            <div sc-ref="c03" onClick="{{ focA3 }}" style="width:780px;flex:none;display:flex;flex-direction:column;border:1px solid {{ ba3 }};background:#0a0a0c;opacity:{{ da3 }};transition:opacity .4s,border-color .4s;overflow:hidden;cursor:pointer">
+              <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.035);font-size:11px">
+                <span style="width:6px;height:6px;background:{{ accent }}"></span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">TERMINAL · zsh</span>
+                <span style="color:#efefea">pi-core</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10px;display:flex;gap:8px"><span style="border:1px solid rgba(255,255,255,.09);padding:1px 5px">t</span></span>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.85;white-space:pre"><span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:{{ accent }}"> main</span> <span style="color:{{ accent }}">❯</span> git status -sb
+<span style="color:#8d8d93">## main...origin/main <span style="color:#e9c46a">[ahead 1]</span></span>
+<span style="color:#e9c46a"> M</span> <span style="color:#8d8d93">src/sync/worker.ts</span>
+<span style="color:#7fd7a4"> A</span> <span style="color:#8d8d93">src/sync/retry.ts</span>
+<span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:{{ accent }}"> main</span> <span style="color:{{ accent }}">❯</span> pnpm test sync
+<span style="color:#8d8d93">Test Files  4 passed (4)</span>
+<span style="color:#8d8d93">     Tests  <span style="color:#7fd7a4">18 passed</span> (18)</span>
+<span style="color:#5c5c64">~/dev/pi-core</span> <span style="color:#e9c46a"> main*</span> <span style="color:{{ accent }}">❯</span> <span style="display:inline-block;width:7px;height:13px;background:{{ accent }};vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+              <div style="flex:none;display:flex;gap:14px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.035);font-family:'Departure Mono',monospace;font-size:10px;color:#5c5c64"><span><span style="color:#8d8d93">i</span> type</span><span><span style="color:#8d8d93">esc</span> normal</span><span><span style="color:#8d8d93">esc esc</span> literal esc</span><span><span style="color:#8d8d93">⇧H/⇧L</span> move column</span><span style="margin-left:auto"><span style="color:#8d8d93">␣x</span> close</span></div>
+            </div>
           </div>
         </sc-if>
 
@@ -349,20 +369,8 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
         </sc-if>
       </div>
 
-      <!-- terminal drawer -->
-      <sc-if value="{{ term }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:none;margin:0 28px 12px;border:1px solid rgba(255,255,255,.035);background:#0a0a0c;animation:slideup .18s ease;max-width:780px;width:100%;align-self:center">
-          <div style="display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px;letter-spacing:.1em;color:#8d8d93">
-            <span style="width:6px;height:6px;background:{{ accent }}"></span>TERMINAL · bash — {{ wsName }}
-            <span style="margin-left:auto;display:flex;gap:8px;align-items:center;color:#5c5c64"><span style="border:1px solid rgba(255,255,255,.05);padding:1px 5px">t</span><span onClick="{{ termClose }}" style="cursor:pointer" style-hover="color:#e07a6b">✕</span></span>
-          </div>
-          <div style="padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.85;white-space:pre;max-height:200px;overflow-y:auto"><span style="color:#5c5c64">~/dev/{{ wsName }}</span> <span style="color:{{ accent }}"> {{ wsBranch }}</span> <span style="color:{{ accent }}">❯</span> git status -sb
-<span style="color:#8d8d93">## {{ wsBranch }}...origin/{{ wsBranch }} <span style="color:#e9c46a">[ahead 1]</span></span>
-<span style="color:#e9c46a"> M</span> <span style="color:#8d8d93">src/sync/worker.ts</span>
-<span style="color:#7fd7a4"> A</span> <span style="color:#8d8d93">src/sync/retry.ts</span>
-<span style="color:#5c5c64">~/dev/{{ wsName }}</span> <span style="color:#e9c46a"> {{ wsBranch }}*</span> <span style="color:{{ accent }}">❯</span> <span style="display:inline-block;width:7px;height:13px;background:{{ accent }};vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
-        </div>
-      </sc-if>
+      <!-- The terminal drawer this slot used to hold is superseded: the shell
+           is a strip column now (see the terminal column in workspace A). -->
 
       <!-- composer -->
       <div style="flex:none;padding:0 28px 14px">
@@ -532,7 +540,8 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>prev/next thread</span><span style="color:#8d8d93">h / l</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>switcher</span><span style="color:#8d8d93">w</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>commands</span><span style="color:#8d8d93">⌘K</span></div>
-            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>terminal</span><span style="color:#8d8d93">t</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>terminal column</span><span style="color:#8d8d93">t</span></div>
+            <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>move column</span><span style="color:#8d8d93">⇧H / ⇧L</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>model</span><span style="color:#8d8d93">m</span></div>
             <div style="display:flex;justify-content:space-between;color:#c9c9c4"><span>settings</span><span style="color:#8d8d93">,</span></div>
           </div>
@@ -563,7 +572,7 @@ a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:under
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;grain&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Texture&quot;}, &quot;motion&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Motion&quot;}}">
 class Component extends DCLogic {
-  state = { ws: 0, f: [0, 0, 0], askSel: null, perm: null, term: false, model: 0, reason: 3, modelSel: false, mStep: 0, mq: '', settings: false, swq: '', sGrain: null, sMotion: null, palette: false, keysOpen: false, switcher: false, insert: false, leader: false, ping: null, t1: false, t2: true, t3: false };
+  state = { ws: 0, f: [0, 0, 0], askSel: null, perm: null, model: 0, reason: 3, modelSel: false, mStep: 0, mq: '', settings: false, swq: '', sGrain: null, sMotion: null, palette: false, keysOpen: false, switcher: false, insert: false, leader: false, ping: null, t1: false, t2: true, t3: false };
   MODELS = [
     { name: 'pi-2.5-pro', desc: 'deep reasoning', meta: '200k ctx · slow · $$$', bars: 4 },
     { name: 'pi-2.5', desc: 'fast default', meta: '200k ctx · fast · $$', bars: 3 },
@@ -571,7 +580,7 @@ class Component extends DCLogic {
   ];
   REASONS = ['off', 'low', 'med', 'high'];
   WS = [
-    { name: 'pi-core',    note: 'D',  hue: 152, branch: 'main',         snippet: 'retry logic in sync worker', threads: 3, git: '↑1 +1~1' },
+    { name: 'pi-core',    note: 'D',  hue: 152, branch: 'main',         snippet: 'retry logic in sync worker', threads: 4, git: '↑1 +1~1' },
     { name: 'ocarina-ui', note: 'F♯', hue: 265, branch: 'feat/palette', snippet: 'palette flicker on open',    threads: 2, git: '+4~2' },
     { name: 'docs-site',  note: 'A',  hue: 45,  branch: 'main',         snippet: 'fresh thread',               threads: 1, git: '' },
   ];
@@ -614,7 +623,7 @@ class Component extends DCLogic {
         else if (e.key === 'w') this.setState({ ...done, switcher: true });
         else if (e.key === 'k') this.setState({ ...done, keysOpen: true });
         else if (e.key === 'n') { this.setState(done); this.go(2); }
-        else if (e.key === 't') this.setState({ ...done, term: !s.term });
+        else if (e.key === 't') { this.setState(done); if (s.ws === 0) this.focus(0,3); }
         else if (e.key === 'm') this.setState({ ...done, modelSel: true });
         else if (e.key === 's') this.setState({ ...done, settings: true });
         else if (e.key === 'h' || e.key === 'l') { this.setState(done); this.moveThread(e.key === 'l' ? 1 : -1); }
@@ -632,7 +641,7 @@ class Component extends DCLogic {
       }
       if (e.key === 'h' || e.key === 'ArrowLeft') { this.moveThread(-1); return; }
       if (e.key === 'l' || e.key === 'ArrowRight') { this.moveThread(1); return; }
-      if (e.key === 't') { this.setState({ term: !s.term }); return; }
+      if (e.key === 't') { if (s.ws === 0) this.focus(0,3); return; }
       if (e.key === 'm') { this.setState({ modelSel: !s.modelSel, settings: false, switcher: false, palette: false }); return; }
       if (e.key === ',') { this.setState({ settings: !s.settings, modelSel: false, switcher: false, palette: false }); return; }
       if (e.key === 'w') { this.setState({ switcher: !s.switcher, swq: '', palette: false, keysOpen: false }, () => { if (this.state.switcher && this.refs?.swinp) this.refs.swinp.focus(); }); return; }
@@ -688,8 +697,6 @@ class Component extends DCLogic {
       ws1: s.ws === 0, ws2: s.ws === 1, ws3: s.ws === 2,
       wsName: w.name, wsNote: w.note, wsBranch: w.branch,
       wsGit: w.git,
-      term: s.term,
-      termClose: () => this.setState({ term: false }),
       accent, accentSoft,
       tintBg: `radial-gradient(1000px 520px at 72% -12%, oklch(0.5 0.1 ${w.hue} / 0.05), transparent 70%)`,
       grainGlobal: grain ? 0.07 : 0,
@@ -699,9 +706,9 @@ class Component extends DCLogic {
       stripX: `translateX(${-(390 + f * COL)}px)`,
       stripTrans: motion ? 'transform .5s cubic-bezier(.22,1,.36,1)' : 'none',
       thrLabel: `${f + 1}/${w.threads}`,
-      da0: dim(0,0), da1: dim(0,1), da2: dim(0,2), ba0: bord(0,0), ba1: bord(0,1), ba2: bord(0,2),
+      da0: dim(0,0), da1: dim(0,1), da2: dim(0,2), da3: dim(0,3), ba0: bord(0,0), ba1: bord(0,1), ba2: bord(0,2), ba3: bord(0,3),
       db0: dim(1,0), db1: dim(1,1), bb0: bord(1,0), bb1: bord(1,1),
-      focA0: () => this.focus(0,0), focA1: () => this.focus(0,1), focA2: () => this.focus(0,2),
+      focA0: () => this.focus(0,0), focA1: () => this.focus(0,1), focA2: () => this.focus(0,2), focA3: () => this.focus(0,3),
       focB0: () => this.focus(1,0), focB1: () => this.focus(1,1),
       t1: s.t1, t2: s.t2, t3: s.t3,
       chev1: s.t1 ? '▾' : '▸', chev2: s.t2 ? '▾' : '▸', chev3: s.t3 ? '▾' : '▸',
