@@ -4,7 +4,7 @@ import { blocksFor, MOCK_THREADS } from '../mock/threads'
 import { WORKSPACES } from '../mock/workspaces'
 import { session } from '../session'
 import { replayThread } from '../thread-reducer'
-import type { Thread, Workspace } from '../types'
+import { terminalId, type Thread, type Workspace } from '../types'
 import { app, PLACEHOLDER_TITLE } from './app.svelte'
 import { threads } from './threads.svelte'
 
@@ -82,6 +82,73 @@ class Catalog {
       this.error = describe(cause)
       return null
     }
+  }
+
+  /** Puts the workspace's shell on the strip. One per workspace: asking twice
+   *  is asking for the one that is already there. */
+  openTerminal(workspaceId: string): void {
+    const id = terminalId(workspaceId)
+    this.workspaces = this.workspaces.map((workspace) =>
+      workspace.id !== workspaceId || workspace.threads.some((thread) => thread.id === id)
+        ? workspace
+        : {
+            ...workspace,
+            threads: [
+              ...workspace.threads.filter((thread) => !thread.fresh),
+              { id, title: 'zsh', status: 'idle' as const, meta: '', terminal: true },
+            ],
+          },
+    )
+    app.reconcile()
+  }
+
+  /** Takes any column off the strip without telling the backend anything — the
+   *  caller has already done whatever that column needed. */
+  closeColumn(columnId: string): void {
+    this.workspaces = this.workspaces.map((workspace) => {
+      if (!workspace.threads.some((thread) => thread.id === columnId)) return workspace
+
+      const remaining = workspace.threads.filter((thread) => thread.id !== columnId)
+      return {
+        ...workspace,
+        threads: remaining.length > 0 ? remaining : [freshThread(workspace)],
+      }
+    })
+    app.reconcile()
+  }
+
+  /** Moves a column within its workspace. The strip is the user's to arrange,
+   *  so this is a plain reorder — nothing about the thread or shell changes. */
+  moveColumn(workspaceId: string, from: number, to: number): void {
+    this.workspaces = this.workspaces.map((workspace) => {
+      if (workspace.id !== workspaceId) return workspace
+
+      const threads = workspace.threads.slice()
+      if (from < 0 || to < 0 || from >= threads.length || to >= threads.length) return workspace
+
+      const [moved] = threads.splice(from, 1)
+      threads.splice(to, 0, moved)
+      return { ...workspace, threads }
+    })
+  }
+
+  /** Restores the order the user last arranged.
+   *
+   *  Columns the stored order does not mention keep their listing position at
+   *  the end — a thread created since the last save must appear, not vanish
+   *  because an older order never heard of it. */
+  applyOrder(order: Record<string, string[]>): void {
+    this.workspaces = this.workspaces.map((workspace) => {
+      const wanted = order[workspace.id]
+      if (!wanted?.length) return workspace
+
+      const known = wanted
+        .map((id) => workspace.threads.find((thread) => thread.id === id))
+        .filter((thread): thread is Thread => thread !== undefined)
+      const rest = workspace.threads.filter((thread) => !wanted.includes(thread.id))
+      return { ...workspace, threads: [...known, ...rest] }
+    })
+    app.reconcile()
   }
 
   /** Takes a thread off the strip. Its session file is untouched: closing hides

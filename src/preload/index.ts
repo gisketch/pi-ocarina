@@ -3,6 +3,7 @@ import type { CatalogLoad, CatalogPosition } from '../main/catalog'
 import {
   SESSION_COMMAND_CHANNEL,
   SESSION_EVENTS_CHANNEL,
+  ptyChannel,
   type CommandName,
   type CommandParams,
   type CommandResult,
@@ -32,6 +33,26 @@ const api = {
     /** Native folder picker; null when the user cancels. The renderer never
      *  sees a filesystem API, only the path a person deliberately chose. */
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pick-directory'),
+  },
+  /** The workspace's shell. Output has its own channel per workspace so a
+   *  noisy build cannot delay a thread's tokens. */
+  terminal: {
+    create: (workspaceId: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('terminal:create', workspaceId),
+    kill: (workspaceId: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('terminal:kill', workspaceId),
+    write: (workspaceId: string, data: string): void =>
+      ipcRenderer.send('terminal:write', workspaceId, data),
+    resize: (workspaceId: string, cols: number, rows: number): void =>
+      ipcRenderer.send('terminal:resize', workspaceId, cols, rows),
+    busy: (workspaceId: string): Promise<{ busy: boolean }> =>
+      ipcRenderer.invoke('terminal:busy', workspaceId),
+    onData: (workspaceId: string, listener: (data: string) => void): (() => void) => {
+      const channel = ptyChannel(workspaceId)
+      const handler = (_event: unknown, data: string): void => listener(data)
+      ipcRenderer.on(channel, handler)
+      return () => ipcRenderer.off(channel, handler)
+    },
   },
   session: {
     invoke: <N extends CommandName>(

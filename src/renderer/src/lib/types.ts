@@ -1,11 +1,18 @@
 import type { ThreadRunState } from '../../../shared/vocabulary'
 
-export type Mode = 'NORMAL' | 'INSERT' | 'LEADER'
+/** `TERM` is `INSERT` for the terminal column: the pty owns every key while it
+ *  is on, and `esc` is the one key the shell keeps for itself. */
+export type Mode = 'NORMAL' | 'INSERT' | 'LEADER' | 'TERM'
 
 /** The column header speaks the same status the reducer produces, so a live
  *  thread and a listed one cannot disagree about what a thread is doing. */
 export type ThreadStatus = ThreadRunState
 
+/** A column in a workspace's strip.
+ *
+ *  The terminal is one of these rather than a surface of its own, so focus,
+ *  clamping, the titlebar dots, column moves and leader-x all work on it
+ *  without knowing it is a terminal. */
 export interface Thread {
   id: string
   title: string
@@ -16,6 +23,14 @@ export interface Thread {
   meta: string
   /** A started-but-empty thread; renders the hero column instead of history. */
   fresh?: boolean
+  /** The workspace's shell. Exactly one per workspace, created on demand. */
+  terminal?: boolean
+}
+
+/** The id a workspace's terminal column always has. Derived rather than stored,
+ *  so main and the renderer cannot disagree about which pty is which. */
+export function terminalId(workspaceId: string): string {
+  return `terminal:${workspaceId}`
 }
 
 export interface Workspace {

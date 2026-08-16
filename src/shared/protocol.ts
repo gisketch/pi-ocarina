@@ -23,6 +23,9 @@ export const PROTOCOL_VERSION = 1
  *  without importing the backend it would otherwise bundle. */
 export const SESSION_COMMAND_CHANNEL = 'session:command'
 export const SESSION_EVENTS_CHANNEL = 'session:events'
+/** Pty output, one channel per workspace. Kept off the session event queue so a
+ *  build printing thousands of lines cannot delay a thread's tokens. */
+export const ptyChannel = (workspaceId: string): string => `pty:${workspaceId}`
 
 /** What the backend says happened. The reducer turns these into blocks. */
 export type UiEvent =
@@ -135,6 +138,7 @@ export interface SessionCommands {
   openThread: { params: { threadId: string }; result: { ok: true } }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: string }; result: { ok: true } }
+
   /** Brings a closed thread back — what jumping to it from search does. */
   unarchiveThread: { params: { threadId: string }; result: { ok: true } }
   prompt: {

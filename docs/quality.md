@@ -49,3 +49,15 @@ Notes:
 - Source files above 350 lines fail the smell check. Required exceptions live in `.sonata/large-files.txt`, never product code.
 - New decisions update durable repo context.
 - Repeated failures become docs, checks, fixtures, logs, or clearer boundaries.
+
+## Native modules
+
+`node-pty` backs the terminal column and must match Electron's ABI, not
+Node's. After any `pnpm install` that touches it:
+
+```
+pnpm rebuild:native
+```
+
+A mismatch shows up as the app failing to open a terminal column, not as a
+build error — the module is imported lazily so the rest of the app still runs.

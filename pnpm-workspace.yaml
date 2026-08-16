@@ -5,3 +5,5 @@ allowBuilds:
   protobufjs: false
   electron: true
   esbuild: true
+  # Native pty for the terminal column; rebuilt against Electron's ABI.
+  node-pty: true

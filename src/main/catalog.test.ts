@@ -38,12 +38,13 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 4,
+      version: 5,
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
       approvals: {},
       archived: {},
+      order: {},
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -53,12 +54,13 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 4,
+      version: 5,
       workspaces: [],
       workspaceIndex: 2,
       focus: [1, 0],
       approvals: {},
       archived: {},
+      order: {},
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -167,12 +169,13 @@ describe('writeCatalog', () => {
   it('round-trips state', async () => {
     const file = await tempFile()
     const state: CatalogState = {
-      version: 4,
+      version: 5,
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
       approvals: { w1: ['bash:pnpm', 'write'] },
       archived: { w1: ['s-old'] },
+      order: { w1: ['s1', 's-old'] },
       preferences: { grain: false, motion: false, leaderTimeoutMs: 1800 },
     }
 
@@ -240,7 +243,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(4)
+    expect(state.version).toBe(5)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences).toEqual(DEFAULT_PREFERENCES)
@@ -259,7 +262,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(4)
+    expect(state.version).toBe(5)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences.leaderTimeoutMs).toBe(1200)

@@ -91,7 +91,12 @@ function registerCatalog(catalog: CatalogStore): void {
   // The renderer sends its position only. Workspaces belong to main, so a layout
   // save can never erase a pin.
   ipcMain.handle('catalog:save', (_event, position: CatalogPosition) => {
-    catalog.setPosition(position.workspaceIndex, position.focus, position.preferences)
+    catalog.setPosition(
+      position.workspaceIndex,
+      position.focus,
+      position.preferences,
+      position.order,
+    )
   })
 }
 
@@ -108,7 +113,7 @@ void app.whenReady().then(async () => {
   registerDialogs()
   registerCatalog(catalog)
 
-  const driver = registerSession(catalog)
+  const { driver, terminals } = registerSession(catalog)
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),
@@ -116,6 +121,8 @@ void app.whenReady().then(async () => {
 
   app.on('will-quit', () => {
     void driver.dispose()
+    // The shells are not daemons: they exist for as long as the window does.
+    terminals.disposeAll()
     void catalog.flush()
   })
 

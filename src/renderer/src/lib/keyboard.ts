@@ -6,7 +6,6 @@ export interface KeyState {
   mode: Mode
   /** Overlays are mutually exclusive by construction. */
   overlay: Overlay | null
-  terminal: boolean
 }
 
 export type Action =
@@ -15,6 +14,9 @@ export type Action =
   | { type: 'scrollColumn'; delta: number }
   | { type: 'newThread' }
   | { type: 'closeThread' }
+  | { type: 'openTerminal' }
+  | { type: 'termEscape' }
+  | { type: 'moveColumn'; delta: number }
   | { type: 'pinWorkspace' }
   | { type: 'compact' }
   | { type: 'yank' }
@@ -47,7 +49,7 @@ export interface KeyResult {
 export const LEADER_TIMEOUT_MS = 2600
 export const SCROLL_STEP = 100
 
-export const initialKeyState: KeyState = { mode: 'NORMAL', overlay: null, terminal: false }
+export const initialKeyState: KeyState = { mode: 'NORMAL', overlay: null }
 
 function result(
   state: KeyState,
@@ -96,6 +98,17 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   const { key } = event
   const mod = Boolean(event.metaKey || event.ctrlKey)
 
+  // The pty owns every key while TERM is on — including the ones that would
+  // otherwise be bindings. `esc` is the single exception, and even that is only
+  // half an answer: pressing it twice means "send a real escape through", which
+  // needs a clock the shell has and this reducer deliberately does not.
+  if (state.mode === 'TERM') {
+    if (key === 'Escape') {
+      return result({ ...state, mode: 'NORMAL' }, [{ type: 'termEscape' }], true, 'clear')
+    }
+    return result(state, [], false)
+  }
+
   // Escape and ⌘K work from every mode, including while typing.
   if (key === 'Escape') {
     return result(
@@ -132,6 +145,12 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // Everything below is NORMAL-only; typing must reach the input untouched.
   if (typing) return result(state, [], false)
 
+  // Shift moves the column itself rather than the focus — the same relationship
+  // a tiling window manager gives you, and it works on any column, thread or
+  // terminal.
+  if (key === 'H') return result(state, [{ type: 'moveColumn', delta: -1 }])
+  if (key === 'L') return result(state, [{ type: 'moveColumn', delta: 1 }])
+
   // With nothing pinned the welcome screen is the whole app, and its one
   // action is the only thing ⏎ could mean.
   if (key === 'Enter' && ctx.workspaceCount === 0 && !anyOverlay) {
@@ -152,7 +171,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     case 'k':
       return result(state, [{ type: 'scrollColumn', delta: -SCROLL_STEP }])
     case 't':
-      return result({ ...state, terminal: !state.terminal })
+      return result(state, [{ type: 'openTerminal' }])
     case 'w':
       return toggleOverlay(state, 'switcher')
     case '?':
@@ -198,7 +217,7 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
     case 'x':
       return result({ ...done, overlay: null }, [{ type: 'closeThread' }], true, 'clear')
     case 't':
-      return result({ ...done, terminal: !state.terminal }, [], true, 'clear')
+      return result(done, [{ type: 'openTerminal' }], true, 'clear')
     case 'c':
       return result(done, [{ type: 'compact' }], true, 'clear')
     case 'h':

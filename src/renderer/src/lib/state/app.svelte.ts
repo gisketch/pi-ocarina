@@ -84,7 +84,7 @@ class AppState {
   }
 
   get accented(): boolean {
-    return this.mode === 'INSERT' || this.mode === 'LEADER'
+    return this.mode === 'INSERT' || this.mode === 'LEADER' || this.mode === 'TERM'
   }
 
   /** What a column header should show. The live model wins as soon as the

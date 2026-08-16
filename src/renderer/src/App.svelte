@@ -5,7 +5,6 @@
   import Strip from './components/strip/Strip.svelte'
   import Welcome from './components/Welcome.svelte'
   import Composer from './components/Composer.svelte'
-  import TerminalDrawer from './components/TerminalDrawer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
   import CloseConfirm from './components/CloseConfirm.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
@@ -168,10 +167,11 @@
         <Welcome />
       {:else}
         <Strip />
-        {#if shell.terminal}
-          <TerminalDrawer onclose={() => shell.toggleTerminal()} />
+        <!-- A focused shell is its own input. Leaving the composer under it
+             would offer to message pi in a column pi has nothing to do with. -->
+        {#if !app.thread.terminal}
+          <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
         {/if}
-        <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
       {/if}
     </div>
   </div>

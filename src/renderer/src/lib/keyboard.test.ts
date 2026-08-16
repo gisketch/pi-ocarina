@@ -65,9 +65,11 @@ describe('NORMAL bindings', () => {
     expect(actions).toEqual([{ type: 'focusComposer' }])
   })
 
-  it('toggles terminal and keymap', () => {
-    expect(press(NORMAL, 't').state.terminal).toBe(true)
-    expect(press(NORMAL, 't', 't').state.terminal).toBe(false)
+  it('asks for the terminal column on t', () => {
+    expect(press(NORMAL, 't').actions).toEqual([{ type: 'openTerminal' }])
+  })
+
+  it('toggles the keymap', () => {
     expect(press(NORMAL, '?').state.overlay).toBe('keymap')
     expect(press(NORMAL, '?', '?').state.overlay).toBe(null)
   })
@@ -111,7 +113,7 @@ describe('LEADER chords', () => {
       ['w', { overlay: 'switcher' }, [{ type: 'focusSwitcher' }]],
       ['k', { overlay: 'keymap' }, []],
       ['n', { overlay: null }, [{ type: 'newThread' }]],
-      ['t', { terminal: true }, []],
+      ['t', {}, [{ type: 'openTerminal' }]],
       ['c', {}, [{ type: 'compact' }]],
       ['h', {}, [{ type: 'moveThread', delta: -1 }]],
       ['l', {}, [{ type: 'moveThread', delta: 1 }]],
@@ -251,5 +253,51 @@ describe('search', () => {
 
   it('escape closes it', () => {
     expect(press(NORMAL, '/', 'Escape').state.overlay).toBe(null)
+  })
+})
+
+describe('TERM mode', () => {
+  const TERM: KeyState = { ...initialKeyState, mode: 'TERM' }
+
+  it('lets every key through to the pty untouched', () => {
+    // Including the ones that are bindings everywhere else: a shell that
+    // could not receive `h` or a digit would not be a shell.
+    for (const key of ['h', 'l', 'j', 'k', 'i', 'w', '?', ' ', '1', 'H', 'L', 't', '/']) {
+      const { actions, last } = press(TERM, key)
+      expect(actions, `key ${key} must reach the pty`).toEqual([])
+      expect(last.preventDefault, `key ${key} must not be swallowed`).toBe(false)
+      expect(last.state.mode).toBe('TERM')
+    }
+  })
+
+  it('keeps escape for itself, and reports it', () => {
+    const { state, actions, last } = press(TERM, 'Escape')
+
+    expect(state.mode).toBe('NORMAL')
+    expect(actions).toEqual([{ type: 'termEscape' }])
+    expect(last.preventDefault).toBe(true)
+  })
+
+  it('does not let the meta palette chord out of the pty', () => {
+    // ⌘K is a readline binding; the shell must not steal it.
+    const { actions, last } = press(TERM, { key: 'k', metaKey: true })
+    expect(actions).toEqual([])
+    expect(last.state.overlay).toBe(null)
+  })
+})
+
+describe('moving a column', () => {
+  it('moves left and right on shift-h and shift-l', () => {
+    expect(press(NORMAL, 'H').actions).toEqual([{ type: 'moveColumn', delta: -1 }])
+    expect(press(NORMAL, 'L').actions).toEqual([{ type: 'moveColumn', delta: 1 }])
+  })
+
+  it('leaves the lowercase pair moving focus instead', () => {
+    expect(press(NORMAL, 'h').actions).toEqual([{ type: 'moveThread', delta: -1 }])
+  })
+
+  it('does not move a column while typing', () => {
+    expect(press(INSERT, 'H').actions).toEqual([])
+    expect(press(INSERT, 'H').last.preventDefault).toBe(false)
   })
 })

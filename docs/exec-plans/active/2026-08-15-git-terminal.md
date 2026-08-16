@@ -37,7 +37,7 @@ Status legend: `todo` · `in-progress` · `done`.
   remote); visual review vs section 13.
 - Blocked by: E1, E4 (toasts), D2 (`/commit` entry)
 
-## E3 — Terminal column — `todo`
+## E3 — Terminal column — `done`
 
 > Supersedes the drawer this ticket used to describe. Decided in the
 > 2026-08-16 grill: the terminal is a **column in the strip**, scoped to the

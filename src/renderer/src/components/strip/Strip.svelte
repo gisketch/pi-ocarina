@@ -2,6 +2,7 @@
   import ThreadColumn from './ThreadColumn.svelte'
   import FreshThread from './FreshThread.svelte'
   import LiveThread from './LiveThread.svelte'
+  import TerminalColumn from './TerminalColumn.svelte'
   import { app } from '$lib/state/app.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
@@ -17,6 +18,13 @@
       {#each workspace.threads as thread, i (thread.id)}
         {#if thread.fresh}
           <FreshThread {workspace} />
+        {:else if thread.terminal}
+          <TerminalColumn
+            workspaceId={workspace.id}
+            name={workspace.name}
+            focused={i === app.threadIndex}
+            onfocus={() => app.focusThread(i)}
+          />
         {:else}
           <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
             <LiveThread threadId={thread.id} />

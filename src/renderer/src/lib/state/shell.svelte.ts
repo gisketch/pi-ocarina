@@ -1,9 +1,16 @@
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { terminalId } from '../types'
+import { terminals } from './terminal.svelte'
 import { scrollColumn } from './columns'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
+/** How long after leaving TERM a second `esc` still means "send it through".
+ *  Long enough to be deliberate, short enough that an unrelated later `esc`
+ *  is not mistaken for the second half of a chord. */
+const TERM_ESCAPE_WINDOW_MS = 350
+
 import {
   type Action,
   type KeyEventLike,
@@ -37,7 +44,6 @@ export interface FocusTargets {
 /** Bridges the pure key machine to app state, DOM focus and the leader timeout. */
 class ShellState {
   overlay = $state<KeyState['overlay']>(initialKeyState.overlay)
-  terminal = $state(initialKeyState.terminal)
 
   /** The thread waiting on a "close this running turn?" answer, if any. */
   pendingClose = $state<string | null>(null)
@@ -45,9 +51,10 @@ class ShellState {
   readonly targets: FocusTargets = {}
 
   private leaderTimer: ReturnType<typeof setTimeout> | null = null
+  #lastTermEscape = 0
 
   private get keyState(): KeyState {
-    return { mode: app.mode, overlay: this.overlay, terminal: this.terminal }
+    return { mode: app.mode, overlay: this.overlay }
   }
 
   closeOverlay(): void {
@@ -57,10 +64,6 @@ class ShellState {
   openOverlay(overlay: KeyState['overlay']): void {
     this.overlay = overlay
     if (overlay === 'palette') queueMicrotask(() => this.targets.palette?.focus())
-  }
-
-  toggleTerminal(): void {
-    this.terminal = !this.terminal
   }
 
   focusComposer(): void {
@@ -104,6 +107,17 @@ class ShellState {
     // The fresh placeholder is not a thread; there is nothing to close.
     if (thread.fresh || thread.id === '') return
 
+    if (thread.terminal) {
+      // Closing kills the shell, so a command still running is worth one
+      // question — the same bargain a running turn gets.
+      const workspaceId = app.workspace.id
+      void terminals.busy(workspaceId).then((busy) => {
+        if (busy) this.pendingClose = thread.id
+        else this.closeThread(thread.id, { cancelTurn: false })
+      })
+      return
+    }
+
     if (threads.get(thread.id).runState === 'running') {
       this.pendingClose = thread.id
       return
@@ -112,8 +126,68 @@ class ShellState {
   }
 
   closeThread(threadId: string, { cancelTurn }: { cancelTurn: boolean }): void {
+    const column = app.workspace.threads.find((candidate) => candidate.id === threadId)
+    if (column?.terminal) {
+      terminals.kill(app.workspace.id)
+      catalog.closeColumn(threadId)
+      return
+    }
+
     if (cancelTurn) threads.cancel(threadId)
     catalog.closeThread(threadId)
+  }
+
+  /** Brings the workspace's shell up, or jumps to it if it is already there.
+   *
+   *  Landing in TERM is the point: a shell you asked for is a shell you meant
+   *  to type into, the same reasoning that focuses the composer on leader-n. */
+  openTerminal(): void {
+    if (catalog.source !== 'live') return
+
+    const workspaceId = app.workspace.id
+    const id = terminalId(workspaceId)
+    const existing = app.workspace.threads.findIndex((thread) => thread.id === id)
+
+    if (existing !== -1) {
+      app.focusThread(existing)
+      app.mode = 'TERM'
+      return
+    }
+
+    catalog.openTerminal(workspaceId)
+    void terminals.create(workspaceId)
+
+    const column = app.workspace.threads.findIndex((thread) => thread.id === id)
+    if (column === -1) return
+    app.focusThread(column)
+    app.mode = 'TERM'
+  }
+
+  /** `esc` left TERM. A second one straight after means the person wanted the
+   *  shell to see an escape — vim and lazygit both need one, and the mode key
+   *  had already eaten it. */
+  termEscape(): void {
+    const now = Date.now()
+    const since = now - this.#lastTermEscape
+    // A negative gap is not a fast second press — it is a clock that moved
+    // backwards. Treating it as one would send an escape nobody asked for.
+    const doubled = since >= 0 && since < TERM_ESCAPE_WINDOW_MS
+    this.#lastTermEscape = doubled ? 0 : now
+    if (!doubled) return
+
+    if (!app.thread.terminal) return
+    terminals.write(app.workspace.id, '\u001b')
+    app.mode = 'TERM'
+  }
+
+  /** Moves the focused column itself, rather than the focus. */
+  moveColumn(delta: number): void {
+    const from = app.threadIndex
+    const to = from + delta
+    if (to < 0 || to >= app.workspace.threads.length) return
+
+    catalog.moveColumn(app.workspace.id, from, to)
+    app.focusThread(to)
   }
 
   /** Returns true when the event was consumed and should be prevented. */
@@ -140,7 +214,6 @@ class ShellState {
 
     app.mode = state.mode
     this.overlay = state.overlay
-    this.terminal = state.terminal
 
     if (timer === 'clear') this.clearLeaderTimer()
     if (timer === 'start') this.startLeaderTimer()
@@ -162,7 +235,10 @@ class ShellState {
         scrollColumn(app.thread.id, action.delta)
         break
       case 'focusComposer':
-        this.focusComposer()
+        // `i` means "start typing at the focused column". For a shell that is
+        // TERM, not the composer — which is not even on screen.
+        if (app.thread.terminal) app.mode = 'TERM'
+        else this.focusComposer()
         break
       case 'blurComposer':
         this.targets.composer?.blur()
@@ -184,6 +260,15 @@ class ShellState {
         break
       case 'closeThread':
         this.requestClose()
+        break
+      case 'openTerminal':
+        this.openTerminal()
+        break
+      case 'termEscape':
+        this.termEscape()
+        break
+      case 'moveColumn':
+        this.moveColumn(action.delta)
         break
       case 'pinWorkspace':
         // Failure lands on `catalog.error`, which the welcome screen renders.

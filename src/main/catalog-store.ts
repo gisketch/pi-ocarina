@@ -40,6 +40,7 @@ export class CatalogStore {
       focus: [...this.#state.focus],
       approvals: structuredClone(this.#state.approvals),
       archived: structuredClone(this.#state.archived),
+      order: structuredClone(this.#state.order),
     }
   }
 
@@ -131,6 +132,7 @@ export class CatalogStore {
     delete this.#state.approvals[removed.id]
     // A folder that is no longer pinned has no strip to hide threads from.
     delete this.#state.archived[removed.id]
+    delete this.#state.order[removed.id]
     this.#state.workspaceIndex = Math.min(
       this.#state.workspaceIndex,
       Math.max(0, this.#state.workspaces.length - 1),
@@ -139,11 +141,21 @@ export class CatalogStore {
   }
 
   /** The renderer's remembered position. Deliberately the only thing it writes. */
-  setPosition(workspaceIndex: number, focus: number[], preferences?: Preferences): void {
+  setPosition(
+    workspaceIndex: number,
+    focus: number[],
+    preferences?: Preferences,
+    order?: Record<string, string[]>,
+  ): void {
     this.#state.workspaceIndex = workspaceIndex
     this.#state.focus = focus
     if (preferences) this.#state.preferences = parsePreferences(preferences)
+    if (order) this.#state.order = order
     this.#persist()
+  }
+
+  orderOf(workspaceId: string): string[] {
+    return [...(this.#state.order[workspaceId] ?? [])]
   }
 
   /** Writes are queued rather than raced, so the last call wins the file. */

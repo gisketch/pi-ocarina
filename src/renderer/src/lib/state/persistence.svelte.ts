@@ -21,6 +21,7 @@ export function startPersistence(): () => void {
   void Promise.all([desktop.catalog.load(), catalog.load()]).then(([{ state, warning }]) => {
     if (warning) console.warn(`[catalog] ${warning}`)
     preferences.apply(state.preferences)
+    catalog.applyOrder(state.order ?? {})
     app.goWorkspace(Math.min(state.workspaceIndex, app.workspaces.length - 1))
     app.focus = app.workspaces.map((workspace, i) =>
       clampThread(state.focus[i] ?? 0, workspace.threads.length),
@@ -36,6 +37,13 @@ export function startPersistence(): () => void {
         workspaceIndex: app.workspaceIndex,
         focus: [...app.focus],
         preferences: preferences.stored,
+        // Tracked so a ⇧H/⇧L rearrangement is saved like any other position.
+        order: Object.fromEntries(
+          app.workspaces.map((workspace) => [
+            workspace.id,
+            workspace.threads.map((thread) => thread.id),
+          ]),
+        ),
       }
       if (!restored) return
 
