@@ -62,6 +62,13 @@ export function chevron(open: boolean): string {
 }
 
 /** Rows carry their own default expansion; unknown ids fall back to closed. */
+/** How many lines of a diff a row draws before it defers to the viewer.
+ *
+ *  Enough for the edits an agent actually makes — the reference's examples are
+ *  three lines — and short of a row that takes the column. What is left is
+ *  stated, never silently dropped. */
+export const DRAWN_DIFF_LINES = 24
+
 export function initialOpenState(rows: ToolRow[]): Record<string, boolean> {
   const state: Record<string, boolean> = {}
   for (const row of rows) {

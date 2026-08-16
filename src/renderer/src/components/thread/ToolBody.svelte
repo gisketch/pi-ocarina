@@ -1,7 +1,14 @@
 <script lang="ts">
+  import { DRAWN_DIFF_LINES } from '$lib/ledger'
   import type { ToolBody } from '$lib/thread'
 
   const { body }: { body: ToolBody } = $props()
+
+  // A diff is the one body that can be arbitrarily long, because it is the one
+  // a person asked the agent to make. The rest are pi's output and are already
+  // capped before they cross.
+  const drawn = $derived(body.type === 'diff' ? body.lines.slice(0, DRAWN_DIFF_LINES) : [])
+  const hidden = $derived(body.type === 'diff' ? body.lines.length - drawn.length : 0)
 </script>
 
 {#if body.type === 'code'}
@@ -17,7 +24,7 @@
   </div>
 {:else if body.type === 'diff'}
   <div class="panel diff">
-    {#each body.lines as line, i (i)}
+    {#each drawn as line, i (i)}
       {#if line.sign === '@'}
         <div class="dline skip">{line.text}</div>
       {:else}
@@ -29,6 +36,9 @@
         ><span class="num">{line.line ?? ''}</span>{line.sign} {line.text}</div>
       {/if}
     {/each}
+    {#if hidden > 0}
+      <div class="dline more">{hidden} more {hidden === 1 ? 'line' : 'lines'} · a to open the viewer</div>
+    {/if}
   </div>
 {:else if body.type === 'terminal'}
   <div class="panel terminal" class:error={body.tone === 'error'}>{#each body.lines as line, i (i)}<div class={line.tone ?? ''}>{line.text}</div>{/each}</div>
@@ -107,6 +117,15 @@
     text-align: right;
     color: var(--fg-ghost);
     user-select: none;
+  }
+  /* What the row is not drawing. Stated rather than truncated in silence: a
+     diff that stops without saying so reads as the whole change. */
+  .more {
+    color: var(--fg-dimmer);
+    font-size: 10.5px;
+    padding: 6px 12px;
+    font-family: var(--font-chrome);
+    border-top: 1px solid var(--bg-hover);
   }
   /* Not a line of the file. It says the file continues, so it is drawn as an
      aside rather than as content. */

@@ -64,7 +64,20 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return settleRow(model, event.id, (row) => ({ ...row, meta: event.meta }), event)
 
     case 'tool-body':
-      return settleRow(model, event.id, (row) => ({ ...row, body: event.body }), event)
+      return settleRow(
+        model,
+        event.id,
+        (row) => ({
+          ...row,
+          body: event.body,
+          // A change to a file is what the reader came to read, so it arrives
+          // open. Keyed on the body rather than on the tool kind: a `write`
+          // that produced no diff has nothing to open, and a row that opens on
+          // to nothing is worse than one that stays shut.
+          ...(event.body.type === 'diff' ? { open: true } : {}),
+        }),
+        event,
+      )
 
     case 'tool-end':
       return settleRow(
