@@ -1,20 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { type KeyEventLike, type KeyState, initialKeyState, reduceKey } from './keyboard'
+import { press as pressWith } from './keyboard-press'
 
 const ctx = { workspaceCount: 3, terminalColumn: false }
 
-function press(state: KeyState, ...keys: (string | KeyEventLike)[]) {
-  let current = state
-  let actions: ReturnType<typeof reduceKey>['actions'] = []
-  let last!: ReturnType<typeof reduceKey>
-  for (const k of keys) {
-    const event = typeof k === 'string' ? { key: k } : k
-    last = reduceKey(current, event, ctx)
-    current = last.state
-    actions = actions.concat(last.actions)
-  }
-  return { state: current, actions, last }
-}
+const press = (state: KeyState, ...keys: (string | KeyEventLike)[]) =>
+  pressWith(ctx, state, ...keys)
 
 const NORMAL = initialKeyState
 const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }

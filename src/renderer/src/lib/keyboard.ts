@@ -143,12 +143,18 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
 
   // Escape and ⌘K work from every mode, including while typing.
   if (key === 'Escape') {
+    // One thing at a time. An open overlay is the nearest thing to back out
+    // of, and the mode underneath it survives — so a reader who opened the
+    // keymap from READ is still in READ when the keymap closes, and the next
+    // press is the one that leaves the transcript.
+    if (state.overlay !== null) return result({ ...state, overlay: null }, [], true, 'clear')
+
     // The second half of `esc esc` lands here, not in the TERM branch above:
     // the first press already left TERM. The shell owns the timing and the
     // "is a shell even focused" question, so this always reports the press and
     // lets it decide — everywhere else it is a no-op.
     return result(
-      { ...state, mode: 'NORMAL', overlay: null },
+      { ...state, mode: 'NORMAL' },
       state.mode === 'INSERT' ? [{ type: 'blurComposer' }] : [{ type: 'termEscape' }],
       true,
       'clear',

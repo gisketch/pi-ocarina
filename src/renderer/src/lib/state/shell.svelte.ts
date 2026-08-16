@@ -180,12 +180,14 @@ class ShellState {
     }
 
     const before = this.keyState
-    // `esc` backs out of one thing at a time, and READ is the thing the ring
-    // belongs to. An open overlay is nearer, so it goes first and the ring
-    // survives to be released by the next press.
-    if (event.key === 'Escape' && before.overlay === null && before.mode === 'READ') {
-      blockNav.release()
-    }
+    // `esc` backs out of one thing at a time. An open overlay is nearer, so it
+    // goes first and the ring survives to be released by the next press.
+    //
+    // Gated on the ring rather than on READ: a reader can leave READ by doors
+    // that do not pass through here — a leader chord, a digit — and a ring
+    // that only `esc`-from-READ could clear would strand a dimmed transcript
+    // with no way back.
+    if (event.key === 'Escape' && before.overlay === null) blockNav.release()
 
     const { state, actions, preventDefault, timer } = reduceKey(before, event, {
       workspaceCount: app.workspaces.length,
@@ -199,6 +201,7 @@ class ShellState {
     if (timer === 'start') this.startLeaderTimer()
 
     for (const action of actions) this.run(action)
+    blockNav.reconcileMode()
 
     return preventDefault
   }

@@ -1,50 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../bridge', () => ({
-  bridge: {
-    dialog: { pickDirectory: () => Promise.resolve(null) },
-    session: { invoke: () => Promise.resolve({ ok: true }), onEvents: () => () => {} },
-    git: {
-      refresh: () => {},
-      statuses: () => Promise.resolve([]),
-      onStatus: () => () => {},
-      changes: () => Promise.resolve({ changes: [], message: '' }),
-      commit: () => Promise.resolve({ ok: true, pushed: false }),
-      push: () => Promise.resolve({ ok: true, pushed: true }),
-    },
-    terminal: {
-      create: () => Promise.resolve({ ok: true }),
-      kill: () => Promise.resolve({ ok: true }),
-      write: () => {},
-      resize: () => {},
-      busy: () => Promise.resolve({ busy: false }),
-      onData: () => () => {},
-    },
-  },
-  isDesktop: true,
-}))
+vi.mock('../bridge', async () => (await import('./fixtures')).BRIDGE_MOCK)
 
 import { app } from './app.svelte'
+import { WORKSPACE } from './fixtures'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
-import { blockFocus } from './block-focus.svelte'
+import { blockFocus, registerBlock } from './block-focus.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { threads } from './threads.svelte'
 import { navBlocks } from '../blocks'
 import type { Block } from '../thread'
 
-const WORKSPACE = {
-  id: 'w1',
-  name: 'pi-core',
-  note: 'D',
-  hue: 152,
-  git: null,
-  snippet: '/code/pi-core',
-  threads: [
-    { id: 's1', title: 'first', status: 'idle' as const, meta: '' },
-    { id: 's2', title: 'second', status: 'idle' as const, meta: '' },
-  ],
+
+/** Stands in for a rendered block: the drop-stale check asks whether one was
+ *  ever drawn, and in a headless run nothing is. */
+function stubElement(): HTMLElement {
+  return { scrollIntoView() {}, getBoundingClientRect: () => ({ top: 0, bottom: 10 }) as DOMRect } as unknown as HTMLElement
 }
 
 beforeEach(() => {
@@ -165,11 +138,47 @@ describe('READ through the real key path', () => {
     shell.handleKey({ key: 'j' })
     expect(blockFocus.idOf('s1')).toBe('l1:r1')
 
+    // Keyed by nav id: a tool call id is only unique within its own call.
     shell.handleKey({ key: 'l' })
-    expect(toolOpen.isOpen('s1', 'r1', false)).toBe(true)
+    expect(toolOpen.isOpen('s1', 'l1:r1', false)).toBe(true)
 
     shell.handleKey({ key: 'h' })
-    expect(toolOpen.isOpen('s1', 'r1', false)).toBe(false)
+    expect(toolOpen.isOpen('s1', 'l1:r1', false)).toBe(false)
+  })
+
+  it('does not leave the mode behind when the focus moves to another column', () => {
+    shell.handleKey({ key: 'j' })
+    expect(app.mode).toBe('READ')
+
+    // A leader chord moves the column without going near the transcript keys.
+    shell.handleKey({ key: ' ' })
+    shell.handleKey({ key: 'l' })
+
+    expect(app.focus[0]).toBe(1)
+    expect(app.mode).toBe('NORMAL')
+    app.focusThread(0)
+  })
+
+  it('clears a stranded ring on esc, whatever mode it was left in', () => {
+    shell.handleKey({ key: 'j' })
+    app.mode = 'NORMAL'
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(blockFocus.idOf('s1')).toBeNull()
+  })
+
+  it('keeps the ring while esc is busy closing an overlay', () => {
+    shell.handleKey({ key: 'j' })
+    shell.handleKey({ key: '?' })
+    expect(shell.overlay).toBe('keymap')
+
+    shell.handleKey({ key: 'Escape' })
+    expect(shell.overlay).toBeNull()
+    expect(blockFocus.idOf('s1')).toBe('u1')
+
+    shell.handleKey({ key: 'Escape' })
+    expect(blockFocus.idOf('s1')).toBeNull()
   })
 
   it('does nothing to a message, which has nothing to widen', () => {
@@ -197,6 +206,21 @@ describe('overlays that lose their block', () => {
 
     shell.handleKey({ key: 'l' })
 
+    expect(blockMenu.open).toBe(false)
+  })
+
+  it('drops a menu on a block that is no longer drawn', () => {
+    // A compaction folds the blocks above it out of the rendered list while
+    // leaving them in the model. The menu would stay modal over nothing.
+    const block = navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0]
+    const off = registerBlock('s1', 'u1', stubElement())
+    blockMenu.openOn('s1', block)
+
+    shell.handleKey({ key: 'j' })
+    expect(blockMenu.open).toBe(true)
+
+    off()
+    shell.handleKey({ key: 'j' })
     expect(blockMenu.open).toBe(false)
   })
 

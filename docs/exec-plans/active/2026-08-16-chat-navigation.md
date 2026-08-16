@@ -82,6 +82,28 @@ changed are recorded here rather than left to the diff.
     the reader clicked away from would eat every keystroke from behind a
     surface no longer drawn.
 
+## Amendments after the second review round (2026-08-16)
+
+16. **Paint containment has to be lifted at every level, not one.** The first
+    fix lifted it on the block wrapper and on the ledger row. The ledger's own
+    box is also a direct child of the scroller, so it carried the same
+    containment and clipped a menu hanging off its last row. A containment
+    escape is only as good as its outermost ancestor.
+17. **`esc` closes an overlay without also leaving the mode underneath it.**
+    A reader who opens the keymap from READ is still in READ when it closes.
+18. **The ring is released by `esc` whenever there is one**, not only from
+    READ. A reader can leave READ through doors that never touch the
+    transcript keys — a leader chord, a digit — and a ring only `esc`-from-READ
+    could clear would strand a dimmed transcript with no way back.
+19. **READ cannot outlive the focus it describes.** The mode is reconciled
+    after every keystroke and after every click on a column: a mode chip that
+    disagrees with what the keys do is worse than no chip.
+20. **A menu is dropped when its block is not drawn**, not merely when it is
+    absent from the model. A compaction folds blocks out of the rendered list
+    while leaving them in place, which membership alone cannot see.
+21. **Expansion is keyed by nav id.** A tool call id is unique within its call,
+    not within the thread — which is why the nav id is built from both.
+
 ## H1 — `j` and `k` focus a block — `done`
 
 Delivered behavior: in a thread column, `j` and `k` move a focus ring from

@@ -35,12 +35,15 @@
   // default. The overrides live outside this component because `l` on the
   // focused block opens a row too, from a keyboard layer with nothing to reach.
   const defaults = $derived(initialOpenState(rows))
+  // Keyed by nav id, not by row id: a tool call id is only unique within its
+  // call, which is the same reason the nav id is built from both. Two ledgers
+  // holding a row with the same id must not open each other's.
   const isOpen = (row: ToolRow): boolean =>
-    toolOpen.isOpen(threadId, row.id, defaults[row.id] ?? false)
+    toolOpen.isOpen(threadId, navIdOf(row), defaults[row.id] ?? false)
 
   function toggle(row: ToolRow): void {
     if (!isExpandable(row)) return
-    toolOpen.toggle(threadId, row.id, defaults[row.id] ?? false)
+    toolOpen.toggle(threadId, navIdOf(row), defaults[row.id] ?? false)
   }
 </script>
 
@@ -95,7 +98,11 @@
   </div>
 {/snippet}
 
-<div class="ledger">
+<!-- The ledger's own box is a direct child of the column, so it carries
+     `content-visibility: auto` and with it paint containment — which clips a
+     menu hanging off its last row just as surely as the row's own containment
+     did. Lifting it on the row alone was half a fix. -->
+<div class="ledger" class:hosting={rows.some((row) => menuOn(navIdOf(row)))}>
   {#each rows as row (row.id)}
     {@render entry(row, false)}
   {/each}
@@ -112,6 +119,11 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .ledger.hosting {
+    content-visibility: visible;
+    contain: none;
+    z-index: 5;
   }
   .ledger::before {
     content: '';

@@ -1,20 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { type KeyEventLike, type KeyState, initialKeyState, reduceKey } from './keyboard'
+import { type KeyEventLike, type KeyState, initialKeyState } from './keyboard'
+import { press as pressWith } from './keyboard-press'
 
 const ctx = { workspaceCount: 3, terminalColumn: false }
-
-function press(state: KeyState, ...keys: (string | KeyEventLike)[]) {
-  let current = state
-  let actions: ReturnType<typeof reduceKey>['actions'] = []
-  let last!: ReturnType<typeof reduceKey>
-  for (const k of keys) {
-    const event = typeof k === 'string' ? { key: k } : k
-    last = reduceKey(current, event, ctx)
-    current = last.state
-    actions = actions.concat(last.actions)
-  }
-  return { state: current, actions, last }
-}
+const press = (state: KeyState, ...keys: (string | KeyEventLike)[]) =>
+  pressWith(ctx, state, ...keys)
 
 const READ: KeyState = { ...initialKeyState, mode: 'READ' }
 
@@ -35,6 +25,20 @@ describe('READ, the transcript mode', () => {
 
     expect(actions.every((action) => action.type === 'expandBlock')).toBe(true)
     expect(state.mode).toBe('READ')
+  })
+
+  it('keeps the mode when esc closes an overlay opened from it', () => {
+    // One thing at a time. The keymap goes; the transcript is still where the
+    // reader was, and the next esc is the one that leaves it.
+    const { state } = press(READ, '?')
+    expect(state.overlay).toBe('keymap')
+    expect(state.mode).toBe('READ')
+
+    const closed = press(state, 'Escape')
+    expect(closed.state.overlay).toBeNull()
+    expect(closed.state.mode).toBe('READ')
+
+    expect(press(closed.state, 'Escape').state.mode).toBe('NORMAL')
   })
 
   it('goes back to the strip on esc, which is where h and l work again', () => {

@@ -1,30 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../bridge', () => ({
-  bridge: {
-    dialog: { pickDirectory: () => Promise.resolve(null) },
-    session: { invoke: () => Promise.resolve({ ok: true }), onEvents: () => () => {} },
-    git: {
-      refresh: () => {},
-      statuses: () => Promise.resolve([]),
-      onStatus: () => () => {},
-      changes: () => Promise.resolve({ changes: [], message: '' }),
-      commit: () => Promise.resolve({ ok: true, pushed: false }),
-      push: () => Promise.resolve({ ok: true, pushed: true }),
-    },
-    terminal: {
-      create: () => Promise.resolve({ ok: true }),
-      kill: () => Promise.resolve({ ok: true }),
-      write: () => {},
-      resize: () => {},
-      busy: () => Promise.resolve({ busy: false }),
-      onData: () => () => {},
-    },
-  },
-  isDesktop: true,
-}))
+vi.mock('../bridge', async () => (await import('./fixtures')).BRIDGE_MOCK)
 
 import { app } from './app.svelte'
+import { WORKSPACE } from './fixtures'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
@@ -36,18 +15,6 @@ import { threads } from './threads.svelte'
 import type { Block } from '../thread'
 import { registerColumnBody } from './columns'
 
-const WORKSPACE = {
-  id: 'w1',
-  name: 'pi-core',
-  note: 'D',
-  hue: 152,
-  git: null,
-  snippet: '/code/pi-core',
-  threads: [
-    { id: 's1', title: 'first', status: 'idle' as const, meta: '' },
-    { id: 's2', title: 'second', status: 'idle' as const, meta: '' },
-  ],
-}
 
 const QUESTION = { title: 'quit', message: 'work is running', confirmLabel: 'quit' }
 
@@ -229,11 +196,19 @@ describe('the block menu through the real key path', () => {
   const blocks: Block[] = [{ kind: 'user', id: 'u1', text: 'hello' }]
   const block = navBlocks(blocks)[0]
 
-  // The menu is dropped when its block is not in the thread it names, so the
-  // thread has to really hold it.
+  // The menu is dropped when its block is not in the thread it names, or was
+  // never drawn — so the thread has to really hold it, and something has to
+  // have rendered it.
+  let release = (): void => {}
+
   beforeEach(() => {
     threads.seed('s1', { blocks, status: 'idle', runState: 'idle' })
+    release = registerBlock('s1', 'u1', {
+      scrollIntoView() {},
+    } as unknown as HTMLElement)
   })
+
+  afterEach(() => release())
 
   it('swallows a key that would otherwise move the focus', () => {
     blockMenu.openOn('s1', block)

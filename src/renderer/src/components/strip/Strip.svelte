@@ -4,12 +4,21 @@
   import LiveThread from './LiveThread.svelte'
   import TerminalColumn from './TerminalColumn.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { blockNav } from '$lib/state/block-nav.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
   const workspace = $derived(app.workspace)
   // The strip is pinned at left:50% and slid so the focused column sits centred;
   // one composited transform moves the whole rail of columns.
   const offset = $derived(stripOffset(app.threadIndex))
+
+  /** A click changes the focused column without a keystroke, and READ belongs
+   *  to one column's transcript. Reconciling here keeps the mode chip honest
+   *  about what the keys will do. */
+  function focusColumn(index: number): void {
+    app.focusThread(index)
+    blockNav.reconcileMode()
+  }
 </script>
 
 <div class="viewport">
@@ -23,10 +32,10 @@
             workspaceId={workspace.id}
             name={workspace.name}
             focused={i === app.threadIndex}
-            onfocus={() => app.focusThread(i)}
+            onfocus={() => focusColumn(i)}
           />
         {:else}
-          <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => app.focusThread(i)}>
+          <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => focusColumn(i)}>
             <LiveThread threadId={thread.id} />
           </ThreadColumn>
         {/if}

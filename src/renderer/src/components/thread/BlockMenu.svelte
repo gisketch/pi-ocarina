@@ -1,5 +1,6 @@
 <script lang="ts">
   import { blockMenu } from '$lib/state/block-menu.svelte'
+  import { columnBody } from '$lib/state/columns'
 
   const actions = $derived(blockMenu.actions)
 
@@ -14,19 +15,34 @@
   $effect(() => {
     void blockMenu.confirming
     void actions.length
-    if (!el) return
+    const menu = el
+    if (!menu) return
 
-    const column = el.closest('.body')
+    // The registry rather than `closest('.body')`: the column owns that class
+    // and could rename it without ever knowing this file existed.
+    const column = columnBody(blockMenu.threadId)
     if (!column) return
 
-    // Measured from the block, not from the menu: the menu's own rect already
-    // reflects the last decision, and reading it here would make the effect
-    // depend on its own output and flip back and forth.
-    const host = el.parentElement
-    if (!host) return
+    const measure = (): void => {
+      // Measured from the block, not from the menu: the menu's own rect
+      // already reflects the last decision, and reading it here would make the
+      // effect depend on its own output and flip back and forth.
+      const host = menu.parentElement
+      if (!host) return
 
-    const room = column.getBoundingClientRect().bottom - host.getBoundingClientRect().top
-    up = el.offsetHeight > room
+      const box = column.getBoundingClientRect()
+      const top = host.getBoundingClientRect().top
+      const height = menu.offsetHeight
+      // Only flips when there is somewhere better to go: on a block too near
+      // the top, hanging down and being clipped beats hanging off the top.
+      up = height > box.bottom - top && height <= host.getBoundingClientRect().bottom - box.top
+    }
+
+    measure()
+    // The keys are modal while the menu is open, but the wheel is not: a
+    // scroll can carry the block past the edge the decision was made against.
+    column.addEventListener('scroll', measure, { passive: true })
+    return () => column.removeEventListener('scroll', measure)
   })
 </script>
 
@@ -65,8 +81,8 @@
 
 <style>
   /* Anchored to the focused block by the wrapper it is rendered into, which is
-     already `position: relative`. It hangs to the right of the ring so it never
-     covers the text the reader is deciding about. */
+     already `position: relative`. It hangs to the right so it never covers the
+     text the reader is deciding about. */
   .menu {
     position: absolute;
     top: 0;

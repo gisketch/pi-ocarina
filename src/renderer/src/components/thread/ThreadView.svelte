@@ -137,9 +137,10 @@
 {/each}
 
 <style>
-  /* The ring and the dim are the whole of the navigation's appearance. Both
-     are cheap on purpose: opacity and a border compose on the GPU, so walking
-     a long transcript never asks for a layout pass. */
+  /* The dim is the whole of the navigation's appearance — one signal for one
+     state, and no geometry, so the focused block does not shift the text it is
+     marking. Opacity composes on the GPU, so walking a long transcript never
+     asks for a layout pass. */
   .nav {
     position: relative;
     transition: opacity 0.12s ease;

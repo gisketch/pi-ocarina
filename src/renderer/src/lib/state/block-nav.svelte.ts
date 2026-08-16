@@ -8,7 +8,7 @@
 import { navBlocks } from '../blocks'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
-import { blockFocus, revealBlock } from './block-focus.svelte'
+import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { scrollColumn } from './columns'
 import { threads } from './threads.svelte'
@@ -43,6 +43,17 @@ class BlockNav {
     this.release()
   }
 
+  /** READ describes one column's transcript, so it cannot outlive the focus.
+   *
+   *  Called after every keystroke and whenever a column is clicked: a digit, a
+   *  leader chord and `t` all change which column is focused without going
+   *  near the transcript keys, and a mode chip that disagrees with what the
+   *  keys do is worse than no chip at all. */
+  reconcileMode(): void {
+    if (app.mode !== 'READ') return
+    if (app.thread.terminal || blockFocus.idOf(app.thread.id) === null) app.mode = 'NORMAL'
+  }
+
   /** Everything a closed column was remembering. */
   forget(threadId: string): void {
     blockFocus.forget(threadId)
@@ -60,9 +71,13 @@ class BlockNav {
 
     if (blockMenu.open) {
       const block = blockMenu.block
+      // Drawn, not merely present: a compaction folds the blocks above it out
+      // of the rendered list while leaving them in the model, so membership
+      // alone would keep a menu open on a block nobody can see.
       const gone =
         blockMenu.threadId !== here ||
         block === null ||
+        blockElement(blockMenu.threadId, block.id) === undefined ||
         !this.#list(blockMenu.threadId).some((entry) => entry.id === block.id)
       if (gone) blockMenu.close()
     }
@@ -82,7 +97,7 @@ class BlockNav {
     const block = this.#list(threadId).find((entry) => entry.id === navId)
     if (!block || block.rowId === undefined) return
 
-    toolOpen.set(threadId, block.rowId, open)
+    toolOpen.set(threadId, navId, open)
     // Opening a body makes the block taller, and the ring should not be pushed
     // off the bottom of the view by its own contents.
     if (open) revealBlock(threadId, navId)
