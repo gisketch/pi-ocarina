@@ -8,7 +8,7 @@
  *  drew, and this module never queries the DOM by class or tag. */
 
 import { type NavBlock, step } from '../blocks'
-import { columnBody } from './columns'
+import { columnBody, smoothScrollTo } from './columns'
 
 const elements = new Map<string, Map<string, HTMLElement>>()
 
@@ -33,13 +33,87 @@ export function blockElement(threadId: string, navId: string): HTMLElement | und
   return elements.get(threadId)?.get(navId)
 }
 
+/** Breathing room above a block brought to the top, so it does not sit welded
+ *  to the edge of the column. */
+const REVEAL_PAD = 10
+
+/** Whether an element is drawn around a block rather than being one. */
+const decorative = (el: Element): boolean =>
+  (el as HTMLElement).dataset.navId === undefined && el.querySelector('[data-nav-id]') === null
+
+/** Where a reveal aligns, which is above the block more often than not.
+ *
+ *  A message's name — YOU, or the agent's — is drawn above the first thing the
+ *  ring can land on, and is not a block anyone can point at. Aligning the block
+ *  puts that name just off the top, so the reader arrives at a paragraph with
+ *  nobody attached to it.
+ *
+ *  So this walks up, and at every level takes in whatever sits immediately
+ *  above and is not itself a block: the label inside a message, and the turn's
+ *  name above it. It stops at the first sibling that is, or contains, another
+ *  block — which is where this one stops being the top of anything. A second
+ *  paragraph in a message keeps its own top, because the paragraph above it is
+ *  a block in its own right.
+ *
+ *  A y coordinate rather than an element: the name above a turn is a sibling of
+ *  the block's wrapper, not an ancestor of it, so there is no one element whose
+ *  box is the answer. */
+function revealTop(el: HTMLElement, body: HTMLElement): number {
+  let node: HTMLElement = el
+  let top = el.getBoundingClientRect().top
+
+  for (;;) {
+    let above = node.previousElementSibling
+    while (above && decorative(above)) {
+      top = Math.min(top, above.getBoundingClientRect().top)
+      above = above.previousElementSibling
+    }
+
+    const parent = node.parentElement
+    if (above || !parent || parent === body) return top
+    node = parent
+  }
+}
+
 /** Brings a block into view without moving the page more than it must.
  *
  *  `nearest` rather than `center`: a block already on screen should not jump,
  *  and walking a transcript with `j` should feel like a cursor moving down a
- *  page, not like the page reloading under the cursor. */
-export function revealBlock(threadId: string, navId: string): void {
-  blockElement(threadId, navId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+ *  page, not like the page reloading under the cursor. `start` is for paging,
+ *  which is a deliberate move of the whole view.
+ *
+ *  Aligned by hand rather than by `scrollIntoView`, for two reasons: the browser
+ *  aligns the element it was given and cannot be told to bring the name above it
+ *  along, and its smooth scroll is its own duration, which is slower than a
+ *  keyboard wants. */
+export function revealBlock(threadId: string, navId: string, place: 'nearest' | 'start' = 'nearest'): void {
+  const el = blockElement(threadId, navId)
+  if (!el) return
+
+  const body = columnBody(threadId)
+  if (!body) {
+    // A column that scrolls something other than DOM overflow. Nothing to
+    // measure, so ask the browser for the old behaviour.
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    return
+  }
+
+  const box = body.getBoundingClientRect()
+  const top = revealTop(el, body)
+  const bottom = el.getBoundingClientRect().bottom
+  const toTop = body.scrollTop + (top - box.top) - REVEAL_PAD
+
+  if (place === 'start' || top < box.top + REVEAL_PAD) {
+    smoothScrollTo(body, toTop)
+    return
+  }
+
+  // Below the fold. Bringing the foot of the block up is enough — unless the
+  // block is taller than the column, where that would push its head off the
+  // top, and its head is the part being pointed at.
+  if (bottom > box.bottom) {
+    smoothScrollTo(body, Math.min(toTop, body.scrollTop + (bottom - box.bottom) + REVEAL_PAD))
+  }
 }
 
 class BlockFocus {
@@ -158,7 +232,7 @@ class BlockFocus {
     }
 
     this.set(threadId, next)
-    blockElement(threadId, next)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    revealBlock(threadId, next, 'start')
   }
 
 }

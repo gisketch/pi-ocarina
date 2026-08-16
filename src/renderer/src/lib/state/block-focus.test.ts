@@ -121,8 +121,12 @@ function layout(threadId: string, ids: string[], pitch: number, viewport: number
   const body = {
     scrollTop: 0,
     clientHeight: viewport,
+    // Taller than its blocks by a viewport, so the clamp against the end of
+    // the content is not what these cases are measuring.
+    scrollHeight: ids.length * pitch + viewport,
     getBoundingClientRect: () => ({ top: 0, bottom: viewport }) as DOMRect,
-    scrollBy() {},
+    addEventListener() {},
+    removeEventListener() {},
   }
   const offs = [registerColumnBody(threadId, body as unknown as HTMLElement)]
 
@@ -130,9 +134,6 @@ function layout(threadId: string, ids: string[], pitch: number, viewport: number
     const el = {
       getBoundingClientRect: () =>
         ({ top: i * pitch - body.scrollTop, bottom: (i + 1) * pitch - body.scrollTop }) as DOMRect,
-      scrollIntoView() {
-        body.scrollTop = i * pitch
-      },
     }
     offs.push(registerBlock(threadId, id, el as unknown as HTMLElement))
   })
@@ -143,7 +144,17 @@ function layout(threadId: string, ids: string[], pitch: number, viewport: number
 describe('paging', () => {
   const ids = ['u1', 'a1', 'l1:r1']
 
-  beforeEach(() => blockFocus.clear('p1'))
+  beforeEach(() => {
+    blockFocus.clear('p1')
+    // Scrolling now runs on our own curve rather than the browser's, so the
+    // frames have to come from somewhere. One frame, already at the end of the
+    // duration: these cases are about where a scroll lands, not how it travels.
+    vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
+      step(performance.now() + 1000)
+      return 1
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
 
   it('starts the ring at the top of the view, not the top of the thread', () => {
     // Scrolled two blocks down: `j` must not teleport back to the first block
@@ -185,7 +196,8 @@ describe('paging', () => {
 
     blockFocus.page('p1', list, 1)
     expect(blockFocus.idOf('p1')).toBe('l1:r1')
-    expect(body.scrollTop).toBe(200)
+    // 200 to bring the block to the top, less the gap kept above it.
+    expect(body.scrollTop).toBe(190)
     release()
   })
 
@@ -213,5 +225,97 @@ describe('paging', () => {
     blockFocus.page('p2', list, 1)
     expect(blockFocus.idOf('p2')).toBe('u1')
     blockFocus.clear('p2')
+  })
+})
+
+
+/** A block drawn the way a message really is: the name above it is not a block
+ *  anyone can point at, and it lives outside the element the ring is on. */
+function message(threadId: string, navId: string, top: number, body: { scrollTop: number }) {
+  const at = (offset: number, height: number) => ({
+    getBoundingClientRect: () => ({ top: top + offset - body.scrollTop, bottom: top + offset + height - body.scrollTop }) as DOMRect,
+  })
+
+  const seg = { ...at(40, 40), dataset: { navId }, querySelector: () => null } as unknown as HTMLElement
+  const label = { ...at(0, 40), dataset: {}, querySelector: () => null } as unknown as HTMLElement
+  const text = { ...at(40, 40), dataset: {}, querySelector: () => seg } as unknown as HTMLElement
+  const wrapper = { ...at(0, 80), dataset: {}, querySelector: () => seg } as unknown as HTMLElement
+
+  Object.assign(seg, { parentElement: text, previousElementSibling: null })
+  Object.assign(text, { parentElement: wrapper, previousElementSibling: label })
+  Object.assign(label, { parentElement: wrapper, previousElementSibling: null })
+
+  return { seg, wrapper, register: () => registerBlock(threadId, navId, seg) }
+}
+
+describe('what comes into view with a block', () => {
+  beforeEach(() => {
+    blockFocus.clear('r1')
+    vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
+      step(performance.now() + 1000)
+      return 1
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
+  it('brings the name above a message with it', () => {
+    // The reader arriving at a paragraph with nobody attached to it is the bug:
+    // aligning the block itself puts YOU, or the agent, just off the top.
+    const body = {
+      scrollTop: 400,
+      clientHeight: 200,
+      scrollHeight: 2000,
+      getBoundingClientRect: () => ({ top: 0, bottom: 200 }) as DOMRect,
+      addEventListener() {},
+      removeEventListener() {},
+    } as unknown as HTMLElement & { scrollTop: number }
+    const release = [registerColumnBody('r1', body)]
+
+    const first = message('r1', 'u1', 0, body)
+    const second = message('r1', 'u2', 300, body)
+    Object.assign(second.wrapper, { parentElement: body, previousElementSibling: first.wrapper })
+    Object.assign(first.wrapper, { parentElement: body, previousElementSibling: null })
+    release.push(first.register(), second.register())
+
+    revealBlock('r1', 'u2')
+
+    // 300 is the top of the message; 340 would be the top of the block alone.
+    expect(body.scrollTop).toBe(290)
+    release.forEach((off) => off())
+  })
+
+  it('brings the name of a turn with it, which is nobody\'s child', () => {
+    // The agent's name is drawn above the wrapper rather than inside it, so no
+    // ancestor's box is the answer — and the wrapper's own earlier siblings are
+    // other people's blocks, which must not stop the reveal short of it.
+    const body = {
+      scrollTop: 400,
+      clientHeight: 200,
+      scrollHeight: 2000,
+      getBoundingClientRect: () => ({ top: 0, bottom: 200 }) as DOMRect,
+      addEventListener() {},
+      removeEventListener() {},
+    } as unknown as HTMLElement & { scrollTop: number }
+    const release = [registerColumnBody('r1', body)]
+
+    const first = message('r1', 'u1', 0, body)
+    const second = message('r1', 'u2', 320, body)
+    const turn = {
+      getBoundingClientRect: () => ({ top: 300 - body.scrollTop, bottom: 320 - body.scrollTop }) as DOMRect,
+      dataset: {},
+      querySelector: () => null,
+      parentElement: body,
+      previousElementSibling: first.wrapper,
+    } as unknown as HTMLElement
+
+    Object.assign(first.wrapper, { parentElement: body, previousElementSibling: null })
+    Object.assign(second.wrapper, { parentElement: body, previousElementSibling: turn })
+    release.push(first.register(), second.register())
+
+    revealBlock('r1', 'u2')
+
+    // 300 is the name; 320 the message under it; 360 the block on its own.
+    expect(body.scrollTop).toBe(290)
+    release.forEach((off) => off())
   })
 })

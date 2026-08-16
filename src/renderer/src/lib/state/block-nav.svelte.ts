@@ -11,7 +11,7 @@ import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
-import { scrollColumn } from './columns'
+import { columnBody, scrollColumn } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 
@@ -206,15 +206,31 @@ class BlockNav {
     blockFocus.move(app.thread.id, this.#list(), delta)
   }
 
-  /** `ctrl-d` and `ctrl-u`. A shell has no blocks to land on, so it scrolls by
-   *  the same magnitude instead — half a screen either way. */
+  /** `ctrl-d` and `ctrl-u` from READ. The ring pages with the view, so the
+   *  reader keeps the block they were pointing at.
+   *
+   *  A shell has no blocks to land on, so it scrolls by the same magnitude
+   *  instead — half a screen either way. */
   page(delta: number): void {
     if (app.thread.terminal) {
-      scrollColumn(app.thread.id, delta * SCROLL_STEP * PAGE_MULTIPLE)
+      this.scroll(delta)
       return
     }
 
     blockFocus.page(app.thread.id, this.#list(), delta)
+  }
+
+  /** `ctrl-d` and `ctrl-u` from anywhere else. Moves the view and nothing
+   *  else: no ring, no dim, no mode. Skimming is not navigating.
+   *
+   *  Half the column, so the chord means the same distance it means in READ.
+   *  A column that has not painted, and a shell — whose buffer belongs to
+   *  xterm and has no height to read — fall back to a fixed step. */
+  scroll(delta: number): void {
+    const threadId = app.thread.id
+    const height = columnBody(threadId)?.clientHeight
+    const distance = height ? height / 2 : SCROLL_STEP * PAGE_MULTIPLE
+    scrollColumn(threadId, delta * distance)
   }
 }
 

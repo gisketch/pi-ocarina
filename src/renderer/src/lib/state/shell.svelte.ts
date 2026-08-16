@@ -228,6 +228,9 @@ class ShellState {
       case 'page':
         blockNav.page(action.delta)
         break
+      case 'scroll':
+        blockNav.scroll(action.delta)
+        break
       case 'leap':
         blockNav.leap()
         break

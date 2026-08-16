@@ -292,6 +292,30 @@ real app; `pnpm check`.
 
 Blocked by: H1
 
+## Amendments after use (2026-08-16)
+
+22. **`ctrl-d` and `ctrl-u` only move the ring when the reader is already in
+    READ.** H2 paged the ring from NORMAL too, which lit one block and dimmed
+    every other one. Skimming is not navigating: a reader who has not asked to
+    point at anything gets a scroll and stays in NORMAL. The reducer picks
+    between a `page` action and a `scroll` action by mode, so the two paths
+    cannot disagree about which one is running.
+23. **A reveal brings the name above a block with it.** The ring lands on a
+    paragraph, but a message's name — YOU, or the agent's — is drawn above the
+    first thing the ring can land on and is not a block anyone can point at.
+    Aligning the block alone put the name just off the top, so the reader
+    arrived at a paragraph with nobody attached to it. The reveal now walks up
+    and takes in whatever sits immediately above and is not itself a block. It
+    is a y coordinate rather than an element, because the turn's name is a
+    sibling of the block's wrapper and no single element's box is the answer.
+24. **Programmatic scrolling runs on our own curve, not the browser's.**
+    `behavior: 'smooth'` is about 400ms and eases at both ends, which reads as
+    sluggish under a keyboard. 130ms, easing out only: the first frame already
+    shows the direction, and the move settles rather than stopping dead.
+    Measured in the app at 125ms for a half-page. A second keypress adds to
+    where the scroll is *going*, not to where it currently is, or a fast repeat
+    would move less than it is worth.
+
 ## H3 — `s` leaps to any visible block — `done`
 
 Delivered behavior: pressing `s` paints a short label on every block currently

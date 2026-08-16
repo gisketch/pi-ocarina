@@ -61,13 +61,23 @@ describe('NORMAL bindings', () => {
     expect(result.actions).toEqual([{ type: 'moveBlock', delta: 1 }])
   })
 
-  it('pages half a screen on ctrl-d and ctrl-u', () => {
+  it('scrolls half a screen on ctrl-d and ctrl-u', () => {
     expect(press(NORMAL, { key: 'd', ctrlKey: true }).actions).toEqual([
-      { type: 'page', delta: 1 },
+      { type: 'scroll', delta: 1 },
     ])
     expect(press(NORMAL, { key: 'u', ctrlKey: true }).actions).toEqual([
-      { type: 'page', delta: -1 },
+      { type: 'scroll', delta: -1 },
     ])
+  })
+
+  it('does not reach into the transcript to do it', () => {
+    // Paging from NORMAL used to move the ring, which lit one block and dimmed
+    // the rest. A reader who has not asked to point at anything gets a scroll.
+    for (const key of ['d', 'u']) {
+      const { state, actions } = press(NORMAL, { key, ctrlKey: true })
+      expect(state.mode).toBe('NORMAL')
+      expect(actions.every((action) => action.type === 'scroll')).toBe(true)
+    }
   })
 
   it('leaves ctrl-u to the composer, where it clears the line', () => {

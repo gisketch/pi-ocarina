@@ -13,6 +13,7 @@ export type Action =
   | { type: 'moveThread'; delta: number }
   | { type: 'moveBlock'; delta: number }
   | { type: 'page'; delta: number }
+  | { type: 'scroll'; delta: number }
   | { type: 'leap' }
   | { type: 'openBlockMenu' }
   | { type: 'expandBlock'; open: boolean }
@@ -180,9 +181,15 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // Half-page paging, by the convention every pager and editor already taught.
   // It has to be resolved above the bail-out below, which exists so that every
   // other control chord reaches whatever has the caret.
+  //
+  // Only a reader already in READ moves the ring with it. From NORMAL the
+  // chord is a scroll and nothing else: a reader skimming a transcript has
+  // not asked to point at anything, and lighting one block — which dims every
+  // other — is a mode change they did not ask for.
   if (event.ctrlKey && !event.metaKey && !event.altKey && !isTyping(state)) {
-    if (key === 'd') return result(state, [{ type: 'page', delta: 1 }])
-    if (key === 'u') return result(state, [{ type: 'page', delta: -1 }])
+    const paging = state.mode === 'READ' ? 'page' : 'scroll'
+    if (key === 'd') return result(state, [{ type: paging, delta: 1 }])
+    if (key === 'u') return result(state, [{ type: paging, delta: -1 }])
   }
 
   if (event.altKey || mod) return result(state, [], false)
