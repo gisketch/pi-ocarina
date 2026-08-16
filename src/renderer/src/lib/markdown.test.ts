@@ -228,6 +228,21 @@ describe('bold', () => {
   it('leaves a single star alone', () => {
     expect(parseInline('2 * 3')).toEqual([{ text: '2 * 3', code: false }])
   })
+
+  it('leaves an operator alone, because nothing closes it', () => {
+    // `x ** y` is exponentiation in half the languages an agent writes about.
+    // Reading the opener as emphasis bolded the rest of the sentence and ate
+    // the two characters it was written with.
+    expect(parseInline('x ** y')).toEqual([{ text: 'x ** y', code: false }])
+    expect(parseInline('a **b')).toEqual([{ text: 'a **b', code: false }])
+  })
+
+  it('does not count a closer that is inside code', () => {
+    expect(parseInline('a **b `c**d`')).toEqual([
+      { text: 'a **b ', code: false },
+      { text: 'c**d', code: true },
+    ])
+  })
 })
 
 describe('list nesting', () => {

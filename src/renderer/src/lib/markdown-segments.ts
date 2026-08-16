@@ -5,7 +5,7 @@
  *  the nav model and the renderer — and if they ever disagreed the ring would
  *  point at a block nobody drew. */
 
-import type { MarkdownNode } from './markdown'
+import type { ListItem, MarkdownNode } from './markdown'
 
 /** Consecutive non-code nodes group; a code node stands alone. */
 export function segmentsOf(nodes: MarkdownNode[]): MarkdownNode[][] {
@@ -26,6 +26,17 @@ export function segmentsOf(nodes: MarkdownNode[]): MarkdownNode[][] {
   return segments
 }
 
+/** A list's text, children included. Dropping them would hand the reader a
+ *  copy that is missing the lines they could see. */
+function listText(items: ListItem[]): string {
+  return items
+    .map((item) => {
+      const own = item.segments.map((segment) => segment.text).join('')
+      return item.children ? `${own}\n${listText(item.children)}` : own
+    })
+    .join('\n')
+}
+
 /** The source a segment copies. Code copies its code; prose copies its own
  *  text, which is what the reader would have selected by hand. */
 export function segmentText(segment: MarkdownNode[]): string {
@@ -33,11 +44,7 @@ export function segmentText(segment: MarkdownNode[]): string {
     .map((node) => {
       if (node.type === 'code') return node.text
       if (node.type === 'rule') return '---'
-      if (node.type === 'list') {
-        return node.items
-          .map((item) => item.segments.map((s) => s.text).join(''))
-          .join('\n')
-      }
+      if (node.type === 'list') return listText(node.items)
       return node.segments.map((s) => s.text).join('')
     })
     .join('\n')

@@ -155,6 +155,9 @@
     --err: var(--fg-dimmer);
     --err-text: var(--fg-dimmer);
     --warn: var(--fg-dimmer);
+    --tone-1: var(--fg-dimmer);
+    --tone-2: var(--fg-dimmer);
+    --tone-3: var(--fg-dimmer);
   }
 
   /* Scrollback virtualization.

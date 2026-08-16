@@ -216,11 +216,9 @@
   .rule {
     height: 1px;
     margin: 12px 0;
-    background: repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.14) 0 4px,
-      transparent 4px 8px
-    );
+    /* Through a token, so it goes quiet with everything else: both the dim and
+       the leap work by re-pointing tokens, and a literal would stay lit. */
+    background: repeating-linear-gradient(90deg, var(--fg-ghost) 0 4px, transparent 4px 8px);
   }
 
   .text :global(strong) {

@@ -50,7 +50,11 @@ const JS: Grammar = {
   escapes: true,
 }
 
-const GRAMMARS: Record<string, Grammar> = {
+/** Built without a prototype. The key is a fence tag, which is verbatim model
+ *  output: on a plain object, ```` ```constructor ```` finds `Object` and the
+ *  scanner then reads `lineComment` off it and throws, mid-answer, taking the
+ *  column with it. */
+const GRAMMARS: Record<string, Grammar> = Object.assign(Object.create(null), {
   js: JS,
   jsx: JS,
   ts: JS,
@@ -96,7 +100,7 @@ const GRAMMARS: Record<string, Grammar> = {
     quotes: ['"', "'"],
     escapes: false,
   },
-}
+})
 
 GRAMMARS.sh = GRAMMARS.bash
 GRAMMARS.zsh = GRAMMARS.bash
@@ -109,7 +113,8 @@ GRAMMARS.svelte = GRAMMARS.html
  *  text: guessing at a grammar paints the wrong words, which is worse than
  *  painting none. */
 export function isHighlighted(lang: string): boolean {
-  return lang.toLowerCase() in GRAMMARS || lang.toLowerCase() === 'diff'
+  const key = lang.toLowerCase()
+  return key === 'diff' || Object.hasOwn(GRAMMARS, key)
 }
 
 const isDigit = (ch: string): boolean => ch >= '0' && ch <= '9'
@@ -134,7 +139,7 @@ export function highlightLine(
   const key = lang.toLowerCase()
   if (key === 'diff') return { tokens: diffLine(line), to: CLEAN }
 
-  const grammar = GRAMMARS[key]
+  const grammar = Object.hasOwn(GRAMMARS, key) ? GRAMMARS[key] : undefined
   if (!grammar) return { tokens: [{ text: line, kind: 'plain' }], to: CLEAN }
 
   const tokens: Token[] = []

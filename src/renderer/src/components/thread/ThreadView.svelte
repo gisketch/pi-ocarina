@@ -71,6 +71,12 @@
   // The agent name that introduces the focused block, so it stays lit with it.
   const litLabel = $derived(labelOwning(shown, opensTurn, focusedBlock))
 
+  // Compared against the block, not the nav id: a message splits into segments
+  // whose ids are `${blockId}#n`, and matching those against the block id put
+  // `.dim` on the wrapper of the very message the ring was inside. The dim
+  // remaps colour tokens, which inherit, so the focused segment went out with
+  // everything else and the column had nothing lit in it at all.
+
   /** A message registers its own stops, one per segment, so the wrapper must
    *  never also claim the block id — two elements answering to one ring means
    *  the leap walks the same text twice and `revealBlock` picks whichever the
@@ -79,7 +85,7 @@
 
   /** Whether the menu is open on this exact block. */
   const menuOn = (navId: string): boolean =>
-    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navId
+    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.blockId === navId
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -110,7 +116,7 @@
   {:else}
     <div
       class="nav"
-      class:dim={dimming && focused !== block.id}
+      class:dim={dimming && focusedBlock !== block.id}
       class:hosting={menuOn(block.id)}
       use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
@@ -199,6 +205,9 @@
      One mechanism for both, and neither problem. */
   .nav.dim,
   .turn.dim {
+    --tone-1: var(--fg-dimmer);
+    --tone-2: var(--fg-dimmer);
+    --tone-3: var(--fg-dimmer);
     --fg-bright: var(--fg-dimmer);
     --fg-body: var(--fg-dimmer);
     --fg: var(--fg-dimmer);

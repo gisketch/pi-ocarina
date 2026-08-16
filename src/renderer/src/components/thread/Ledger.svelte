@@ -150,6 +150,9 @@
   }
   /* Muted by colour, not by `opacity` and `filter` — see ThreadView. */
   .entry.dim {
+    --tone-1: var(--fg-dimmer);
+    --tone-2: var(--fg-dimmer);
+    --tone-3: var(--fg-dimmer);
     --fg-bright: var(--fg-dimmer);
     --fg-body: var(--fg-dimmer);
     --fg: var(--fg-dimmer);

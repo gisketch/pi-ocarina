@@ -68,7 +68,11 @@ export function parseInline(text: string): InlineSegment[] {
       continue
     }
 
-    if (!code && text[at] === '*' && text[at + 1] === '*') {
+    // Only a pair that closes is emphasis. An opener on its own is an
+    // operator — `x ** y` is exponentiation in half the languages an agent
+    // writes about — and reading it as emphasis would bold the rest of the
+    // sentence and swallow the two characters it was written with.
+    if (!code && text[at] === '*' && text[at + 1] === '*' && (bold || closes(text, at + 2))) {
       push()
       bold = !bold
       at += 1
@@ -82,14 +86,24 @@ export function parseInline(text: string): InlineSegment[] {
   return segments
 }
 
+/** Whether a closing `**` appears after `from`, outside inline code. */
+function closes(text: string, from: number): boolean {
+  let code = false
+  for (let at = from; at < text.length; at += 1) {
+    if (text[at] === '`') {
+      code = !code
+      continue
+    }
+    if (!code && text[at] === '*' && text[at + 1] === '*') return true
+  }
+  return false
+}
+
 /** Reads one run of list lines into items, nesting one level by indent. */
 class ListBuilder {
   readonly ordered: boolean
   readonly indent: number
   readonly items: ListItem[] = []
-  /** The indent of the child list currently open, if one is. */
-  #childIndent: number | null = null
-
   constructor(ordered: boolean, indent: number) {
     this.ordered = ordered
     this.indent = indent
@@ -101,12 +115,10 @@ class ListBuilder {
     if (parent && indent >= this.indent + NEST_INDENT) {
       parent.children ??= []
       parent.childrenOrdered ??= ordered
-      this.#childIndent ??= indent
       parent.children.push({ segments: parseInline(text) })
       return
     }
 
-    this.#childIndent = null
     this.items.push({ segments: parseInline(text) })
   }
 

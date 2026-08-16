@@ -23,6 +23,17 @@ describe('what it will colour', () => {
   it('is not case sensitive about the fence tag', () => {
     expect(isHighlighted('TypeScript')).toBe(true)
   })
+
+  it('does not mistake a prototype key for a grammar', () => {
+    // The fence tag is verbatim model output. On a plain object,
+    // ```constructor finds `Object`, and reading a grammar off it throws in
+    // the middle of an answer and takes the column with it.
+    for (const tag of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      expect(isHighlighted(tag)).toBe(false)
+      expect(() => highlightLine('hello', tag)).not.toThrow()
+      expect(highlightLine('hello', tag).tokens).toEqual([{ text: 'hello', kind: 'plain' }])
+    }
+  })
 })
 
 describe('never loses a character', () => {
