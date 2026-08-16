@@ -63,6 +63,16 @@ and there is one place to read all of it together when the row is too small.
    becomes `editing`, then `edited`. Today the label is the same word in every
    state and only a pulsing node says the call is live.
 
+10. **The kind gutter is dynamic, and shared across the ledger.** The
+    reference's 36px becomes a minimum, not a fixed width. Two things follow
+    from that, and both are the point of the decision rather than details of it:
+    the column is measured once for the whole ledger, so every target still
+    lines up; and it is sized to the widest label the ledger *could* show, not
+    the widest it shows right now. Sizing to the current text would shift every
+    target sideways each time a call landed and `reading` became `read`. Rows
+    are flex containers today and cannot share a measurement, so the ledger
+    becomes the grid and the rows become its items.
+
 ## What pi gives us
 
 Established during the grill, so the design does not have to guess:
@@ -106,6 +116,7 @@ Established during the grill, so the design does not have to guess:
 - The viewer lists each changed file once, with its net line counts.
 - A row reads `reading` while its call runs and `read` when it lands, and the
   same for every other kind.
+- No target moves sideways when a call lands.
 - A denied or cancelled call does not read as though it completed.
 - In the viewer, the file list and the change pane both take vim keys, and the
   mode indicator says which surface owns them.
@@ -135,10 +146,8 @@ Established during the grill, so the design does not have to guess:
 
 ## Questions the grill must answer
 
-1. How a row shows its tense without breaking the reference's fixed-width kind
-   gutter.
-2. The hotkey, and whether it is modal or a chord.
-3. The cap: how many lines, and what the hidden remainder says.
-4. Whether the viewer follows the agent live while it edits, or freezes on open.
-5. Whether the file list is a spotlight (which exists) or its own pane.
-6. What the viewer does for a thread with no changes.
+1. The hotkey, and whether it is modal or a chord.
+2. The cap: how many lines, and what the hidden remainder says.
+3. Whether the viewer follows the agent live while it edits, or freezes on open.
+4. Whether the file list is a spotlight (which exists) or its own pane.
+5. What the viewer does for a thread with no changes.
