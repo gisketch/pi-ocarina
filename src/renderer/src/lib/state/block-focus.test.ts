@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { blockElement, blockFocus, registerBlock, revealBlock } from './block-focus.svelte'
 import { registerColumnBody } from './columns'
+import { LEAP_KEYS } from '../leap'
 import { navBlocks } from '../blocks'
 import type { Block } from '../thread'
 
@@ -116,17 +117,20 @@ describe('reveal', () => {
 /** A column of blocks laid out at a fixed pitch, so paging arithmetic can be
  *  checked against numbers rather than against a browser. */
 function layout(threadId: string, ids: string[], pitch: number, viewport: number) {
+  // The scroll box sits at the top of the screen and stays there; only its
+  // children move, which is how a real scroller reports itself.
   const body = {
     scrollTop: 0,
     clientHeight: viewport,
-    getBoundingClientRect: () => ({ top: -body.scrollTop }) as DOMRect,
+    getBoundingClientRect: () => ({ top: 0, bottom: viewport }) as DOMRect,
     scrollBy() {},
   }
   const offs = [registerColumnBody(threadId, body as unknown as HTMLElement)]
 
   ids.forEach((id, i) => {
     const el = {
-      getBoundingClientRect: () => ({ top: i * pitch - body.scrollTop }) as DOMRect,
+      getBoundingClientRect: () =>
+        ({ top: i * pitch - body.scrollTop, bottom: (i + 1) * pitch - body.scrollTop }) as DOMRect,
       scrollIntoView() {
         body.scrollTop = i * pitch
       },
@@ -177,5 +181,84 @@ describe('paging', () => {
     blockFocus.page('p2', list, 1)
     expect(blockFocus.idOf('p2')).toBe('u1')
     blockFocus.clear('p2')
+  })
+})
+
+
+describe('leaping', () => {
+  beforeEach(() => {
+    blockFocus.cancelLeap()
+    blockFocus.clear('p1')
+  })
+
+  it('labels only the blocks in view', () => {
+    // A 250px viewport over blocks at a 100px pitch: three of them start above
+    // the fold, the third only just.
+    const { release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 250)
+
+    blockFocus.startLeap('p1', list)
+    expect(blockFocus.leap?.ids).toEqual(['u1', 'a1', 'l1:r1'])
+    expect(blockFocus.leap?.labels).toEqual(LEAP_KEYS.slice(0, 3).split(''))
+    release()
+  })
+
+  it('leaves out what has scrolled past', () => {
+    const { release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 150)
+
+    blockFocus.startLeap('p1', list)
+    expect(blockFocus.leap?.ids).toEqual(['u1', 'a1'])
+    release()
+  })
+
+  it('does not enter a mode with nothing to point at', () => {
+    blockFocus.startLeap('nothing-drawn', list)
+    expect(blockFocus.leap).toBeNull()
+  })
+
+  it('moves the ring to the block whose label was typed', () => {
+    const { release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 400)
+
+    blockFocus.startLeap('p1', list)
+    blockFocus.typeLeap(blockFocus.leap!.labels[2])
+
+    expect(blockFocus.idOf('p1')).toBe('l1:r1')
+    expect(blockFocus.leap).toBeNull()
+    release()
+  })
+
+  it('gives up on a key no label can complete, and leaves the ring alone', () => {
+    const { release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 400)
+    blockFocus.set('p1', 'a1')
+
+    blockFocus.startLeap('p1', list)
+    blockFocus.typeLeap('z')
+
+    expect(blockFocus.leap).toBeNull()
+    expect(blockFocus.idOf('p1')).toBe('a1')
+    release()
+  })
+
+  it('hides a label the reader has already diverged from', () => {
+    // Enough blocks to force two-character labels.
+    const many = Array.from({ length: LEAP_KEYS.length + 2 }, (_, i) => `b${i}`)
+    const { release } = layout('p1', many, 10, 4000)
+    const wide = many.map((id) => ({ id, kind: 'user' as const, blockId: id, label: id }))
+
+    blockFocus.startLeap('p1', wide)
+    const first = blockFocus.leap!.labels[0]
+    blockFocus.typeLeap(first[0])
+
+    expect(blockFocus.labelOf('p1', many[0])).toBe(first)
+    const diverged = blockFocus.leap!.labels.findIndex((l) => !l.startsWith(first[0]))
+    expect(blockFocus.labelOf('p1', many[diverged])).toBeNull()
+    release()
+  })
+
+  it('shows no labels for a thread that is not the one leaping', () => {
+    const { release } = layout('p1', ['u1'], 100, 400)
+
+    blockFocus.startLeap('p1', list)
+    expect(blockFocus.labelOf('other', 'u1')).toBeNull()
+    release()
   })
 })

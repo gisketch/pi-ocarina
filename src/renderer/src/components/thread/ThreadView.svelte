@@ -46,6 +46,10 @@
   // Null until the reader starts navigating. That is what keeps a column
   // nobody has touched looking exactly as it always did: no ring, no dim.
   const focused = $derived(blockFocus.idOf(threadId))
+
+  // While hints are up the dim comes off: every label must be readable, and a
+  // half-faded one reads as "not a destination".
+  const hinting = $derived(blockFocus.leap?.threadId === threadId)
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -65,7 +69,7 @@
       {threadId}
       blockId={block.id}
       focusedNav={focused}
-      dimmed={focused !== null}
+      dimmed={focused !== null && !hinting}
     />
   {:else if block.kind === 'checkpoint'}
     <!-- Not a thing to point at: it is a rule drawn between two blocks, and
@@ -77,10 +81,13 @@
   {:else}
     <div
       class="nav"
-      class:dim={focused !== null && focused !== block.id}
+      class:dim={focused !== null && focused !== block.id && !hinting}
       class:ring={focused === block.id}
       use:navTarget={{ threadId, navId: block.id }}
     >
+      {#if blockFocus.labelOf(threadId, block.id)}
+        <span class="hint">{blockFocus.labelOf(threadId, block.id)}</span>
+      {/if}
       {#if block.kind === 'user'}
         <Message role="user" text={block.text} />
       {:else if block.kind === 'agent'}
@@ -129,6 +136,7 @@
      are cheap on purpose: opacity and a border compose on the GPU, so walking
      a long transcript never asks for a layout pass. */
   .nav {
+    position: relative;
     transition: opacity 0.12s ease;
     /* Blocks are independent of one another, so dimming one never re-lays-out
        the rest of the thread. */
@@ -141,5 +149,21 @@
     box-shadow: inset 2px 0 0 var(--accent);
     padding-left: 8px;
     margin-left: -10px;
+  }
+
+  /* Over the block's own top-left rather than beside it: the column is narrow,
+     and a gutter wide enough for a label would cost every block the width. */
+  .hint {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--font-chrome);
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 4px;
+    pointer-events: none;
   }
 </style>

@@ -13,6 +13,7 @@ export type Action =
   | { type: 'moveThread'; delta: number }
   | { type: 'moveBlock'; delta: number }
   | { type: 'page'; delta: number }
+  | { type: 'leap' }
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
@@ -204,6 +205,8 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'search')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
+    case 's':
+      return result(state, [{ type: 'leap' }])
     case 'y':
       return result(state, [{ type: 'yank' }])
     default:

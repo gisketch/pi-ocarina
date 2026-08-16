@@ -188,7 +188,7 @@ real app; `pnpm check`.
 
 Blocked by: H1
 
-## H3 — `s` leaps to any visible block — `todo`
+## H3 — `s` leaps to any visible block — `done`
 
 Delivered behavior: pressing `s` paints a short label on every block currently
 in view; typing the label moves the focus straight there; `esc` or any

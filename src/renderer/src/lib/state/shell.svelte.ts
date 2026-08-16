@@ -142,6 +142,30 @@ class ShellState {
     catalog.closeThread(threadId)
   }
 
+  /** One key while hints are on screen. Always consumed: a keystroke that fell
+   *  through to a binding would move the very ring the reader is aiming. */
+  #handleLeapKey(event: KeyEventLike): boolean {
+    // A bare modifier is not an answer, and neither is a chord: reaching for
+    // a capital, or for ⌘K, must not silently throw the hints away.
+    if (MODIFIER_KEYS.has(event.key)) return false
+    if (event.key === 'Escape' || event.metaKey || event.ctrlKey || event.altKey) {
+      blockFocus.cancelLeap()
+      return true
+    }
+
+    // Labels are single characters. Anything longer is a named key — an arrow,
+    // a function key — which no label can be, so it ends the mode.
+    if (event.key.length !== 1) blockFocus.cancelLeap()
+    else blockFocus.typeLeap(event.key)
+    return true
+  }
+
+  /** `s`. Labels what the reader can see, so the next key is a destination. */
+  leap(): void {
+    if (app.thread.terminal) return
+    blockFocus.startLeap(app.thread.id, navBlocks(threads.get(app.thread.id).blocks))
+  }
+
   /** `j` and `k`. A thread column moves its block ring; a shell has no blocks,
    *  so it scrolls the way it always did. */
   moveBlock(delta: number): void {
@@ -179,6 +203,12 @@ class ShellState {
     if (confirm.pending) return confirm.handleKey(event)
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
+
+    // Hints own every key while they are on screen — that is what lets a label
+    // be `j` without colliding with the binding. They rank below the modals
+    // above, which are asked because an answer changes work already in flight,
+    // and above everything below, which is ordinary navigation.
+    if (blockFocus.leap !== null) return this.#handleLeapKey(event)
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run
@@ -231,6 +261,9 @@ class ShellState {
         break
       case 'page':
         this.page(action.delta)
+        break
+      case 'leap':
+        this.leap()
         break
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is

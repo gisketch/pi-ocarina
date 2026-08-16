@@ -29,6 +29,8 @@ import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { shell } from './shell.svelte'
+import { blockFocus, registerBlock } from './block-focus.svelte'
+import { registerColumnBody } from './columns'
 
 const WORKSPACE = {
   id: 'w1',
@@ -54,7 +56,30 @@ beforeEach(() => {
   app.mode = 'NORMAL'
   shell.pendingClose = null
   commit.close()
+  blockFocus.cancelLeap()
+  blockFocus.clear('s1')
 })
+
+/** Puts one labelled block on screen in the focused thread. */
+function drawOneBlock(): () => void {
+  const rect = { top: 0, bottom: 100 } as DOMRect
+  const body = {
+    scrollTop: 0,
+    clientHeight: 400,
+    getBoundingClientRect: () => ({ top: 0, bottom: 400 }) as DOMRect,
+    scrollBy() {},
+  }
+  const el = { getBoundingClientRect: () => rect, scrollIntoView() {} }
+
+  const offBody = registerColumnBody('s1', body as unknown as HTMLElement)
+  const offBlock = registerBlock('s1', 'b1', el as unknown as HTMLElement)
+  blockFocus.leap = { threadId: 's1', ids: ['b1'], labels: ['a'], typed: '' }
+
+  return () => {
+    offBlock()
+    offBody()
+  }
+}
 
 // The question has to survive the whole machine, not just its own state: a
 // modal that the shell never consults is a modal the keyboard walks straight
@@ -126,5 +151,68 @@ describe('the commit card through the real key path', () => {
 
     expect(confirm.pending).toBe(false)
     expect(commit.open).toBe(true)
+  })
+})
+
+
+// Hints own every key while they are up — that is what lets a label be `j`.
+// The rank matters in both directions: below the modals, above navigation.
+describe('the hint mode through the real key path', () => {
+  it('swallows a key that would otherwise move the focus', () => {
+    const release = drawOneBlock()
+
+    expect(shell.handleKey({ key: 'l' })).toBe(true)
+    expect(app.focus[0]).toBe(0)
+    release()
+  })
+
+  it('takes the label and leaves', () => {
+    const release = drawOneBlock()
+
+    shell.handleKey({ key: 'a' })
+
+    expect(blockFocus.leap).toBeNull()
+    expect(blockFocus.idOf('s1')).toBe('b1')
+    release()
+  })
+
+  it('cancels on escape without moving the ring', () => {
+    const release = drawOneBlock()
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(blockFocus.leap).toBeNull()
+    expect(blockFocus.idOf('s1')).toBeNull()
+    release()
+  })
+
+  it('is not dismissed by reaching for a modifier', () => {
+    const release = drawOneBlock()
+
+    expect(shell.handleKey({ key: 'Shift' })).toBe(false)
+    expect(blockFocus.leap).not.toBeNull()
+    release()
+  })
+
+  it('yields to the destructive modal, which outranks it', () => {
+    const release = drawOneBlock()
+    void confirm.ask(QUESTION)
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(confirm.pending).toBe(false)
+    expect(blockFocus.leap).not.toBeNull()
+    release()
+  })
+
+  it('yields to the commit card as well', async () => {
+    const release = drawOneBlock()
+    await commit.load()
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(commit.open).toBe(false)
+    expect(blockFocus.leap).not.toBeNull()
+    release()
   })
 })

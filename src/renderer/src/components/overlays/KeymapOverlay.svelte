@@ -34,7 +34,11 @@
     {
       title: 'THREAD',
       rows: [
-        ['scroll', 'j / k'],
+        ['focus block', 'j / k'],
+        ['half page', '^d / ^u'],
+        ['leap to block', 's'],
+        ['block actions', 'a'],
+        ['release focus', 'esc'],
         ['toggle tool call', 'click'],
         ['yank last code', 'y'],
       ],

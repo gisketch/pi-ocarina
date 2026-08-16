@@ -1,7 +1,7 @@
 <script lang="ts">
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
-  import { navTarget } from '$lib/state/block-focus.svelte'
+  import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import type { ToolRow } from '$lib/thread'
 
   interface Props {
@@ -44,6 +44,9 @@
     class:ring={!nested && focusedNav === navIdOf(row)}
     use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
   >
+    {#if !nested && blockFocus.labelOf(threadId, navIdOf(row))}
+      <span class="hint">{blockFocus.labelOf(threadId, navIdOf(row))}</span>
+    {/if}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
 
     <svelte:element
@@ -121,6 +124,21 @@
      focused row reads as "this one on the spine" rather than as a new box. */
   .entry.ring {
     box-shadow: inset 2px 0 0 var(--accent);
+  }
+  /* On the spine side, where the row's own left edge is: a label over the kind
+     column would hide the one word that says what the row did. */
+  .entry .hint {
+    position: absolute;
+    top: 2px;
+    left: -20px;
+    z-index: 2;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--font-chrome);
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 4px;
+    pointer-events: none;
   }
 
   /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the
