@@ -26,6 +26,35 @@ export const SESSION_EVENTS_CHANNEL = 'session:events'
 /** Pty output, one channel per workspace. Kept off the session event queue so a
  *  build printing thousands of lines cannot delay a thread's tokens. */
 export const ptyChannel = (workspaceId: string): string => `pty:${workspaceId}`
+/** Repository state, pushed whenever it changes. One message per workspace. */
+export const GIT_STATUS_CHANNEL = 'git:status'
+
+/** What `git status --porcelain=v2 --branch` says about a workspace.
+ *
+ *  Counts are per file, not per line: one file that is both staged and edited
+ *  is one entry, so the totals add up to the number of files a person would
+ *  see in `git status`. */
+export interface GitStatus {
+  /** Branch name, or the short commit when HEAD is detached. */
+  branch: string
+  detached: boolean
+  ahead: number
+  behind: number
+  /** Files staged as new. Untracked files are counted separately, because the
+   *  parse should not decide whether they are "added" — the summary does. */
+  added: number
+  modified: number
+  deleted: number
+  untracked: number
+  /** Unmerged paths. Any non-zero value means the repo is mid-merge. */
+  conflicts: number
+}
+
+/** A workspace's repository state, or null when the folder is not a repo. */
+export interface GitStatusMessage {
+  workspaceId: string
+  status: GitStatus | null
+}
 
 /** What the backend says happened. The reducer turns these into blocks. */
 export type UiEvent =

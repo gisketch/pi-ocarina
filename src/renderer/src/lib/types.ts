@@ -1,3 +1,4 @@
+import type { GitStatus } from '../../../shared/protocol'
 import type { ThreadRunState } from '../../../shared/vocabulary'
 
 /** `TERM` is `INSERT` for the terminal column: the pty owns every key while it
@@ -49,9 +50,10 @@ export interface Workspace {
   note: string
   /** oklch hue seeding every accent in this workspace. */
   hue: number
-  branch: string
-  /** Compact git summary, e.g. "↑1 +1~1"; empty when clean/untracked. */
-  git: string
+  /** Repository state, or null when the folder is not a repo — and while the
+   *  first read is still out. Both mean the same to the chrome: no git
+   *  segments, rather than a branch nobody has confirmed. */
+  git: GitStatus | null
   snippet: string
   threads: Thread[]
 }

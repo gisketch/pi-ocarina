@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CatalogLoad, CatalogPosition } from '../main/catalog'
 import {
+  GIT_STATUS_CHANNEL,
   SESSION_COMMAND_CHANNEL,
   SESSION_EVENTS_CHANNEL,
   ptyChannel,
@@ -8,6 +9,7 @@ import {
   type CommandParams,
   type CommandResult,
   type EventBatch,
+  type GitStatusMessage,
 } from '../shared/protocol'
 
 // The preload is a typed bridge only — no logic. The renderer must keep working
@@ -33,6 +35,17 @@ const api = {
     /** Native folder picker; null when the user cancels. The renderer never
      *  sees a filesystem API, only the path a person deliberately chose. */
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pick-directory'),
+  },
+  /** Repository state. `refresh` only asks; every answer, whether it was asked
+   *  for or caused by a write under `.git`, arrives on `onStatus`. */
+  git: {
+    refresh: (workspaceId: string): void => ipcRenderer.send('git:refresh', workspaceId),
+    statuses: (): Promise<GitStatusMessage[]> => ipcRenderer.invoke('git:statuses'),
+    onStatus: (listener: (message: GitStatusMessage) => void): (() => void) => {
+      const handler = (_event: unknown, message: GitStatusMessage): void => listener(message)
+      ipcRenderer.on(GIT_STATUS_CHANNEL, handler)
+      return () => ipcRenderer.off(GIT_STATUS_CHANNEL, handler)
+    },
   },
   /** The workspace's shell. Output has its own channel per workspace so a
    *  noisy build cannot delay a thread's tokens. */

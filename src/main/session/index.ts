@@ -64,7 +64,16 @@ function registerTerminals(catalog: CatalogStore): TerminalService {
   return terminals
 }
 
-export function registerSession(catalog: CatalogStore): {
+/** What the app wants told when a workspace goes away. Kept as a hook rather
+ *  than an import so the session backend stays ignorant of git. */
+export interface SessionHooks {
+  onUnpin?: (workspaceId: string) => void
+}
+
+export function registerSession(
+  catalog: CatalogStore,
+  hooks: SessionHooks = {},
+): {
   driver: SessionDriver
   terminals: TerminalService
 } {
@@ -83,7 +92,14 @@ export function registerSession(catalog: CatalogStore): {
   const driver: SessionDriver =
     process.env.PIOCARINA_DRIVER === 'stub'
       ? new StubDriver(emit)
-      : new PiDriver({ emit, catalog, onUnpin: (id) => terminals.kill(id) })
+      : new PiDriver({
+          emit,
+          catalog,
+          onUnpin: (id) => {
+            terminals.kill(id)
+            hooks.onUnpin?.(id)
+          },
+        })
 
   ipcMain.handle(
     SESSION_COMMAND_CHANNEL,

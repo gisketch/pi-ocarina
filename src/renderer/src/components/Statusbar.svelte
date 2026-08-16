@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GitSummary from './GitSummary.svelte'
   import { app } from '$lib/state/app.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { formatUsage } from '$lib/usage-format'
@@ -19,7 +20,7 @@
   </div>
 
   <div class="seg branch">
-     {app.workspace.branch}<span class="git">{app.workspace.git}</span>
+    <GitSummary status={app.workspace.git} />
   </div>
 
   <div class="seg">thread {app.threadLabel}</div>
@@ -87,9 +88,6 @@
 
   .branch {
     gap: 6px;
-  }
-  .git {
-    color: var(--warn);
   }
 
   .right {

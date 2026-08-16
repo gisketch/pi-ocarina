@@ -1,6 +1,7 @@
 import type { CommandName, CommandParams, ModelSummary } from '../../../../shared/protocol'
 import type { ApprovalOutcome, AttachmentRef, ReasoningLevel } from '../../../../shared/vocabulary'
 import { session } from '../session'
+import { git } from './git.svelte'
 import { reduceBatch } from '../thread-reducer'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
 
@@ -49,6 +50,9 @@ class ThreadStore {
     session.subscribe(threadId, (events) => {
       box.model = reduceBatch(box.model, events)
       box.loaded = true
+      // A finished tool call may have written files without touching `.git`,
+      // which no watcher can see. This is the only moment anything knows.
+      if (events.some((event) => event.kind === 'tool-end')) git.refreshForThread(threadId)
     })
 
     void session

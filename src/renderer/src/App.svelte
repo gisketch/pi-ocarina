@@ -16,6 +16,7 @@
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { git } from '$lib/state/git.svelte'
   import { attachments } from '$lib/state/attachments.svelte'
   import { models } from '$lib/state/models.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
@@ -33,6 +34,21 @@
   // real workspace list is in place.
   if (!bridge) seedMockThreads()
   $effect(() => startPersistence())
+  // Listens for repository state pushed from main.
+  $effect(() => git.start())
+  // A folder that was just pinned has never been read. Derived from the ids
+  // alone so that a thread appearing in a workspace does not re-ask about all
+  // of them — this must fire on pin and unpin, and on nothing else.
+  const pinnedIds = $derived(catalog.workspaces.map((workspace) => workspace.id).join(' '))
+  $effect(() => {
+    for (const id of pinnedIds.split(' ')) git.refresh(id)
+  })
+  // Focusing a workspace is the third refresh trigger: main cannot see a commit
+  // made in another terminal while this workspace was off screen.
+  const focusedWorkspace = $derived(app.workspace.id)
+  $effect(() => {
+    git.refresh(focusedWorkspace)
+  })
   // Loaded once, ahead of the first `m`, so the selector opens instantly.
   $effect(() => {
     void models.load()

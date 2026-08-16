@@ -100,7 +100,7 @@ describe('the real catalog', () => {
 
     await catalog.load()
 
-    expect(catalog.workspaces[0]).toMatchObject({ branch: '', git: '' })
+    expect(catalog.workspaces[0]).toMatchObject({ git: null })
   })
 
   it('lists a pinned folder’s threads as columns', async () => {

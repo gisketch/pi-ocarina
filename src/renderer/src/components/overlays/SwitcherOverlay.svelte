@@ -1,6 +1,7 @@
 <script lang="ts">
   import Spotlight from './Spotlight.svelte'
   import Identicon from '../Identicon.svelte'
+  import GitSummary from '../GitSummary.svelte'
   import { isDesktop } from '$lib/bridge'
   import { fuzzyFilter } from '$lib/fuzzy'
   import { app } from '$lib/state/app.svelte'
@@ -68,7 +69,7 @@
         <Identicon name={workspace.name} hue={workspace.hue} size={52} />
         <div class="name">{workspace.name}</div>
         <div class="note">♪ {workspace.note}</div>
-        <div class="branch"> {workspace.branch}</div>
+        <div class="branch"><GitSummary status={workspace.git} /></div>
         <div class="snippet">{workspace.snippet}</div>
         <div class="key">{index + 1}</div>
       </button>

@@ -1,4 +1,22 @@
+import type { GitStatus } from '../../../../shared/protocol'
 import type { Workspace } from '../types'
+
+/** Demo repository state. The harness has no git behind it, so the reference's
+ *  three summaries are spelled out as the counts that produce them. */
+function repo(branch: string, counts: Partial<GitStatus> = {}): GitStatus {
+  return {
+    branch,
+    detached: false,
+    ahead: 0,
+    behind: 0,
+    added: 0,
+    modified: 0,
+    deleted: 0,
+    untracked: 0,
+    conflicts: 0,
+    ...counts,
+  }
+}
 
 /** Mock catalog mirroring the design reference's demo state (milestone 1 only —
  *  replaced by the real catalog + pi sessions in the session-backend milestone). */
@@ -8,8 +26,7 @@ export const WORKSPACES: Workspace[] = [
     name: 'pi-core',
     note: 'D',
     hue: 152,
-    branch: 'main',
-    git: '↑1 +1~1',
+    git: repo('main', { ahead: 1, added: 1, modified: 1 }),
     snippet: 'retry logic in sync worker',
     threads: [
       // Statuses match what each recorded stream projects to; `retry-backoff`
@@ -29,8 +46,7 @@ export const WORKSPACES: Workspace[] = [
     name: 'ocarina-ui',
     note: 'F♯',
     hue: 265,
-    branch: 'feat/palette',
-    git: '+4~2',
+    git: repo('feat/palette', { added: 4, modified: 2 }),
     snippet: 'palette flicker on open',
     threads: [
       { id: 'palette-flicker', title: 'palette flicker', status: 'waiting-input', meta: 'running…' },
@@ -42,8 +58,7 @@ export const WORKSPACES: Workspace[] = [
     name: 'docs-site',
     note: 'A',
     hue: 45,
-    branch: 'main',
-    git: '',
+    git: repo('main'),
     snippet: 'fresh thread',
     threads: [
       { id: 'fresh', title: 'docs-site', status: 'idle', meta: 'fresh thread', fresh: true },

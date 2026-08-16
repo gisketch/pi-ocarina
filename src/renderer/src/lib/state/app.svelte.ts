@@ -11,8 +11,7 @@ const NO_WORKSPACE: Workspace = Object.freeze({
   name: '',
   note: '',
   hue: 152,
-  branch: '',
-  git: '',
+  git: null,
   snippet: '',
   threads: Object.freeze([]) as unknown as Thread[],
 })

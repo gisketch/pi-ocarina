@@ -5,7 +5,7 @@ Visual truth: `PiOcarina Components.dc.html` section 13.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## E1 — Git status pipeline — `todo`
+## E1 — Git status pipeline — `done`
 
 - Delivered behavior: per-workspace git status via `git` CLI (`execFile`,
   `--porcelain=v2`) in main, parsed by one small fixture-tested module. Statusbar
@@ -22,6 +22,11 @@ Status legend: `todo` · `in-progress` · `done`.
   ahead/behind, conflicts, detached HEAD, non-repo); manual external-commit
   check.
 - Blocked by: B3 (real workspaces)
+- Note for whoever reads this next: `git status` refreshes the index, which
+  writes `.git/index.lock`, which a watcher on `.git` reads as a change —
+  measured at ~8 git runs a second on an idle repo before it was fixed. Two
+  guards, both needed: `--no-optional-locks` on the read, and ignoring any
+  `.lock` name in the watcher.
 
 ## E2 — Commit card — `todo`
 

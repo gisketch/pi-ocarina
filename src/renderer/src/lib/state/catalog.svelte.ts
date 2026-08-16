@@ -247,10 +247,9 @@ class Catalog {
       name: workspace.name,
       note: workspace.note,
       hue: workspace.hue,
-      // Git detail belongs to the git & terminal milestone; until then the
-      // chrome shows the workspace without inventing a branch for it.
-      branch: '',
-      git: '',
+      // Filled in by the git pipeline once it has read the folder. Null until
+      // then, so the chrome shows no branch rather than one nobody confirmed.
+      git: null,
       snippet: workspace.path,
       threads: built.length > 0 ? built : [freshThread(workspace)],
     }

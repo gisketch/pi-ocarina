@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { CatalogPosition } from './catalog'
 import { CatalogStore } from './catalog-store'
+import { registerGit } from './git'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
 import { PiDriver } from './session/pi-driver'
 import { registerSession } from './session'
@@ -113,7 +114,11 @@ void app.whenReady().then(async () => {
   registerDialogs()
   registerCatalog(catalog)
 
-  const { driver, terminals } = registerSession(catalog)
+  const git = registerGit(catalog)
+  const { driver, terminals } = registerSession(catalog, {
+    // Unpinning a folder ends everything the app was holding for it.
+    onUnpin: (workspaceId) => git.forget(workspaceId),
+  })
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),
@@ -123,6 +128,7 @@ void app.whenReady().then(async () => {
     void driver.dispose()
     // The shells are not daemons: they exist for as long as the window does.
     terminals.disposeAll()
+    git.disposeAll()
     void catalog.flush()
   })
 

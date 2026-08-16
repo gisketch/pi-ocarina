@@ -27,8 +27,7 @@ const WORKSPACE = {
   name: 'pi-core',
   note: 'D',
   hue: 152,
-  branch: '',
-  git: '',
+  git: null,
   snippet: '/code/pi-core',
   threads: [
     { id: 's1', title: 'first', status: 'idle' as const, meta: '' },
