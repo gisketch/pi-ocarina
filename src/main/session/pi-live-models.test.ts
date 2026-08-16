@@ -1,32 +1,9 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { replayThread } from '../../renderer/src/lib/thread-reducer'
 import type { UiEvent } from '../../shared/protocol'
-import { CatalogStore } from '../catalog-store'
 import { PiDriver } from './pi-driver'
-
-/** Talks to a real model, so it is opt-in: `PIOCARINA_PI_LIVE=1 pnpm test`.
- *
- *  This is the proving ground for the spec's assumptions about pi. Everything
- *  that can be checked without a model lives in pi-translate.test.ts and
- *  replay.test.ts, which run offline. */
-const live = process.env.PIOCARINA_PI_LIVE === '1'
-
-// Pinned so runs are cheap and repeatable rather than whatever pi's config
-// happens to default to on this machine.
-const MODEL = { provider: 'openai-codex', id: 'gpt-5.4-mini' }
-
-async function workspace(): Promise<{ catalog: CatalogStore; id: string; cwd: string }> {
-  const cwd = await mkdtemp(join(tmpdir(), 'piocarina-live-'))
-  await writeFile(join(cwd, 'hello.txt'), 'ocarina\n', 'utf8')
-
-  const catalog = new CatalogStore(join(cwd, 'catalog.json'))
-  await catalog.load()
-  return { catalog, id: catalog.pin(cwd).id, cwd }
-}
+import { MODEL, live, waitFor, workspace } from './pi-live-harness'
 
 describe.skipIf(!live)('models against a real session', () => {
   it('lists pi’s own models and moves a thread onto one', { timeout: 180_000 }, async () => {
@@ -125,13 +102,3 @@ describe.skipIf(!live)('models against a real session', () => {
     await driver.dispose()
   })
 })
-
-/** Polls until the condition holds. The condition may be async: some of these
- *  wait on the filesystem rather than on an event already in hand. */
-async function waitFor(done: () => boolean | Promise<boolean>, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (!(await done())) {
-    if (Date.now() > deadline) throw new Error('timed out waiting for pi')
-    await new Promise((resolve) => setTimeout(resolve, 150))
-  }
-}

@@ -13,7 +13,7 @@ import { ApprovalGate } from './approvals'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { PiTranslator } from './pi-translate'
-import { emitReplay } from './replay'
+import { emitUsage, replayInto } from './session-report'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
 import { ThreadRegistry } from './thread-registry'
@@ -207,15 +207,29 @@ export class PiDriver implements SessionDriver {
   /** Reopens a thread: its history is replayed as events before the live session
    *  is attached, so watching a thread and returning to it look the same. */
   async #openThread(threadId: string): Promise<void> {
-    // Already open. That is the normal path for a thread the renderer just
-    // created: it subscribes only once `createThread` has returned, so the
-    // model and usage announced while the session was being adopted were
-    // emitted before anyone was listening. Saying them again costs two events
-    // and is the difference between a real model name and "pi default".
-    if (this.#threads.has(threadId)) {
-      const session = this.#threads.find(threadId)?.session
-      this.#models.announce(threadId, session, this.#emit)
-      if (session) this.#emitUsage(threadId, session)
+    // Already open in this process. Two different callers land here and both
+    // need the same answer.
+    //
+    // One is a thread the renderer just created: it subscribes only once
+    // `createThread` has returned, so the model and usage announced while the
+    // session was being adopted reached nobody.
+    //
+    // The other is a renderer that reloaded. Main keeps its sessions across a
+    // window reload, so every thread is still open here while the renderer has
+    // just lost everything it knew — and replying with only a model name left
+    // it showing empty columns until the whole app was restarted.
+    //
+    // Replaying is right for both: a freshly created thread has no history, so
+    // it costs nothing there.
+    const open = this.#threads.find(threadId)
+    if (open) {
+      replayInto(this.#emit, threadId, open.session.sessionManager.buildContextEntries())
+      // Replay ends by stating the thread from its history, which cannot know
+      // about a turn that is still streaming — it would report `done` over a
+      // turn still being written. Only this side knows, so it says so.
+      if (open.session.isStreaming) this.#emit(threadId, { kind: 'thread-state', state: 'running' })
+      this.#models.announce(threadId, open.session, this.#emit)
+      emitUsage(this.#emit, threadId, open.session)
       return
     }
 
@@ -226,7 +240,7 @@ export class PiDriver implements SessionDriver {
     // The active branch, not every entry in the file: a session that has been
     // rewound holds abandoned branches too, and replaying those would show the
     // user a conversation that never happened.
-    this.#replay(threadId, sessionManager.buildContextEntries())
+    replayInto(this.#emit, threadId, sessionManager.buildContextEntries())
 
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
@@ -244,7 +258,7 @@ export class PiDriver implements SessionDriver {
     )
     const unsubscribe = session.subscribe((event) => {
       for (const translated of translator.translate(event)) this.#emit(threadId, translated)
-      if (event.type === 'turn_end') this.#emitUsage(threadId, session)
+      if (event.type === 'turn_end') emitUsage(this.#emit, threadId, session)
       if (event.type === 'queue_update') this.#steers.sync(threadId, event.steering)
     })
 
@@ -252,7 +266,7 @@ export class PiDriver implements SessionDriver {
     this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
     // A reopened thread carries its whole history's accounting; without this
     // the meter would read zero until the thread's next turn ended.
-    this.#emitUsage(threadId, session)
+    emitUsage(this.#emit, threadId, session)
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
     }
@@ -313,7 +327,7 @@ export class PiDriver implements SessionDriver {
 
     // The active branch as pi would send it to the model — which is exactly the
     // conversation the user should now see.
-    this.#replay(threadId, session.sessionManager.buildContextEntries())
+    replayInto(this.#emit, threadId, session.sessionManager.buildContextEntries())
   }
 
   /** Asks pi to compact. Progress and outcome both arrive as session events, so
@@ -327,23 +341,4 @@ export class PiDriver implements SessionDriver {
     }
   }
 
-  /** States a thread from its history, replacing whatever the renderer holds. */
-  #replay(threadId: string, entries: readonly SessionEntry[]): void {
-    emitReplay((event) => this.#emit(threadId, event), entries)
-  }
-
-  /** Usage comes from pi's own accounting; the app never estimates its own. */
-  #emitUsage(threadId: string, session: AgentSession): void {
-    try {
-      const stats = session.getSessionStats()
-      this.#emit(threadId, {
-        kind: 'usage',
-        contextPercent: stats.contextUsage?.percent ?? 0,
-        tokens: stats.tokens.total,
-        costUsd: stats.cost,
-      })
-    } catch {
-      // Stats are a nicety; losing them must never break a turn.
-    }
-  }
 }
