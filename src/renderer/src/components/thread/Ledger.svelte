@@ -6,6 +6,7 @@
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
+  import { labelFor, widestLabel } from '$lib/tool-label'
 
   interface Props {
     rows: ToolRow[]
@@ -35,6 +36,15 @@
   // default. The overrides live outside this component because `l` on the
   // focused block opens a row too, from a keyboard layer with nothing to reach.
   const defaults = $derived(initialOpenState(rows))
+
+  // The gutter is as wide as the widest word this ledger could ever put in it,
+  // and every row shares the one number — so targets line up with each other,
+  // and none of them moves when a call lands and `editing` becomes `edited`.
+  // Derived from the kinds present, never measured: a rect read here would
+  // force layout on rows the column is deliberately not laying out.
+  const gutter = $derived(
+    widestLabel(rows.flatMap((row) => [row.kind, ...(row.children ?? []).map((c) => c.kind)])),
+  )
   // Keyed by nav id, not by row id: a tool call id is only unique within its
   // call, which is the same reason the nav id is built from both. Two ledgers
   // holding a row with the same id must not open each other's.
@@ -70,7 +80,7 @@
       role={isExpandable(row) ? 'button' : undefined}
       onclick={() => toggle(row)}
     >
-      <span class="kind {labelTone(row)}" class:wide={row.kind === 'agent'}>{row.kind}</span>
+      <span class="kind {labelTone(row)}">{labelFor(row.kind, row.status)}</span>
       <span class="target" class:struck={row.status === 'cancelled'}>{row.target}</span>
       {#if row.meta}
         <span class="meta {metaTone(row)}">
@@ -103,6 +113,7 @@
   class="ledger"
   class:dim={dimmed && !rows.some((row) => focusedNav === navIdOf(row))}
   class:hosting={rows.some((row) => menuOn(navIdOf(row)))}
+  style="--gutter: {gutter}ch"
 >
   {#each rows as row (row.id)}
     {@render entry(row, false)}
@@ -229,11 +240,10 @@
   .kind {
     font-family: var(--font-chrome);
     font-size: 10px;
-    width: 36px;
+    /* The reference's 36px is the floor, not the width: a row now says what is
+       happening to it, and `editing` does not fit in four characters. */
+    width: max(36px, var(--gutter, 4ch));
     flex: none;
-  }
-  .kind.wide {
-    width: 42px;
   }
   .kind.accent {
     color: var(--accent);
