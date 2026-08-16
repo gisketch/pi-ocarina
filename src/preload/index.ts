@@ -36,6 +36,16 @@ const api = {
      *  sees a filesystem API, only the path a person deliberately chose. */
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:pick-directory'),
   },
+  /** Quitting with work in flight. Main asks; the app's own confirm modal
+   *  answers, so the question looks like every other destructive one. */
+  lifecycle: {
+    onConfirmQuit: (listener: (running: number) => void): (() => void) => {
+      const handler = (_event: unknown, running: number): void => listener(running)
+      ipcRenderer.on('lifecycle:confirm-quit', handler)
+      return () => ipcRenderer.off('lifecycle:confirm-quit', handler)
+    },
+    answerQuit: (ok: boolean): void => ipcRenderer.send('lifecycle:quit-answer', ok),
+  },
   /** Repository state. `refresh` only asks; every answer, whether it was asked
    *  for or caused by a write under `.git`, arrives on `onStatus`. */
   git: {

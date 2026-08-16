@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, Notification } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Notification } from 'electron'
 import type { UiEvent } from '../shared/protocol'
+import { quitMessage } from '../shared/quit'
 
 /** What the app needs to know about work in flight before it closes anything. */
 export interface RunningWork {
@@ -36,13 +37,10 @@ export function createRunningTracker(): (threadId: string, event: UiEvent) => bo
   }
 }
 
-export function quitMessage(running: number): { message: string; detail: string } {
-  const threads = running === 1 ? 'thread is' : 'threads are'
-  return {
-    message: `${running} ${threads} still working.`,
-    detail: 'Quitting stops them. Their transcripts are saved either way.',
-  }
-}
+/** How long the app waits for the renderer's own modal before falling back to
+ *  a native dialog. Long enough for a paint, short enough that a wedged
+ *  renderer cannot make the app unquittable. */
+const ANSWER_TIMEOUT_MS = 5000
 
 /** Builds the hook that raises a native notification for work that finished out
  *  of sight. One per app run; it carries the running-thread memory. */
@@ -105,9 +103,42 @@ async function confirmThenQuit(
   running: number,
   markQuitting: () => void,
 ): Promise<void> {
+  const confirmed = (await askRenderer(running)) ?? (await askNatively(running))
+  if (!confirmed) return
+
+  markQuitting()
+  await work.abortAll()
+  app.quit()
+}
+
+/** Asks in the app's own confirm modal, which is where every other
+ *  destructive question is asked.
+ *
+ *  Null means it could not be asked — no visible window, or a renderer that
+ *  did not answer in time. A wedged renderer must not make the app
+ *  unquittable, so that case falls through to the platform dialog rather than
+ *  waiting forever. */
+function askRenderer(running: number): Promise<boolean | null> {
+  const win = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed())
+  if (!win || !win.isVisible()) return Promise.resolve(null)
+
+  return new Promise<boolean | null>((resolve) => {
+    const answer = (_event: unknown, ok: boolean): void => {
+      clearTimeout(timer)
+      resolve(Boolean(ok))
+    }
+    const timer = setTimeout(() => {
+      ipcMain.off('lifecycle:quit-answer', answer)
+      resolve(null)
+    }, ANSWER_TIMEOUT_MS)
+
+    ipcMain.once('lifecycle:quit-answer', answer)
+    win.webContents.send('lifecycle:confirm-quit', running)
+  })
+}
+
+async function askNatively(running: number): Promise<boolean> {
   const { message, detail } = quitMessage(running)
-  // A native dialog for now; the design's own confirm modal replaces this when
-  // the renderer grows one.
   const { response } = await dialog.showMessageBox({
     type: 'warning',
     buttons: ['Cancel', 'Quit anyway'],
@@ -116,10 +147,5 @@ async function confirmThenQuit(
     message,
     detail,
   })
-
-  if (response !== 1) return
-
-  markQuitting()
-  await work.abortAll()
-  app.quit()
+  return response === 1
 }

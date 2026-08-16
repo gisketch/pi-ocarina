@@ -160,7 +160,7 @@ node-pty prebuild pinned.
 
 Blocked by: —
 
-## E4 — Toasts, confirm modal, connectivity banner — `todo`
+## E4 — Toasts, confirm modal, connectivity banner — `done`
 
 - Delivered behavior: bottom-right toast stack with `steps()` entry (ok / info /
   error, action slot: view, undo, retry) emitted for background thread
@@ -176,6 +176,22 @@ Blocked by: —
 - Validation: toast/modal/banner states smoke-rendered from fixture events;
   headless jump + keyboard tests; visual review vs section 13.
 - Blocked by: B5 (lifecycle/failure events), C2
+- Delivered narrower than written, deliberately, in three places:
+  - **No `undo` on the compaction toast.** pi has no un-compact, and the
+    summary has already replaced the history. The toast reports the compaction
+    and offers `view`.
+  - **No `retry now` on the banner.** pi owns the retry timer and there is no
+    way to hurry it, so the button could not do what it says. The countdown
+    stays.
+  - **Checkpoint restore keeps its inline confirm** from the ledger rather than
+    moving into the modal: it is answered where the checkpoint is, and the
+    modal is for questions with no place of their own.
+- The quit-with-running-work question moved out of the native dialog and into
+  the app's modal, which is what `lifecycle.ts` said it was waiting for. The
+  platform dialog survives as the fallback for a renderer that cannot answer,
+  so a wedged window cannot make the app unquittable.
+- Toasts are for what the user cannot see: nothing is raised for the focused
+  thread, which reports its own finish, failure and compaction inline.
 
 ## Order
 

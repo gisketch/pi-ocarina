@@ -1,7 +1,17 @@
-import type { CommandName, CommandParams, ModelSummary } from '../../../../shared/protocol'
+import type {
+  CommandName,
+  CommandParams,
+  ModelSummary,
+  UiEvent,
+} from '../../../../shared/protocol'
 import type { ApprovalOutcome, AttachmentRef, ReasoningLevel } from '../../../../shared/vocabulary'
+import { noticesFor } from '../notices'
 import { session } from '../session'
+import { app } from './app.svelte'
+import { catalog } from './catalog.svelte'
+import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
+import { toasts } from './toasts.svelte'
 import { reduceBatch } from '../thread-reducer'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
 
@@ -48,11 +58,23 @@ class ThreadStore {
     // One assignment per batch. Main coalesces a burst of events into a single
     // batch, so a 60-token burst reduces once and paints once.
     session.subscribe(threadId, (events) => {
+      // Read before the reduce: whether the thread was mid-turn is what tells a
+      // finished turn apart from a replayed history that ends on the same word.
+      const wasRunning = box.model.runState === 'running'
       box.model = reduceBatch(box.model, events)
       box.loaded = true
+
       // A finished tool call may have written files without touching `.git`,
       // which no watcher can see. This is the only moment anything knows.
       if (events.some((event) => event.kind === 'tool-end')) git.refreshForThread(threadId)
+
+      for (const event of events) {
+        if (event.kind === 'connectivity') {
+          connectivity.report(threadId, event.state, event.retryInSeconds)
+        }
+      }
+
+      announce(threadId, events, wasRunning)
     })
 
     void session
@@ -166,3 +188,24 @@ class ThreadStore {
 }
 
 export const threads = new ThreadStore()
+
+/** Raises a toast for anything that happened where the user could not see it.
+ *
+ *  The jump is carried as ids rather than a closure: the toast is data, and
+ *  the one place that knows how to put a thread on screen makes the jump. */
+function announce(threadId: string, events: readonly UiEvent[], wasRunning: boolean): void {
+  const notices = noticesFor(events, { focused: app.thread.id === threadId, wasRunning })
+  if (notices.length === 0) return
+
+  const owner = catalog.workspaces.find((workspace) =>
+    workspace.threads.some((thread) => thread.id === threadId),
+  )
+  const found = owner?.threads.find((thread) => thread.id === threadId)
+  // A thread with no column has nowhere to jump to, so its toast offers no
+  // action rather than an action that would do nothing.
+  const jump = owner && found ? { workspaceId: owner.id, threadId, title: found.title } : undefined
+
+  for (const notice of notices) {
+    toasts.push(jump ? { ...notice, jump } : { ...notice, label: undefined })
+  }
+}

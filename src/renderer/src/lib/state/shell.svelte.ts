@@ -1,5 +1,6 @@
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { confirm } from './confirm.svelte'
 import { terminalId, workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { scrollColumn } from './columns'
@@ -222,6 +223,9 @@ class ShellState {
 
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
+    // The destructive modal outranks everything, including the close confirm.
+    if (confirm.pending) return confirm.handleKey(event)
+
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run
     // underneath it. Only an explicit yes goes ahead; anything else backs out.

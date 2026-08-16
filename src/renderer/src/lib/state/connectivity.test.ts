@@ -1,0 +1,59 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import { connectivity } from './connectivity.svelte'
+
+beforeEach(() => {
+  connectivity.reset()
+})
+
+describe('the connectivity banner state', () => {
+  it('is down until a thread says otherwise', () => {
+    expect(connectivity.degraded).toBe(false)
+  })
+
+  it('goes up while a thread is retrying, and reports the wait', () => {
+    connectivity.report('t1', 'degraded', 4)
+
+    expect(connectivity.degraded).toBe(true)
+    expect(connectivity.retryInSeconds).toBe(4)
+  })
+
+  it('comes down when that thread recovers', () => {
+    connectivity.report('t1', 'degraded', 4)
+    connectivity.report('t1', 'restored')
+
+    expect(connectivity.degraded).toBe(false)
+    expect(connectivity.retryInSeconds).toBeUndefined()
+  })
+
+  it('stays up while another thread is still retrying', () => {
+    // A provider that is failing is failing for every thread, and taking the
+    // banner down on the first recovery would say the opposite.
+    connectivity.report('t1', 'degraded', 2)
+    connectivity.report('t2', 'degraded', 8)
+
+    connectivity.report('t1', 'restored')
+
+    expect(connectivity.degraded).toBe(true)
+    expect(connectivity.retryInSeconds).toBe(8)
+  })
+
+  it('shows the longest wait, so the countdown never runs out early', () => {
+    connectivity.report('t1', 'degraded', 3)
+    connectivity.report('t2', 'degraded', 9)
+
+    expect(connectivity.retryInSeconds).toBe(9)
+  })
+
+  it('survives a degraded event that carried no wait', () => {
+    connectivity.report('t1', 'degraded')
+
+    expect(connectivity.degraded).toBe(true)
+    expect(connectivity.retryInSeconds).toBeUndefined()
+  })
+
+  it('ignores a recovery for a thread that was never degraded', () => {
+    connectivity.report('t1', 'restored')
+
+    expect(connectivity.degraded).toBe(false)
+  })
+})

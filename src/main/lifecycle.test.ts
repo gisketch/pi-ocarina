@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../shared/protocol'
-import { createRunningTracker, quitMessage, shouldNotify } from './lifecycle'
+import { createRunningTracker, shouldNotify } from './lifecycle'
+import { quitMessage } from '../shared/quit'
 
 // Electron's own surfaces (dialog, Notification, window events) are exercised by
 // running the app; these are the decisions behind them.

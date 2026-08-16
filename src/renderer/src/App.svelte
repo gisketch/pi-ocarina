@@ -7,6 +7,9 @@
   import Composer from './components/Composer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
   import CloseConfirm from './components/CloseConfirm.svelte'
+  import ConfirmModal from './components/ConfirmModal.svelte'
+  import ConnectivityBanner from './components/ConnectivityBanner.svelte'
+  import Toasts from './components/Toasts.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
@@ -16,7 +19,9 @@
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
+  import { confirm } from '$lib/state/confirm.svelte'
   import { git } from '$lib/state/git.svelte'
+  import { quitMessage } from '../../shared/quit'
   import { attachments } from '$lib/state/attachments.svelte'
   import { models } from '$lib/state/models.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
@@ -34,6 +39,20 @@
   // real workspace list is in place.
   if (!bridge) seedMockThreads()
   $effect(() => startPersistence())
+  // Quitting on top of running work asks in the app's own modal rather than a
+  // platform dialog, so every destructive question looks the same.
+  const desktop = bridge
+  $effect(() =>
+    desktop?.lifecycle.onConfirmQuit(async (running) => {
+      const { message, detail } = quitMessage(running)
+      const ok = await confirm.ask({
+        title: 'quit with work running',
+        message: `${message} ${detail}`,
+        confirmLabel: 'quit',
+      })
+      desktop.lifecycle.answerQuit(ok)
+    }),
+  )
   // Listens for repository state pushed from main.
   $effect(() => git.start())
   // A folder that was just pinned has never been read. Derived from the ids
@@ -175,6 +194,8 @@
 
   <Titlebar onmodel={() => shell.openOverlay('model')} />
 
+  <ConnectivityBanner />
+
   <div class="body">
     <Rail onPin={() => shell.openOverlay('switcher')} onKeymap={() => shell.openOverlay('keymap')} />
 
@@ -196,7 +217,11 @@
     <div class="dropzone">▤ drop files to attach — images go to the model, others are named for it</div>
   {/if}
 
+  <Toasts onview={(jump) => void jumpTo(jump.workspaceId, jump.threadId, jump.title)} />
+
   <Statusbar />
+
+  <ConfirmModal />
 
   {#if app.mode === 'LEADER'}
     <LeaderBar />
