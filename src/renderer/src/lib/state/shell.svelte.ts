@@ -7,9 +7,11 @@ import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
 /** How long after leaving TERM a second `esc` still means "send it through".
- *  Long enough to be deliberate, short enough that an unrelated later `esc`
- *  is not mistaken for the second half of a chord. */
-const TERM_ESCAPE_WINDOW_MS = 350
+ *
+ *  Measured against a person deliberately double-tapping, not a machine: half a
+ *  second is comfortable to hit on purpose and still short enough that an
+ *  unrelated later `esc` is not mistaken for the second half of a chord. */
+const TERM_ESCAPE_WINDOW_MS = 500
 
 /** What a real escape key sends, for the TUIs that need one. */
 const ESCAPE = String.fromCharCode(27)

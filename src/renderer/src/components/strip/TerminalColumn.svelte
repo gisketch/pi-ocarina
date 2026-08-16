@@ -5,6 +5,7 @@
   import { WebglAddon } from '@xterm/addon-webgl'
   import { app } from '$lib/state/app.svelte'
   import { registerColumnScroller } from '$lib/state/columns'
+  import { xtermShouldHandle } from '$lib/terminal-keys'
   import { terminalId } from '$lib/types'
   import { terminals } from '$lib/state/terminal.svelte'
   import '@xterm/xterm/css/xterm.css'
@@ -67,6 +68,15 @@
     }
 
     resize()
+
+    // Escape belongs to the shell, not to xterm.
+    //
+    // xterm handles Escape itself and stops it before it reaches the window,
+    // which left the mode machine blind to the one key that leaves TERM.
+    // Returning false here declines the key so it propagates normally; the
+    // shell then decides whether it means "leave" or, pressed twice, "send a
+    // real escape through". Every other key stays xterm's.
+    term.attachCustomKeyEventHandler(xtermShouldHandle)
 
     // Keystrokes go straight out: buffering a key is a key that feels slow.
     const typed = term.onData((data) => terminals.write(workspaceId, data))
