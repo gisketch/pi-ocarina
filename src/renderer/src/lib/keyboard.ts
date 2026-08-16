@@ -316,6 +316,10 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result(done, [{ type: 'openTerminal' }], true, 'clear')
     case 'c':
       return result(done, [{ type: 'compact' }], true, 'clear')
+    case 'd':
+      // The same door as the bare `d`, so the which-key bar can teach it to a
+      // reader who has not learnt the letter yet.
+      return result({ ...done, mode: 'DIFF' }, [{ type: 'openChanges' }], true, 'clear')
     case 'h':
       return result(done, [{ type: 'moveThread', delta: -1 }], true, 'clear')
     case 'l':

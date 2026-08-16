@@ -23,6 +23,10 @@ class Changes {
   files = $state.raw<ChangedFile[]>([])
   threadId = $state<string | null>(null)
   loading = $state(false)
+  /** Set when the backend could not answer. Held apart from an empty list: a
+   *  thread that changed nothing and a thread we could not ask about look the
+   *  same in the data and mean opposite things to a reader. */
+  error = $state<string | null>(null)
   pane = $state<Pane>('files')
   /** Index into `shown`, not into `files`: a filter changes what is reachable. */
   at = $state(0)
@@ -56,6 +60,7 @@ class Changes {
   async show(threadId: string, path?: string): Promise<void> {
     this.threadId = threadId
     this.loading = true
+    this.error = null
     this.pane = 'files'
     this.filter = ''
     this.filtering = false
@@ -69,6 +74,10 @@ class Changes {
       const wanted = path === undefined ? -1 : files.findIndex((file) => path.endsWith(file.path))
       this.at = wanted === -1 ? 0 : wanted
       if (wanted !== -1) this.pane = 'diff'
+    } catch (cause) {
+      if (this.threadId !== threadId) return
+      this.files = []
+      this.error = cause instanceof Error ? cause.message : String(cause)
     } finally {
       this.loading = false
     }
@@ -77,6 +86,7 @@ class Changes {
   close(): void {
     this.threadId = null
     this.files = []
+    this.error = null
     // The pane goes back too. A viewer reopened into whichever pane the last
     // one was left in is a viewer whose keys mean something different each
     // time it opens.

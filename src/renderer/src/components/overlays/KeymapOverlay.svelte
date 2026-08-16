@@ -41,6 +41,19 @@
         ['block actions', 'a'],
         ['back to strip', 'esc'],
         ['yank last code', 'y'],
+        ['see the change', 'd'],
+      ],
+    },
+    {
+      title: 'DIFF',
+      rows: [
+        ['file · hunk', 'j / k'],
+        ['switch pane', 'tab'],
+        ['next · prev hunk', 'n / N'],
+        ['top · bottom', 'gg / G'],
+        ['filter files', '/'],
+        ['copy the line', 'y'],
+        ['close', 'esc'],
       ],
     },
     {

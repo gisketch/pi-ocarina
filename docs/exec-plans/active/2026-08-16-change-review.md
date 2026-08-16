@@ -15,7 +15,7 @@ J1 ─┬─ J2 ── J6
 J3 (independent)
 ```
 
-## J1 — an edit produces a real diff
+## J1 — an edit produces a real diff — `done`
 
 Delivered behavior: an `edit` or `write` row carries a diff body with true line
 numbers and context, built from the file itself.
@@ -51,7 +51,7 @@ identical inputs. A live-pi test behind `PIOCARINA_PI_LIVE=1`.
 
 Blocked by: nothing.
 
-## J2 — the row opens itself, and says what it is hiding
+## J2 — the row opens itself, and says what it is hiding — `done`
 
 Delivered behavior: an `edit`/`write` row arrives expanded, capped at 24 drawn
 lines, and states the remainder rather than truncating in silence.
@@ -74,7 +74,7 @@ edit: the column does not grow past the cap.
 
 Blocked by: J1.
 
-## J3 — a row says what is happening to it
+## J3 — a row says what is happening to it — `done`
 
 Delivered behavior: `read` reads `reading` while its call runs, and `read` when
 it lands. Every kind, both tenses. No target moves sideways when a call lands.
@@ -103,7 +103,7 @@ that reads a target's `x` before and after a call lands and asserts they match.
 
 Blocked by: nothing.
 
-## J4 — the viewer exists, and DIFF owns the keys
+## J4 — the viewer exists, and DIFF owns the keys — `done`
 
 Delivered behavior: `d` opens a floating viewer with the thread's changed files
 on the left and the change on the right. `esc` closes it.
@@ -132,7 +132,7 @@ and `a`. A CDP pass: the viewer paints in full over a scrolled column.
 
 Blocked by: J1.
 
-## J5 — the viewer takes vim keys
+## J5 — the viewer takes vim keys — `done` (with J4)
 
 Delivered behavior: every key in the spec's table works, and the viewer keeps up
 with a thread that is still editing.
@@ -156,7 +156,7 @@ third key. A CDP pass with an agent editing while the viewer is open.
 
 Blocked by: J4.
 
-## J6 — the two surfaces meet, and it stays fast
+## J6 — the two surfaces meet, and it stays fast — `done`
 
 Delivered behavior: `a` on a capped row opens the viewer at that row's file.
 `␣ d` opens it from the leader bar. A thread of large edits holds its budget.
@@ -176,3 +176,47 @@ Validation: the perf numbers, recorded in this file the way H1–H5 recorded
 theirs.
 
 Blocked by: J2, J5.
+
+
+## What was found on the way (2026-08-16)
+
+Recorded because each was a decision the ticket did not anticipate.
+
+1. **The cap moved from the translator to the renderer.** J2 put `+N more lines`
+   in the row's meta, which the translator writes. How many lines fit is a
+   drawing question and the translator cannot answer it; the marker is drawn by
+   `ToolBody` instead.
+2. **A row opens on its body, not on its kind.** Keying the default on
+   `edit`/`write` opened the reference's `write` row, which has no diff. The
+   mock thread's own test caught it. A row that opens on to nothing is worse
+   than one that stays shut.
+3. **Subgrid was the wrong tool for the shared gutter.** It is the obvious way
+   to share one column across rows, and it is incompatible with the layout
+   containment each row carries — for exactly the reason the containment exists.
+   The width is computed from the kinds a ledger holds and written as a custom
+   property, which is a write rather than the rect read the ticket warned about.
+4. **`close()` has to put the pane back.** It cleared everything except which
+   pane had the keys, so a viewer reopened after being left in the diff pane
+   took different keys than one opened fresh. Three tests failed on it at once.
+5. **A failed read is not "no changes".** The browser harness has no backend, so
+   `listChanges` rejects — and the viewer said the thread had changed nothing.
+   The two look identical in the data and mean opposite things. Found by opening
+   the viewer in the harness, not by a test.
+6. **The driver crossed 350 lines.** It gave up what a live session's events do
+   (`session-events.ts`) and what can be done to an existing thread
+   (`turn-ops.ts`). Both were already separable; the limit only forced the issue.
+
+## Perf evidence (2026-08-16)
+
+The shape J6 asked for, as a test rather than a one-off measurement, in
+`change-log.perf.test.ts`:
+
+- **200 edits across 40 files** — 200 snapshot pairs of a 400-line file, plus
+  the 40 merged diffs the viewer asks for: **51ms total**, against budgets of
+  2000ms and 500ms.
+- **50 edits of one file** holds two versions of it, not fifty. Asserted on the
+  content of the first and last snapshot, so a regression that started keeping
+  every intermediate version would fail rather than merely slow down.
+
+The differ's own budget is in `file-diff.test.ts`: a one-line change in a
+4,000-line file stays under 50ms, which is what the head-and-tail trim buys.

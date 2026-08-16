@@ -41,8 +41,14 @@
     {:else if !file}
       <!-- One sentence, not an empty window: a reader who opened this on a
            thread that changed nothing should be told so, not left hunting. -->
-      <div class="empty">
-        {changes.files.length === 0 ? 'this thread has not changed any files' : 'no file matches'}
+      <div class="empty" class:bad={changes.error !== null}>
+        {#if changes.error !== null}
+          could not read the changes · {changes.error}
+        {:else if changes.files.length === 0}
+          this thread has not changed any files
+        {:else}
+          no file matches
+        {/if}
       </div>
     {:else}
       <div class="head">
@@ -241,5 +247,8 @@
     color: var(--fg-dimmest);
     font-family: var(--font-body);
     font-size: 12px;
+  }
+  .empty.bad {
+    color: var(--err-text);
   }
 </style>

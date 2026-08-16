@@ -188,3 +188,35 @@ describe('what a segment calls itself', () => {
     expect(labels[2].startsWith('table ')).toBe(true)
   })
 })
+
+describe('a row that changed a file', () => {
+  it('carries the path the viewer should open at', () => {
+    const blocks: Block[] = [
+      {
+        kind: 'ledger',
+        id: 'l1',
+        rows: [
+          {
+            id: 'r1',
+            kind: 'edit',
+            target: 'src/a.ts',
+            status: 'ok',
+            body: { type: 'diff', lines: [{ sign: '+', text: 'x', line: 1 }] },
+          },
+        ],
+      },
+    ]
+
+    expect(navBlocks(blocks)[0].diffPath).toBe('src/a.ts')
+  })
+
+  it('leaves a row that changed nothing without one', () => {
+    // A read has a path too. Offering the viewer there would open it on
+    // nothing.
+    const blocks: Block[] = [
+      { kind: 'ledger', id: 'l1', rows: [{ id: 'r1', kind: 'read', target: 'src/a.ts', status: 'ok' }] },
+    ]
+
+    expect(navBlocks(blocks)[0].diffPath).toBeUndefined()
+  })
+})

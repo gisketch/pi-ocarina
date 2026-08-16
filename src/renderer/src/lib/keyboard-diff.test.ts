@@ -48,3 +48,20 @@ describe('opening the change viewer', () => {
     }
   })
 })
+
+describe('the leader chord', () => {
+  const LEADER: KeyState = { ...initialKeyState, mode: 'LEADER' }
+
+  it('opens the viewer on space then d', () => {
+    const { state, actions } = press(LEADER, 'd')
+
+    expect(state.mode).toBe('DIFF')
+    expect(actions).toEqual([{ type: 'openChanges' }])
+  })
+
+  it('does not shadow a chord that already existed', () => {
+    for (const key of ['w', 'k', 's', 'm', 'f', 'n', 'x', 't', 'c', 'h', 'l']) {
+      expect(press(LEADER, key).state.mode).not.toBe('DIFF')
+    }
+  })
+})

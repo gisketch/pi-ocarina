@@ -31,6 +31,9 @@ export interface NavBlock {
   label: string
   /** What `copy` takes: the whole message, or a tool row's target. */
   text: string
+  /** The file a row changed, when the row carries a diff. What the menu's
+   *  entry into the viewer opens at. */
+  diffPath?: string
 }
 
 const LABEL_MAX = 40
@@ -70,6 +73,7 @@ function toolEntry(blockId: string, row: ToolRow): NavBlock {
     blockId,
     rowId: row.id,
     label: short(`${row.kind} ${row.target}`),
+    ...(row.body?.type === 'diff' ? { diffPath: row.target } : {}),
     // The target, not the whole row: a path or a command is the thing a reader
     // wants in the clipboard, and "read src/a.ts" pastes into nothing.
     text: row.target,

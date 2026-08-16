@@ -6,6 +6,7 @@
     ['n', 'new thread'],
     ['t', 'terminal'],
     ['f', 'find thread'],
+    ['d', 'changes'],
     ['m', 'model'],
     ['s', 'settings'],
     ['k', 'keymap'],

@@ -9,11 +9,13 @@
  *  the transcript in half for the sake of one action nobody uses often. */
 
 import type { NavBlock } from '../blocks'
+import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { changes } from './changes.svelte'
 import { threads } from './threads.svelte'
 import type { KeyEventLike } from '../keyboard'
 
-export type BlockActionId = 'copy' | 'restore'
+export type BlockActionId = 'copy' | 'restore' | 'changes'
 
 export interface BlockAction {
   id: BlockActionId
@@ -39,6 +41,11 @@ export async function copyText(text: string): Promise<void> {
  *  really has, which is the same guard the cards in a demo column apply. */
 export function actionsFor(block: NavBlock, wired: boolean): BlockAction[] {
   const actions: BlockAction[] = [{ id: 'copy', label: 'copy text' }]
+  // Only where there is a change to open on to. A row that read a file has a
+  // path too, and offering the viewer there would open it on nothing.
+  if (block.diffPath !== undefined) {
+    actions.push({ id: 'changes', label: 'see the whole change' })
+  }
   if (block.checkpointId !== undefined && wired) {
     actions.push({ id: 'restore', label: 'restore checkpoint' })
   }
@@ -113,6 +120,15 @@ class BlockMenu {
     const action = this.actions[this.index]
     const block = this.block
     if (!action || block === null) return
+
+    if (action.id === 'changes') {
+      const threadId = this.threadId
+      const path = block.diffPath
+      this.close()
+      app.mode = 'DIFF'
+      void changes.show(threadId, path)
+      return
+    }
 
     if (action.id === 'copy') {
       void copyText(block.text)

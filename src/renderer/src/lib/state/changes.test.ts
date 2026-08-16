@@ -191,3 +191,26 @@ describe('a thread that is still editing', () => {
     expect(changes.file).toBeNull()
   })
 })
+
+describe('when the backend cannot answer', () => {
+  it('says so rather than reporting no changes', async () => {
+    // The two look identical in the data and mean opposite things: one is "the
+    // agent changed nothing", the other is "we do not know what it changed".
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockRejectedValueOnce(new Error('no session backend'))
+
+    await changes.show('t1')
+
+    expect(changes.error).toBe('no session backend')
+    expect(changes.files).toEqual([])
+    expect(changes.open).toBe(true)
+  })
+
+  it('clears the error on the next open', async () => {
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
+
+    await changes.show('t1')
+    expect(changes.error).toBeNull()
+  })
+})
