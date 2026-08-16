@@ -9,6 +9,8 @@ import {
   type CommandParams,
   type CommandResult,
   type EventBatch,
+  type GitCommitDraft,
+  type GitCommitResult,
   type GitStatusMessage,
 } from '../shared/protocol'
 
@@ -51,6 +53,14 @@ const api = {
   git: {
     refresh: (workspaceId: string): void => ipcRenderer.send('git:refresh', workspaceId),
     statuses: (): Promise<GitStatusMessage[]> => ipcRenderer.invoke('git:statuses'),
+    changes: (workspaceId: string): Promise<GitCommitDraft> =>
+      ipcRenderer.invoke('git:changes', workspaceId),
+    commit: (
+      workspaceId: string,
+      options: { message: string; push: boolean },
+    ): Promise<GitCommitResult> => ipcRenderer.invoke('git:commit', workspaceId, options),
+    push: (workspaceId: string): Promise<GitCommitResult> =>
+      ipcRenderer.invoke('git:push', workspaceId),
     onStatus: (listener: (message: GitStatusMessage) => void): (() => void) => {
       const handler = (_event: unknown, message: GitStatusMessage): void => listener(message)
       ipcRenderer.on(GIT_STATUS_CHANNEL, handler)

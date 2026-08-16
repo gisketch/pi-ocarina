@@ -14,20 +14,25 @@
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
+  import CommitCard from './components/overlays/CommitCard.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
-  import { confirm } from '$lib/state/confirm.svelte'
+  import { commit } from '$lib/state/commit.svelte'
   import { git } from '$lib/state/git.svelte'
-  import { quitMessage } from '../../shared/quit'
   import { attachments } from '$lib/state/attachments.svelte'
-  import { models } from '$lib/state/models.svelte'
-  import { preferences } from '$lib/state/preferences.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
+  import {
+    answerQuitConfirm,
+    applyTheme,
+    loadModels,
+    watchFocusedGit,
+    watchPinnedGit,
+  } from '$lib/state/wiring.svelte'
   import type { CommandId } from '$lib/commands'
   import { REASONING_ORDER } from '../../shared/vocabulary'
 
@@ -39,54 +44,13 @@
   // real workspace list is in place.
   if (!bridge) seedMockThreads()
   $effect(() => startPersistence())
-  // Quitting on top of running work asks in the app's own modal rather than a
-  // platform dialog, so every destructive question looks the same.
-  const desktop = bridge
-  $effect(() =>
-    desktop?.lifecycle.onConfirmQuit(async (running) => {
-      const { message, detail } = quitMessage(running)
-      const ok = await confirm.ask({
-        title: 'quit with work running',
-        message: `${message} ${detail}`,
-        confirmLabel: 'quit',
-      })
-      desktop.lifecycle.answerQuit(ok)
-    }),
-  )
+  $effect(() => answerQuitConfirm())
   // Listens for repository state pushed from main.
   $effect(() => git.start())
-  // A folder that was just pinned has never been read. Derived from the ids
-  // alone so that a thread appearing in a workspace does not re-ask about all
-  // of them — this must fire on pin and unpin, and on nothing else.
-  const pinnedIds = $derived(catalog.workspaces.map((workspace) => workspace.id).join(' '))
-  $effect(() => {
-    for (const id of pinnedIds.split(' ')) git.refresh(id)
-  })
-  // Focusing a workspace is the third refresh trigger: main cannot see a commit
-  // made in another terminal while this workspace was off screen.
-  const focusedWorkspace = $derived(app.workspace.id)
-  $effect(() => {
-    git.refresh(focusedWorkspace)
-  })
-  // Loaded once, ahead of the first `m`, so the selector opens instantly.
-  $effect(() => {
-    void models.load()
-  })
-
-  // The accent tokens are substituted where they are declared (:root), so the
-  // seeded hue must be written to the document element — setting it on .shell
-  // would leave every inherited --accent stuck on the default hue.
-  $effect(() => {
-    document.documentElement.style.setProperty('--accent-hue', String(app.workspace.hue))
-  })
-
-  // Grain and motion are declared in CSS against these attributes, so the
-  // settings switches and the OS reduce-motion preference say the same thing in
-  // the same place.
-  $effect(() => {
-    document.documentElement.dataset.grain = preferences.grain ? 'on' : 'off'
-    document.documentElement.dataset.motion = preferences.motion ? 'on' : 'off'
-  })
+  $effect(() => watchPinnedGit())
+  $effect(() => watchFocusedGit())
+  $effect(() => loadModels())
+  $effect(() => applyTheme())
 
   let composerInput = $state<HTMLTextAreaElement | null>(null)
   let paletteInput = $state<HTMLInputElement | null>(null)
@@ -207,7 +171,11 @@
         <!-- A focused shell is its own input. Leaving the composer under it
              would offer to message pi in a column pi has nothing to do with. -->
         {#if !app.thread.terminal}
-          <Composer bind:input={composerInput} onmodel={() => shell.openOverlay('model')} />
+          <Composer
+            bind:input={composerInput}
+            onmodel={() => shell.openOverlay('model')}
+            oncommit={() => void commit.load()}
+          />
         {/if}
       {/if}
     </div>
@@ -220,6 +188,10 @@
   <Toasts onview={(jump) => void jumpTo(jump.workspaceId, jump.threadId, jump.title)} />
 
   <Statusbar />
+
+  {#if commit.open}
+    <CommitCard />
+  {/if}
 
   <ConfirmModal />
 

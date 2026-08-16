@@ -4,7 +4,14 @@ vi.mock('../bridge', () => ({
   bridge: {
     dialog: { pickDirectory: () => Promise.resolve(null) },
     session: { invoke: () => Promise.resolve({ ok: true }), onEvents: () => () => {} },
-    git: { refresh: () => {}, statuses: () => Promise.resolve([]), onStatus: () => () => {} },
+    git: {
+      refresh: () => {},
+      statuses: () => Promise.resolve([]),
+      onStatus: () => () => {},
+      changes: () => Promise.resolve({ changes: [], message: '' }),
+      commit: () => Promise.resolve({ ok: true, pushed: false }),
+      push: () => Promise.resolve({ ok: true, pushed: true }),
+    },
     terminal: {
       create: () => Promise.resolve({ ok: true }),
       kill: () => Promise.resolve({ ok: true }),
@@ -19,6 +26,7 @@ vi.mock('../bridge', () => ({
 
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { shell } from './shell.svelte'
 
@@ -45,6 +53,7 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'NORMAL'
   shell.pendingClose = null
+  commit.close()
 })
 
 // The question has to survive the whole machine, not just its own state: a
@@ -89,5 +98,33 @@ describe('the destructive modal through the real key path', () => {
     expect(shell.pendingClose).toBe('s1')
     confirm.answer(false)
     await expect(answered).resolves.toBe(false)
+  })
+})
+
+describe('the commit card through the real key path', () => {
+  it('swallows a key that would otherwise move the focus', async () => {
+    await commit.load()
+
+    expect(shell.handleKey({ key: 'l' })).toBe(true)
+    expect(app.focus[0]).toBe(0)
+    expect(commit.open).toBe(true)
+  })
+
+  it('closes on escape', async () => {
+    await commit.load()
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(commit.open).toBe(false)
+  })
+
+  it('yields to the destructive modal, which outranks it', async () => {
+    await commit.load()
+    void confirm.ask(QUESTION)
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(confirm.pending).toBe(false)
+    expect(commit.open).toBe(true)
   })
 })

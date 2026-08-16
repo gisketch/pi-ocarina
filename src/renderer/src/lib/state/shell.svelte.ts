@@ -1,5 +1,6 @@
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { terminalId, workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
@@ -225,6 +226,8 @@ class ShellState {
   handleKey(event: KeyEventLike): boolean {
     // The destructive modal outranks everything, including the close confirm.
     if (confirm.pending) return confirm.handleKey(event)
+    // The commit card owns its keys while it is open, for the same reason.
+    if (commit.open) return commit.handleKey(event)
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run

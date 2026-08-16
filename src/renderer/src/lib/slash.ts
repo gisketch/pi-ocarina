@@ -1,6 +1,6 @@
 import { fuzzyFilter } from './fuzzy'
 
-export type SlashId = 'compact' | 'model'
+export type SlashId = 'commit' | 'compact' | 'model'
 
 export interface SlashCommand {
   id: SlashId
@@ -10,11 +10,11 @@ export interface SlashCommand {
 
 /** What `/` offers.
  *
- *  Only commands that do something. The spec also lists `/commit` and
- *  `/context`; the first needs the git pipeline (E plan) and the second needs a
- *  context breakdown surface that does not exist yet. Both are omitted rather
- *  than listed as menu entries that would do nothing when picked. */
+ *  Only commands that do something. The spec also lists `/context`, which needs
+ *  a context breakdown surface that does not exist yet; it is omitted rather
+ *  than listed as a menu entry that would do nothing when picked. */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
+  { id: 'commit', name: '/commit', description: 'review and commit changes' },
   { id: 'compact', name: '/compact', description: 'summarize thread, free context' },
   { id: 'model', name: '/model', description: 'switch model / reasoning' },
 ]

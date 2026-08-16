@@ -28,7 +28,7 @@ Status legend: `todo` · `in-progress` · `done`.
   guards, both needed: `--no-optional-locks` on the read, and ignoring any
   `.lock` name in the watcher.
 
-## E2 — Commit card — `todo`
+## E2 — Commit card — `done`
 
 - Delivered behavior: `/commit` (and a completed turn's suggestion) opens the
   commit card: proposed message + changed-file list with +/− counts; actions
@@ -41,6 +41,24 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: integration test in a fixture repo (commit, failed push via bad
   remote); visual review vs section 13.
 - Blocked by: E1, E4 (toasts), D2 (`/commit` entry)
+- Delivered narrower than written in two places:
+  - **The proposed message is built from the change set**, not written by a
+    model: `update src/one.ts`, `update 3 files in src/sync`. A model-written
+    message needs a pi call this ticket has no seam for, and a confident
+    invention is harder to correct than an obviously blank scaffold. `e` edits
+    it; the edited text is what gets committed.
+  - **No suggestion after a completed turn.** `/commit` opens the card. Popping
+    it unasked after every turn is a product decision nobody has made.
+- Keys: `c` commit, `p` commit + push, `e` edit message, `esc` cancel. The card
+  owns every key while it is open, so nothing underneath can move the focus out
+  from under a commit.
+- `git add -A` then commit: the card lists every changed file and commits
+  exactly that set. A card that listed one set and committed another would be
+  worse than no card.
+- Two things real git taught the parse: `--numstat` cannot tell a deleted file
+  from one whose every line was removed (so `--name-status` is read too), and
+  with rename detection on it writes `old => new` as one path that no
+  name-status key can match (so both reads pass `--no-renames`).
 
 ## E3 — Terminal column — `done`
 

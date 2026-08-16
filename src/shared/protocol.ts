@@ -50,6 +50,29 @@ export interface GitStatus {
   conflicts: number
 }
 
+/** One file the commit card lists. Counts are lines; null means git could not
+ *  count them, which is what it says about a binary file. */
+export interface GitChange {
+  path: string
+  status: 'M' | 'A' | 'D'
+  added: number | null
+  removed: number | null
+}
+
+/** What the card opens with: what would be committed, and a message to start
+ *  from. */
+export interface GitCommitDraft {
+  changes: GitChange[]
+  message: string
+}
+
+/** Commit reports its two halves apart: a commit survives a failed push, and
+ *  saying the commit failed would send someone looking for work already
+ *  saved. */
+export type GitCommitResult =
+  | { ok: true; pushed: boolean }
+  | { ok: false; stage: 'commit' | 'push'; reason: string }
+
 /** A workspace's repository state, or null when the folder is not a repo. */
 export interface GitStatusMessage {
   workspaceId: string

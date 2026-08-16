@@ -16,9 +16,10 @@
     input?: HTMLTextAreaElement | null
     /** Opens the model spotlight — `/model` has nowhere to go without it. */
     onmodel?: () => void
+    oncommit?: () => void
   }
 
-  let { input = $bindable(null), onmodel }: Props = $props()
+  let { input = $bindable(null), onmodel, oncommit }: Props = $props()
 
   let text = $state('')
   let sending = $state(false)
@@ -85,6 +86,7 @@
 
     if (command.id === 'compact') threads.compact(thread.id)
     else if (command.id === 'model') onmodel?.()
+    else if (command.id === 'commit') oncommit?.()
   }
 
   /** A fresh column has no thread behind it yet. Sending is what brings one
