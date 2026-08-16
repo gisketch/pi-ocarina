@@ -281,12 +281,15 @@ describe('a leap through the real key path', () => {
   })
 
   it('is in READ once it lands, with the ring on the block it found', () => {
+    // Landing refuses a block nothing drew, so this one has to have been.
+    const off = registerBlock('s1', 'u1', stubElement())
     leap.threadId = 's1'
     leap.typed = 'ab'
     leap.targets = [{ navId: 'u1', top: 0, left: 0 }]
     app.mode = 'READ'
 
     shell.handleKey({ key: 's' })
+    off()
 
     expect(leap.active).toBe(false)
     expect(blockFocus.idOf('s1')).toBe('u1')
@@ -300,9 +303,26 @@ describe('a leap through the real key path', () => {
     app.mode = 'READ'
 
     shell.handleKey({ key: 'Escape' })
-    // The ring was never set, so the next key reconciles the mode away.
-    shell.handleKey({ key: 'Shift' })
 
+    // Reconciled by the same keystroke that ended it. Waiting for the next one
+    // would read that one as READ — `l` would expand nothing instead of
+    // moving a column, and the reader would lose a keypress.
     expect(app.mode).toBe('NORMAL')
+  })
+
+  it('reads the very next key as NORMAL after a pattern that found nothing', () => {
+    leap.threadId = 's1'
+    leap.typed = 'z'
+    leap.targets = []
+    app.mode = 'READ'
+    // A key that names no label ends the mode.
+    shell.handleKey({ key: 'q' })
+
+    expect(leap.active).toBe(false)
+    expect(app.mode).toBe('NORMAL')
+
+    shell.handleKey({ key: 'l' })
+    expect(app.focus[0]).toBe(1)
+    app.focusThread(0)
   })
 })

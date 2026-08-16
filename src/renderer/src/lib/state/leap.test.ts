@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { leap } from './leap.svelte'
 import { registerColumnBody } from './columns'
+import { blockFocus, registerBlock } from './block-focus.svelte'
 import { LEAP_LABELS } from '../leap'
 
 /** A column of text, standing in for a painted transcript.
@@ -9,9 +10,16 @@ import { LEAP_LABELS } from '../leap'
  *  Range. Both are faked here down to the surface this module actually
  *  touches, so the phase machine — which is where the bugs live — can be
  *  driven without a browser. */
-function column(threadId: string, lines: { text: string; navId: string }[]): () => void {
+function column(
+  threadId: string,
+  lines: { text: string; navId: string }[],
+  /** Where the column sits on screen and how far it has scrolled. Non-zero by
+   *  default so client and content coordinates cannot be confused for each
+   *  other — with both at zero, the conversion in `#search` is untested. */
+  frame = { top: 40, left: 12, scrollTop: 0 },
+): () => void {
   const nodes = lines.map((line, i) => {
-    const node = { data: line.text, parentElement: {} } as unknown as Text
+    const node = { data: line.text, isConnected: true, parentElement: {} } as unknown as Text
     ;(node as { parentElement: unknown }).parentElement = {
       closest: () => ({ dataset: { navId: line.navId } }),
     }
@@ -19,11 +27,14 @@ function column(threadId: string, lines: { text: string; navId: string }[]): () 
   })
 
   const body = {
-    scrollTop: 0,
+    scrollTop: frame.scrollTop,
     scrollLeft: 0,
     clientHeight: 400,
-    getBoundingClientRect: () => ({ top: 0, bottom: 400, left: 0 }) as DOMRect,
+    getBoundingClientRect: () =>
+      ({ top: frame.top, bottom: frame.top + 400, left: frame.left }) as DOMRect,
     scrollBy() {},
+    addEventListener() {},
+    removeEventListener() {},
   }
 
   vi.stubGlobal('document', {
@@ -53,8 +64,11 @@ function column(threadId: string, lines: { text: string; navId: string }[]): () 
           const line = nodes.find((n) => n.node === (owner as unknown as Text))
           // Characters are 8px wide and lines 20px apart. Enough geometry to
           // tell "on screen" from "not", which is all this module asks.
-          const top = line?.top ?? 0
-          return { top, bottom: top + 16, left: from * 8, right: from * 8 + 16 } as DOMRect
+          // Laid out in content space, then reported in client space, exactly
+          // as a real scroller does.
+          const top = (line?.top ?? 0) + frame.top - frame.scrollTop
+          const left = from * 8 + frame.left
+          return { top, bottom: top + 16, left, right: left + 16 } as DOMRect
         },
       }
     },
@@ -220,5 +234,80 @@ describe('what is out of view', () => {
     leap.type('s')
 
     expect(leap.targets.map((t) => t.navId)).not.toContain('z')
+  })
+})
+
+
+describe('coordinates', () => {
+  it('reports chip positions in content space, not screen space', () => {
+    // The column sits 40px down the screen and 12px in. A chip belongs where
+    // the text is in the column's own content, not where it is on the display.
+    release = column('t1', [{ text: 'sync', navId: 'u1' }], { top: 40, left: 12, scrollTop: 0 })
+
+    leap.start('t1')
+    leap.type('s')
+    leap.type('y')
+
+    expect(leap.targets[0]?.top).toBe(0)
+    // The match starts at character 0 and the chip goes past it: 16px along.
+    expect(leap.targets[0]?.left).toBe(16)
+    release()
+  })
+
+  it('is not fooled by how far the column has scrolled', () => {
+    // Twenty lines at a 20px pitch, scrolled 200 down: line 10 is the first
+    // one in view, and it belongs at content y=200.
+    release = column(
+      't1',
+      Array.from({ length: 20 }, (_, i) => ({ text: `sync ${i}`, navId: `n${i}` })),
+      { top: 40, left: 12, scrollTop: 200 },
+    )
+
+    leap.start('t1')
+    leap.type('s')
+    leap.type('y')
+
+    expect(leap.targets[0]?.navId).toBe('n10')
+    expect(leap.targets[0]?.top).toBe(200)
+    release()
+  })
+})
+
+describe('nearest first', () => {
+  it('gives the easiest label to the match beside the ring', () => {
+    release = column('t1', [
+      { text: 'sync one', navId: 'a' },
+      { text: 'sync two', navId: 'b' },
+      { text: 'sync three', navId: 'c' },
+    ])
+    // The ring is on the third line, so its match should be labelled first.
+    blockFocus.set('t1', 'c')
+    const off = registerBlock('t1', 'c', {
+      getBoundingClientRect: () => ({ top: 40 + 40 }) as DOMRect,
+      scrollIntoView() {},
+    } as unknown as HTMLElement)
+
+    leap.start('t1')
+    leap.type('s')
+    leap.type('y')
+
+    expect(leap.targets.map((t) => t.navId)).toEqual(['c', 'b', 'a'])
+    off()
+    blockFocus.clear('t1')
+    release()
+  })
+
+  it('measures from the top of the view when there is no ring', () => {
+    release = column('t1', [
+      { text: 'sync one', navId: 'a' },
+      { text: 'sync two', navId: 'b' },
+    ])
+
+    leap.start('t1')
+    leap.type('s')
+    leap.type('y')
+
+    expect(leap.targets.map((t) => t.navId)).toEqual(['a', 'b'])
+    release()
   })
 })

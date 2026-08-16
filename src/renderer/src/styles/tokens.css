@@ -44,6 +44,10 @@
   --accent-hue: 152;
   --accent: oklch(0.76 0.14 var(--accent-hue));
   --accent-soft: oklch(0.76 0.14 var(--accent-hue) / 0.13);
+  /* What a leap paints its matches with. Substituted here, at the root, so a
+     leaping column can mute `--accent` for everything else without also
+     muting the one thing it is trying to make stand out. */
+  --leap-hit: oklch(0.76 0.14 var(--accent-hue));
   --accent-tint: radial-gradient(
     1000px 520px at 72% -12%,
     oklch(0.5 0.1 var(--accent-hue) / 0.05),

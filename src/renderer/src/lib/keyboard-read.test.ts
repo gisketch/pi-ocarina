@@ -41,6 +41,21 @@ describe('READ, the transcript mode', () => {
     expect(press(closed.state, 'Escape').state.mode).toBe('NORMAL')
   })
 
+  it('hands the caret back when esc closes an overlay opened while typing', () => {
+    // ⌘K from INSERT: the palette took the caret. Closing it without giving
+    // the caret back leaves a mode that says INSERT and a keyboard that does
+    // nothing at all.
+    const typing: KeyState = { ...initialKeyState, mode: 'INSERT' }
+    const open = press(typing, { key: 'k', metaKey: true })
+    expect(open.state.overlay).toBe('palette')
+
+    const closed = press(open.state, 'Escape')
+
+    expect(closed.state.overlay).toBeNull()
+    expect(closed.state.mode).toBe('INSERT')
+    expect(closed.actions).toEqual([{ type: 'focusComposer' }])
+  })
+
   it('goes back to the strip on esc, which is where h and l work again', () => {
     const { state } = press(READ, 'Escape')
 

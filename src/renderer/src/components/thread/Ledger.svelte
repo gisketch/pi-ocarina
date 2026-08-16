@@ -20,11 +20,9 @@
     /** Whether anything in the thread is focused — which is what turns the
      *  dim on for every row that is not it. */
     dimmed: boolean
-    /** Whether even the focused row dims, which is what a leap does. */
-    dimFocused: boolean
   }
 
-  const { rows, threadId, blockId, focusedNav, dimmed, dimFocused }: Props = $props()
+  const { rows, threadId, blockId, focusedNav, dimmed }: Props = $props()
 
   const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
@@ -55,7 +53,7 @@
        reader can ask for, and a hidden nav id would swallow a `j`. -->
   <div
     class="entry"
-    class:dim={!nested && dimmed && (dimFocused || focusedNav !== navIdOf(row))}
+    class:dim={!nested && dimmed && focusedNav !== navIdOf(row)}
     class:hosting={!nested && menuOn(navIdOf(row))}
     use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
   >
@@ -103,7 +101,7 @@
      did. Lifting it on the row alone was half a fix. -->
 <div
   class="ledger"
-  class:dim={dimmed && (dimFocused || !rows.some((row) => focusedNav === navIdOf(row)))}
+  class:dim={dimmed && !rows.some((row) => focusedNav === navIdOf(row))}
   class:hosting={rows.some((row) => menuOn(navIdOf(row)))}
 >
   {#each rows as row (row.id)}

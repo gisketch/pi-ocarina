@@ -40,7 +40,9 @@
   .chip {
     position: absolute;
     transform: translateY(-1px);
-    background: var(--accent);
+    /* `--leap-hit`, not `--accent`: the column mutes `--accent` while it is
+       leaping, and a grey label on grey text is not a label. */
+    background: var(--leap-hit);
     color: var(--bg);
     font-family: var(--font-chrome);
     font-size: 10px;

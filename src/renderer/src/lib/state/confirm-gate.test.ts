@@ -31,6 +31,8 @@ beforeEach(() => {
   leap.end()
   blockFocus.clear('s1')
   blockMenu.close()
+  leapRelease()
+  leapRelease = () => {}
 })
 
 /** Stands a leap up in its labelled phase without a DOM to walk.
@@ -42,7 +44,13 @@ function leaping(threadId = 's1'): void {
   leap.typed = 'ab'
   leap.group = 0
   leap.targets = [{ navId: 'b1', top: 0, left: 0 }]
+  // Landing refuses a block nothing drew, so the destination has to exist.
+  leapRelease = registerBlock(threadId, 'b1', {
+    scrollIntoView() {},
+  } as unknown as HTMLElement)
 }
+
+let leapRelease = (): void => {}
 
 
 // A leap owns every key while it is up — that is what lets a label be `j` and

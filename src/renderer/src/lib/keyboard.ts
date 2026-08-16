@@ -147,7 +147,13 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     // of, and the mode underneath it survives — so a reader who opened the
     // keymap from READ is still in READ when the keymap closes, and the next
     // press is the one that leaves the transcript.
-    if (state.overlay !== null) return result({ ...state, overlay: null }, [], true, 'clear')
+    if (state.overlay !== null) {
+      // The overlay took the caret from the composer. Giving it back is what
+      // makes INSERT true again — without it the mode says one thing and
+      // every keystroke goes nowhere.
+      const back: Action[] = state.mode === 'INSERT' ? [{ type: 'focusComposer' }] : []
+      return result({ ...state, overlay: null }, back, true, 'clear')
+    }
 
     // The second half of `esc esc` lands here, not in the TERM branch above:
     // the first press already left TERM. The shell owns the timing and the

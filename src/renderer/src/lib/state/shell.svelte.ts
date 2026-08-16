@@ -162,7 +162,15 @@ class ShellState {
     // be `j` without colliding with the binding. They rank below the modals
     // above, which are asked because an answer changes work already in flight,
     // and above everything below, which is ordinary navigation.
-    if (blockNav.leaping) return blockNav.handleLeapKey(event)
+    if (blockNav.leaping) {
+      const consumed = blockNav.handleLeapKey(event)
+      // A leap can end without landing — `esc`, a pattern that matched
+      // nothing, a key that named no label — and those paths leave READ
+      // standing with no ring. Reconciling here rather than on the next
+      // keystroke is what stops that next keystroke being read as READ.
+      blockNav.reconcileMode()
+      return consumed
+    }
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run

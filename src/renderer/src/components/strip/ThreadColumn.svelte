@@ -3,6 +3,7 @@
   import { app } from '$lib/state/app.svelte'
   import { registerColumnBody } from '$lib/state/columns'
   import LeapOverlay from '../thread/LeapOverlay.svelte'
+  import { leap } from '$lib/state/leap.svelte'
   import type { Thread } from '$lib/types'
 
   interface Props {
@@ -53,7 +54,7 @@
     <span class="meta">{thread.meta}</span>
   </header>
 
-  <div class="body" bind:this={body}>
+  <div class="body" class:leaping={leap.activeFor(thread.id)} bind:this={body}>
     {@render children?.()}
     <LeapOverlay threadId={thread.id} />
   </div>
@@ -132,6 +133,28 @@
     scrollbar-color: #2c2c33 transparent;
     font-family: var(--font-body);
     font-size: 12.5px;
+  }
+
+  /* A leaping column goes quiet by re-pointing its colour tokens at one muted
+     grey, rather than by `opacity` or `filter`.
+     Both of those would take the match paint down with everything else: a
+     highlight is painted as part of the text it covers and cannot escape an
+     ancestor's compositing. Re-pointing the tokens leaves the highlight, which
+     names its own colours, as the only lit thing in the column. */
+  .body.leaping {
+    --fg-bright: var(--fg-dimmer);
+    --fg-body: var(--fg-dimmer);
+    --fg: var(--fg-dimmer);
+    --fg-agent: var(--fg-dimmer);
+    --fg-muted: var(--fg-dimmer);
+    --fg-dim: var(--fg-dimmer);
+    --fg-dimmest: var(--fg-dimmer);
+    --accent: var(--fg-dimmer);
+    --ok: var(--fg-dimmer);
+    --ok-text: var(--fg-dimmer);
+    --err: var(--fg-dimmer);
+    --err-text: var(--fg-dimmer);
+    --warn: var(--fg-dimmer);
   }
 
   /* Scrollback virtualization.

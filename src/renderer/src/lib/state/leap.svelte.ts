@@ -9,6 +9,7 @@
  *  Svelte over the ownership of the same nodes, mid-stream, in a keyed list. */
 
 import { PATTERN_LENGTH, findMatches, labelAt, matchForLabel, wrapGroup } from '../leap'
+import { blockElement, blockFocus } from './block-focus.svelte'
 import { columnBody } from './columns'
 
 /** The name the stylesheet paints. */
@@ -87,6 +88,8 @@ class Leap {
   #pool: Candidate[] = []
   /** Ranges of the current matches, held for painting and for nothing else. */
   #ranges: Range[] = []
+  /** Stops watching the column that is being leapt over. */
+  #release: (() => void) | null = null
 
   get active(): boolean {
     return this.threadId !== null
@@ -124,6 +127,10 @@ class Leap {
     this.group = 0
     this.targets = []
     this.#ranges = []
+
+    const refresh = (): void => this.refresh()
+    body.addEventListener('scroll', refresh, { passive: true })
+    this.#release = () => body.removeEventListener('scroll', refresh)
   }
 
   /** Adds a character to the pattern and re-paints. Returns the match to jump
@@ -179,6 +186,8 @@ class Leap {
   }
 
   end(): void {
+    this.#release?.()
+    this.#release = null
     this.threadId = null
     this.typed = ''
     this.group = 0
@@ -188,25 +197,13 @@ class Leap {
     highlights()?.delete(HIGHLIGHT)
   }
 
-  /** Re-measures where the chips go, for a column that scrolled under them. */
-  remeasure(): void {
-    const threadId = this.threadId
-    if (threadId === null) return
-
-    const body = columnBody(threadId)
-    if (!body) return
-
-    const origin = body.getBoundingClientRect().top - body.scrollTop
-    const left = body.getBoundingClientRect().left - body.scrollLeft
-
-    this.targets = this.#ranges.map((range, index) => {
-      const rect = range.getBoundingClientRect()
-      return {
-        navId: this.targets[index]?.navId ?? '',
-        top: rect.top - origin,
-        left: rect.right - left,
-      }
-    })
+  /** The column moved under a live leap — a wheel scroll, a resize, a turn
+   *  streaming above the matches. Re-runs the search rather than shifting the
+   *  chips: what is in view has changed too, so the destinations have. */
+  refresh(): void {
+    if (!this.active || this.typed === '') return
+    this.#pool = candidates(columnBody(this.threadId ?? '') ?? document.body)
+    this.#search(this.typed)
   }
 
   #search(pattern: string): void {
@@ -221,10 +218,23 @@ class Leap {
     const originTop = box.top - body.scrollTop
     const originLeft = box.left - body.scrollLeft
 
-    const ranges: Range[] = []
-    const targets: LeapTarget[] = []
+    // Where "nearest" is measured from: the block the ring is on, or the top
+    // of the view when there is no ring. The closest match earns the shortest
+    // reach for the hand.
+    const ring = this.threadId === null ? null : blockFocus.idOf(this.threadId)
+    const anchor =
+      (ring === null || this.threadId === null
+        ? null
+        : blockElement(this.threadId, ring)?.getBoundingClientRect().top) ?? box.top
+
+    const found: { range: Range; target: LeapTarget; distance: number }[] = []
 
     for (const candidate of this.#pool) {
+      // The pool is built once and reused for the second character. Svelte can
+      // replace a text node between keystrokes — a streaming turn, a row
+      // expanding — and a detached node is not somewhere the reader can go.
+      if (!candidate.node.isConnected) continue
+
       for (const at of findMatches(candidate.node.data, pattern)) {
         const range = document.createRange()
         range.setStart(candidate.node, at)
@@ -235,20 +245,27 @@ class Leap {
         // scrolled past — a long paragraph straddling the fold.
         if (rect.bottom <= box.top || rect.top >= box.bottom) continue
 
-        ranges.push(range)
-        targets.push({
-          navId: candidate.navId,
-          top: rect.top - originTop,
-          // Past the match rather than over it — leap.nvim's placement, and
-          // for its reason: a label covering the pair you just typed hides
-          // the one thing confirming you typed it right.
-          left: rect.right - originLeft,
+        found.push({
+          range,
+          distance: Math.abs(rect.top - anchor),
+          target: {
+            navId: candidate.navId,
+            top: rect.top - originTop,
+            // Past the match rather than over it — leap.nvim's placement, and
+            // for its reason: a label covering the pair you just typed hides
+            // the one thing confirming you typed it right.
+            left: rect.right - originLeft,
+          },
         })
       }
     }
 
-    this.#ranges = ranges
-    this.targets = targets
+    // Sorted, not filtered: every match stays a destination, but the ones
+    // beside the reader get the first labels and the first page.
+    found.sort((a, b) => a.distance - b.distance)
+
+    this.#ranges = found.map((entry) => entry.range)
+    this.targets = found.map((entry) => entry.target)
     this.#paint()
   }
 

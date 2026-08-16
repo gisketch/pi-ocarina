@@ -156,9 +156,18 @@ a:hover {
 /* Leap paints its matches through the Custom Highlight API rather than by
    wrapping text in elements: wrapping would put the leap in a fight with
    Svelte over the ownership of the same nodes, mid-stream, in a keyed list.
-   The whole transcript is greyed while a leap is up, so this is the only lit
-   thing on screen. */
+
+   A highlight is painted as part of the text it covers, so it cannot escape an
+   ancestor's `opacity` or `filter`. That is why a leaping column mutes itself
+   by colour rather than by either of those: this paint has to be the one lit
+   thing on screen, and a greyed, half-transparent version of it would be the
+   opposite of the point.
+
+   Foreground only. A background would box the match, and the reader is trying
+   to read the word, not find a marker. What a highlight cannot do is restore
+   the colour the text had before the column went quiet — it can name a colour
+   but not un-mute an inherited one — so the match comes back lit rather than
+   in whatever hue it originally wore. */
 ::highlight(leap-match) {
-  background-color: var(--accent);
-  color: var(--bg);
+  color: var(--leap-hit);
 }

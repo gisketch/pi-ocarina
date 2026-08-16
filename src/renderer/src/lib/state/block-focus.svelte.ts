@@ -185,7 +185,12 @@ export function navTarget(
   ids: NavTarget,
 ): { update: (next: NavTarget) => void; destroy: () => void } {
   const attach = (target: NavTarget): (() => void) => {
-    if (target.navId === null) return NOOP
+    if (target.navId === null) {
+      // Leap trusts this attribute to say which block a text node is in, so an
+      // element that has stopped being a destination must stop claiming to be.
+      delete el.dataset.navId
+      return NOOP
+    }
     // Stamped as well as registered: leap walks up from a text node to find
     // which block it is in, and an attribute is the only way to ask the DOM
     // that question without holding the map upside down.
@@ -202,6 +207,7 @@ export function navTarget(
     },
     destroy() {
       off()
+      delete el.dataset.navId
     },
   }
 }

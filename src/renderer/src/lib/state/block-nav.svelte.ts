@@ -160,6 +160,13 @@ class BlockNav {
     leap.end()
     if (threadId === null || !target) return
 
+    // A compaction can fold the block away between the search and the label.
+    // Focusing a ghost leaves the column fully dimmed with nothing lit.
+    if (blockElement(threadId, target.navId) === undefined) {
+      this.reconcileMode()
+      return
+    }
+
     blockFocus.set(threadId, target.navId)
     revealBlock(threadId, target.navId)
     // A leap is a way into the transcript as well as a way around it.

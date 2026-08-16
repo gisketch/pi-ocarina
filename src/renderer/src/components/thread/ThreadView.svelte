@@ -15,6 +15,7 @@
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
   import { marksTurnStart } from '$lib/thread-turn'
+  import { navBlocks } from '$lib/blocks'
 
   interface Props {
     threadId: string
@@ -48,11 +49,33 @@
   // Null until the reader starts navigating. That is what keeps a column
   // nobody has touched looking exactly as it always did: no ring, no dim.
   const focused = $derived(blockFocus.idOf(threadId))
+  const nav = $derived(navBlocks(shown))
 
-  // Leaping dims everything, focused block included: the reader is choosing
-  // between matches, so the matches should be the only lit thing on screen.
+  // A leap mutes the whole column at the column's own level, by colour. The
+  // opacity dim stands down while it does: stacking the two would take the
+  // match paint down with the text, because a highlight cannot escape an
+  // ancestor's opacity.
   const leaping = $derived(leap.activeFor(threadId))
-  const dimAll = $derived(leaping || focused !== null)
+  const dimming = $derived(!leaping && focused !== null)
+
+  // Which block the ring is on — a tool row reports its ledger, since the name
+  // above a turn belongs to the whole turn and not to one row of it.
+  const focusedBlock = $derived(nav.find((entry) => entry.id === focused)?.blockId ?? null)
+
+  /** The agent name that introduces the focused block, so it stays lit with it.
+   *
+   *  `YOU` needs no such treatment: it is drawn inside the message, so it is
+   *  already part of what the ring lights. `PI` is said once above a whole
+   *  turn, which is why it sits outside every block and has to be told. */
+  const litLabel = $derived.by(() => {
+    if (focusedBlock === null) return -1
+
+    const at = shown.findIndex((block) => block.id === focusedBlock)
+    if (at === -1) return -1
+
+    for (let i = at; i >= 0; i -= 1) if (opensTurn[i]) return i
+    return -1
+  })
 
   /** Whether the menu is open on this exact block. */
   const menuOn = (navId: string): boolean =>
@@ -68,7 +91,7 @@
   {#if opensTurn[i]}
     <!-- The name is not a block anyone can point at, so while the ring is out
          it is always the quiet half of the contrast. -->
-    <div class="turn" class:dim={dimAll}><AgentLabel /></div>
+    <div class="turn" class:dim={dimming && i !== litLabel}><AgentLabel /></div>
   {/if}
   {#if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
@@ -78,8 +101,7 @@
       {threadId}
       blockId={block.id}
       focusedNav={focused}
-      dimmed={dimAll}
-      dimFocused={leaping}
+      dimmed={dimming}
     />
   {:else if block.kind === 'checkpoint'}
     <!-- Nothing is drawn. A checkpoint is a place in the session, not a thing
@@ -88,7 +110,7 @@
   {:else}
     <div
       class="nav"
-      class:dim={dimAll && (leaping || focused !== block.id)}
+      class:dim={dimming && focused !== block.id}
       class:hosting={menuOn(block.id)}
       use:navTarget={{ threadId, navId: block.id }}
     >
