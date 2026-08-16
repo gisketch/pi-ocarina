@@ -40,6 +40,14 @@ and there is one place to read all of it together when the row is too small.
    into the viewer.
 6. **A floating diff viewer, with its own hotkey.** Files on the left, the
    change on the right, vim keys throughout. It must stay fast.
+7. **The diff comes from the file, not from the arguments.** The main process
+   snapshots the file when a call starts and again when it ends, and diffs the
+   two. This is the only source that gives real line numbers and real context
+   lines, and the only one that does not break when pi renames a tool argument
+   — which matters here, because pi's `edit` argument shape could not be
+   confirmed from the SDK bundle or its docs. The costs are accepted: two reads
+   per call, a size cap above which the snapshot is skipped, and the fact that a
+   file changed by something else during a call is attributed to the agent.
 
 ## In scope
 
@@ -93,11 +101,10 @@ and there is one place to read all of it together when the row is too small.
 
 ## Questions the grill must answer
 
-1. **Where the diff comes from.** Open — see the recommendation in the session.
-2. What the viewer scopes to: the focused turn, the whole thread, or every
+1. What the viewer scopes to: the focused turn, the whole thread, or every
    change since the thread started.
-3. The hotkey, and whether it is modal or a chord.
-4. The cap: how many lines, and what the hidden remainder says.
-5. Whether the viewer follows the agent live while it edits, or freezes on open.
-6. Whether the file list is a spotlight (which exists) or its own pane.
-7. What the viewer does for a thread with no changes.
+2. The hotkey, and whether it is modal or a chord.
+3. The cap: how many lines, and what the hidden remainder says.
+4. Whether the viewer follows the agent live while it edits, or freezes on open.
+5. Whether the file list is a spotlight (which exists) or its own pane.
+6. What the viewer does for a thread with no changes.
