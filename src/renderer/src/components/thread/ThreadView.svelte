@@ -64,7 +64,9 @@
      strands unrelated chrome mid-frame. -->
 {#each shown as block, i (`${block.kind}:${block.id}`)}
   {#if opensTurn[i]}
-    <AgentLabel />
+    <!-- The name is not a block anyone can point at, so while the ring is out
+         it is always the quiet half of the contrast. -->
+    <div class="turn" class:dim={focused !== null}><AgentLabel /></div>
   {/if}
   {#if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
@@ -148,8 +150,14 @@
        the rest of the thread. */
     contain: layout style;
   }
-  .nav.dim {
+  /* Colour is the focused block's alone. Draining it from the rest widens the
+     gap far more than opacity can on its own: a green PI label or a red failed
+     tool row still pulls the eye at half brightness, and the whole point of
+     the dim is that it should not. */
+  .nav.dim,
+  .turn.dim {
     opacity: 0.5;
+    filter: grayscale(1);
   }
 
   /* The column gives every block `content-visibility: auto`, which brings paint

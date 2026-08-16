@@ -83,7 +83,9 @@ class AppState {
   }
 
   get accented(): boolean {
-    return this.mode === 'INSERT' || this.mode === 'LEADER' || this.mode === 'TERM'
+    // Every mode that takes the keyboard away from the strip says so. NORMAL
+    // is the only one that does not, because it is the one you return to.
+    return this.mode !== 'NORMAL'
   }
 
   /** What a column header should show. The live model wins as soon as the

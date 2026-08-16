@@ -102,7 +102,11 @@
      `content-visibility: auto` and with it paint containment — which clips a
      menu hanging off its last row just as surely as the row's own containment
      did. Lifting it on the row alone was half a fix. -->
-<div class="ledger" class:hosting={rows.some((row) => menuOn(navIdOf(row)))}>
+<div
+  class="ledger"
+  class:dim={dimmed && !rows.some((row) => focusedNav === navIdOf(row))}
+  class:hosting={rows.some((row) => menuOn(navIdOf(row)))}
+>
   {#each rows as row (row.id)}
     {@render entry(row, false)}
   {/each}
@@ -119,6 +123,12 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  /* The spine belongs to the group, not to any one row, so it fades with the
+     rows rather than staying lit above them. */
+  .ledger.dim::before {
+    opacity: 0.5;
+    filter: grayscale(1);
   }
   .ledger.hosting {
     content-visibility: visible;
@@ -144,6 +154,7 @@
   }
   .entry.dim {
     opacity: 0.5;
+    filter: grayscale(1);
   }
   /* A row contains its own layout and paint, which would slice the menu off at
      the row's own height. The ledger's spine is drawn by the parent, so
