@@ -49,9 +49,39 @@ and there is one place to read all of it together when the row is too small.
    per call, a size cap above which the snapshot is skipped, and the fact that a
    file changed by something else during a call is attributed to the agent.
 
+8. **The viewer shows each file once, as one diff; the ledger keeps the
+   history.** Two views, two questions, one differ. The ledger already answers
+   "what did the agent do", call by call. The viewer answers "what does this add
+   up to", and gets there by diffing the snapshot taken before the thread's
+   first edit of a file against the snapshot after its last. Both come from the
+   same snapshots and the same diff function, so they cannot disagree; they are
+   the same data with different endpoints. Accepted cost: a file edited and then
+   reverted has no net change and drops out of the viewer's list. It remains in
+   the ledger, which is where the history lives.
+9. **A tool row states what is happening to it, not only that something is.**
+   `read` becomes `reading` while it runs and `read` when it lands; `edit`
+   becomes `editing`, then `edited`. Today the label is the same word in every
+   state and only a pulsing node says the call is live.
+
+## What pi gives us
+
+Established during the grill, so the design does not have to guess:
+
+- pi emits `tool_execution_start` and `tool_execution_end`. The translator
+  already turns both into `tool-start` and `tool-end`, and already tracks
+  in-flight calls in `#open` so an abort can close a row that would otherwise
+  pulse forever.
+- There is nothing between those two events. No progress, no percentage, no
+  partial result. A row's life is binary: running, then a status.
+- `ToolStatus` is `running | ok | fail | cancelled | denied | plain`. Everything
+  a label needs is already in the model.
+- `Ledger.svelte:73` prints `row.kind` verbatim in every state. The lifecycle is
+  in the data and not on the screen.
+
 ## In scope
 
 - A diff body for `edit` and `write` rows, built in the main process.
+- The wording of a tool row across its life, for every kind, not only edits.
 - The cap, and what a capped row says about what it is hiding.
 - A floating diff viewer: file list, change pane, keys, performance.
 - How the viewer scopes what it shows.
@@ -73,6 +103,10 @@ and there is one place to read all of it together when the row is too small.
 - A row larger than the cap says how much it is hiding, and offers the viewer.
 - `a` on such a row opens the viewer at that file.
 - The viewer opens on its hotkey from anywhere a thread is focused.
+- The viewer lists each changed file once, with its net line counts.
+- A row reads `reading` while its call runs and `read` when it lands, and the
+  same for every other kind.
+- A denied or cancelled call does not read as though it completed.
 - In the viewer, the file list and the change pane both take vim keys, and the
   mode indicator says which surface owns them.
 - A thread with a thousand changed lines does not drop a frame, on the budget in
@@ -101,8 +135,8 @@ and there is one place to read all of it together when the row is too small.
 
 ## Questions the grill must answer
 
-1. What the viewer scopes to: the focused turn, the whole thread, or every
-   change since the thread started.
+1. How a row shows its tense without breaking the reference's fixed-width kind
+   gutter.
 2. The hotkey, and whether it is modal or a chord.
 3. The cap: how many lines, and what the hidden remainder says.
 4. Whether the viewer follows the agent live while it edits, or freezes on open.
