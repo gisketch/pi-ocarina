@@ -1,7 +1,9 @@
 # Change review: read what the agent wrote
 
-Status: **GRILLED 2026-08-16, awaiting approval.** Fifteen decisions settled
-in the session below. Not yet an approved contract.
+Status: **approved 2026-08-16.** Fifteen decisions settled in the grill and
+recorded below. The mode and gutter changes it needs are carried by
+[2026-08-16-modes-amendment.md](2026-08-16-modes-amendment.md), which amends the
+frozen shell and ledger contracts rather than editing them.
 
 Ranked first in the landscape read
 ([docs/reference/2026-08-16-agent-harness-landscape.html](../reference/2026-08-16-agent-harness-landscape.html)).

@@ -11,6 +11,10 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   specs below.
 - [2026-08-15-shell-navigation.md](2026-08-15-shell-navigation.md) — layout,
   keyboard model, strip, overlays, statusbar. **Milestone 1 contract (frozen).**
+- [2026-08-16-change-review.md](2026-08-16-change-review.md) — the diff of every
+  edit, in the ledger and in a floating viewer. **Grilled and approved.**
+- [2026-08-16-modes-amendment.md](2026-08-16-modes-amendment.md) — shell
+  amendment: the real mode set, DIFF, `d`, and the ledger's dynamic gutter.
 - [2026-08-15-selectors-settings.md](2026-08-15-selectors-settings.md) — shell
   amendment: switcher fzf, settings overlay, `m`/`,` keys, spotlight primitive.
 - [2026-08-15-thread-ledger.md](2026-08-15-thread-ledger.md) — messages, tool
@@ -37,8 +41,6 @@ on one before implementing it. Each carries its own list of what the grill must
 settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
-- [2026-08-16-change-review.md](2026-08-16-change-review.md) — read the change
-  the agent wrote, as blocks, inside READ mode. **Ranked first.**
 - [2026-08-16-thread-isolation.md](2026-08-16-thread-isolation.md) — a worktree
   for each thread, and the path from a finished thread to a pull request.
 - [2026-08-15-ask-tool.md](2026-08-15-ask-tool.md) — a custom tool that lets the
