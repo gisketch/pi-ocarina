@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PiOcarina vs the field — agent harness landscape</title>
+<style>
+  :root {
+    --bg: #0d0d10; --panel: #131317; --line: #24242b; --line-soft: #1c1c22;
+    --fg: #e6e6ea; --fg-dim: #9a9aa6; --fg-ghost: #5e5e6a;
+    --accent: oklch(72% 0.15 155); --warn: oklch(75% 0.15 70); --bad: oklch(65% 0.17 25);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans);
+         font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 28px 96px; }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+            color: var(--fg-ghost); }
+  h1 { font-size: 30px; line-height: 1.2; margin: 10px 0 12px; letter-spacing: -.02em; }
+  .thesis { color: var(--fg-dim); max-width: 74ch; font-size: 15px; }
+  .thesis strong { color: var(--fg); font-weight: 600; }
+
+  h2 { font-size: 19px; margin: 52px 0 6px; letter-spacing: -.01em; }
+  h2 .n { font-family: var(--mono); font-size: 12px; color: var(--fg-ghost); margin-right: 10px; }
+  .lede { color: var(--fg-dim); margin: 0 0 20px; max-width: 78ch; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .card h3 { margin: 0 0 2px; font-size: 15px; }
+  .card .role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+                color: var(--fg-ghost); margin-bottom: 10px; }
+  .card p { margin: 0; color: var(--fg-dim); font-size: 13px; }
+  .card.us { border-color: color-mix(in oklch, var(--accent) 45%, var(--line)); }
+  .card.us h3 { color: var(--accent); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 8px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tile .big { font-family: var(--mono); font-size: 26px; line-height: 1; }
+  .tile .lbl { font-size: 12px; color: var(--fg-dim); margin-top: 7px; }
+  .tile.good .big { color: var(--accent); }
+  .tile.mid .big { color: var(--warn); }
+  .tile.bad .big { color: var(--bad); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px; color: var(--fg-dim);
+            font-family: var(--mono); margin: 18px 0 12px; }
+  .legend b { font-weight: 400; }
+
+  .scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 780px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line-soft); }
+  thead th { position: sticky; top: 0; background: #17171c; font-family: var(--mono); font-size: 11px;
+             letter-spacing: .08em; text-transform: uppercase; color: var(--fg-dim); z-index: 2;
+             border-bottom: 1px solid var(--line); }
+  thead th.us { color: var(--accent); }
+  tbody tr:hover { background: #17171c; }
+  td.feat { width: 40%; }
+  td.mark, th.mark { text-align: center; width: 15%; font-family: var(--mono); font-size: 15px; }
+  tr.group td { background: #101014; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+                text-transform: uppercase; color: var(--fg-ghost); padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  .m-full { color: var(--accent); }
+  .m-part { color: var(--warn); }
+  .m-none { color: #45454f; }
+  .m-no   { color: var(--fg-ghost); }
+  td.us { background: color-mix(in oklch, var(--accent) 5%, transparent); }
+  .note { display: block; font-size: 12px; color: var(--fg-ghost); }
+
+  ol.rank { list-style: none; counter-reset: r; padding: 0; margin: 14px 0 0; }
+  ol.rank li { counter-increment: r; background: var(--panel); border: 1px solid var(--line);
+               border-left: 3px solid var(--line); border-radius: 8px; padding: 14px 18px; margin-bottom: 10px;
+               display: grid; grid-template-columns: 30px 1fr; gap: 14px; }
+  ol.rank li::before { content: counter(r); font-family: var(--mono); color: var(--fg-ghost); font-size: 16px; }
+  ol.rank li.p0 { border-left-color: var(--bad); }
+  ol.rank li.p1 { border-left-color: var(--warn); }
+  ol.rank li.p2 { border-left-color: var(--accent); }
+  ol.rank h4 { margin: 0 0 3px; font-size: 14.5px; }
+  ol.rank p { margin: 0; color: var(--fg-dim); font-size: 13px; }
+  ol.rank .why { color: var(--fg-ghost); font-size: 12px; margin-top: 6px; display: block; }
+  .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+         padding: 2px 7px; border-radius: 4px; margin-left: 8px; vertical-align: 2px; }
+  .tag.p0 { background: color-mix(in oklch, var(--bad) 22%, transparent); color: var(--bad); }
+  .tag.p1 { background: color-mix(in oklch, var(--warn) 20%, transparent); color: var(--warn); }
+  .tag.p2 { background: color-mix(in oklch, var(--accent) 18%, transparent); color: var(--accent); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } .wrap { padding: 32px 16px 64px; } }
+  ul.plain { margin: 8px 0 0; padding-left: 18px; color: var(--fg-dim); font-size: 13px; }
+  ul.plain li { margin-bottom: 5px; }
+  ul.plain code, p code, td code { font-family: var(--mono); font-size: 12px; color: var(--fg);
+                                   background: #1b1b21; padding: 1px 5px; border-radius: 4px; }
+  footer { margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--fg-ghost); font-size: 12px; }
+  footer a { color: var(--fg-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Competitive read · 16 Aug 2026</div>
+  <h1>PiOcarina against the field</h1>
+  <p class="thesis">Three tools are worth measuring against. <strong>Claude Code</strong> and
+  <strong>Codex</strong> are engines that grew harnesses around themselves. <strong>T3 Code</strong> is the
+  direct structural peer: a harness with no engine of its own, wrapping other people's agents. PiOcarina is
+  the same shape as T3 Code — a control surface over one engine, pi — and competes with it on the axis T3 Code
+  has left empty: <strong>the keyboard</strong>. The gaps that matter are not in the shell. They are in what
+  happens to the code after the agent writes it.</p>
+</header>
+
+<h2><span class="n">01</span>Who is who</h2>
+<p class="lede">Shape first. Feature counts mean nothing until you know what each thing is trying to be.</p>
+<div class="cards">
+  <div class="card">
+    <h3>Claude Code</h3><div class="role">Engine + harness · Anthropic</div>
+    <p>Terminal, VS Code, JetBrains, desktop, web, mobile — one engine behind every surface. Hooks, skills,
+    subagents, MCP, sandboxing, scheduling, CI. Sessions move between surfaces mid-task.</p>
+  </div>
+  <div class="card">
+    <h3>Codex</h3><div class="role">Engine + harness · OpenAI</div>
+    <p>Rust CLI plus desktop, IDE, cloud and Chrome. OS-level sandbox (Seatbelt / Landlock), three approval
+    policies, AGENTS.md, hooks, skills, subagents, worktree isolation, conversation forking.</p>
+  </div>
+  <div class="card">
+    <h3>T3 Code</h3><div class="role">Harness only · pingdotgg</div>
+    <p>Open-source control plane over Claude Code, Codex, Cursor, OpenCode and Grok. Three panels, git
+    worktrees, one-button PR, turn-by-turn diff viewer, embedded terminal, desktop + web + mobile.
+    Explicitly very early.</p>
+  </div>
+  <div class="card us">
+    <h3>PiOcarina</h3><div class="role">Harness only · this repo</div>
+    <p>Keyboard-first Electron shell over pi. Tiling thread strip, vim modal keys, block-level transcript
+    navigation, leap, tool ledger, checkpoints, approvals, pty column, git commit card.</p>
+  </div>
+</div>
+
+<h2><span class="n">02</span>The scoreboard</h2>
+<p class="lede">Counting the 48 rows below, against the strongest of the other three on each row.</p>
+<div class="tiles">
+  <div class="tile good"><div class="big">11</div><div class="lbl">rows where PiOcarina leads or ties best</div></div>
+  <div class="tile mid"><div class="big">9</div><div class="lbl">partial — the UI exists, the wiring does not</div></div>
+  <div class="tile bad"><div class="big">14</div><div class="lbl">absent and worth having</div></div>
+  <div class="tile"><div class="big">9</div><div class="lbl">absent by design (brief non-goals)</div></div>
+</div>
+
+<h2><span class="n">03</span>Feature matrix</h2>
+<p class="lede">Read the last column first. Everything else is context for it.</p>
+<div class="legend">
+  <span><b class="m-full">●</b> full</span>
+  <span><b class="m-part">◐</b> partial / indirect</span>
+  <span><b class="m-none">○</b> absent</span>
+  <span><b class="m-no">▲</b> deliberate non-goal</span>
+</div>
+<div class="scroller">
+<table>
+<thead><tr>
+  <th>Capability</th><th class="mark">Claude Code</th><th class="mark">Codex</th><th class="mark">T3 Code</th><th class="mark us">PiOcarina</th>
+</tr></thead>
+<tbody>
+
+<tr class="group"><td colspan="5">Reach — where the thing runs</td></tr>
+<tr><td class="feat">Native desktop app</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Terminal / CLI as a first-class surface</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-part">◐<span class="note">embedded pty column, not a CLI</span></td></tr>
+<tr><td class="feat">IDE extension</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-no">▲</td></tr>
+<tr><td class="feat">Web / browser</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-no">▲<span class="note">local desktop only, by brief</span></td></tr>
+<tr><td class="feat">Mobile</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-no">▲</td></tr>
+<tr><td class="feat">Cloud / remote execution, task handoff</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-none">○</td></tr>
+
+<tr class="group"><td colspan="5">Engine</td></tr>
+<tr><td class="feat">Ships its own agent engine</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-none">○<span class="note">pi, in-process</span></td></tr>
+<tr><td class="feat">Multiple agent providers behind one UI</td><td class="mark m-none">○</td><td class="mark m-none">○</td><td class="mark m-full">●<span class="note">5 agents</span></td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Model picker</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Reasoning-effort control</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Live token / cost / context meter</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-full">●</td></tr>
+
+<tr class="group"><td colspan="5">Input model — the axis PiOcarina is built on</td></tr>
+<tr><td class="feat">Vim modal editing model</td><td class="mark m-part">◐<span class="note">vim keys in the input</span></td><td class="mark m-part">◐</td><td class="mark m-none">○<span class="note">mod-key bindings only</span></td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Leader chords + which-key discovery</td><td class="mark m-none">○</td><td class="mark m-none">○</td><td class="mark m-none">○</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Block-level transcript navigation (<code>j/k</code> on messages)</td><td class="mark m-none">○</td><td class="mark m-part">◐<span class="note">conversation sections</span></td><td class="mark m-none">○</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Leap / flash jump to visible text</td><td class="mark m-none">○</td><td class="mark m-none">○</td><td class="mark m-none">○</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Tiling spatial layout for parallel threads</td><td class="mark m-part">◐</td><td class="mark m-part">◐</td><td class="mark m-part">◐<span class="note">fixed 3-panel</span></td><td class="mark us m-full">●<span class="note">niri-style strip</span></td></tr>
+<tr><td class="feat">Command palette</td><td class="mark m-part">◐</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Fuzzy thread / file switcher, <code>@</code>-mention</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Rebindable keys / keybinding editor</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-none">○</td></tr>
+
+<tr class="group"><td colspan="5">Session model</td></tr>
+<tr><td class="feat">Many parallel sessions</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Resume a session after quit</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Checkpoint / rewind to an earlier turn</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Fork a conversation into two</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Context compaction</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Steer / queue input mid-run</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Search across past sessions</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+
+<tr class="group"><td colspan="5">After the agent writes code — the real gap</td></tr>
+<tr><td class="feat">Inline diff viewer (unified / split, per turn)</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-none">○<span class="note">file names + line counts only</span></td></tr>
+<tr><td class="feat">Commit from the UI</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-full">●<span class="note">commit card</span></td></tr>
+<tr><td class="feat">Push + open a PR</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●<span class="note">one button</span></td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Git worktree isolation per thread</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Branch switching</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Built-in code review pass</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">PR / thread status reflected in the UI</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-none">○</td></tr>
+
+<tr class="group"><td colspan="5">Safety</td></tr>
+<tr><td class="feat">Per-tool approval prompts</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Persisted allow / deny rules</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-part">◐<span class="note">enforced, not authored in-app</span></td></tr>
+<tr><td class="feat">OS-level sandbox for agent commands</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Supervised vs autonomous mode switch</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-part">◐</td></tr>
+
+<tr class="group"><td colspan="5">Extensibility</td></tr>
+<tr><td class="feat">MCP servers — connect, inspect, see their tools</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-none">○<span class="note">nothing in the codebase</span></td></tr>
+<tr><td class="feat">Skills / packaged workflows</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-part">◐<span class="note">renders skill rows; cannot invoke or manage</span></td></tr>
+<tr><td class="feat">Lifecycle hooks</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Subagents</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-part">◐<span class="note">ledger nests them; spec unimplemented</span></td></tr>
+<tr><td class="feat">Custom slash commands / quick actions</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-none">○<span class="note">3 built-ins, none user-defined</span></td></tr>
+<tr><td class="feat">Project instruction file in the loop</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-part">◐<span class="note">pi reads it; app never shows it</span></td></tr>
+<tr><td class="feat">Plan mode before execution</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">Agent can ask the user a question</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark m-none">○</td><td class="mark us m-part">◐<span class="note">AskCard drawn; tool not built</span></td></tr>
+<tr><td class="feat">Image / screenshot input</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Web search from inside a turn</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-none">○</td></tr>
+
+<tr class="group"><td colspan="5">Automation</td></tr>
+<tr><td class="feat">Headless / scriptable run</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-no">▲</td></tr>
+<tr><td class="feat">Scheduled / recurring tasks</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-none">○</td></tr>
+<tr><td class="feat">CI integration (Actions, GitLab)</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-none">○</td><td class="mark us m-no">▲</td></tr>
+<tr><td class="feat">Native notification when a turn ends</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-part">◐</td><td class="mark us m-full">●</td></tr>
+
+<tr class="group"><td colspan="5">Presentation</td></tr>
+<tr><td class="feat">Structured tool ledger with per-call status</td><td class="mark m-part">◐</td><td class="mark m-part">◐</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Markdown + syntax highlighting in answers</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Todo / plan progress display</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark us m-full">●</td></tr>
+<tr><td class="feat">Virtualized scrollback with a perf budget</td><td class="mark m-part">◐</td><td class="mark m-part">◐</td><td class="mark m-part">◐</td><td class="mark us m-full">●<span class="note">measured on 5,000 blocks</span></td></tr>
+<tr><td class="feat">Theming / per-project visual identity</td><td class="mark m-full">●</td><td class="mark m-full">●</td><td class="mark m-full">●<span class="note">theme editor</span></td><td class="mark us m-full">●<span class="note">seeded oklch accents</span></td></tr>
+
+</tbody>
+</table>
+</div>
+
+<h2><span class="n">04</span>What the matrix actually says</h2>
+<p class="lede">Three readings, in the order they should change what gets built.</p>
+<div class="cards">
+  <div class="card">
+    <h3>The shell is finished; the loop is not</h3><div class="role">Diagnosis</div>
+    <p>Every competitor closes the circle: agent writes → you read the diff → you commit → you open a PR.
+    PiOcarina stops at "agent writes". The commit card knows which files changed and by how many lines, but
+    there is nowhere to <em>read</em> the change. That single gap is worth more than the next ten.</p>
+  </div>
+  <div class="card">
+    <h3>Nothing is plugged in</h3><div class="role">Diagnosis</div>
+    <p>MCP, hooks, user-defined commands, plan mode: zero. All four are table stakes in the other three tools.
+    Some of this is pi's to provide, but the harness currently cannot even <em>show</em> what pi has.</p>
+  </div>
+  <div class="card us">
+    <h3>The keyboard is a genuine moat</h3><div class="role">Advantage</div>
+    <p>T3 Code — the only direct peer — ships plain <code>mod+key</code> bindings and a command palette.
+    No modal model, no leader chords, no block navigation, no leap. Nobody else is building this. It is the
+    one axis where PiOcarina is not catching up.</p>
+  </div>
+</div>
+
+<h2><span class="n">05</span>Build order</h2>
+<p class="lede">The owner defers MCP and plan mode. Both leave the ranking and go to the bottom.</p>
+<ol class="rank">
+  <li class="p0"><div><h4>Diff viewer<span class="tag p0">core</span></h4>
+    <p>Show the change the agent made. One diff for each turn. Move through hunks with <code>j</code> and
+    <code>k</code>. Stage or revert one hunk with <code>a</code>.</p>
+    <span class="why">All three other tools have this. PiOcarina has none of it. The commit card counts the
+    changed lines, but you cannot read them. A diff also suits block navigation better than it suits a mouse.</span></div></li>
+  <li class="p0"><div><h4>Worktree for each thread<span class="tag p0">core</span></h4>
+    <p>A thread opens its own git worktree. Two threads then edit two different working copies.</p>
+    <span class="why">The strip holds many threads at once. They all share one working copy today, so two
+    running threads corrupt each other's edits. This makes the existing layout safe.</span></div></li>
+  <li class="p1"><div><h4>Push and open a pull request<span class="tag p1">high</span></h4>
+    <p>Add one action to the commit card. It commits, pushes the branch, and opens the pull request page.</p>
+    <span class="why">The commit card already does the first step. This finishes the path from prompt to
+    review, which is where the other tools end and PiOcarina stops.</span></div></li>
+  <li class="p1"><div><h4>Finish the ask tool and subagents<span class="tag p1">high</span></h4>
+    <p>Build the two tools behind the cards that the app already draws.</p>
+    <span class="why">The app shows an ask card and nested subagent rows. Neither tool exists. A drawn card
+    for a missing feature is worse than no card.</span></div></li>
+  <li class="p1"><div><h4>Project commands and the instruction file<span class="tag p1">high</span></h4>
+    <p>Read the commands the project defines. Show them in the slash menu. Show the instruction file the
+    agent reads.</p>
+    <span class="why">The slash menu has three fixed entries. Every other tool lets the project add its own.
+    You also cannot see which instruction file pi loaded.</span></div></li>
+  <li class="p2"><div><h4>Fork a thread<span class="tag p2">medium</span></h4>
+    <p>Copy a thread at a checkpoint. Try two answers to the same question.</p>
+    <span class="why">Checkpoint restore already exists and does the hard part. Forking adds the second
+    branch instead of replacing the first.</span></div></li>
+  <li class="p2"><div><h4>Rebindable keys<span class="tag p2">medium</span></h4>
+    <p>Let the user change any key. Keep the current keys as the default.</p>
+    <span class="why">The keys are correct for one person today. A second user needs to change them.</span></div></li>
+  <li class="p2"><div><h4>Hooks<span class="tag p2">low</span></h4>
+    <p>Run a shell command when a turn starts, when a turn ends, or after an edit.</p>
+    <span class="why">Useful for a formatter or a test run. Nothing else waits for it.</span></div></li>
+  <li class="p2"><div><h4>Sandbox and permission rules<span class="tag p2">low</span></h4>
+    <p>Write allow rules and deny rules inside the app. Run agent commands in an operating system sandbox.</p>
+    <span class="why">The app enforces approvals now, but you cannot author the policy in it. This matters
+    when the agent runs without a person watching. PiOcarina does not do that yet.</span></div></li>
+  <li class="p2"><div><h4>MCP surface<span class="tag p2">deferred</span></h4>
+    <p>List MCP servers and their tools. Show MCP tool calls in the ledger.</p>
+    <span class="why">Deferred by the owner: not part of this workflow. Reopen this if pi ships skills or
+    tools that only arrive over MCP.</span></div></li>
+  <li class="p2"><div><h4>Plan mode<span class="tag p2">deferred</span></h4>
+    <p>The agent proposes a plan. You approve the plan before the agent edits any file.</p>
+    <span class="why">Deferred by the owner: not part of this workflow. The approve card and the block menu
+    already exist, so the cost stays low if you want it later.</span></div></li>
+</ol>
+
+<h2><span class="n">06</span>Not worth chasing</h2>
+<div class="two">
+  <div class="card">
+    <h3>Stay out</h3><div class="role">Brief non-goals, and still right</div>
+    <ul class="plain">
+      <li><b>Multi-provider support.</b> T3 Code's reason to exist. PiOcarina's is being the best surface for one engine — those two goals pull apart.</li>
+      <li><b>Web, mobile, cloud.</b> A keyboard-first tiling shell does not survive the trip to a phone.</li>
+      <li><b>IDE extension.</b> The whole premise is that the shell <em>is</em> the surface.</li>
+      <li><b>CI and headless.</b> That is pi's job; the harness would only be in the way.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Watch</h3><div class="role">Could change the calculus</div>
+    <ul class="plain">
+      <li><b>T3 Code adding a modal keyboard layer.</b> The only competitor positioned to take the moat.</li>
+      <li><b>pi gaining native subagents or elicitation.</b> Two of our specs stop being ours to build.</li>
+      <li><b>MCP as the way skills and tools ship.</b> Raises the cost of not having a surface for it.</li>
+    </ul>
+  </div>
+</div>
+
+<footer>
+  Sources: T3 Code — <a href="https://github.com/pingdotgg/t3code">repo</a>,
+  <a href="https://pingdotgg-t3code.mintlify.app/introduction">docs</a>,
+  <a href="https://betterstack.com/community/guides/ai/t3-code/">Better Stack guide</a>,
+  <a href="https://blakecrosley.com/guides/codex">Codex CLI guide 2026</a>,
+  <a href="https://code.claude.com/docs/en/overview">Claude Code docs</a>.
+  PiOcarina column read from this repository (specs, exec plans, and source) on 16 Aug 2026 — not from a
+  feature list. Competitor rows are from public documentation as of the same date; T3 Code is early and
+  moving fast, so its column ages quickest.
+</footer>
+
+</div>
+</body>
+</html>

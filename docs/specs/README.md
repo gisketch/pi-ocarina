@@ -32,14 +32,36 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
 
 ## Need grilling
 
-These describe things pi does not provide and we intend to build. They are
-groundwork with open questions, **not approved contracts** — run
-`$sonata-grill` before implementing either.
+Groundwork with open questions, **not approved contracts** — run `$sonata-grill`
+on one before implementing it. Each carries its own list of what the grill must
+settle. Ordered by the ranking in
+[the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
+- [2026-08-16-change-review.md](2026-08-16-change-review.md) — read the change
+  the agent wrote, as blocks, inside READ mode. **Ranked first.**
+- [2026-08-16-thread-isolation.md](2026-08-16-thread-isolation.md) — a worktree
+  for each thread, and the path from a finished thread to a pull request.
 - [2026-08-15-ask-tool.md](2026-08-15-ask-tool.md) — a custom tool that lets the
   agent ask the user a question. pi 0.84 has no elicitation of its own.
+  **The card is already drawn; the tool is not built.**
 - [2026-08-15-subagents.md](2026-08-15-subagents.md) — a custom tool that runs a
   child agent and nests its calls. pi 0.84 has no agent tool, and its tool
-  events carry no parent.
+  events carry no parent. **The ledger already nests them.**
+- [2026-08-16-project-surface.md](2026-08-16-project-surface.md) — the commands a
+  project defines, and the instruction file the session loaded.
+- [2026-08-16-thread-fork.md](2026-08-16-thread-fork.md) — fork at a checkpoint
+  instead of restoring over the top of the work.
+- [2026-08-16-keymap-and-hooks.md](2026-08-16-keymap-and-hooks.md) — rebindable
+  keys, lifecycle hooks, and authored approval policy. One configuration seam.
+
+## Deferred
+
+Owner decision, 2026-08-16. Not gaps to close; capabilities out of this
+workflow. Reopen with a grill if the reason changes.
+
+- **MCP surface** — list servers and their tools, render MCP calls in the
+  ledger. Reopen if pi ships tools that only arrive over MCP.
+- **Plan mode** — the agent proposes, the reader approves, then it edits. Cheap
+  to add later: the approve card and the block menu already exist.
 
 Visual reference for all of the above: [docs/reference/design/](../reference/design/).
