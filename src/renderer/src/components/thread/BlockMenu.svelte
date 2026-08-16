@@ -89,7 +89,10 @@
     right: 0;
     z-index: 4;
     min-width: 190px;
-    background: var(--bg-raise);
+    /* Opaque. `--bg-raise` is a 1.5% white veil: it lifts a surface without
+       hiding anything, which for a menu means the text underneath reads
+       straight through it. */
+    background: var(--bg-float);
     border: 1px solid var(--line-strong);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     display: flex;

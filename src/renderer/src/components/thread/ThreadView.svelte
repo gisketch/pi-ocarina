@@ -14,7 +14,7 @@
   import { leap } from '$lib/state/leap.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
-  import { marksTurnStart } from '$lib/thread-turn'
+  import { labelOwning, marksTurnStart } from '$lib/thread-turn'
   import { navBlocks } from '$lib/blocks'
 
   interface Props {
@@ -62,20 +62,8 @@
   // above a turn belongs to the whole turn and not to one row of it.
   const focusedBlock = $derived(nav.find((entry) => entry.id === focused)?.blockId ?? null)
 
-  /** The agent name that introduces the focused block, so it stays lit with it.
-   *
-   *  `YOU` needs no such treatment: it is drawn inside the message, so it is
-   *  already part of what the ring lights. `PI` is said once above a whole
-   *  turn, which is why it sits outside every block and has to be told. */
-  const litLabel = $derived.by(() => {
-    if (focusedBlock === null) return -1
-
-    const at = shown.findIndex((block) => block.id === focusedBlock)
-    if (at === -1) return -1
-
-    for (let i = at; i >= 0; i -= 1) if (opensTurn[i]) return i
-    return -1
-  })
+  // The agent name that introduces the focused block, so it stays lit with it.
+  const litLabel = $derived(labelOwning(shown, opensTurn, focusedBlock))
 
   /** Whether the menu is open on this exact block. */
   const menuOn = (navId: string): boolean =>

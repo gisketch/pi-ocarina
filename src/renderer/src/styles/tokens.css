@@ -11,6 +11,10 @@
   --bg-hover: rgba(255, 255, 255, 0.03);
   --bg-hover-2: rgba(255, 255, 255, 0.05);
   --bg-chip: rgba(255, 255, 255, 0.07);
+  /* The raise tints above are translucent by design — they lift a surface a
+     little without hiding the grain behind it. A menu is not a tint: it has to
+     hide what it covers, so it needs a colour rather than a veil. */
+  --bg-float: #17171b;
 
   /* text */
   --fg-bright: #efefea;

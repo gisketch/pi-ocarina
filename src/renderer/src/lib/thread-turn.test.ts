@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../../shared/protocol'
 import { reduceBatch, reduceThread, replayThread } from './thread-reducer'
 import { EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
-import { marksTurnStart } from './thread-turn'
+import { labelOwning, marksTurnStart } from './thread-turn'
 
 function run(...events: UiEvent[]) {
   return replayThread(events)
@@ -75,5 +75,38 @@ describe('where the agent’s name is said', () => {
     expect(
       marks([{ kind: 'tool-start', id: 't1', tool: 'bash', target: 'boot' }]),
     ).toEqual([true])
+  })
+})
+
+
+describe('which name a focused block sits under', () => {
+  const blocks: Block[] = [
+    { kind: 'user', id: 'u1', text: 'first' },
+    { kind: 'agent', id: 'a1', text: 'answering' },
+    { kind: 'ledger', id: 'l1', rows: [{ id: 'r1', kind: 'read', target: 'a.ts', status: 'ok' }] },
+    { kind: 'user', id: 'u2', text: 'second' },
+    { kind: 'agent', id: 'a2', text: 'answering again' },
+  ]
+  const opens = marksTurnStart(blocks)
+
+  it('lights the name above the turn the block belongs to', () => {
+    expect(labelOwning(blocks, opens, 'a1')).toBe(1)
+    // A tool call later in the same turn sits under the same name.
+    expect(labelOwning(blocks, opens, 'l1')).toBe(1)
+    // The second turn has a name of its own.
+    expect(labelOwning(blocks, opens, 'a2')).toBe(4)
+  })
+
+  it('lights no name for a message the reader wrote', () => {
+    // YOU is drawn inside its message, so the block lights it already. Walking
+    // back past it would light the PI of the turn before — a name over work
+    // the focused block had nothing to do with.
+    expect(labelOwning(blocks, opens, 'u1')).toBe(-1)
+    expect(labelOwning(blocks, opens, 'u2')).toBe(-1)
+  })
+
+  it('has no name to light with nothing focused, or a block that is gone', () => {
+    expect(labelOwning(blocks, opens, null)).toBe(-1)
+    expect(labelOwning(blocks, opens, 'restored-away')).toBe(-1)
   })
 })

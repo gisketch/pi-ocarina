@@ -93,3 +93,30 @@ export function marksTurnStart(blocks: Block[]): boolean[] {
   }
   return marks
 }
+
+/** Which turn-opening block introduces `blockId`, or -1 when none does.
+ *
+ *  The agent's name is said once above a turn, outside every block in it, so
+ *  it has to be told when to light with the focused block. `YOU` needs no such
+ *  help: it is drawn inside its own message.
+ *
+ *  Walking back stops at the reader's own message, because that is where the
+ *  turn above it ended. Without that, focusing a `YOU` lights the `PI` of the
+ *  turn before it — a name over work the focused block had nothing to do
+ *  with. */
+export function labelOwning(
+  blocks: Block[],
+  opensTurn: boolean[],
+  blockId: string | null,
+): number {
+  if (blockId === null) return -1
+
+  const at = blocks.findIndex((block) => block.id === blockId)
+  if (at === -1) return -1
+
+  for (let i = at; i >= 0; i -= 1) {
+    if (blocks[i]?.kind === 'user') return -1
+    if (opensTurn[i]) return i
+  }
+  return -1
+}
