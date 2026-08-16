@@ -57,3 +57,26 @@ describe('the connectivity banner state', () => {
     expect(connectivity.degraded).toBe(false)
   })
 })
+
+describe('retry cycles', () => {
+  it('counts every retry, so two with the same wait are still two', () => {
+    // A provider that is not backing off reports the same wait twice. Writing
+    // the same number changes nothing, and a countdown watching only the wait
+    // would sit on zero through the second cycle.
+    connectivity.report('t1', 'degraded', 5)
+    const first = connectivity.cycle
+
+    connectivity.report('t1', 'degraded', 5)
+
+    expect(connectivity.cycle).toBeGreaterThan(first)
+  })
+
+  it('does not count a recovery', () => {
+    connectivity.report('t1', 'degraded', 5)
+    const counted = connectivity.cycle
+
+    connectivity.report('t1', 'restored')
+
+    expect(connectivity.cycle).toBe(counted)
+  })
+})

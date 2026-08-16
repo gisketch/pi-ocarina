@@ -15,10 +15,22 @@ class Connectivity {
   degraded = $state.raw(false)
   /** The longest wait any retrying thread reported, in seconds. */
   retryInSeconds = $state.raw<number | undefined>(undefined)
+  /** Counts retry cycles.
+   *
+   *  Two cycles in a row can report the same wait — a provider that is not
+   *  backing off, or one that has hit its cap. Writing the same number is not
+   *  a change, so nothing watching the wait would restart, and the countdown
+   *  would sit on zero through the whole second cycle. This always changes. */
+  cycle = $state.raw(0)
 
   report(threadId: string, state: 'degraded' | 'restored', retryInSeconds?: number): void {
-    if (state === 'degraded') this.#retrying.set(threadId, retryInSeconds)
-    else this.#retrying.delete(threadId)
+    if (state === 'degraded') {
+      this.#retrying.set(threadId, retryInSeconds)
+      this.cycle += 1
+    } else if (!this.#retrying.delete(threadId)) {
+      // Nothing was retrying on this thread, so nothing changed.
+      return
+    }
 
     this.degraded = this.#retrying.size > 0
     const waits = [...this.#retrying.values()].filter((wait): wait is number => wait !== undefined)
@@ -29,6 +41,7 @@ class Connectivity {
     this.#retrying.clear()
     this.degraded = false
     this.retryInSeconds = undefined
+    this.cycle = 0
   }
 }
 

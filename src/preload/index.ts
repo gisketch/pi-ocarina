@@ -47,6 +47,13 @@ const api = {
       return () => ipcRenderer.off('lifecycle:confirm-quit', handler)
     },
     answerQuit: (ok: boolean): void => ipcRenderer.send('lifecycle:quit-answer', ok),
+    /** Main gave up waiting and is asking natively instead; take the question
+     *  off screen rather than showing it twice. */
+    onWithdrawQuit: (listener: () => void): (() => void) => {
+      const handler = (): void => listener()
+      ipcRenderer.on('lifecycle:withdraw-quit', handler)
+      return () => ipcRenderer.off('lifecycle:withdraw-quit', handler)
+    },
   },
   /** Repository state. `refresh` only asks; every answer, whether it was asked
    *  for or caused by a write under `.git`, arrives on `onStatus`. */
@@ -57,7 +64,7 @@ const api = {
       ipcRenderer.invoke('git:changes', workspaceId),
     commit: (
       workspaceId: string,
-      options: { message: string; push: boolean },
+      options: { message: string; paths: string[]; push: boolean },
     ): Promise<GitCommitResult> => ipcRenderer.invoke('git:commit', workspaceId, options),
     push: (workspaceId: string): Promise<GitCommitResult> =>
       ipcRenderer.invoke('git:push', workspaceId),

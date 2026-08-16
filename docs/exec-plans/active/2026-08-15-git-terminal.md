@@ -30,6 +30,12 @@ Status legend: `todo` · `in-progress` · `done`.
 
 ## E2 — Commit card — `done`
 
+> Spec drift, unresolved: `docs/specs/2026-08-15-git-terminal.md` says
+> "statusbar/titlebar git segments", but its own acceptance section names only
+> the statusbar and the switcher cards, and the titlebar mockup carries no git.
+> E1 built the two the acceptance names. Reconcile the spec's scope line rather
+> than adding a segment the design does not show.
+
 - Delivered behavior: `/commit` (and a completed turn's suggestion) opens the
   commit card: proposed message + changed-file list with +/− counts; actions
   `commit`, `commit + push`, `edit message`. Commit runs git directly in main
@@ -59,6 +65,10 @@ Status legend: `todo` · `in-progress` · `done`.
   from one whose every line was removed (so `--name-status` is read too), and
   with rename detection on it writes `old => new` as one path that no
   name-status key can match (so both reads pass `--no-renames`).
+- The commit is scoped to the paths the card listed, not `git add -A` over the
+  whole tree. In this app an agent may be writing to the same folder between
+  the card opening and the key being pressed, and a card that listed one set
+  and committed another would be worse than no card.
 
 ## E3 — Terminal column — `done`
 
@@ -210,6 +220,9 @@ Blocked by: —
   so a wedged window cannot make the app unquittable.
 - Toasts are for what the user cannot see: nothing is raised for the focused
   thread, which reports its own finish, failure and compaction inline.
+- The modal currently guards **quit only**. "Discard changes" is in the
+  reference and in this ticket's wording, but no discard flow exists to ask it;
+  it arrives with whatever feature introduces one.
 
 ## Order
 

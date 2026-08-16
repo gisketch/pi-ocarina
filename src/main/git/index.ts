@@ -50,7 +50,7 @@ export function registerGit(catalog: CatalogStore): GitService {
     async (
       _event,
       workspaceId: string,
-      options: { message: string; push: boolean },
+      options: { message: string; paths: string[]; push: boolean },
     ): Promise<GitCommitResult> => {
       const result = await commitAll(pathOf(workspaceId), options)
       // The status bar is stale the moment a commit lands.

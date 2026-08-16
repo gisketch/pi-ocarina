@@ -90,10 +90,14 @@ describe('committing', () => {
     await commit.load()
   })
 
-  it('commits the message the card shows', async () => {
+  it('commits the message the card shows, and only the files it listed', async () => {
     await commit.run({ push: false })
 
-    expect(commitCall).toHaveBeenCalledWith('w1', { message: 'update src/one.ts', push: false })
+    expect(commitCall).toHaveBeenCalledWith('w1', {
+      message: 'update src/one.ts',
+      paths: ['src/one.ts'],
+      push: false,
+    })
     expect(commit.open).toBe(false)
     expect(toasts.items[0]).toMatchObject({ tone: 'ok', text: 'committed' })
   })
@@ -103,7 +107,10 @@ describe('committing', () => {
 
     await commit.run({ push: false })
 
-    expect(commitCall).toHaveBeenCalledWith('w1', { message: 'fix: bounded retry', push: false })
+    expect(commitCall).toHaveBeenCalledWith(
+      'w1',
+      expect.objectContaining({ message: 'fix: bounded retry' }),
+    )
   })
 
   it('says so when it pushed as well', async () => {
@@ -228,5 +235,14 @@ describe('the card keys', () => {
     commit.handleKey({ key: 'c' })
 
     expect(commitCall).not.toHaveBeenCalled()
+  })
+
+  it('refuses to close while git is running', () => {
+    // Closing would reset `running`, and a reopened card's `c` would race a
+    // second commit against the first over the same index lock.
+    commit.running = true
+
+    expect(commit.handleKey({ key: 'Escape' })).toBe(true)
+    expect(commit.open).toBe(true)
   })
 })

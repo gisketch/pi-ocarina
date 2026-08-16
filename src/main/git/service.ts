@@ -19,7 +19,18 @@ const SETTLE_MS = 120
  *  `.git` is also where git writes objects, lock files and packs — thousands
  *  of events during a fetch, none of which change the summary. Matching on
  *  these prefixes is what keeps a big repo from re-running status all day. */
-const INTERESTING = ['HEAD', 'index', 'refs', 'MERGE_HEAD', 'ORIG_HEAD', 'CHERRY_PICK_HEAD']
+const INTERESTING = [
+  'HEAD',
+  'index',
+  'refs',
+  // Packed refs are refs too: after `git pack-refs`, a fetch moves the remote
+  // branch here and nowhere under `refs/`, so ahead and behind change with no
+  // other file touched.
+  'packed-refs',
+  'MERGE_HEAD',
+  'ORIG_HEAD',
+  'CHERRY_PICK_HEAD',
+]
 
 /** Git's own bookkeeping, and never a change in state.
  *

@@ -67,14 +67,23 @@ class Commit {
     this.running = true
     this.error = null
     const result = await bridge.git
-      .commit(workspaceId, { message: this.message, push })
+      .commit(workspaceId, {
+        message: this.message,
+        // The card commits what the card showed. Anything written since it
+        // opened is not in this list and is left where it is.
+        paths: this.changes.map((change) => change.path),
+        push,
+      })
       .catch((cause: unknown) => ({ ok: false as const, stage: 'commit' as const, reason: describe(cause) }))
     this.running = false
+    // The card may have been closed and reopened on another workspace while
+    // git ran. Closing it now would shut a card this result is not about.
+    const stillOurs = this.workspaceId === workspaceId
 
     if (result.ok) {
       toasts.push({ tone: 'ok', text: result.pushed ? 'committed and pushed' : 'committed' })
       git.refresh(workspaceId)
-      this.close()
+      if (stillOurs) this.close()
       return
     }
 
@@ -88,11 +97,11 @@ class Commit {
         run: () => void this.retryPush(workspaceId),
       })
       git.refresh(workspaceId)
-      this.close()
+      if (stillOurs) this.close()
       return
     }
 
-    this.error = result.reason
+    if (stillOurs) this.error = result.reason
   }
 
   /** Pushes what is already committed. The commit is not made a second time. */
@@ -132,11 +141,16 @@ class Commit {
       return event.key === 'Enter' || event.key === 'Escape'
     }
 
+    // The running guard comes first, escape included: a commit in flight is
+    // exactly when the card must not be dismissed. Dismissing it would reset
+    // `running`, and a second `c` would race a second `git add` against the
+    // first over the same index lock.
+    if (this.running) return true
+
     if (event.key === 'Escape') {
       this.close()
       return true
     }
-    if (this.running) return true
 
     if (event.key === 'c') void this.run({ push: false })
     else if (event.key === 'p') void this.run({ push: true })

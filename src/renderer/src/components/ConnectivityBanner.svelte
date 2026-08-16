@@ -7,6 +7,9 @@
   let remaining = $state<number | null>(null)
 
   $effect(() => {
+    // Read so a fresh retry restarts the count even when it reports the same
+    // wait as the one before it.
+    connectivity.cycle
     const start = connectivity.degraded ? connectivity.retryInSeconds : undefined
     if (start === undefined) {
       remaining = null

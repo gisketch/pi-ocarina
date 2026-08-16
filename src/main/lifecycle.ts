@@ -129,6 +129,10 @@ function askRenderer(running: number): Promise<boolean | null> {
     }
     const timer = setTimeout(() => {
       ipcMain.off('lifecycle:quit-answer', answer)
+      // Take the question back before asking it again natively: two copies of
+      // the same question on screen is worse than one, and an answer to the
+      // abandoned one would go nowhere.
+      if (!win.isDestroyed()) win.webContents.send('lifecycle:withdraw-quit')
       resolve(null)
     }, ANSWER_TIMEOUT_MS)
 

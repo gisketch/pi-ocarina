@@ -165,21 +165,31 @@ function commonFolder(paths: readonly string[]): string {
 
 /** Commits what the card listed, and pushes if asked.
  *
- *  Never called on its own: the card exists so that a person presses the key.
+ *  Commits exactly the paths the card listed, and nothing else. Never called
+ *  on its own: the card exists so that a person presses the key.
  *  Push is reported separately from commit because the commit survives a failed
  *  push, and telling someone their commit failed when it did not would send
  *  them looking for work that is already saved. */
 export async function commitAll(
   cwd: string,
-  { message, push }: { message: string; push: boolean },
+  { message, paths, push }: { message: string; paths: readonly string[]; push: boolean },
 ): Promise<GitCommitResult> {
   if (message.trim().length === 0) {
     return { ok: false, stage: 'commit', reason: 'a commit needs a message' }
   }
+  if (paths.length === 0) {
+    return { ok: false, stage: 'commit', reason: 'nothing was listed to commit' }
+  }
 
   try {
-    await git(cwd, ['add', '-A'])
-    await git(cwd, ['commit', '-m', message])
+    // Only the paths the card listed. `add -A` with no pathspec would sweep in
+    // whatever was written between the card opening and the key being pressed
+    // — and in this app an agent may well be editing that folder right now.
+    // `-A` still applies to those paths, so a listed deletion is staged too.
+    await git(cwd, ['add', '-A', '--', ...paths])
+    // Scoped to the same paths, so a commit cannot carry something staged
+    // outside the card either.
+    await git(cwd, ['commit', '-m', message, '--only', '--', ...paths])
   } catch (error) {
     return { ok: false, stage: 'commit', reason: reasonFrom(error) }
   }

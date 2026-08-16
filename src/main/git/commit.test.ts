@@ -158,24 +158,78 @@ describe('commitAll', () => {
     await write('kept.txt', 'one\ntwo\nthree\n')
     await write('new.txt', 'x\n')
 
-    const result = await commitAll(repo, { message: 'fix: bounded retry', push: false })
+    const result = await commitAll(repo, {
+      message: 'fix: bounded retry',
+      paths: ['kept.txt', 'new.txt'],
+      push: false,
+    })
 
     expect(result).toEqual({ ok: true, pushed: false })
     expect(await head()).toBe('fix: bounded retry')
     expect(await readChanges(repo)).toEqual([])
   })
 
+  it('commits only what it was given, leaving a file written since alone', async () => {
+    // The card lists what would go in, and the key is pressed later. In this
+    // app an agent may be editing the same folder in between.
+    await write('kept.txt', 'one\ntwo\nthree\n')
+    const listed = (await readChanges(repo)).map((change) => change.path)
+    await write('appeared-later.txt', 'x\n')
+
+    const result = await commitAll(repo, { message: 'fix: retry', paths: listed, push: false })
+
+    expect(result).toEqual({ ok: true, pushed: false })
+    expect(await readChanges(repo)).toEqual([
+      { path: 'appeared-later.txt', status: 'A', added: 1, removed: 0 },
+    ])
+  })
+
+  it('leaves a file staged outside the card out of the commit', async () => {
+    await write('kept.txt', 'one\ntwo\nthree\n')
+    const listed = (await readChanges(repo)).map((change) => change.path)
+    await write('staged-elsewhere.txt', 'x\n')
+    await git('add', 'staged-elsewhere.txt')
+
+    await commitAll(repo, { message: 'fix: retry', paths: listed, push: false })
+
+    expect((await readChanges(repo)).map((change) => change.path)).toEqual([
+      'staged-elsewhere.txt',
+    ])
+  })
+
+  it('commits a deletion the card listed', async () => {
+    await rm(join(repo, 'kept.txt'))
+
+    const result = await commitAll(repo, { message: 'drop it', paths: ['kept.txt'], push: false })
+
+    expect(result).toEqual({ ok: true, pushed: false })
+    expect(await readChanges(repo)).toEqual([])
+  })
+
+  it('refuses to commit when the card listed nothing', async () => {
+    await write('kept.txt', 'changed\n')
+
+    const result = await commitAll(repo, { message: 'x', paths: [], push: false })
+
+    expect(result).toMatchObject({ ok: false, stage: 'commit' })
+    expect(await head()).toBe('first')
+  })
+
   it('refuses an empty message rather than letting git invent one', async () => {
     await write('kept.txt', 'changed\n')
 
-    const result = await commitAll(repo, { message: '   ', push: false })
+    const result = await commitAll(repo, { message: '   ', paths: ['kept.txt'], push: false })
 
     expect(result).toEqual({ ok: false, stage: 'commit', reason: 'a commit needs a message' })
     expect(await head()).toBe('first')
   })
 
   it('reports a commit git refused, and commits nothing', async () => {
-    const result = await commitAll(repo, { message: 'nothing to do', push: false })
+    const result = await commitAll(repo, {
+      message: 'nothing to do',
+      paths: ['kept.txt'],
+      push: false,
+    })
 
     expect(result).toMatchObject({ ok: false, stage: 'commit' })
     expect(await head()).toBe('first')
@@ -187,7 +241,11 @@ describe('commitAll', () => {
     await git('remote', 'add', 'origin', join(repo, 'no-such-remote.git'))
     await write('kept.txt', 'one\ntwo\nthree\n')
 
-    const result = await commitAll(repo, { message: 'fix: retry', push: true })
+    const result = await commitAll(repo, {
+      message: 'fix: retry',
+      paths: ['kept.txt'],
+      push: true,
+    })
 
     expect(result).toMatchObject({ ok: false, stage: 'push' })
     expect(await head()).toBe('fix: retry')
@@ -211,7 +269,7 @@ describe('pushCommits', () => {
     await git('remote', 'add', 'origin', remote)
     await git('push', '-u', 'origin', 'main')
     await write('kept.txt', 'one\ntwo\nthree\n')
-    await commitAll(repo, { message: 'second', push: false })
+    await commitAll(repo, { message: 'second', paths: ['kept.txt'], push: false })
 
     expect(await pushCommits(repo)).toEqual({ ok: true, pushed: true })
 

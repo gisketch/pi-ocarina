@@ -72,6 +72,12 @@ class ThreadStore {
         if (event.kind === 'connectivity') {
           connectivity.report(threadId, event.state, event.retryInSeconds)
         }
+        // A retry cannot outlive the turn it belongs to. An interrupted turn
+        // ends with no `auto_retry_end`, and the banner would otherwise say
+        // the app was reconnecting for the rest of the session.
+        if (event.kind === 'thread-state' && event.state !== 'running') {
+          connectivity.report(threadId, 'restored')
+        }
       }
 
       announce(threadId, events, wasRunning)
