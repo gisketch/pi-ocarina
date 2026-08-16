@@ -17,6 +17,8 @@ export interface ListItem {
   /** One level only — the same limit the ledger puts on nested tool rows. */
   children?: ListItem[]
   childrenOrdered?: boolean
+  /** The number a nested ordered list starts at, when it is not one. */
+  childrenStart?: number
   /** Set for `- [ ]` and `- [x]`, which agents write constantly. */
   done?: boolean
 }

@@ -83,7 +83,6 @@
    *  registry happened to keep. */
   const owns = (block: Block): boolean => block.kind !== 'user' && block.kind !== 'agent'
 
-  /** Whether the menu is open on this exact block. */
   /** Cards only. A message renders the menu inside the segment the ring is on,
    *  because a menu pinned to the top of a screen-tall answer opens nowhere
    *  near the block being pointed at. */
@@ -92,6 +91,18 @@
     blockMenu.open &&
     blockMenu.threadId === threadId &&
     blockMenu.block?.id === block.id
+
+  /** Whether this wrapper contains the open menu, wherever it is drawn.
+   *
+   *  Separate from `menuOn` on purpose. The wrapper is the column's direct
+   *  child, so it is the element carrying `content-visibility: auto` and the
+   *  paint containment that comes with it — and paint containment clips every
+   *  descendant, however deep. A message draws the menu inside its own
+   *  segment, so the escape has to be lifted here even though the render
+   *  happens two levels down. Lifting it only where the menu renders is the
+   *  same half-fix the ledger already made once. */
+  const hosts = (block: Block): boolean =>
+    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.blockId === block.id
 </script>
 
 <!-- Keyed on kind and id together, because that is what identifies a block: the
@@ -123,7 +134,7 @@
     <div
       class="nav"
       class:dim={dimming && focusedBlock !== block.id}
-      class:hosting={menuOn(block)}
+      class:hosting={hosts(block)}
       use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
       {#if menuOn(block)}

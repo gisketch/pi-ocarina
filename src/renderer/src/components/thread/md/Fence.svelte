@@ -36,7 +36,7 @@
     font-size: 12px;
     line-height: 1.6;
     scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
+    scrollbar-color: var(--fg-ghost) transparent;
   }
 
   .lang {

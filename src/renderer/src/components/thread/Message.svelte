@@ -70,7 +70,7 @@
     >{#if item.done !== undefined}<span class="box" class:on={item.done}
       >{item.done ? '×' : ' '}</span
     >{/if}<Inline parts={item.segments} />{#if item.children}{#if item.childrenOrdered}<ol
-        >{@render items(item.children)}</ol
+        start={item.childrenStart ?? 1}>{@render items(item.children)}</ol
       >{:else}<ul>{@render items(item.children)}</ul>{/if}{/if}</li
   >{/each}{/snippet}
 
@@ -271,11 +271,11 @@
     margin: 4px 0 0;
   }
 
-  /* An empty line still needs a line's height, or a blank line in a fence
-     collapses and the code shifts under the reader. */
   .text :global(p + p),
   .text :global(ul),
-  .text :global(ol),
+  .text :global(ol) {
+    margin: 8px 0 0;
+  }
 
   ul,
   ol {
@@ -289,25 +289,6 @@
   }
   li::marker {
     color: var(--fg-dimmest);
-  }
-
-  /* Fenced blocks keep the reference's chrome — a bordered surface with the
-     language named. Syntax highlighting is deliberately deferred; the block
-     must read as code before it reads as coloured code. */
-  .fence {
-    position: relative;
-    border: 1px solid var(--line-faint);
-    background: var(--bg);
-    padding: 20px 12px 10px;
-    overflow-x: auto;
-  }
-  .fence code {
-    background: none;
-    padding: 0;
-    color: var(--fg-body);
-    font-size: 11.5px;
-    line-height: 1.6;
-    white-space: pre;
   }
 
   .caret {

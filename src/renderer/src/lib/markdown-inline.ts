@@ -76,14 +76,11 @@ const LOOK_AHEAD = 2000
 
 /** Whether `marker` closes again after `from`, outside inline code.
  *
- *  Short-circuited the same way: a marker that does not occur again at all
- *  cannot close, and will not occur again from any later position either. */
-function closes(text: string, from: number, marker: string, absent: Set<string>): boolean {
-  if (absent.has(marker)) return false
-  if (text.indexOf(marker, from) === -1) {
-    absent.add(marker)
-    return false
-  }
+ *  Short-circuited through the same cache: a marker that does not occur again
+ *  cannot close, and the scan below only ever walks as far as an occurrence
+ *  that does exist. */
+function closes(text: string, from: number, marker: string, seek: Seek): boolean {
+  if (seek.from(text, marker, from) === -1) return false
 
   let code = false
   const limit = Math.min(text.length, from + LOOK_AHEAD)
@@ -97,34 +94,41 @@ function closes(text: string, from: number, marker: string, absent: Set<string>)
   return false
 }
 
-/** Reads `[label](url)` at `at`, or null.
+/** Where a needle next appears at or after `from`, remembered across calls.
  *
- *  `absent` is the reason this stays linear. A failed `indexOf` scans to the
- *  end of the line, and a line of ten thousand `[` would pay that per bracket.
- *  A character that is not there from one position is not there from any later
- *  one either, so the first failure is remembered and never repeated. */
+ *  This is what keeps the parse linear. A failed `indexOf` scans to the end of
+ *  the line, and a line of ten thousand `[` would pay that per bracket. So the
+ *  answer is cached: `at` only ever advances, so a hit at or after the new
+ *  position is still the right answer and costs nothing, and a miss is final.
+ *  Caching only the misses is not enough — a needle that exists but sits far
+ *  away is rescanned from every candidate, which is the same quadratic wearing
+ *  a different hat. */
+class Seek {
+  #found = new Map<string, number>()
+
+  from(text: string, needle: string, at: number): number {
+    const known = this.#found.get(needle)
+    if (known !== undefined && (known === -1 || known >= at)) return known
+
+    const found = text.indexOf(needle, at)
+    this.#found.set(needle, found)
+    return found
+  }
+}
+
+/** Reads `[label](url)` at `at`, or null. */
 function linkAt(
   text: string,
   at: number,
-  absent: Set<string>,
+  seek: Seek,
 ): { label: string; href: string; end: number } | null {
   if (text[at] !== '[') return null
 
-  if (absent.has('](')) return null
-  const close = text.indexOf('](', at)
-  if (close === -1) {
-    absent.add('](')
-    return null
-  }
-  if (close - at > LOOK_AHEAD) return null
+  const close = seek.from(text, '](', at)
+  if (close === -1 || close - at > LOOK_AHEAD) return null
 
-  if (absent.has(')')) return null
-  const end = text.indexOf(')', close + 2)
-  if (end === -1) {
-    absent.add(')')
-    return null
-  }
-  if (end - close > LOOK_AHEAD) return null
+  const end = seek.from(text, ')', close + 2)
+  if (end === -1 || end - close > LOOK_AHEAD) return null
 
   const href = safeHref(text.slice(close + 2, end))
   if (href === null) return null
@@ -134,7 +138,7 @@ function linkAt(
 
 export function parseInline(text: string): InlineSegment[] {
   const segments: InlineSegment[] = []
-  const absent = new Set<string>()
+  const seek = new Seek()
   let buffer = ''
   let code = false
   const open: Open = {}
@@ -157,7 +161,7 @@ export function parseInline(text: string): InlineSegment[] {
       continue
     }
 
-    const link = open.href === undefined ? linkAt(text, at, absent) : null
+    const link = open.href === undefined ? linkAt(text, at, seek) : null
     if (link) {
       push()
       // The label is parsed too, so a bold word inside a link keeps its weight.
@@ -169,7 +173,7 @@ export function parseInline(text: string): InlineSegment[] {
     }
 
     const mark = MARKS.find((candidate) => text.startsWith(candidate.marker, at))
-    if (mark && (open[mark.flag] || closes(text, at + mark.marker.length, mark.marker, absent))) {
+    if (mark && (open[mark.flag] || closes(text, at + mark.marker.length, mark.marker, seek))) {
       push()
       if (open[mark.flag]) delete open[mark.flag]
       else open[mark.flag] = true

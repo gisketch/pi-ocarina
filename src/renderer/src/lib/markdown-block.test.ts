@@ -98,6 +98,12 @@ describe('ordered lists keep the number the agent wrote', () => {
     expect(node.start).toBeUndefined()
   })
 
+  it('keeps a nested list\'s own first number', () => {
+    const [node] = parseMarkdown('- top\n  10. ten\n  11. eleven')
+    if (node.type !== 'list') throw new Error('not a list')
+    expect(node.items[0].childrenStart).toBe(10)
+  })
+
   it('leaves a bullet list alone', () => {
     const [node] = parseMarkdown('- a\n- b')
     if (node.type !== 'list') throw new Error('not a list')

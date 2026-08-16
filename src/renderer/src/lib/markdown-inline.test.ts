@@ -142,4 +142,12 @@ describe('untrusted input cannot stall the column', () => {
   it('stays linear on a line that is all candidates', () => {
     expect(under('a **b** [c](https://x.test) `d` '.repeat(20_000), 400)).toBe(true)
   })
+
+  it('stays linear when the needle exists but sits far away', () => {
+    // The harder half: remembering only that something is *absent* leaves a
+    // needle that exists at the end of the line to be rescanned from every
+    // candidate before it, which is the same quadratic wearing a hat.
+    expect(under(`${'['.repeat(320_000)}](x)`, 400)).toBe(true)
+    expect(under(`${'[]('.repeat(120_000)}x)`, 400)).toBe(true)
+  })
 })

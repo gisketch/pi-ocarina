@@ -25,7 +25,7 @@
   .wrap {
     overflow-x: auto;
     scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
+    scrollbar-color: var(--fg-ghost) transparent;
   }
   table {
     border-collapse: collapse;

@@ -48,12 +48,13 @@ class ListBuilder {
     this.start = start
   }
 
-  add(indent: number, text: string, ordered: boolean): void {
+  add(indent: number, text: string, ordered: boolean, start: number): void {
     const parent = this.items[this.items.length - 1]
 
     if (parent && indent >= this.indent + NEST_INDENT) {
       parent.children ??= []
       parent.childrenOrdered ??= ordered
+      if (ordered && start !== 1) parent.childrenStart ??= start
       parent.children.push(item(text))
       return
     }
@@ -117,8 +118,9 @@ export function parseMarkdown(text: string): MarkdownNode[] {
       const indent = entry[1].length
       if (paragraph.length > 0) flush()
       if (list && !list.accepts(indent, ordered)) flush()
-      list ??= new ListBuilder(ordered, indent, Number(/^\s*(\d+)/.exec(line)?.[1] ?? 1))
-      list.add(indent, entry[2], ordered)
+      const number = Number(/^\s*(\d+)/.exec(line)?.[1] ?? 1)
+      list ??= new ListBuilder(ordered, indent, number)
+      list.add(indent, entry[2], ordered, number)
       continue
     }
 
