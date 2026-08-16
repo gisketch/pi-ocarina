@@ -5,15 +5,18 @@
  *  the nav model and the renderer — and if they ever disagreed the ring would
  *  point at a block nobody drew. */
 
-import type { ListItem, MarkdownNode } from './markdown'
+import { STANDALONE, type ListItem, type MarkdownNode } from './markdown'
 
-/** Consecutive non-code nodes group; a code node stands alone. */
+/** Consecutive prose nodes group; a standalone kind is a stop of its own.
+ *
+ *  Which kinds those are is `STANDALONE`'s to say, so a new one — a
+ *  screenshot, a chart — becomes its own stop by being named there. */
 export function segmentsOf(nodes: MarkdownNode[]): MarkdownNode[][] {
   const segments: MarkdownNode[][] = []
   let text: MarkdownNode[] = []
 
   for (const node of nodes) {
-    if (node.type === 'code') {
+    if (STANDALONE.has(node.type)) {
       if (text.length > 0) segments.push(text)
       text = []
       segments.push([node])
@@ -42,10 +45,22 @@ function listText(items: ListItem[]): string {
 export function segmentText(segment: MarkdownNode[]): string {
   return segment
     .map((node) => {
-      if (node.type === 'code') return node.text
-      if (node.type === 'rule') return '---'
-      if (node.type === 'list') return listText(node.items)
-      return node.segments.map((s) => s.text).join('')
+      switch (node.type) {
+        case 'code':
+          return node.text
+        case 'rule':
+          return '---'
+        case 'list':
+          return listText(node.items)
+        case 'image':
+          return node.src
+        case 'table':
+          return [node.head, ...node.rows]
+            .map((row) => row.map((cell) => cell.segments.map((s) => s.text).join('')).join('\t'))
+            .join('\n')
+        default:
+          return node.segments.map((segment) => segment.text).join('')
+      }
     })
     .join('\n')
 }

@@ -46,3 +46,34 @@ describe('what a segment copies', () => {
     expect(segmentText(prose)).toBe('a\n---\nb')
   })
 })
+
+
+describe('what stands alone', () => {
+  it('makes a table its own stop', () => {
+    const parts = segments('before\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nafter')
+    expect(parts.map((p) => p.map((n) => n.type))).toEqual([
+      ['paragraph'],
+      ['table'],
+      ['paragraph'],
+    ])
+  })
+
+  it('makes an image its own stop, which is what a screenshot will be', () => {
+    const parts = segments('look:\n\n![shot](https://example.com/a.png)')
+    expect(parts.map((p) => p.map((n) => n.type))).toEqual([['paragraph'], ['image']])
+  })
+
+  it('leaves a quote in the prose around it', () => {
+    expect(segments('a\n\n> quoted\n\nb')).toHaveLength(1)
+  })
+
+  it('copies a table as its rows, tab separated', () => {
+    const [, table] = segments('x\n\n| a | b |\n|---|---|\n| 1 | 2 |')
+    expect(segmentText(table)).toBe('a\tb\n1\t2')
+  })
+
+  it('copies an image as the source, which is the useful half', () => {
+    const [image] = segments('![shot](https://example.com/a.png)')
+    expect(segmentText(image)).toBe('https://example.com/a.png')
+  })
+})

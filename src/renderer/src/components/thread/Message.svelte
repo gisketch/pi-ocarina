@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { parseMarkdown, type InlineSegment, type ListItem, type MarkdownNode } from '$lib/thread'
+  import { parseMarkdown, type ListItem, type MarkdownNode } from '$lib/thread'
+  import Inline from './md/Inline.svelte'
+  import Picture from './md/Picture.svelte'
+  import Quote from './md/Quote.svelte'
+  import Table from './md/Table.svelte'
+
   import { segmentsOf } from '$lib/markdown-segments'
   import { CLEAN, highlightLine, type LineState } from '$lib/highlight'
   import { navTarget } from '$lib/state/block-focus.svelte'
@@ -61,21 +66,20 @@
   }
 </script>
 
-{#snippet inline(parts: InlineSegment[])}{#each parts as part, i (i)}{#if part.code}<code
-      class:b={part.bold}>{part.text}</code
-    >{:else if part.bold}<strong>{part.text}</strong>{:else}{part.text}{/if}{/each}{/snippet}
-
 {#snippet items(list: ListItem[])}{#each list as item, j (j)}<li
-    >{@render inline(item.segments)}{#if item.children}{#if item.childrenOrdered}<ol
+    class:task={item.done !== undefined}
+    >{#if item.done !== undefined}<span class="box" class:on={item.done}
+      >{item.done ? '×' : ' '}</span
+    >{/if}<Inline parts={item.segments} />{#if item.children}{#if item.childrenOrdered}<ol
         >{@render items(item.children)}</ol
       >{:else}<ul>{@render items(item.children)}</ul>{/if}{/if}</li
   >{/each}{/snippet}
 
 {#snippet render(node: MarkdownNode, caret: boolean)}
   {#if node.type === 'paragraph'}
-    <p>{@render inline(node.segments)}{#if caret}<span class="caret"></span>{/if}</p>
+    <p><Inline parts={node.segments} />{#if caret}<span class="caret"></span>{/if}</p>
   {:else if node.type === 'heading'}
-    <div class="h h{node.level}"><span>{@render inline(node.segments)}</span></div>
+    <div class="h h{node.level}"><span><Inline parts={node.segments} /></span></div>
   {:else if node.type === 'rule'}
     <div class="rule" role="separator"></div>
   {:else if node.type === 'list'}
@@ -91,6 +95,17 @@
             >{/each}</span
         >{/each}</code
       ></pre>
+  {:else}
+    <!-- Kinds with markup of their own. A new one lands here as a rule in
+         `markdown-block.ts`, a node type, a component, and one branch — and
+         nothing outside this file has to know it exists. -->
+    {#if node.type === 'table'}
+      <Table {node} />
+    {:else if node.type === 'quote'}
+      <Quote {node} />
+    {:else if node.type === 'image'}
+      <Picture {node} />
+    {/if}
   {/if}
 {/snippet}
 
@@ -221,12 +236,30 @@
     background: repeating-linear-gradient(90deg, var(--fg-ghost) 0 4px, transparent 4px 8px);
   }
 
-  .text :global(strong) {
-    font-weight: 700;
-    color: var(--fg-bright);
+  /* Task boxes: agents write checklists constantly, and a `[x]` rendered as
+     two characters of punctuation reads as noise rather than as progress. */
+  .text :global(li.task) {
+    list-style: none;
+    margin-left: -18px;
   }
-  .text :global(code.b) {
-    font-weight: 700;
+  /* Both states are the same square. Sized rather than left to its contents:
+     an empty box has only a space in it, which collapses to nothing and makes
+     an unticked item read as a dash. */
+  .box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    line-height: 11px;
+    text-align: center;
+    margin-right: 8px;
+    vertical-align: -1px;
+    border: 1px solid var(--line-strong);
+    color: transparent;
+    font-size: 10px;
+  }
+  .box.on {
+    color: var(--tone-1);
+    border-color: var(--tone-1);
   }
 
   .text :global(li > ul),

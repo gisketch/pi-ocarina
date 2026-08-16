@@ -10,6 +10,20 @@ import { registerSession } from './session'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
+/** Schemes the app will hand to the operating system.
+ *
+ *  An allow-list, not a deny-list. `openExternal` will launch whatever the OS
+ *  associates with a scheme, so a link an agent wrote is only ever followed
+ *  when it is one of the three a reader could have meant. */
+function isExternal(url: string): boolean {
+  try {
+    const { protocol } = new URL(url)
+    return protocol === 'https:' || protocol === 'http:' || protocol === 'mailto:'
+  } catch {
+    return false
+  }
+}
+
 // Set before anything reads a path: userData derives from the app name, and an
 // unnamed dev run would scatter state across an "Electron" directory instead.
 app.setName('PiOcarina')
@@ -38,12 +52,24 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => win.show())
 
+  const devServer = process.env.ELECTRON_RENDERER_URL
+
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isExternal(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  const devServer = process.env.ELECTRON_RENDERER_URL
+  // The window itself never goes anywhere. An agent can write a link into a
+  // message, and without this a click on one replaces the whole app with a web
+  // page — every column, every running turn, gone, with no way back.
+  win.webContents.on('will-navigate', (event, url) => {
+    const here = devServer ?? `file://${join(dirname, '../renderer/index.html')}`
+    if (url === win.webContents.getURL() || url.startsWith(here)) return
+
+    event.preventDefault()
+    if (isExternal(url)) void shell.openExternal(url)
+  })
+
   if (devServer) void win.loadURL(devServer)
   else void win.loadFile(join(dirname, '../renderer/index.html'))
 
