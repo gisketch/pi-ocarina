@@ -138,7 +138,6 @@ export interface SessionCommands {
   openThread: { params: { threadId: string }; result: { ok: true } }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: string }; result: { ok: true } }
-
   /** Brings a closed thread back — what jumping to it from search does. */
   unarchiveThread: { params: { threadId: string }; result: { ok: true } }
   prompt: {

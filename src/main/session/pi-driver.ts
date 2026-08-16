@@ -24,6 +24,8 @@ export type { ModelRef } from './session-factory'
 export interface PiDriverOptions {
   emit: EmitEvent
   catalog: CatalogStore
+  /** Told when a workspace is unpinned, so its shell can be stopped with it. */
+  onUnpin?: (workspaceId: string) => void
   /** Overrides pi's configured default. Left unset, pi chooses — which is the
    *  product decision: provider and model live in pi's config, not ours. */
   model?: ModelRef
@@ -46,7 +48,7 @@ export class PiDriver implements SessionDriver {
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
 
-  constructor({ emit, catalog, model }: PiDriverOptions) {
+  constructor({ emit, catalog, model, onUnpin }: PiDriverOptions) {
     this.#emit = emit
     this.#catalog = catalog
     this.#approvals = new ApprovalGate(emit, catalog)
@@ -54,7 +56,7 @@ export class PiDriver implements SessionDriver {
     this.#sessions = new SessionFactory(this.#approvals, model)
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
-    this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models)
+    this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
     this.#threads = new ThreadRegistry((threadId) => {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)

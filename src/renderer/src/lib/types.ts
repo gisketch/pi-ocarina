@@ -33,6 +33,15 @@ export function terminalId(workspaceId: string): string {
   return `terminal:${workspaceId}`
 }
 
+/** The workspace a terminal column belongs to, or null if it is not one.
+ *
+ *  Read from the id rather than from what happens to be focused: closing a
+ *  shell asks the backend a question first, and focus can move while it
+ *  answers. */
+export function workspaceOfTerminal(columnId: string): string | null {
+  return columnId.startsWith('terminal:') ? columnId.slice('terminal:'.length) : null
+}
+
 export interface Workspace {
   id: string
   name: string

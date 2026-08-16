@@ -77,9 +77,13 @@ export function registerSession(catalog: CatalogStore): {
     notifyFinished(threadId, event)
   }
 
+  const terminals = registerTerminals(catalog)
+
   // The stub stays available for seam work and demos; pi is the real backend.
   const driver: SessionDriver =
-    process.env.PIOCARINA_DRIVER === 'stub' ? new StubDriver(emit) : new PiDriver({ emit, catalog })
+    process.env.PIOCARINA_DRIVER === 'stub'
+      ? new StubDriver(emit)
+      : new PiDriver({ emit, catalog, onUnpin: (id) => terminals.kill(id) })
 
   ipcMain.handle(
     SESSION_COMMAND_CHANNEL,
@@ -94,5 +98,5 @@ export function registerSession(catalog: CatalogStore): {
     },
   )
 
-  return { driver, terminals: registerTerminals(catalog) }
+  return { driver, terminals }
 }

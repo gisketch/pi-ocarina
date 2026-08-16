@@ -1,6 +1,6 @@
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
-import { terminalId } from '../types'
+import { terminalId, workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { scrollColumn } from './columns'
 import { preferences } from './preferences.svelte'
@@ -10,6 +10,9 @@ import { newestCodeBlock } from '../thread'
  *  Long enough to be deliberate, short enough that an unrelated later `esc`
  *  is not mistaken for the second half of a chord. */
 const TERM_ESCAPE_WINDOW_MS = 350
+
+/** What a real escape key sends, for the TUIs that need one. */
+const ESCAPE = String.fromCharCode(27)
 
 import {
   type Action,
@@ -126,9 +129,9 @@ class ShellState {
   }
 
   closeThread(threadId: string, { cancelTurn }: { cancelTurn: boolean }): void {
-    const column = app.workspace.threads.find((candidate) => candidate.id === threadId)
-    if (column?.terminal) {
-      terminals.kill(app.workspace.id)
+    const workspaceId = workspaceOfTerminal(threadId)
+    if (workspaceId) {
+      terminals.kill(workspaceId)
       catalog.closeColumn(threadId)
       return
     }
@@ -150,16 +153,34 @@ class ShellState {
 
     if (existing !== -1) {
       app.focusThread(existing)
-      app.mode = 'TERM'
+      this.#enterTerm()
+      // A shell the user exited leaves its column behind. `create` is a no-op
+      // while one is running, so asking again is how you get a live shell back
+      // without closing the column first.
+      void terminals.create(workspaceId).catch(() => {})
       return
     }
 
     catalog.openTerminal(workspaceId)
-    void terminals.create(workspaceId)
+    // A shell that cannot start is the documented native-module failure. The
+    // column goes away again rather than sitting blank forever in TERM.
+    void terminals.create(workspaceId).catch((cause: unknown) => {
+      catalog.failColumn(terminalId(workspaceId), cause)
+      // Checked on the mode, not the column: the column has just been taken
+      // away, so asking whether a terminal is focused always says no.
+      if (app.mode === 'TERM') app.mode = 'NORMAL'
+    })
 
     const column = app.workspace.threads.findIndex((thread) => thread.id === id)
     if (column === -1) return
     app.focusThread(column)
+    this.#enterTerm()
+  }
+
+  #enterTerm(): void {
+    // A timestamp left armed from an earlier exit would turn the next single
+    // escape into a literal one.
+    this.#lastTermEscape = 0
     app.mode = 'TERM'
   }
 
@@ -167,6 +188,13 @@ class ShellState {
    *  shell to see an escape — vim and lazygit both need one, and the mode key
    *  had already eaten it. */
   termEscape(): void {
+    // Escape is reported from every mode so the second half of the chord is
+    // seen; only a focused shell can mean anything by it.
+    if (!app.thread.terminal) {
+      this.#lastTermEscape = 0
+      return
+    }
+
     const now = Date.now()
     const since = now - this.#lastTermEscape
     // A negative gap is not a fast second press — it is a clock that moved
@@ -176,7 +204,7 @@ class ShellState {
     if (!doubled) return
 
     if (!app.thread.terminal) return
-    terminals.write(app.workspace.id, '\u001b')
+    terminals.write(app.workspace.id, ESCAPE)
     app.mode = 'TERM'
   }
 
@@ -237,7 +265,7 @@ class ShellState {
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is
         // TERM, not the composer — which is not even on screen.
-        if (app.thread.terminal) app.mode = 'TERM'
+        if (app.thread.terminal) this.#enterTerm()
         else this.focusComposer()
         break
       case 'blurComposer':

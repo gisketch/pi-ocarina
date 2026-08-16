@@ -1,13 +1,23 @@
 <script lang="ts">
   import { shell } from '$lib/state/shell.svelte'
+  import { workspaceOfTerminal } from '$lib/types'
 
   // Keys are answered by the shell's own modal gate, so this draws the question
   // and nothing else — one place decides what an answer means.
+  //
+  // What is at stake differs: a thread loses a turn, a shell loses a running
+  // process. Saying "turn" over a shell would describe the wrong loss.
+  const isShell = $derived(workspaceOfTerminal(shell.pendingClose ?? '') !== null)
+  const question = $derived(
+    isShell
+      ? 'this shell is running something — closing it kills it'
+      : 'this thread is running — closing it cancels the turn',
+  )
 </script>
 
-<div class="confirm" role="alertdialog" aria-label="Close a running thread">
+<div class="confirm" role="alertdialog" aria-label="Close something that is running">
   <span class="warn">▲</span>
-  <span class="text">this thread is running — closing it cancels the turn</span>
+  <span class="text">{question}</span>
   <span class="keys">
     <span class="key">y</span> close · <span class="key">esc</span> keep
   </span>

@@ -1,3 +1,4 @@
+import { basename } from 'node:path'
 import type { IPty } from 'node-pty'
 
 /** Bytes are flushed on this cadence rather than per read.
@@ -38,6 +39,8 @@ interface Terminal {
  *  when the app does — it is not a daemon, and nothing survives a quit. */
 export class TerminalService {
   readonly #terminals = new Map<string, Terminal>()
+  /** Workspaces whose shell is being spawned right now. */
+  readonly #starting = new Set<string>()
   readonly #emit: TerminalOptions['emit']
   readonly #cwdOf: TerminalOptions['cwdOf']
   readonly #spawn: PtySpawn | undefined
@@ -51,8 +54,19 @@ export class TerminalService {
   /** Starts the workspace's shell, or does nothing if it is already running.
    *  Safe to call on every `t`, which is what makes the key idempotent. */
   async create(workspaceId: string): Promise<void> {
-    if (this.#terminals.has(workspaceId)) return
+    if (this.#starting.has(workspaceId) || this.#terminals.has(workspaceId)) return
+    // Claimed before the await: loading the native module takes long enough
+    // for a second `t` to arrive and spawn a shell nobody can reach.
+    this.#starting.add(workspaceId)
 
+    try {
+      await this.#spawnInto(workspaceId)
+    } finally {
+      this.#starting.delete(workspaceId)
+    }
+  }
+
+  async #spawnInto(workspaceId: string): Promise<void> {
     const spawn = this.#spawn ?? (await loadPty())
     const shell = process.env.SHELL ?? DEFAULT_SHELL
     // A login shell, so the user's aliases and PATH are the ones they expect
@@ -70,8 +84,10 @@ export class TerminalService {
 
     pty.onData((data) => this.#buffer(workspaceId, terminal, data))
     // A shell the user exited is gone; the column stays until they close it,
-    // and asking for it again spawns a fresh one.
-    pty.onExit(() => this.#forget(workspaceId))
+    // and asking for it again spawns a fresh one. Identity is checked because
+    // a dying shell's exit can land after its replacement was created — and
+    // forgetting by key alone would orphan the new one.
+    pty.onExit(() => this.#forget(workspaceId, terminal))
   }
 
   write(workspaceId: string, data: string): void {
@@ -101,8 +117,12 @@ export class TerminalService {
     try {
       // Verified on macOS with node-pty 1.1: this reports "zsh" at the prompt
       // and the command's own name while one runs in the foreground.
+      //
+      // Compared as whole names. A suffix test would call `sh` the shell,
+      // because "/bin/zsh" ends with "sh" — and a running script would be
+      // killed without the question being asked.
       const running = terminal.pty.process
-      return Boolean(running) && !terminal.shell.endsWith(running)
+      return Boolean(running) && basename(terminal.shell) !== running
     } catch {
       // Not knowing is not a reason to claim something is running.
       return false
@@ -113,7 +133,7 @@ export class TerminalService {
     const terminal = this.#terminals.get(workspaceId)
     if (!terminal) return
 
-    this.#forget(workspaceId)
+    this.#forget(workspaceId, terminal)
     try {
       terminal.pty.kill()
     } catch {
@@ -141,9 +161,9 @@ export class TerminalService {
     }, FLUSH_MS)
   }
 
-  #forget(workspaceId: string): void {
-    const terminal = this.#terminals.get(workspaceId)
-    if (terminal?.timer) clearTimeout(terminal.timer)
+  #forget(workspaceId: string, terminal: Terminal): void {
+    if (this.#terminals.get(workspaceId) !== terminal) return
+    if (terminal.timer) clearTimeout(terminal.timer)
     this.#terminals.delete(workspaceId)
   }
 }

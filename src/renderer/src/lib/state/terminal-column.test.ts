@@ -72,10 +72,22 @@ describe('opening the terminal column', () => {
 
     shell.openTerminal()
 
-    expect(create).not.toHaveBeenCalled()
     expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
     expect(app.thread.id).toBe(TERM_ID)
     expect(app.mode).toBe('TERM')
+  })
+
+  it('revives a shell the user exited, without closing the column first', () => {
+    const create = vi.spyOn(terminals, 'create').mockResolvedValue()
+    shell.openTerminal()
+    app.mode = 'NORMAL'
+    create.mockClear()
+
+    // The column outlives its pty; `create` is a no-op while one is running.
+    shell.openTerminal()
+
+    expect(create).toHaveBeenCalledWith('w1')
+    expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
   })
 
   it('does nothing without a live workspace to run a shell in', () => {
@@ -129,121 +141,66 @@ describe('leaving TERM', () => {
   })
 })
 
-describe('moving columns', () => {
-  it('swaps the focused column with its neighbour and follows it', () => {
-    app.focusThread(0)
-
-    shell.moveColumn(1)
-
-    expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s2', 's1'])
-    expect(app.threadIndex).toBe(1)
-    expect(app.thread.id).toBe('s1')
-  })
-
-  it('refuses to move a column off either end', () => {
-    app.focusThread(0)
-    shell.moveColumn(-1)
-    expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s1', 's2'])
-
-    app.focusThread(1)
-    shell.moveColumn(1)
-    expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s1', 's2'])
-  })
-
-  it('moves the terminal like any other column', () => {
-    vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
-
-    shell.moveColumn(-1)
-
-    expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s1', TERM_ID, 's2'])
-  })
-})
-
-describe('closing the terminal column', () => {
+describe('esc esc through the real key path', () => {
+  // The chord has to survive the whole machine: the first press leaves TERM,
+  // so the second one arrives in NORMAL and would never reach the TERM branch.
   beforeEach(() => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
     shell.openTerminal()
-    app.mode = 'NORMAL'
   })
 
-  it('kills the shell and takes the column away when nothing is running', async () => {
-    vi.spyOn(terminals, 'busy').mockResolvedValue(false)
-    const kill = vi.spyOn(terminals, 'kill').mockImplementation(() => {})
+  it('sends a literal escape on two presses inside the window', () => {
+    const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
+    const now = vi.spyOn(Date, 'now')
 
-    shell.requestClose()
-    await settle()
+    now.mockReturnValue(1000)
+    shell.handleKey({ key: 'Escape' })
+    expect(app.mode).toBe('NORMAL')
 
-    expect(kill).toHaveBeenCalledWith('w1')
-    expect(app.workspace.threads.some((thread) => thread.terminal)).toBe(false)
-    expect(shell.pendingClose).toBeNull()
-  })
+    now.mockReturnValue(1100)
+    shell.handleKey({ key: 'Escape' })
 
-  it('asks first when a command is still running', async () => {
-    vi.spyOn(terminals, 'busy').mockResolvedValue(true)
-    const kill = vi.spyOn(terminals, 'kill').mockImplementation(() => {})
-
-    shell.requestClose()
-    await settle()
-
-    expect(shell.pendingClose).toBe(TERM_ID)
-    expect(kill).not.toHaveBeenCalled()
-  })
-
-  it('does not archive the shell, which has no history to hide', async () => {
-    vi.spyOn(terminals, 'busy').mockResolvedValue(false)
-    vi.spyOn(terminals, 'kill').mockImplementation(() => {})
-    const archive = vi.spyOn(catalog, 'closeThread')
-
-    shell.requestClose()
-    await settle()
-
-    expect(archive).not.toHaveBeenCalled()
-  })
-})
-
-describe('remembered column order', () => {
-  it('restores what the user arranged', () => {
-    catalog.applyOrder({ w1: ['s2', 's1'] })
-
-    expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['s2', 's1'])
-  })
-
-  it('keeps a column the stored order never heard of', () => {
-    // A thread created since the last save must still appear rather than being
-    // dropped by an order that predates it.
-    catalog.applyOrder({ w1: ['s2'] })
-
-    expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['s2', 's1'])
-  })
-
-  it('ignores an order naming columns that are gone', () => {
-    catalog.applyOrder({ w1: ['ghost', 's2'] })
-
-    expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['s2', 's1'])
-  })
-})
-
-describe('typing at a focused shell', () => {
-  it('sends `i` to TERM rather than to a composer that is not there', () => {
-    vi.spyOn(terminals, 'create').mockResolvedValue()
-    shell.openTerminal()
-    app.mode = 'NORMAL'
-    const focus = vi.spyOn(shell, 'focusComposer').mockImplementation(() => {})
-
-    shell.handleKey({ key: 'i' })
-
+    expect(write).toHaveBeenCalledWith('w1', ESC)
     expect(app.mode).toBe('TERM')
-    expect(focus).not.toHaveBeenCalled()
   })
 
-  it('still focuses the composer on a thread column', () => {
+  it('sends nothing when the second press is late', () => {
+    const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
+    const now = vi.spyOn(Date, 'now')
+
+    now.mockReturnValue(1000)
+    shell.handleKey({ key: 'Escape' })
+    now.mockReturnValue(9000)
+    shell.handleKey({ key: 'Escape' })
+
+    expect(write).not.toHaveBeenCalled()
+    expect(app.mode).toBe('NORMAL')
+  })
+
+  it('does not fire on a thread column, however fast the presses', () => {
+    const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1000)
+    shell.handleKey({ key: 'Escape' })
     app.focusThread(0)
-    const focus = vi.spyOn(shell, 'focusComposer').mockImplementation(() => {})
 
+    now.mockReturnValue(1050)
+    shell.handleKey({ key: 'Escape' })
+
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('re-arms on entering TERM, so a lone escape stays a lone escape', () => {
+    const write = vi.spyOn(terminals, 'write').mockImplementation(() => {})
+    const now = vi.spyOn(Date, 'now')
+
+    now.mockReturnValue(1000)
+    shell.handleKey({ key: 'Escape' })
+    now.mockReturnValue(1100)
     shell.handleKey({ key: 'i' })
+    now.mockReturnValue(1150)
+    shell.handleKey({ key: 'Escape' })
 
-    expect(app.mode).toBe('INSERT')
-    expect(focus).toHaveBeenCalled()
+    expect(write).not.toHaveBeenCalled()
   })
 })

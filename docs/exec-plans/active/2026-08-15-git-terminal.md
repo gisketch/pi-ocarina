@@ -108,7 +108,8 @@ Steps, verified against the tree before editing (written at `2b0a9cd`):
    `writeTerminal { workspaceId, data }` → `{ ok: true }`,
    `resizeTerminal { workspaceId, cols, rows }` → `{ ok: true }`. Output is
    **not** a session event: pty bytes flow on a dedicated
-   `piocarina:pty:<workspaceId>` channel (preload exposes
+   `pty:<workspaceId>` channel (built as `piocarina:pty:…` in this ticket, but
+   shipped as `pty:…` to match the sibling `session:*` names) (preload exposes
    `terminal.onData(workspaceId, cb)` / `terminal.write(...)`), because a
    busy build would otherwise contend with thread batches in one queue.
 6. **Main.** New `src/main/session/terminal.ts`: `TerminalService` owning one

@@ -2,7 +2,10 @@
   import { onMount } from 'svelte'
   import { Terminal } from '@xterm/xterm'
   import { FitAddon } from '@xterm/addon-fit'
+  import { WebglAddon } from '@xterm/addon-webgl'
   import { app } from '$lib/state/app.svelte'
+  import { registerColumnScroller } from '$lib/state/columns'
+  import { terminalId } from '$lib/types'
   import { terminals } from '$lib/state/terminal.svelte'
   import '@xterm/xterm/css/xterm.css'
 
@@ -12,6 +15,10 @@
     focused: boolean
     onfocus?: () => void
   } = $props()
+
+  /** Lines per j/k press. Matches the thread column's step closely enough that
+   *  the two feel like the same key. */
+  const SCROLL_LINES = 3
 
   let host = $state<HTMLDivElement | null>(null)
   let term: Terminal | null = null
@@ -47,6 +54,18 @@
     fit = new FitAddon()
     term.loadAddon(fit)
     term.open(host)
+
+    // The GPU renderer is what keeps a scrolling build cheap. It is loaded
+    // after open() because it needs a canvas, and it is optional: a machine
+    // that cannot give us a WebGL context still gets a working terminal.
+    try {
+      const webgl = new WebglAddon()
+      webgl.onContextLoss(() => webgl.dispose())
+      term.loadAddon(webgl)
+    } catch {
+      // Falls back to the DOM renderer.
+    }
+
     resize()
 
     // Keystrokes go straight out: buffering a key is a key that feels slow.
@@ -56,7 +75,15 @@
     const observer = new ResizeObserver(() => resize())
     observer.observe(host)
 
+    // j/k scroll the focused column through one registry, whatever the column
+    // is. xterm keeps its scrollback in a buffer of its own rather than as DOM
+    // overflow, so it registers its scroll call instead of an element.
+    const unregister = registerColumnScroller(terminalId(workspaceId), (top) => {
+      term?.scrollLines(Math.sign(top) * SCROLL_LINES)
+    })
+
     return () => {
+      unregister()
       typed.dispose()
       stop()
       observer.disconnect()
@@ -83,10 +110,6 @@
     else term.blur()
   })
 
-  /** Scrollback for `j`/`k`, which reach here through the column scroller. */
-  export function scrollBy(delta: number): void {
-    term?.scrollLines(Math.sign(delta) * 3)
-  }
 </script>
 
 <section class="terminal" class:focused onclickcapture={onfocus} role="presentation">

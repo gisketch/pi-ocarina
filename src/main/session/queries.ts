@@ -13,11 +13,18 @@ export class WorkspaceQueries {
   readonly #workspaces: WorkspaceService
   readonly #catalog: CatalogStore
   readonly #models: ModelControl
+  readonly #onUnpin: ((workspaceId: string) => void) | undefined
 
-  constructor(workspaces: WorkspaceService, catalog: CatalogStore, models: ModelControl) {
+  constructor(
+    workspaces: WorkspaceService,
+    catalog: CatalogStore,
+    models: ModelControl,
+    onUnpin?: (workspaceId: string) => void,
+  ) {
     this.#workspaces = workspaces
     this.#catalog = catalog
     this.#models = models
+    this.#onUnpin = onUnpin
   }
 
   /** The answer, or null when this is not a workspace command. Wrapped rather
@@ -38,6 +45,9 @@ export class WorkspaceQueries {
 
       case 'unpinWorkspace': {
         const { workspaceId } = params as CommandParams<'unpinWorkspace'>
+        // A folder that is no longer pinned has no column to hold its shell,
+        // and a shell nothing can reach is a process nobody can stop.
+        this.#onUnpin?.(workspaceId)
         this.#workspaces.unpin(workspaceId)
         return { result: { ok: true } }
       }

@@ -31,9 +31,24 @@ class Catalog {
     const pinned = await this.#listWorkspaces()
     if (pinned.length === 0) return
 
+    // Shells and arrangement are the renderer's alone — the backend listing
+    // knows only about threads. Reloading (pinning a second folder, say) would
+    // otherwise drop an open terminal column and undo every ⇧H/⇧L.
+    const shells = new Set(
+      this.workspaces
+        .filter((workspace) => workspace.threads.some((thread) => thread.terminal))
+        .map((workspace) => workspace.id),
+    )
+    const arrangement = Object.fromEntries(
+      this.workspaces.map((workspace) => [workspace.id, workspace.threads.map((t) => t.id)]),
+    )
+
     const built = await Promise.all(pinned.map((workspace) => this.#build(workspace)))
-    this.workspaces = built
+    this.workspaces = built.map((workspace) =>
+      shells.has(workspace.id) ? withTerminal(workspace) : workspace,
+    )
     this.source = 'live'
+    this.applyOrder(arrangement)
     // The demo catalog just went away underneath whatever was focused.
     app.reconcile()
   }
@@ -87,19 +102,16 @@ class Catalog {
   /** Puts the workspace's shell on the strip. One per workspace: asking twice
    *  is asking for the one that is already there. */
   openTerminal(workspaceId: string): void {
-    const id = terminalId(workspaceId)
     this.workspaces = this.workspaces.map((workspace) =>
-      workspace.id !== workspaceId || workspace.threads.some((thread) => thread.id === id)
-        ? workspace
-        : {
-            ...workspace,
-            threads: [
-              ...workspace.threads.filter((thread) => !thread.fresh),
-              { id, title: 'zsh', status: 'idle' as const, meta: '', terminal: true },
-            ],
-          },
+      workspace.id === workspaceId ? withTerminal(workspace) : workspace,
     )
     app.reconcile()
+  }
+
+  /** Reports a column that could not start, and takes it away again. */
+  failColumn(columnId: string, cause: unknown): void {
+    this.error = describe(cause)
+    this.closeColumn(columnId)
   }
 
   /** Takes any column off the strip without telling the backend anything — the
@@ -266,6 +278,21 @@ function toThread(summary: ThreadSummary): Thread {
     // column reads as idle rather than claiming to know.
     status: 'idle',
     meta: timeOf(summary.modified),
+  }
+}
+
+/** The workspace with its shell column present. Idempotent: asking twice is
+ *  asking for the one that is already there. */
+function withTerminal(workspace: Workspace): Workspace {
+  const id = terminalId(workspace.id)
+  if (workspace.threads.some((thread) => thread.id === id)) return workspace
+
+  return {
+    ...workspace,
+    threads: [
+      ...workspace.threads.filter((thread) => !thread.fresh),
+      { id, title: 'zsh', status: 'idle', meta: '', terminal: true },
+    ],
   }
 }
 

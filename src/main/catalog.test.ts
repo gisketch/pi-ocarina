@@ -281,6 +281,37 @@ describe('catalog versions', () => {
     expect(state.archived).toEqual({ w1: ['s1'] })
   })
 
+  it('upgrades a version 4 catalog, keeping pins, approvals and closed threads', () => {
+    const { state, warning } = parseCatalog(
+      JSON.stringify({
+        version: 4,
+        workspaces: [workspace],
+        workspaceIndex: 0,
+        focus: [0],
+        approvals: { w1: ['bash:pnpm'] },
+        archived: { w1: ['s-old'] },
+        preferences: { grain: false, motion: true, leaderTimeoutMs: 1200 },
+      }),
+    )
+
+    expect(warning).toBeUndefined()
+    expect(state.version).toBe(5)
+    expect(state.workspaces).toEqual([workspace])
+    expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
+    expect(state.archived).toEqual({ w1: ['s-old'] })
+    expect(state.preferences.leaderTimeoutMs).toBe(1200)
+    // Version 4 never arranged columns, so nothing starts reordered.
+    expect(state.order).toEqual({})
+  })
+
+  it('reads a stored column order, dropping entries it cannot read', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({ version: 5, order: { w1: ['s1', 7, '', null], w2: 'all' } }),
+    )
+
+    expect(state.order).toEqual({ w1: ['s1'] })
+  })
+
   it('still refuses a version it has never heard of', () => {
     const { state, warning } = parseCatalog('{"version":99}')
 
