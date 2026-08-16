@@ -71,6 +71,12 @@
   // The agent name that introduces the focused block, so it stays lit with it.
   const litLabel = $derived(labelOwning(shown, opensTurn, focusedBlock))
 
+  /** A message registers its own stops, one per segment, so the wrapper must
+   *  never also claim the block id — two elements answering to one ring means
+   *  the leap walks the same text twice and `revealBlock` picks whichever the
+   *  registry happened to keep. */
+  const owns = (block: Block): boolean => block.kind !== 'user' && block.kind !== 'agent'
+
   /** Whether the menu is open on this exact block. */
   const menuOn = (navId: string): boolean =>
     blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navId
@@ -106,15 +112,31 @@
       class="nav"
       class:dim={dimming && focused !== block.id}
       class:hosting={menuOn(block.id)}
-      use:navTarget={{ threadId, navId: block.id }}
+      use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
       {#if menuOn(block.id)}
         <BlockMenu />
       {/if}
       {#if block.kind === 'user'}
-        <Message role="user" text={block.text} />
+        <Message
+          role="user"
+          text={block.text}
+          {threadId}
+          blockId={block.id}
+          focusedNav={focused}
+          dimmed={dimming}
+        />
       {:else if block.kind === 'agent'}
-        <Message role="agent" text={block.text} streaming={block.streaming} labelled={false} />
+        <Message
+          role="agent"
+          text={block.text}
+          streaming={block.streaming}
+          labelled={false}
+          {threadId}
+          blockId={block.id}
+          focusedNav={focused}
+          dimmed={dimming}
+        />
       {:else if block.kind === 'ask'}
         <AskCard
           question={block.question}

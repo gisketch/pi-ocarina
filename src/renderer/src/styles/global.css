@@ -171,3 +171,16 @@ a:hover {
 ::highlight(leap-match) {
   color: var(--leap-hit);
 }
+
+/* Code colouring.
+   Keywords take the workspace's own hue, because they are the structure of the
+   thing and the accent is the workspace's identity. Strings and numbers take
+   the two rotations, so a block reads as three voices rather than a rainbow.
+   Comments carry no hue at all — they are the part the reader skips. */
+.tok-keyword { color: var(--tone-1); }
+.tok-string { color: var(--tone-2); }
+.tok-number { color: var(--tone-3); }
+.tok-comment { color: var(--fg-dimmest); font-style: italic; }
+.tok-punct { color: var(--fg-dimmer); }
+.tok-name,
+.tok-plain { color: var(--fg-agent); }

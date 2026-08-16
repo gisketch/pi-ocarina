@@ -9,6 +9,8 @@
  *  that spawned them, and the ledger's one-level nesting stays the single
  *  special case it already is. */
 
+import { parseMarkdown } from './markdown'
+import { segmentText, segmentsOf } from './markdown-segments'
 import type { Block, ToolRow } from './thread'
 
 export interface NavBlock {
@@ -21,6 +23,8 @@ export interface NavBlock {
   blockId: string
   /** Set for tool rows only. */
   rowId?: string
+  /** Set when a message split around a fenced block. */
+  segment?: number
   /** The session entry this message can be rewound to, when it is one. */
   checkpointId?: string
   /** Short human label — the block menu's header shows it. */
@@ -72,6 +76,32 @@ function toolEntry(blockId: string, row: ToolRow): NavBlock {
   }
 }
 
+/** One message's stops.
+ *
+ *  A message with no fenced block is one stop, keeping the block's own id — so
+ *  nothing about the common case changes. One that has code splits around it,
+ *  and the pieces are numbered with `#` rather than `:`, because a block id can
+ *  already contain a colon (`user:e1`) and the ledger's row separator would be
+ *  ambiguous here. */
+function messageEntries(kind: 'user' | 'agent', blockId: string, text: string): NavBlock[] {
+  const segments = segmentsOf(parseMarkdown(text))
+  if (segments.length <= 1) {
+    return [{ id: blockId, kind, blockId, label: short(text), text }]
+  }
+
+  return segments.map((segment, at) => {
+    const source = segmentText(segment)
+    return {
+      id: `${blockId}#${at}`,
+      kind,
+      blockId,
+      segment: at,
+      label: short(segment[0]?.type === 'code' ? `code ${source}` : source),
+      text: source,
+    }
+  })
+}
+
 /** Flattens a rendered thread into the things a reader can point at.
  *
  *  Checkpoints produce no entry of their own; their id rides along on the user
@@ -115,18 +145,15 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
       continue
     }
 
-    if (block.kind === 'user') {
-      const entry: NavBlock = {
-        id: block.id,
-        kind: 'user',
-        blockId: block.id,
-        label: short(block.text),
-        text: block.text,
-        ...(pending === null ? {} : { checkpointId: pending }),
-      }
-      list.push(entry)
+    if (block.kind === 'user' || block.kind === 'agent') {
+      const entries = messageEntries(block.kind, block.id, block.text)
+      // The checkpoint belongs to the message, so it rides on its first stop.
+      const first = entries[0]
+      if (block.kind === 'user' && first && pending !== null) first.checkpointId = pending
+
+      list.push(...entries)
       pending = null
-      adjacent = entry
+      adjacent = block.kind === 'user' ? (first ?? null) : null
       continue
     }
 
@@ -134,10 +161,10 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
       id: block.id,
       kind: block.kind,
       blockId: block.id,
-      label: block.kind === 'agent' ? short(block.text) : cardLabel(block),
+      label: cardLabel(block),
       // Untruncated: `copy` on an approve card must give back a command that
       // still runs, not the 40 characters the header had room for.
-      text: block.kind === 'agent' ? block.text : cardText(block),
+      text: cardText(block),
     })
     pending = null
     adjacent = null

@@ -52,6 +52,15 @@
      leaping column can mute `--accent` for everything else without also
      muting the one thing it is trying to make stand out. */
   --leap-hit: oklch(0.76 0.14 var(--accent-hue));
+
+  /* A triad turned from the workspace's own hue, so nothing in the app is a
+     colour that was picked once and then stopped agreeing with the accent.
+     Rotations rather than fixed values: whatever hue a workspace is seeded
+     with, these three stay a set. Chroma falls as the hue travels, so the
+     accent keeps the loudest voice and the other two support it. */
+  --tone-1: oklch(0.76 0.14 var(--accent-hue));
+  --tone-2: oklch(0.78 0.11 calc(var(--accent-hue) + 60));
+  --tone-3: oklch(0.8 0.09 calc(var(--accent-hue) + 180));
   --accent-tint: radial-gradient(
     1000px 520px at 72% -12%,
     oklch(0.5 0.1 var(--accent-hue) / 0.05),

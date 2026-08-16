@@ -104,7 +104,7 @@ export function collapsedBefore(blocks: Block[]): number {
   return cut > 0 ? cut : 0
 }
 
-export type { InlineSegment, MarkdownNode } from './markdown'
+export type { InlineSegment, ListItem, MarkdownNode } from './markdown'
 export { lastCodeBlock, parseInline, parseMarkdown } from './markdown'
 
 /** The newest fenced code block anywhere in a thread — what `y` copies.

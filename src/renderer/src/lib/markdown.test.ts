@@ -156,3 +156,111 @@ describe('newestCodeBlock', () => {
     expect(newestCodeBlock([agent('a1', 'nothing to copy')])).toBeNull()
   })
 })
+
+
+describe('headings', () => {
+  it('reads one to three hashes', () => {
+    const nodes = parseMarkdown('# One\n## Two\n### Three')
+    expect(nodes.map((n) => (n.type === 'heading' ? n.level : n.type))).toEqual([1, 2, 3])
+  })
+
+  it('clamps deeper hashes to three', () => {
+    // Three treatments exist. A fourth level falling through to body text
+    // would read as a paragraph the agent meant as a heading.
+    const [node] = parseMarkdown('##### Deep')
+    expect(node).toEqual({ type: 'heading', level: 3, segments: [{ text: 'Deep', code: false }] })
+  })
+
+  it('needs a space, so a comment or a tag stays text', () => {
+    expect(parseMarkdown('#hashtag').map((n) => n.type)).toEqual(['paragraph'])
+  })
+
+  it('closes the paragraph above it', () => {
+    expect(parseMarkdown('words\n## Head').map((n) => n.type)).toEqual(['paragraph', 'heading'])
+  })
+
+  it('reads inline markers inside itself', () => {
+    const [node] = parseMarkdown('## the `sync` worker')
+    if (node.type !== 'heading') throw new Error('not a heading')
+    expect(node.segments.map((s) => s.code)).toEqual([false, true, false])
+  })
+})
+
+describe('thematic breaks', () => {
+  it('reads three or more of any marker', () => {
+    expect(parseMarkdown('---\n***\n___').map((n) => n.type)).toEqual(['rule', 'rule', 'rule'])
+  })
+
+  it('wins over the bullet rule, which would also claim it', () => {
+    expect(parseMarkdown('- a\n---').map((n) => n.type)).toEqual(['list', 'rule'])
+  })
+
+  it('stays literal inside a fence', () => {
+    const [node] = parseMarkdown('```\n---\n```')
+    expect(node).toEqual({ type: 'code', lang: '', text: '---' })
+  })
+
+  it('leaves two markers alone', () => {
+    expect(parseMarkdown('--').map((n) => n.type)).toEqual(['paragraph'])
+  })
+})
+
+describe('bold', () => {
+  it('reads a double star', () => {
+    expect(parseInline('go to **Admin**')).toEqual([
+      { text: 'go to ', code: false },
+      { text: 'Admin', code: false, bold: true },
+    ])
+  })
+
+  it('keeps code inside bold, because the two nest', () => {
+    expect(parseInline('**run `sync` now**')).toEqual([
+      { text: 'run ', code: false, bold: true },
+      { text: 'sync', code: true, bold: true },
+      { text: ' now', code: false, bold: true },
+    ])
+  })
+
+  it('leaves a star inside code alone, where it is a glob', () => {
+    expect(parseInline('`src/**/*.ts`')).toEqual([{ text: 'src/**/*.ts', code: true }])
+  })
+
+  it('leaves a single star alone', () => {
+    expect(parseInline('2 * 3')).toEqual([{ text: '2 * 3', code: false }])
+  })
+})
+
+describe('list nesting', () => {
+  it('keeps counting when a nested bullet interrupts', () => {
+    // The bug from the screenshot: the nested bullets closed the ordered list,
+    // so `Save` opened a new one and the numbering restarted at 1.
+    const [node] = parseMarkdown(
+      '1. Go to Admin\n2. Click Add\n3. Fill fields:\n   - Name\n   - Unit\n4. Save',
+    )
+    if (node.type !== 'list') throw new Error('not a list')
+
+    expect(node.ordered).toBe(true)
+    expect(node.items).toHaveLength(4)
+    expect(node.items[2].children?.map((c) => c.segments[0].text)).toEqual(['Name', 'Unit'])
+    expect(node.items[2].childrenOrdered).toBe(false)
+    expect(node.items[3].segments[0].text).toBe('Save')
+  })
+
+  it('does not nest a deeper indent a second time', () => {
+    const [node] = parseMarkdown('- a\n  - b\n    - c')
+    if (node.type !== 'list') throw new Error('not a list')
+
+    expect(node.items).toHaveLength(1)
+    expect(node.items[0].children?.map((c) => c.segments[0].text)).toEqual(['b', 'c'])
+  })
+
+  it('still starts a new list when the kind changes at the same level', () => {
+    expect(parseMarkdown('- a\n1. b').map((n) => n.type)).toEqual(['list', 'list'])
+  })
+
+  it('does not nest under nothing', () => {
+    const [node] = parseMarkdown('   - orphan')
+    if (node.type !== 'list') throw new Error('not a list')
+    expect(node.items[0].children).toBeUndefined()
+  })
+})
