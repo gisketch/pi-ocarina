@@ -3,6 +3,7 @@
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
   import BlockMenu from './BlockMenu.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
+  import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
 
@@ -25,14 +26,21 @@
 
   const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
-  // Each row carries its own default expansion; user toggles layer on top so rows
-  // that arrive later (streaming) still open with their intended default.
-  let overrides = $state<Record<string, boolean>>({})
-  const open = $derived({ ...initialOpenState(rows), ...overrides })
+  /** Whether the menu is open on this exact row. */
+  const menuOn = (navId: string): boolean =>
+    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navId
+
+  // Each row carries its own default expansion; what a person changed layers on
+  // top, so rows that arrive later (streaming) still open with their intended
+  // default. The overrides live outside this component because `l` on the
+  // focused block opens a row too, from a keyboard layer with nothing to reach.
+  const defaults = $derived(initialOpenState(rows))
+  const isOpen = (row: ToolRow): boolean =>
+    toolOpen.isOpen(threadId, row.id, defaults[row.id] ?? false)
 
   function toggle(row: ToolRow): void {
     if (!isExpandable(row)) return
-    overrides = { ...overrides, [row.id]: !open[row.id] }
+    toolOpen.toggle(threadId, row.id, defaults[row.id] ?? false)
   }
 </script>
 
@@ -43,13 +51,13 @@
   <div
     class="entry"
     class:dim={!nested && dimmed && focusedNav !== navIdOf(row)}
-    class:ring={!nested && focusedNav === navIdOf(row)}
+    class:hosting={!nested && menuOn(navIdOf(row))}
     use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
   >
     {#if !nested && blockFocus.labelOf(threadId, navIdOf(row))}
       <span class="hint">{blockFocus.labelOf(threadId, navIdOf(row))}</span>
     {/if}
-    {#if !nested && blockMenu.threadId === threadId && blockMenu.block?.id === navIdOf(row)}
+    {#if !nested && menuOn(navIdOf(row))}
       <BlockMenu />
     {/if}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
@@ -68,12 +76,12 @@
         <span class="meta {metaTone(row)}">
           {#each metaSegments(row.meta) as segment, i (i)}<span class={segment.tone ?? ''}
             >{segment.text}</span
-          >{/each}{#if isExpandable(row)}<span class="chev"> {chevron(open[row.id])}</span>{/if}
+          >{/each}{#if isExpandable(row)}<span class="chev"> {chevron(isOpen(row))}</span>{/if}
         </span>
       {/if}
     </svelte:element>
 
-    {#if row.body && open[row.id]}
+    {#if row.body && isOpen(row)}
       <ToolBody body={row.body} />
     {/if}
 
@@ -125,10 +133,12 @@
   .entry.dim {
     opacity: 0.5;
   }
-  /* The ring sits on the spine side, where the node dots already are, so a
-     focused row reads as "this one on the spine" rather than as a new box. */
-  .entry.ring {
-    box-shadow: inset 2px 0 0 var(--accent);
+  /* A row contains its own layout and paint, which would slice the menu off at
+     the row's own height. The ledger's spine is drawn by the parent, so
+     dropping containment here costs the row nothing. */
+  .entry.hosting {
+    contain: none;
+    z-index: 5;
   }
   /* On the spine side, where the row's own left edge is: a label over the kind
      column would hide the one word that says what the row did. */

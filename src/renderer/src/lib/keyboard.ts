@@ -15,6 +15,7 @@ export type Action =
   | { type: 'page'; delta: number }
   | { type: 'leap' }
   | { type: 'openBlockMenu' }
+  | { type: 'expandBlock'; open: boolean }
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
@@ -38,6 +39,9 @@ export interface KeyEventLike {
 export interface KeyContext {
   /** Number of pinned workspaces; digit keys beyond this are ignored. */
   workspaceCount: number
+  /** Whether the focused column is a shell. A shell has no blocks, so the
+   *  transcript keys stay a scroll and READ is never entered. */
+  terminalColumn: boolean
 }
 
 export interface KeyResult {
@@ -98,6 +102,12 @@ function focusFor(overlay: Overlay | null): Action[] {
   if (overlay === 'palette') return [{ type: 'focusPalette' }]
   if (overlay === 'switcher') return [{ type: 'focusSwitcher' }]
   return []
+}
+
+/** Reaching into the transcript. A shell has no blocks to reach into, so it
+ *  keeps the old behaviour and stays in NORMAL. */
+function enterRead(state: KeyState, ctx: KeyContext, actions: Action[]): KeyResult {
+  return result(ctx.terminalColumn ? state : { ...state, mode: 'READ' }, actions)
 }
 
 /** Whether something on screen owns the caret. Everything the shell would
@@ -177,6 +187,27 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // Everything below is NORMAL-only; typing must reach the input untouched.
   if (typing) return result(state, [], false)
 
+  // READ owns the four direction keys. h/l stop meaning "another column" and
+  // start meaning "this block, wider or narrower" — which is the point: a
+  // reader walking a conversation must not slide into the next thread by
+  // holding a key one press too long. `esc` is the way back to the strip.
+  if (state.mode === 'READ') {
+    switch (key) {
+      case 'j':
+      case 'ArrowDown':
+        return result(state, [{ type: 'moveBlock', delta: 1 }])
+      case 'k':
+      case 'ArrowUp':
+        return result(state, [{ type: 'moveBlock', delta: -1 }])
+      case 'l':
+      case 'ArrowRight':
+        return result(state, [{ type: 'expandBlock', open: true }])
+      case 'h':
+      case 'ArrowLeft':
+        return result(state, [{ type: 'expandBlock', open: false }])
+    }
+  }
+
   // Shift moves the column itself rather than the focus — the same relationship
   // a tiling window manager gives you, and it works on any column, thread or
   // terminal.
@@ -199,9 +230,9 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     case 'ArrowRight':
       return result(state, [{ type: 'moveThread', delta: 1 }])
     case 'j':
-      return result(state, [{ type: 'moveBlock', delta: 1 }])
+      return enterRead(state, ctx, [{ type: 'moveBlock', delta: 1 }])
     case 'k':
-      return result(state, [{ type: 'moveBlock', delta: -1 }])
+      return enterRead(state, ctx, [{ type: 'moveBlock', delta: -1 }])
     case 't':
       return result(state, [{ type: 'openTerminal' }])
     case 'w':
@@ -222,7 +253,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       // the action when there is nothing to act on.
       return result(state, [{ type: 'openBlockMenu' }])
     case 's':
-      return result(state, [{ type: 'leap' }])
+      return enterRead(state, ctx, [{ type: 'leap' }])
     case 'y':
       return result(state, [{ type: 'yank' }])
     default:

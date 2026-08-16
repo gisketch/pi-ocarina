@@ -36,22 +36,27 @@ function short(text: string): string {
   return flat.length > LABEL_MAX ? `${flat.slice(0, LABEL_MAX - 1)}…` : flat
 }
 
-/** What each card calls itself when there is no text to quote. */
-function cardLabel(block: Block): string {
+/** What a card is about, in full. */
+function cardText(block: Block): string {
   switch (block.kind) {
     case 'ask':
-      return short(block.question)
+      return block.question
     case 'approve':
-      return short(block.command)
+      return block.command
     case 'compaction':
       return 'compaction'
     case 'steer':
-      return short(block.text)
+      return block.text
     case 'raw':
       return block.rawKind
     default:
       return block.kind
   }
+}
+
+/** What each card calls itself in the menu's header. */
+function cardLabel(block: Block): string {
+  return short(cardText(block))
 }
 
 function toolEntry(blockId: string, row: ToolRow): NavBlock {
@@ -69,39 +74,59 @@ function toolEntry(blockId: string, row: ToolRow): NavBlock {
 
 /** Flattens a rendered thread into the things a reader can point at.
  *
- *  Checkpoints produce no entry of their own. Both the live translator and the
- *  replay reader emit a checkpoint immediately before the user message from
- *  the same session entry, so the checkpoint's id rides along on that message
- *  and the separator has nothing left to draw. A checkpoint that reaches
- *  anything else first is dropped: it belongs to a message that is not on
- *  screen, and offering to rewind to it from an unrelated block would be a
- *  restore the reader did not ask for. */
+ *  Checkpoints produce no entry of their own; their id rides along on the user
+ *  message from the same session entry, and the separator has nothing left to
+ *  draw. Which side that message is on depends on where the thread came from:
+ *
+ *  - Replaying a session reads the entry once and emits the checkpoint first
+ *    (`replay.ts`).
+ *  - A live turn emits the message from the driver before pi is even asked
+ *    (`pi-driver.ts`), and the checkpoint arrives later from the translator,
+ *    when pi appends the entry.
+ *
+ *  So a checkpoint attaches to whichever user message is *adjacent* to it, and
+ *  prefers the one just before. Adjacency is the whole rule: it is what stops
+ *  a checkpoint from reaching past a message that produced no blocks and
+ *  labelling the next one with an entry that rewinds further back than the
+ *  reader is pointing. A checkpoint with no neighbouring message is dropped. */
 export function navBlocks(blocks: Block[]): NavBlock[] {
   const list: NavBlock[] = []
-  let pendingCheckpoint: string | null = null
+  /** A checkpoint waiting for the message that comes after it. */
+  let pending: string | null = null
+  /** The message that came immediately before, when one did. */
+  let adjacent: NavBlock | null = null
 
   for (const block of blocks) {
     if (block.kind === 'checkpoint') {
-      pendingCheckpoint = block.id
+      if (adjacent !== null && adjacent.checkpointId === undefined) {
+        adjacent.checkpointId = block.id
+        pending = null
+      } else {
+        pending = block.id
+      }
+      adjacent = null
       continue
     }
 
     if (block.kind === 'ledger') {
       for (const row of block.rows) list.push(toolEntry(block.id, row))
-      pendingCheckpoint = null
+      pending = null
+      adjacent = null
       continue
     }
 
     if (block.kind === 'user') {
-      list.push({
+      const entry: NavBlock = {
         id: block.id,
         kind: 'user',
         blockId: block.id,
         label: short(block.text),
         text: block.text,
-        ...(pendingCheckpoint === null ? {} : { checkpointId: pendingCheckpoint }),
-      })
-      pendingCheckpoint = null
+        ...(pending === null ? {} : { checkpointId: pending }),
+      }
+      list.push(entry)
+      pending = null
+      adjacent = entry
       continue
     }
 
@@ -110,9 +135,12 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
       kind: block.kind,
       blockId: block.id,
       label: block.kind === 'agent' ? short(block.text) : cardLabel(block),
-      text: block.kind === 'agent' ? block.text : cardLabel(block),
+      // Untruncated: `copy` on an approve card must give back a command that
+      // still runs, not the 40 characters the header had room for.
+      text: block.kind === 'agent' ? block.text : cardText(block),
     })
-    pendingCheckpoint = null
+    pending = null
+    adjacent = null
   }
 
   return list

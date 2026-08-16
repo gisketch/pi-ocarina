@@ -8,10 +8,11 @@
 import { navBlocks } from '../blocks'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
-import { blockFocus } from './block-focus.svelte'
+import { blockFocus, revealBlock } from './block-focus.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { scrollColumn } from './columns'
 import { threads } from './threads.svelte'
+import { toolOpen } from './tool-open.svelte'
 
 /** How many `j` presses a half-page press is worth to a column that scrolls by
  *  a step rather than to a block. */
@@ -29,9 +30,62 @@ class BlockNav {
     return navBlocks(threads.get(threadId).blocks)
   }
 
-  /** `esc` in a plain column. The ring goes; the dim goes with it. */
+  /** `esc` out of READ. The ring goes; the dim goes with it. */
   release(): void {
     blockFocus.clear(app.thread.id)
+  }
+
+  /** The composer took the caret, by mouse rather than by `i`. It means the
+   *  same thing: the reader has stopped reading, so the transcript gets its
+   *  plain look back rather than sitting half-dimmed behind a live caret. */
+  startTyping(): void {
+    app.mode = 'INSERT'
+    this.release()
+  }
+
+  /** Everything a closed column was remembering. */
+  forget(threadId: string): void {
+    blockFocus.forget(threadId)
+    toolOpen.forget(threadId)
+    if (blockMenu.threadId === threadId) blockMenu.close()
+  }
+
+  /** Closes a menu or a set of hints that no longer has anything under it.
+   *
+   *  Both are modal and both swallow keys, so either one left pointing at a
+   *  column the reader has moved away from — or at a block a restore has taken
+   *  — would eat every keystroke from behind a surface that is not drawn. */
+  dropStaleOverlays(): void {
+    const here = app.thread.id
+
+    if (blockMenu.open) {
+      const block = blockMenu.block
+      const gone =
+        blockMenu.threadId !== here ||
+        block === null ||
+        !this.#list(blockMenu.threadId).some((entry) => entry.id === block.id)
+      if (gone) blockMenu.close()
+    }
+
+    const leap = blockFocus.leap
+    if (leap !== null && leap.threadId !== here) blockFocus.cancelLeap()
+  }
+
+  /** `l` and `h` in READ. A tool row opens and closes; anything else has
+   *  nothing to widen, and the key does nothing rather than something
+   *  surprising. */
+  expandBlock(open: boolean): void {
+    const threadId = app.thread.id
+    const navId = blockFocus.idOf(threadId)
+    if (navId === null) return
+
+    const block = this.#list(threadId).find((entry) => entry.id === navId)
+    if (!block || block.rowId === undefined) return
+
+    toolOpen.set(threadId, block.rowId, open)
+    // Opening a body makes the block taller, and the ring should not be pushed
+    // off the bottom of the view by its own contents.
+    if (open) revealBlock(threadId, navId)
   }
 
   /** One key while hints are on screen. Always consumed: a keystroke that fell

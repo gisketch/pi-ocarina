@@ -5,7 +5,7 @@ import { confirm } from './confirm.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
-import { blockMenu } from './block-menu.svelte'
+import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
@@ -118,11 +118,13 @@ class ShellState {
     const workspaceId = workspaceOfTerminal(threadId)
     if (workspaceId) {
       terminals.kill(workspaceId)
+      blockNav.forget(threadId)
       catalog.closeColumn(threadId)
       return
     }
 
     if (cancelTurn) threads.cancel(threadId)
+    blockNav.forget(threadId)
     catalog.closeThread(threadId)
   }
 
@@ -142,6 +144,12 @@ class ShellState {
     if (confirm.pending) return confirm.handleKey(event)
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
+
+    // A menu or a set of hints can outlive what they point at: a column can be
+    // clicked away, a restore can take the block, a compaction can fold it out
+    // of sight. Either would then swallow every key from behind a surface that
+    // is no longer drawn, so both are dropped before anything reads the key.
+    blockNav.dropStaleOverlays()
 
     // The block menu is a list with a highlight, and it is modal: it ranks
     // below the two questions above and above the hint mode, which is not.
@@ -172,15 +180,16 @@ class ShellState {
     }
 
     const before = this.keyState
-    // `esc` backs out of one thing at a time. An overlay or a mode is the
-    // nearer thing, so the block ring is only released once the column is
-    // otherwise plain — which is also the only state it is visible in.
-    if (event.key === 'Escape' && before.overlay === null && before.mode === 'NORMAL') {
+    // `esc` backs out of one thing at a time, and READ is the thing the ring
+    // belongs to. An open overlay is nearer, so it goes first and the ring
+    // survives to be released by the next press.
+    if (event.key === 'Escape' && before.overlay === null && before.mode === 'READ') {
       blockNav.release()
     }
 
     const { state, actions, preventDefault, timer } = reduceKey(before, event, {
       workspaceCount: app.workspaces.length,
+      terminalColumn: app.thread.terminal === true,
     })
 
     app.mode = state.mode
@@ -213,6 +222,9 @@ class ShellState {
         break
       case 'openBlockMenu':
         blockNav.openBlockMenu()
+        break
+      case 'expandBlock':
+        blockNav.expandBlock(action.open)
         break
       case 'focusComposer':
         // `i` means "start typing at the focused column". For a shell that is
@@ -283,11 +295,7 @@ async function yankNewestCodeBlock(): Promise<void> {
   const code = newestCodeBlock(threads.get(app.thread.id).blocks)
   if (code === null) return
 
-  try {
-    await navigator.clipboard.writeText(code)
-  } catch {
-    // Clipboard access can be refused; losing a copy is not worth a crash.
-  }
+  await copyText(code)
 }
 
 export const shell = new ShellState()

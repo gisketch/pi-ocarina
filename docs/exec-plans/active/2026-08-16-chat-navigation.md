@@ -37,7 +37,9 @@ time the user speaks.
    until the first `j` / `k` / `s`. `esc` clears it; entering INSERT clears it.
    Arriving blocks never steal or clear it.
 4. **Dim is 50% opacity on every block except the focused one**, applied only
-   while focus is set.
+   while focus is set. Opacity is the *whole* of it — an accent strip on the
+   focused block was tried and removed. Two signals for one state is one too
+   many, and the strip shifted the text it marked.
 5. **The menu key is `a`, for "actions".** Home row, left index finger,
    directly beside `s` — the two block-level operations sit side by side. `a`
    is unbound today. Vim's `a` appends, but this app enters INSERT with `i`
@@ -46,6 +48,39 @@ time the user speaks.
    welcome screen.
 6. **Terminal columns keep the old behavior.** `j` / `k` / `ctrl-u` / `ctrl-d`
    in a terminal column scroll the xterm viewport. A shell has no blocks.
+
+## Amendments after the first review round (2026-08-16)
+
+Fable reviewed H1–H4 and found two P1s; the user asked for four changes at the
+same time. Both sets are folded into the tickets above, and the decisions they
+changed are recorded here rather than left to the diff.
+
+10. **READ is a mode.** Walking a transcript is not NORMAL. In READ, `h` and
+    `l` belong to the block — expand and collapse a tool row — and cannot
+    reach the strip, so holding a key one press too long can no longer slide
+    the reader into the next thread. `esc` goes back to NORMAL, where `h` and
+    `l` move between columns again. `j`, `k` and `s` enter READ from NORMAL; a
+    terminal column has no blocks and stays in NORMAL.
+11. **The first press starts where the reader is looking.** `j` with no ring
+    takes the first block in view, `k` the last. Jumping to the absolute top of
+    a thread somebody has scrolled a long way down is not navigation.
+12. **A checkpoint attaches to whichever user message is adjacent to it.**
+    Decision 2 was half right. Replay emits the checkpoint first; a live turn
+    emits the message from the driver before pi is asked, and the checkpoint
+    arrives afterwards. Attaching only backwards meant restore was missing for
+    the entire session it was spoken in. Adjacency is what stops a checkpoint
+    reaching past a message that produced no blocks and labelling the next one.
+13. **Expansion state lives outside the ledger component.** Two things open a
+    row now — a click and `l` — and one of them has no component to reach into.
+14. **The menu escapes its block's paint containment, and flips up when there
+    is no room below.** `content-visibility: auto` on every block brings paint
+    containment, which clipped the menu to a one-line message's box: the
+    restore row and the whole confirm panel were invisible while the state
+    machine ran them.
+15. **A menu or a set of hints is dropped when it loses what it points at.**
+    Both are modal and both swallow keys, so either one left behind on a column
+    the reader clicked away from would eat every keystroke from behind a
+    surface no longer drawn.
 
 ## H1 — `j` and `k` focus a block — `done`
 

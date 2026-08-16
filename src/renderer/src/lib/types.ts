@@ -3,7 +3,10 @@ import type { ThreadRunState } from '../../../shared/vocabulary'
 
 /** `TERM` is `INSERT` for the terminal column: the pty owns every key while it
  *  is on, and `esc` is the one key the shell keeps for itself. */
-export type Mode = 'NORMAL' | 'INSERT' | 'LEADER' | 'TERM'
+/** READ is the transcript: a ring on one block, and h/j/k/l belonging to the
+ *  block rather than to the strip. It exists so that walking a conversation
+ *  cannot move a column by accident — `esc` first, then the column keys. */
+export type Mode = 'NORMAL' | 'READ' | 'INSERT' | 'LEADER' | 'TERM'
 
 /** The column header speaks the same status the reducer produces, so a live
  *  thread and a listed one cannot disagree about what a thread is doing. */

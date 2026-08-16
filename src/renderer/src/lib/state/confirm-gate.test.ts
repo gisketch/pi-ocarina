@@ -33,6 +33,7 @@ import { blockFocus, registerBlock } from './block-focus.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { navBlocks } from '../blocks'
 import { threads } from './threads.svelte'
+import type { Block } from '../thread'
 import { registerColumnBody } from './columns'
 
 const WORKSPACE = {
@@ -225,7 +226,14 @@ describe('the hint mode through the real key path', () => {
 // The menu is modal, and its rank is the whole point: below the two questions
 // that are asked because work is in flight, above the hints that are not.
 describe('the block menu through the real key path', () => {
-  const block = navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0]
+  const blocks: Block[] = [{ kind: 'user', id: 'u1', text: 'hello' }]
+  const block = navBlocks(blocks)[0]
+
+  // The menu is dropped when its block is not in the thread it names, so the
+  // thread has to really hold it.
+  beforeEach(() => {
+    threads.seed('s1', { blocks, status: 'idle', runState: 'idle' })
+  })
 
   it('swallows a key that would otherwise move the focus', () => {
     blockMenu.openOn('s1', block)
@@ -268,60 +276,5 @@ describe('the block menu through the real key path', () => {
 
     expect(blockMenu.open).toBe(false)
     expect(blockFocus.leap).not.toBeNull()
-  })
-})
-
-
-// The state modules can all be right while nothing reaches them. This drives
-// the real key path and asserts on the ring itself, which is the seam the
-// per-module tests step over.
-describe('the transcript through the real key path', () => {
-  beforeEach(() => {
-    threads.seed('s1', {
-      blocks: [
-        { kind: 'user', id: 'u1', text: 'hello' },
-        { kind: 'agent', id: 'a1', text: 'sure' },
-      ],
-      status: 'idle',
-      runState: 'idle',
-    })
-  })
-
-  it('moves the ring on j and k', () => {
-    shell.handleKey({ key: 'j' })
-    expect(blockFocus.idOf('s1')).toBe('u1')
-
-    shell.handleKey({ key: 'j' })
-    expect(blockFocus.idOf('s1')).toBe('a1')
-
-    shell.handleKey({ key: 'k' })
-    expect(blockFocus.idOf('s1')).toBe('u1')
-  })
-
-  it('releases the ring on escape', () => {
-    shell.handleKey({ key: 'j' })
-    shell.handleKey({ key: 'Escape' })
-
-    expect(blockFocus.idOf('s1')).toBeNull()
-  })
-
-  it('opens the menu on a with the focused block, and does nothing without one', () => {
-    shell.handleKey({ key: 'a' })
-    expect(blockMenu.open).toBe(false)
-
-    shell.handleKey({ key: 'j' })
-    shell.handleKey({ key: 'a' })
-
-    expect(blockMenu.open).toBe(true)
-    expect(blockMenu.block?.id).toBe('u1')
-    expect(blockMenu.threadId).toBe('s1')
-  })
-
-  it('gives the transcript back its plain look when the composer takes the caret', () => {
-    shell.handleKey({ key: 'j' })
-    shell.handleKey({ key: 'i' })
-
-    expect(blockFocus.idOf('s1')).toBeNull()
-    app.mode = 'NORMAL'
   })
 })

@@ -146,6 +146,41 @@ describe('paging', () => {
 
   beforeEach(() => blockFocus.clear('p1'))
 
+  it('starts the ring at the top of the view, not the top of the thread', () => {
+    // Scrolled two blocks down: `j` must not teleport back to the first block
+    // of a thread the reader has walked a long way into.
+    const { body, release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 150)
+    body.scrollTop = 200
+
+    blockFocus.move('p1', list, 1)
+    expect(blockFocus.idOf('p1')).toBe('l1:r1')
+    release()
+  })
+
+  it('starts at the bottom of the view when the first press is upwards', () => {
+    const { release } = layout('p1', ['u1', 'a1', 'l1:r1'], 100, 250)
+
+    blockFocus.move('p1', list, -1)
+    expect(blockFocus.idOf('p1')).toBe('l1:r1')
+    release()
+  })
+
+  it('falls back to the end of the list when nothing has painted', () => {
+    blockFocus.move('unpainted', list, 1)
+    expect(blockFocus.idOf('unpainted')).toBe('u1')
+    blockFocus.forget('unpainted')
+  })
+
+  it('forgets a thread whose column has gone', () => {
+    blockFocus.set('p1', 'u1')
+    blockFocus.leap = { threadId: 'p1', ids: ['u1'], labels: ['a'], typed: '' }
+
+    blockFocus.forget('p1')
+
+    expect(blockFocus.idOf('p1')).toBeNull()
+    expect(blockFocus.leap).toBeNull()
+  })
+
   it('lands on the first block at or below the new top', () => {
     // Blocks every 100px, a 400px viewport: half a page is 200px, which is the
     // third block exactly.

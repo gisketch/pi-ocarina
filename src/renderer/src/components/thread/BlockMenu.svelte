@@ -2,9 +2,35 @@
   import { blockMenu } from '$lib/state/block-menu.svelte'
 
   const actions = $derived(blockMenu.actions)
+
+  let el = $state<HTMLElement | null>(null)
+  /** True when the menu would hang past the bottom of the column and be
+   *  clipped by the scroller, so it opens upwards from the block instead. */
+  let up = $state(false)
+
+  // Measured rather than guessed: the height depends on how many actions the
+  // block offers and on whether the confirm panel is showing. Reading
+  // `confirming` and `actions` here is what re-measures when either changes.
+  $effect(() => {
+    void blockMenu.confirming
+    void actions.length
+    if (!el) return
+
+    const column = el.closest('.body')
+    if (!column) return
+
+    // Measured from the block, not from the menu: the menu's own rect already
+    // reflects the last decision, and reading it here would make the effect
+    // depend on its own output and flip back and forth.
+    const host = el.parentElement
+    if (!host) return
+
+    const room = column.getBoundingClientRect().bottom - host.getBoundingClientRect().top
+    up = el.offsetHeight > room
+  })
 </script>
 
-<div class="menu">
+<div class="menu" class:up bind:this={el}>
   <div class="head">{blockMenu.block?.label}</div>
 
   {#each actions as action, i (action.id)}
@@ -52,6 +78,14 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     display: flex;
     flex-direction: column;
+  }
+
+  /* Anchored to the block's bottom edge instead, for a block near the foot of
+     the column. The menu still names the block it belongs to; it just grows
+     the other way. */
+  .menu.up {
+    top: auto;
+    bottom: 0;
   }
 
   .head {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type KeyEventLike, type KeyState, initialKeyState, reduceKey } from './keyboard'
 
-const ctx = { workspaceCount: 3 }
+const ctx = { workspaceCount: 3, terminalColumn: false }
 
 function press(state: KeyState, ...keys: (string | KeyEventLike)[]) {
   let current = state
@@ -18,9 +18,10 @@ function press(state: KeyState, ...keys: (string | KeyEventLike)[]) {
 
 const NORMAL = initialKeyState
 const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
+const READ: KeyState = { ...initialKeyState, mode: 'READ' }
 
 describe('the welcome screen', () => {
-  const empty = { workspaceCount: 0 }
+  const empty = { workspaceCount: 0, terminalColumn: false }
 
   it('makes ⏎ pin a folder when nothing is pinned', () => {
     const result = reduceKey(NORMAL, { key: 'Enter' }, empty)
@@ -54,9 +55,19 @@ describe('NORMAL bindings', () => {
     expect(press(NORMAL, 'ArrowLeft').actions).toEqual([{ type: 'moveThread', delta: -1 }])
   })
 
-  it('scrolls the focused column with j/k', () => {
+  it('reaches into the transcript on j/k, which is a mode of its own', () => {
     expect(press(NORMAL, 'j').actions).toEqual([{ type: 'moveBlock', delta: 1 }])
-    expect(press(NORMAL, 'k').actions).toEqual([{ type: 'moveBlock', delta: -1 }])
+    expect(press(NORMAL, 'j').state.mode).toBe('READ')
+    expect(press(NORMAL, 'k').state.mode).toBe('READ')
+    expect(press(NORMAL, 's').state.mode).toBe('READ')
+  })
+
+  it('leaves a shell in NORMAL, because it has no blocks to reach into', () => {
+    const shellCtx = { workspaceCount: 3, terminalColumn: true }
+    const result = reduceKey(NORMAL, { key: 'j' }, shellCtx)
+
+    expect(result.state.mode).toBe('NORMAL')
+    expect(result.actions).toEqual([{ type: 'moveBlock', delta: 1 }])
   })
 
   it('pages half a screen on ctrl-d and ctrl-u', () => {

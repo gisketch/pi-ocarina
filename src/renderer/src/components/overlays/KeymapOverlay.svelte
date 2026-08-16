@@ -32,14 +32,14 @@
       ],
     },
     {
-      title: 'THREAD',
+      title: 'READ',
       rows: [
-        ['focus block', 'j / k'],
+        ['enter · move block', 'j / k'],
+        ['expand · collapse', 'l / h'],
         ['half page', '^d / ^u'],
         ['leap to block', 's'],
         ['block actions', 'a'],
-        ['release focus', 'esc'],
-        ['toggle tool call', 'click'],
+        ['back to strip', 'esc'],
         ['yank last code', 'y'],
       ],
     },

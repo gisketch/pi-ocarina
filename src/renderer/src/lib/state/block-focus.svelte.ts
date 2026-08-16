@@ -84,18 +84,58 @@ class BlockFocus {
     this.#focused = { ...this.#focused, [threadId]: navId }
   }
 
+  /** Drops everything remembered about a thread whose column has gone. */
+  forget(threadId: string): void {
+    if (this.#focused[threadId] === undefined) return
+
+    const next = { ...this.#focused }
+    delete next[threadId]
+    this.#focused = next
+    if (this.leap?.threadId === threadId) this.leap = null
+  }
+
   clear(threadId: string): void {
     if (this.#focused[threadId] === undefined || this.#focused[threadId] === null) return
     this.set(threadId, null)
   }
 
-  /** Moves the ring and takes the view with it. */
+  /** Moves the ring and takes the view with it.
+   *
+   *  The first press starts where the reader is looking, not at the top of a
+   *  thread they may have scrolled a long way down. */
   move(threadId: string, list: NavBlock[], delta: number): void {
-    const next = step(list, this.idOf(threadId), delta)
+    const current = this.idOf(threadId)
+    const next = current === null ? this.#firstInView(threadId, list, delta) : step(list, current, delta)
     if (next === null) return
 
     this.set(threadId, next)
     revealBlock(threadId, next)
+  }
+
+  /** The blocks the reader can see, in order. */
+  #visible(threadId: string, list: NavBlock[]): NavBlock[] {
+    const body = columnBody(threadId)
+    if (!body) return []
+
+    const box = body.getBoundingClientRect()
+    return list.filter((entry) => {
+      const el = blockElement(threadId, entry.id)
+      if (!el) return false
+
+      const rect = el.getBoundingClientRect()
+      return rect.bottom > box.top && rect.top < box.bottom
+    })
+  }
+
+  /** Where the ring appears when there was not one. Moving down starts at the
+   *  top of the view and moving up at the bottom of it, so the first press is
+   *  always a small step from what the reader is already reading. A column
+   *  that has not painted has nothing visible, and falls back to its end. */
+  #firstInView(threadId: string, list: NavBlock[], delta: number): string | null {
+    const seen = this.#visible(threadId, list)
+    if (seen.length === 0) return step(list, null, delta)
+
+    return (delta < 0 ? seen[seen.length - 1]?.id : seen[0]?.id) ?? null
   }
 
   /** `ctrl-d` and `ctrl-u`. Half a viewport, and the ring goes with the view.
@@ -113,8 +153,14 @@ class BlockFocus {
       return
     }
 
-    const target = body.scrollTop + (delta * body.clientHeight) / 2
     const origin = body.getBoundingClientRect().top - body.scrollTop
+    const half = (delta * body.clientHeight) / 2
+    // Measured from the ring, not from `scrollTop`. A second press arriving
+    // while the first smooth scroll is still travelling would otherwise page
+    // from where the view happens to be mid-flight, and move less than a
+    // screen for two presses.
+    const from = blockElement(threadId, this.idOf(threadId) ?? '')
+    const target = from ? from.getBoundingClientRect().top - origin + half : body.scrollTop + half
 
     let chosen: string | null = null
     let last: string | null = null
@@ -149,19 +195,7 @@ class BlockFocus {
    *  front of you, and labelling a block two thousand rows down would make the
    *  keystroke a jump rather than a leap. */
   startLeap(threadId: string, list: NavBlock[]): void {
-    const body = columnBody(threadId)
-    if (!body) return
-
-    const box = body.getBoundingClientRect()
-    const ids = list
-      .filter((entry) => {
-        const el = blockElement(threadId, entry.id)
-        if (!el) return false
-
-        const rect = el.getBoundingClientRect()
-        return rect.bottom > box.top && rect.top < box.bottom
-      })
-      .map((entry) => entry.id)
+    const ids = this.#visible(threadId, list).map((entry) => entry.id)
 
     // Nothing visible is not a mode worth entering: it would swallow the next
     // keystroke and then cancel itself.

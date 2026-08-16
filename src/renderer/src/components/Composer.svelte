@@ -9,6 +9,7 @@
   import { attachments } from '$lib/state/attachments.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { blockNav } from '$lib/state/block-nav.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
@@ -230,7 +231,7 @@
       onkeyup={trackCaret}
       rows="1"
       placeholder="Message pi in {app.workspace.name}…  (i to focus)"
-      onfocus={() => (app.mode = 'INSERT')}
+      onfocus={() => blockNav.startTyping()}
       onblur={() => {
         if (app.mode === 'INSERT') app.mode = 'NORMAL'
       }}
