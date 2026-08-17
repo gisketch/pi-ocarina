@@ -190,6 +190,11 @@ export interface ThreadSummary {
   /** ISO timestamp of the last write, for the column's right-hand label. */
   modified: string
   messageCount: number
+  /** The branch of the worktree this thread runs in, or null when it runs in
+   *  the workspace's own directory. Carried in the listing rather than derived
+   *  in the renderer, so a thread reopened after a restart is still known to be
+   *  isolated. */
+  branch?: string | null
 }
 
 /** Commands the UI can issue, with their parameter and result shapes. */
@@ -198,7 +203,14 @@ export interface SessionCommands {
   pinWorkspace: { params: { path: string }; result: { workspace: WorkspaceSummary } }
   unpinWorkspace: { params: { workspaceId: string }; result: { ok: true } }
   listThreads: { params: { workspaceId: string }; result: { threads: ThreadSummary[] } }
-  createThread: { params: { workspaceId: string; title?: string }; result: { threadId: string } }
+  /** `worktree` runs the thread in its own checkout on a new branch, made
+   *  before the session starts — pi is given a working directory once, so this
+   *  cannot be decided later. A failure to create it rejects the command and
+   *  leaves no thread behind. */
+  createThread: {
+    params: { workspaceId: string; title?: string; worktree?: { branch: string } }
+    result: { threadId: string }
+  }
   openThread: { params: { threadId: string }; result: { ok: true } }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: string }; result: { ok: true } }

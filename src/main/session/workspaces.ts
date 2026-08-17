@@ -2,6 +2,14 @@ import { listWorkspaceFiles } from './files'
 import { stat } from 'node:fs/promises'
 import type { ThreadSummary, WorkspaceSummary } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
+import { basename, join } from 'node:path'
+import {
+  addWorktree,
+  listWorktrees,
+  repoOfWorktree,
+  samePath,
+  worktreeRoot,
+} from '../git/worktree'
 
 export type Sdk = typeof import('@earendil-works/pi-coding-agent')
 
@@ -9,6 +17,9 @@ export type Sdk = typeof import('@earendil-works/pi-coding-agent')
 export interface ThreadLocation {
   path: string
   cwd: string
+  /** The branch of the worktree `cwd` is, or null when it is the workspace's
+   *  own directory. */
+  branch?: string | null
 }
 
 /** Pinned folders and the threads inside them.
@@ -48,6 +59,43 @@ export class WorkspaceService {
     return workspace.path
   }
 
+  /** Where a new thread's session should run.
+   *
+   *  With no worktree asked for, that is the workspace itself. With one, the
+   *  checkout is made here — before any session exists — so a failure is a
+   *  failed creation rather than a thread quietly running in the wrong tree. */
+  async cwdForNewThread(
+    workspaceId: string,
+    worktree?: { branch: string },
+  ): Promise<{ cwd: string; branch: string | null }> {
+    const root = this.pathOf(workspaceId)
+    if (!worktree) return { cwd: root, branch: null }
+
+    return { cwd: await addWorktree(root, worktree.branch), branch: worktree.branch }
+  }
+
+  /** Every checkout a workspace's threads can live in: the workspace itself,
+   *  and each worktree this app made under it. */
+  async #trees(workspaceId: string): Promise<{ cwd: string; branch: string | null }[]> {
+    const root = this.pathOf(workspaceId)
+    const trees = await listWorktrees(root).catch(() => [])
+    const ours = trees.filter((tree) => {
+      const owner = repoOfWorktree(tree.path)
+      return owner !== null && samePath(owner, root)
+    })
+
+    return [
+      { cwd: root, branch: null },
+      // Named the way this app names them, not the way git reports them. git
+      // resolves symlinks; the sessions were started under the unresolved path,
+      // and pi lists sessions by the directory string it was given.
+      ...ours.map((tree) => ({
+        cwd: join(worktreeRoot(root), basename(tree.path)),
+        branch: tree.branch,
+      })),
+    ]
+  }
+
   /** Paths the @-mention picker offers, relative to the workspace root. */
   async listFiles(workspaceId: string): Promise<string[]> {
     return listWorkspaceFiles(this.pathOf(workspaceId))
@@ -56,7 +104,17 @@ export class WorkspaceService {
   /** Which pinned workspace owns a folder. Falls back to the path itself so an
    *  approval rule is still scoped to something stable rather than to nothing. */
   idForPath(path: string): string {
-    return this.list().find((workspace) => workspace.path === path)?.id ?? path
+    const workspaces = this.list()
+    const exact = workspaces.find((workspace) => workspace.path === path)
+    if (exact) return exact.id
+
+    // A worktree belongs to the workspace that made it. Without this an
+    // isolated thread would be archived and have its approvals recorded under
+    // its own directory, so closing it would hide nothing and its rules would
+    // be invisible to every other thread in the same repository.
+    const repo = repoOfWorktree(path)
+    const owner = repo === null ? undefined : workspaces.find((w) => samePath(w.path, repo))
+    return owner?.id ?? path
   }
 
   /** The workspace's threads, newest first.
@@ -68,25 +126,37 @@ export class WorkspaceService {
     workspaceId: string,
     { includeArchived = false }: { includeArchived?: boolean } = {},
   ): Promise<ThreadSummary[]> {
-    const cwd = this.pathOf(workspaceId)
     const { SessionManager } = await this.#load()
-    const sessions = await SessionManager.list(cwd)
+    // Every checkout, not only the workspace: pi lists sessions by working
+    // directory, so an isolated thread's session lives under its worktree and
+    // would be missing from its own workspace's strip after a restart.
+    const trees = await this.#trees(workspaceId)
+
+    const listed = await Promise.all(
+      trees.map(async (tree) => {
+        const sessions = await SessionManager.list(tree.cwd).catch(() => [])
+        return sessions.map((session) => ({ session, branch: tree.branch, cwd: tree.cwd }))
+      }),
+    )
+
     // Every session is located, closed ones included: `locate` is how search
     // reads a transcript and how a closed thread is reopened, and a thread we
     // cannot find is a thread that cannot come back.
-    for (const session of sessions) {
-      this.#located.set(session.id, { path: session.path, cwd: session.cwd || cwd })
+    for (const { session, branch, cwd } of listed.flat()) {
+      this.#located.set(session.id, { path: session.path, cwd: session.cwd || cwd, branch })
     }
 
     const hidden = includeArchived ? [] : this.#store.listArchived(workspaceId)
 
-    return sessions
-      .filter((session) => !hidden.includes(session.id))
-      .map((session) => ({
+    return listed
+      .flat()
+      .filter(({ session }) => !hidden.includes(session.id))
+      .map(({ session, branch }) => ({
         id: session.id,
         title: session.name ?? firstLine(session.firstMessage) ?? 'untitled',
         modified: session.modified.toISOString(),
         messageCount: session.messageCount,
+        branch,
       }))
       .sort((a, b) => b.modified.localeCompare(a.modified))
   }
@@ -116,6 +186,12 @@ export class WorkspaceService {
    *  workspace walk to do it. */
   cwdOf(threadId: string): string | undefined {
     return this.#located.get(threadId)?.cwd
+  }
+
+  /** The branch a thread is isolated on, or null when it runs in the
+   *  workspace's own directory. */
+  branchOf(threadId: string): string | null {
+    return this.#located.get(threadId)?.branch ?? null
   }
 
   /** Finds a thread, scanning pinned workspaces only if it has not been seen. */

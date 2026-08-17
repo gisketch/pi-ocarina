@@ -28,7 +28,7 @@ Status legend: `todo` · `in-progress` · `done`.
   already does. `pnpm check`.
 - Blocked by: nothing.
 
-## K2 — A thread can start in a worktree — `todo`
+## K2 — A thread can start in a worktree — `done`
 
 > The backend half of the feature, demoable without any dialog: pass the option
 > and the agent's edits land somewhere else.

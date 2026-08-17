@@ -15,7 +15,8 @@
 
 import { execFile } from 'node:child_process'
 import { readFile, appendFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { realpathSync } from 'node:fs'
+import { join, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { worktreeDirName } from '../../shared/branch-name'
 
@@ -49,6 +50,34 @@ async function git(cwd: string, args: string[]): Promise<string> {
     windowsHide: true,
   })
   return stdout
+}
+
+/** The repository a worktree path belongs to, or null when the path is not one
+ *  of ours.
+ *
+ *  Read from the path rather than compared against a known root, because git
+ *  reports resolved paths: a repository reached through a symlink — every
+ *  temporary directory on macOS is one — comes back under a different prefix
+ *  than the one the app pinned, and a plain `startsWith` then says a worktree
+ *  belongs to nobody. */
+export function repoOfWorktree(path: string): string | null {
+  const marker = `${sep}.ocarina${sep}worktrees${sep}`
+  const at = path.indexOf(marker)
+  return at === -1 ? null : path.slice(0, at)
+}
+
+/** Whether two paths name the same directory, symlinks resolved. */
+export function samePath(one: string, other: string): boolean {
+  if (one === other) return true
+  return resolveReal(one) === resolveReal(other)
+}
+
+function resolveReal(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
 }
 
 /** Where this repository keeps its worktrees. */

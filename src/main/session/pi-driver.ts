@@ -93,8 +93,8 @@ export class PiDriver implements SessionDriver {
 
     switch (name) {
       case 'createThread': {
-        const { workspaceId } = params as CommandParams<'createThread'>
-        return { threadId: await this.#createThread(workspaceId) } as CommandResult<N>
+        const { workspaceId, worktree } = params as CommandParams<'createThread'>
+        return { threadId: await this.#createThread(workspaceId, worktree) } as CommandResult<N>
       }
 
       case 'openThread': {
@@ -219,12 +219,15 @@ export class PiDriver implements SessionDriver {
     return this.#threads.find(threadId)?.session.sessionFile
   }
 
-  async #createThread(workspaceId: string): Promise<string> {
-    const cwd = this.#workspaces.pathOf(workspaceId)
+  async #createThread(workspaceId: string, worktree?: { branch: string }): Promise<string> {
+    // The checkout first: pi is given a working directory when the session
+    // starts, so a worktree that fails to appear must stop the creation rather
+    // than leave a thread running in the tree it was meant to keep out of.
+    const { cwd, branch } = await this.#workspaces.cwdForNewThread(workspaceId, worktree)
     const handle: ThreadHandle = { threadId: '' }
 
     const session = await this.#sessions.create(cwd, workspaceId, handle)
-    handle.threadId = this.#adopt(session, cwd)
+    handle.threadId = this.#adopt(session, cwd, branch)
     return handle.threadId
   }
 
@@ -269,7 +272,9 @@ export class PiDriver implements SessionDriver {
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
     const session = await this.#sessions.open(cwd, workspaceId, sessionManager, threadId)
-    this.#adopt(session, cwd)
+    // `locate` filled this in from the listing, so a reopened thread keeps the
+    // branch it was created on across a restart.
+    this.#adopt(session, cwd, this.#workspaces.branchOf(threadId))
   }
 
   /** Takes ownership of a session: binds its tools, wires its events, and files
@@ -295,7 +300,7 @@ export class PiDriver implements SessionDriver {
     })
   }
 
-  #adopt(session: AgentSession, cwd: string): string {
+  #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {
     const threadId = session.sessionId
     const translator = new PiTranslator(
       () => session.getSessionStats().contextUsage?.contextWindow,
@@ -317,7 +322,7 @@ export class PiDriver implements SessionDriver {
     // the meter would read zero until the thread's next turn ended.
     emitUsage(this.#emit, threadId, session)
     if (session.sessionFile) {
-      this.#workspaces.remember(threadId, { path: session.sessionFile, cwd })
+      this.#workspaces.remember(threadId, { path: session.sessionFile, cwd, branch })
     }
     return threadId
   }

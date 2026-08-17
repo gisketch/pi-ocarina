@@ -84,12 +84,12 @@ class Catalog {
    *  by re-listing the workspace. pi may not have written the session file yet,
    *  so a listing taken now can come back without the thread in it — and the
    *  column would vanish underneath a turn that is already running. */
-  async newThread(workspaceId: string): Promise<string | null> {
+  async newThread(workspaceId: string, worktree?: { branch: string }): Promise<string | null> {
     if (this.source !== 'live') return null
     this.error = null
 
     try {
-      const { threadId } = await session.invoke('createThread', { workspaceId })
+      const { threadId } = await session.invoke('createThread', { workspaceId, worktree })
       threads.follow(threadId)
       this.#insert(workspaceId, threadId)
       return threadId
