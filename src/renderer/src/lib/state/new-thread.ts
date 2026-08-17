@@ -6,17 +6,23 @@
 
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { git } from './git.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
 
 /** Asks about a worktree, then creates the thread. Returns its id, or null
  *  when nothing was made — a branch git would not take, or a reader who backed
  *  out of the question.
  *
- *  Only a repository is asked. `git` is null both for a plain folder and for a
- *  repository whose first read is still out; asking in the second case would be
- *  a dialog about a branch nobody has confirmed. */
+ *  Only a repository is asked, and the answer is waited for: `git` is null both
+ *  for a plain folder and for a repository nobody has read yet, so a freshly
+ *  pinned repository would never be asked about at all — its first thread, the
+ *  one most likely to want its own branch, is exactly the one that would miss
+ *  the question. */
 export async function createThread(workspaceId: string): Promise<string | null> {
-  if (app.workspace.git === null) return catalog.newThread(workspaceId)
+  await git.settled(workspaceId)
+  if (app.workspace.id !== workspaceId || app.workspace.git === null) {
+    return catalog.newThread(workspaceId)
+  }
 
   // The question owns the creation from here: it is the pending state while
   // git runs, and the place a refused branch name is reported.

@@ -178,7 +178,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: a temporary-repository test through `WorkspaceService`.
 - Blocked by: K5.
 
-## K9 — "Not read yet" is not "not a repository" — `todo`
+## K9 — "Not read yet" is not "not a repository" — `done`
 
 - Delivered behavior: a workspace's git state distinguishes a folder that is
   not a repository from one whose first read is still out, and the new-thread

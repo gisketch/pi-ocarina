@@ -12,6 +12,12 @@ import { catalog } from './catalog.svelte'
  *
  *  Every method is a no-op without a bridge, so the browser harness keeps the
  *  demo statuses it started with. */
+/** How long `settled` waits for a first answer.
+ *
+ *  Long enough for a `git status` on a large repository, short enough that a
+ *  backend which is never going to answer does not hold a keystroke. */
+const FIRST_READ_MS = 2000
+
 class Git {
   #started = false
 
@@ -45,6 +51,31 @@ class Git {
     if (workspaceId) bridge?.git.refresh(workspaceId)
   }
 
+  /** Whether main has said anything about this workspace yet.
+   *
+   *  `git === null` on a workspace means two opposite things — a folder that is
+   *  not a repository, and a repository nobody has read yet — and a caller that
+   *  cannot tell them apart will treat a fresh repository as a plain folder. */
+  answered(workspaceId: string): boolean {
+    return answered.has(workspaceId)
+  }
+
+  /** Waits for that first answer, asking for it if nothing has.
+   *
+   *  Resolves as soon as one arrives, and gives up after `FIRST_READ_MS` with
+   *  whatever the workspace currently says — a wrong guess after two seconds is
+   *  better than a keystroke that never does anything. Without a bridge there is
+   *  nobody to answer, so the demo statuses are the answer. */
+  async settled(workspaceId: string): Promise<void> {
+    if (!bridge || this.answered(workspaceId)) return
+
+    this.refresh(workspaceId)
+    const until = Date.now() + FIRST_READ_MS
+    while (!this.answered(workspaceId) && Date.now() < until) {
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+  }
+
   /** Re-reads the repository a thread belongs to. What an agent's finished
    *  tool call means: files may have changed with nothing written under
    *  `.git`, which no watcher can see. */
@@ -57,9 +88,13 @@ class Git {
   }
 }
 
+/** Workspaces main has answered about, whatever the answer was. */
+const answered = new Set<string>()
+
 /** Writes one workspace's state, leaving the others' identities alone so only
  *  the column that changed re-renders. */
 function apply(workspaceId: string, status: GitStatus | null): void {
+  answered.add(workspaceId)
   let changed = false
   const next: Workspace[] = catalog.workspaces.map((workspace) => {
     if (workspace.id !== workspaceId) return workspace

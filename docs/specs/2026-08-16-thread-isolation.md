@@ -164,14 +164,10 @@ a dependency.
   branch outside the app between the check and the create. `git worktree add`
   fails there, and the failure must reach the reader as a message, not a
   silently unisolated thread.
-- **A removed checkout takes its thread out of the listing.** pi lists sessions
-  by working directory, and the app enumerates the directories from
-  `git worktree list`. Once a worktree is removed, its thread is no longer
-  listed, so it cannot be reopened and history search cannot find it — though
-  the transcript itself is untouched, under pi's own session store. Reopening
-  it would fail anyway, since its working directory is gone. Making those
-  threads searchable again needs the retired checkouts remembered in the
-  catalog; that is not in this milestone.
+- **A removed checkout no longer takes its thread with it.** Settled in K8: the
+  catalog remembers the branch of every worktree the app removed, the listing
+  enumerates those names alongside the live ones, and reopening such a thread
+  gives it the workspace's own folder — it stops being isolated at that moment.
 - **The push URL is the remote's to choose.** The link a push prints comes from
   the git server. The app opens it, confined to http/https by the existing
   allow-list and stripped of any credentials, but a hostile remote chooses
