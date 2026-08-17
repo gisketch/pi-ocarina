@@ -12,6 +12,7 @@
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { createThread } from '$lib/state/new-thread'
+  import { runSlash } from '$lib/state/slash-run'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
@@ -85,10 +86,7 @@
   function run(command: SlashCommand): void {
     text = ''
     picked = 0
-
-    if (command.id === 'compact') threads.compact(thread.id)
-    else if (command.id === 'model') onmodel?.()
-    else if (command.id === 'commit') oncommit?.()
+    runSlash(command, { threadId: thread.id, onmodel, oncommit })
   }
 
   /** A fresh column has no thread behind it yet. Sending is what brings one

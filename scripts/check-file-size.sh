@@ -13,7 +13,9 @@ is_allowed_large_file() {
 
 while IFS= read -r -d '' file; do
   case "$file" in
-    */.git/*|*/node_modules/*|*/vendor/*|*/dist/*|*/build/*|*/coverage/*|*/migrations/*|*/.tmp-sonata-*/*|*.generated.*|*.g.cs) continue ;;
+    # `.ocarina/worktrees` holds a checkout per isolated thread: the same
+    # sources again, which would be reported again and are not this tree's.
+    */.git/*|*/.ocarina/*|*/node_modules/*|*/vendor/*|*/dist/*|*/build/*|*/coverage/*|*/migrations/*|*/.tmp-sonata-*/*|*.generated.*|*.g.cs) continue ;;
   esac
   if is_allowed_large_file "$file"; then continue; fi
   lines="$(wc -l < "$file" | tr -d ' ')"

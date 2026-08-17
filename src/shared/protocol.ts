@@ -216,6 +216,16 @@ export interface SessionCommands {
     params: { threadId: string; force?: boolean }
     result: { ok: boolean; reason?: string }
   }
+  /** Every worktree this app made under a workspace, and what each holds. */
+  listWorktrees: {
+    params: { workspaceId: string }
+    result: { worktrees: { branch: string; path: string; dirty: number; commits: number }[] }
+  }
+  /** Removes one of them by path. Same three rules the close path uses. */
+  removeWorktree: {
+    params: { workspaceId: string; path: string; force?: boolean }
+    result: { ok: boolean; reason?: string }
+  }
   /** The git state of the checkout a thread runs in, or null when the thread
    *  is not isolated — the workspace's own state is already published on the
    *  git channel, and answering with it here would let the two disagree. */

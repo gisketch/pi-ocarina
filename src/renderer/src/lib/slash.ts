@@ -1,6 +1,6 @@
 import { fuzzyFilter } from './fuzzy'
 
-export type SlashId = 'commit' | 'compact' | 'model'
+export type SlashId = 'commit' | 'compact' | 'model' | 'worktrees'
 
 export interface SlashCommand {
   id: SlashId
@@ -17,6 +17,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { id: 'commit', name: '/commit', description: 'review and commit changes' },
   { id: 'compact', name: '/compact', description: 'summarize thread, free context' },
   { id: 'model', name: '/model', description: 'switch model / reasoning' },
+  { id: 'worktrees', name: '/worktrees', description: 'list and sweep this workspace’s worktrees' },
 ]
 
 /** The menu is open only while the text is one `/`-word at the very start.

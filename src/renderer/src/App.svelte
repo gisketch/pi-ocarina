@@ -9,6 +9,7 @@
   import CloseConfirm from './components/CloseConfirm.svelte'
   import ConfirmModal from './components/ConfirmModal.svelte'
   import WorktreeAsk from './components/WorktreeAsk.svelte'
+  import SweepOverlay from './components/overlays/SweepOverlay.svelte'
   import ConnectivityBanner from './components/ConnectivityBanner.svelte'
   import Toasts from './components/Toasts.svelte'
   import DiffViewer from './components/overlays/DiffViewer.svelte'
@@ -202,6 +203,7 @@
 
   <ConfirmModal />
   <WorktreeAsk />
+  <SweepOverlay />
 
   {#if app.mode === 'LEADER'}
     <LeaderBar />

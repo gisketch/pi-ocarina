@@ -8,7 +8,13 @@ import type {
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
-import { dropWorktree, threadGitStatus, worktreeOf } from './thread-worktree'
+import {
+  dropWorktree,
+  dropWorktreeAt,
+  listWorkspaceWorktrees,
+  threadGitStatus,
+  worktreeOf,
+} from './thread-worktree'
 import { ApprovalGate } from './approvals'
 import { ChangeLog } from './change-log'
 import { changedFiles } from './changed-files'
@@ -127,6 +133,23 @@ export class PiDriver implements SessionDriver {
       case 'removeThreadWorktree': {
         const { threadId, force } = params as CommandParams<'removeThreadWorktree'>
         return (await dropWorktree(this.#workspaces, threadId, force ?? false)) as CommandResult<N>
+      }
+
+      case 'listWorktrees': {
+        const { workspaceId } = params as CommandParams<'listWorktrees'>
+        return {
+          worktrees: await listWorkspaceWorktrees(this.#workspaces, workspaceId),
+        } as CommandResult<N>
+      }
+
+      case 'removeWorktree': {
+        const { workspaceId, path, force } = params as CommandParams<'removeWorktree'>
+        return (await dropWorktreeAt(
+          this.#workspaces,
+          workspaceId,
+          path,
+          force ?? false,
+        )) as CommandResult<N>
       }
 
       case 'threadGit': {

@@ -69,6 +69,9 @@ export class StubDriver implements SessionDriver {
         return { steerId } as CommandResult<N>
       }
 
+      case 'listWorktrees':
+        return { worktrees: [] } as CommandResult<N>
+
       case 'threadGit':
         // The stub has no repository behind it. Null is what a thread that is
         // not isolated answers, which is every thread here.

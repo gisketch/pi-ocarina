@@ -3,6 +3,7 @@ import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { createThread } from './new-thread'
+import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
 import { threadGit } from './thread-git.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
@@ -159,6 +160,9 @@ class ShellState {
     // before a thread exists, and a key that fell through would move a column
     // behind it.
     if (worktreeAsk.open) return worktreeAsk.handleKey(event)
+    // The sweep is a list of directories with a removal key in it. Same rank:
+    // a key falling through would move a column behind it.
+    if (sweep.open) return sweep.handleKey(event)
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
 

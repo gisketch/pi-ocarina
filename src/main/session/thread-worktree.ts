@@ -6,7 +6,13 @@
 
 import type { GitStatus } from '../../shared/protocol'
 import { readStatus } from '../git/service'
-import { removeWorktree, repoOfWorktree, worktreeState } from '../git/worktree'
+import {
+  listWorktrees,
+  removeWorktree,
+  repoOfWorktree,
+  samePath,
+  worktreeState,
+} from '../git/worktree'
 import type { WorkspaceService } from './workspaces'
 
 export interface ThreadWorktree {
@@ -44,6 +50,58 @@ export async function threadGitStatus(
   if (branch === null || cwd === undefined) return null
 
   return readStatus(cwd)
+}
+
+/** Every worktree a workspace has, and what each of them holds.
+ *
+ *  What the sweep lists. The state of each is read rather than remembered,
+ *  because a worktree an agent has been working in all morning is not the one
+ *  that was created this morning. */
+export async function listWorkspaceWorktrees(
+  workspaces: WorkspaceService,
+  workspaceId: string,
+): Promise<ThreadWorktree[]> {
+  const root = workspaces.pathOf(workspaceId)
+  const trees = await listWorktrees(root).catch(() => [])
+
+  const ours = trees.filter((tree) => {
+    const owner = repoOfWorktree(tree.path)
+    return owner !== null && samePath(owner, root) && tree.branch !== null
+  })
+
+  return Promise.all(
+    ours.map(async (tree) => ({
+      branch: tree.branch as string,
+      path: tree.path,
+      ...(await worktreeState(tree.path)),
+    })),
+  )
+}
+
+/** Removes a worktree named by path, under the same three rules the close path
+ *  uses. The sweep is a second door to the same room, not a way around it. */
+export async function dropWorktreeAt(
+  workspaces: WorkspaceService,
+  workspaceId: string,
+  path: string,
+  force: boolean,
+): Promise<{ ok: boolean; reason?: string }> {
+  const root = workspaces.pathOf(workspaceId)
+  const owner = repoOfWorktree(path)
+  if (owner === null || !samePath(owner, root)) {
+    return { ok: false, reason: 'not a worktree this workspace made' }
+  }
+
+  const state = await worktreeState(path)
+  if (state.commits > 0) return { ok: false, reason: 'the branch holds commits' }
+  if (state.dirty > 0 && !force) return { ok: false, reason: 'the worktree has uncommitted work' }
+
+  try {
+    await removeWorktree(root, path, { force })
+    return { ok: true }
+  } catch (cause) {
+    return { ok: false, reason: cause instanceof Error ? cause.message : String(cause) }
+  }
 }
 
 /** Takes a thread's worktree away.

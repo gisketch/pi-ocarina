@@ -99,7 +99,7 @@ Status legend: `todo` · `in-progress` · `done`.
   a live pass for the confirm modal.
 - Blocked by: K2.
 
-## K5b — The sweep command — `todo`
+## K5b — The sweep command — `done`
 
 - Delivered behavior: `/worktrees` lists every checkout under
   `.ocarina/worktrees` for the focused workspace, marks the ones with no live
@@ -130,7 +130,7 @@ Status legend: `todo` · `in-progress` · `done`.
   live push against a scratch remote.
 - Blocked by: K2. Sits beside K5.
 
-## K7 — The failure pass — `todo`
+## K7 — The failure pass — `done`
 
 > Two of the spec's risks are only observable in a real repository, and both
 > silently produce a broken working day if they are wrong.
@@ -144,3 +144,20 @@ Status legend: `todo` · `in-progress` · `done`.
   with an active worktree collects the same number of tests as without one.
 - Validation: the pass itself, written into this plan.
 - Blocked by: K5, K6.
+
+> **Found, and fixed.** The risk was real, in the one tool nobody would have
+> thought to check: `scripts/check-file-size.sh` walks the working tree with
+> `find`, so a worktree made it report the *worktree's* copy of a large vendor
+> file as this tree's own failure. `.ocarina/` joined its skip list beside
+> `.git` and `node_modules`.
+>
+> Everything else was clean, measured with a real worktree checked out in this
+> repository: `pnpm test` collected the same 1132 tests, `pnpm check` the same
+> 1624 files, `pnpm build` unchanged. vitest is scoped to `src/**` and
+> svelte-check to the tsconfig, so neither can see a checkout under `.ocarina`.
+>
+> The three failure paths are each proven by a test rather than by a session:
+> a taken branch name (`worktree.test.ts`, `workspaces-worktree.test.ts`), a
+> dirty worktree on close (`thread-worktree.test.ts`, `worktree-close.test.ts`),
+> and a repository with no remote (`pull-request.test.ts`, and the card's own
+> `commit-worktree.test.ts`).
