@@ -43,14 +43,19 @@ class Roles {
   }
 
   /** Adds a role, or replaces the one with the same id. */
-  async save(role: AgentRole): Promise<void> {
+  async save(role: AgentRole): Promise<boolean> {
     if (!session.wired) {
       const kept = this.roles.filter((one) => one.id !== role.id)
       this.roles = [...kept, role]
-      return
+      return true
     }
-    await session.invoke('saveRole', { role })
-    await this.load()
+
+    const { ok, reason } = await session.invoke('saveRole', { role })
+    // A refused name is shown rather than swallowed: the alternative is a role
+    // that looked saved and is gone on the next launch.
+    this.error = ok ? null : (reason ?? 'that role could not be saved')
+    if (ok) await this.load()
+    return ok
   }
 
   /** Deletes a role.
@@ -70,7 +75,12 @@ class Roles {
   }
 
   async setNames(names: string[]): Promise<void> {
-    await session.invoke('setNamePool', { names })
+    const clean = [...new Set(names.map((one) => one.trim()).filter((one) => one !== ''))]
+    if (!session.wired) {
+      this.names = clean
+      return
+    }
+    await session.invoke('setNamePool', { names: clean })
     await this.load()
   }
 

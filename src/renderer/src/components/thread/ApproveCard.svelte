@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Identicon from '../Identicon.svelte'
+  import { app } from '$lib/state/app.svelte'
   import type { ApprovalOutcome } from '$lib/thread'
 
   interface Props {
@@ -39,6 +41,11 @@
     <span class="tag">! APPROVE</span>
     <!-- Naming the child is not decoration: "write auth.ts?" cannot be
          answered while four of them are running. -->
+    {#if agent}
+      <!-- The same sigil the row and the peek draw, so the card is recognisably
+           the same child rather than a name to match up by reading. -->
+      <Identicon name={agent.name} hue={app.workspace.hue} size={10} />
+    {/if}
     <span class="body"
       >{#if agent}<span class="asker">{agent.name}</span>{' '}<span class="note">({agent.role})</span
         >{' '}wants to run{:else}pi wants to run{/if} <code>{command}</code>{#if note}{' '}<span

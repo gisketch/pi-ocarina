@@ -29,6 +29,9 @@ export interface ChildShape {
   depth: number
   spawns: boolean
   agent: { name: string; role: string }
+  /** This child's own id in the fleet, so a fan-out it starts can lend its slot
+   *  back while it waits. */
+  selfId: string
 }
 
 export interface Deps {
@@ -90,6 +93,7 @@ export async function buildResources(
                     handle,
                     where: where!(workspaceId, cwd),
                     depth: child?.depth ?? 0,
+                    selfId: child?.selfId,
                   }),
                 )
               },

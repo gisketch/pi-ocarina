@@ -5,7 +5,7 @@
  *  ceiling on its tools, and the model it runs on. A rule that can be read
  *  without starting a session is a rule that can be tested without one. */
 
-import { CHILD_PREAMBLE } from '../../shared/agent-roles'
+import { CHILD_PREAMBLE, NO_DEEPER } from '../../shared/agent-roles'
 import { READ_ONLY_TOOLS, type AgentRole, type SpawnRequest } from '../../shared/vocabulary'
 
 /** The name a child's row and envelope carry when the orchestrator wrote its
@@ -62,8 +62,15 @@ export function faultInSpawn(request: unknown, roles: readonly AgentRole[]): str
   return null
 }
 
-/** What the child will be. Call only on a request that has no fault. */
-export function planSpawn(request: SpawnRequest, roles: readonly AgentRole[]): Plan {
+/** What the child will be. Call only on a request that has no fault.
+ *
+ *  `depth` is the spawning agent's own: a child of a child is told it cannot
+ *  spawn, rather than being left to look for a tool that is not there. */
+export function planSpawn(
+  request: SpawnRequest,
+  roles: readonly AgentRole[],
+  depth = 0,
+): Plan {
   const role = request.role ? roles.find((one) => one.name === request.role) : undefined
   const warnings: string[] = []
 
@@ -77,7 +84,14 @@ export function planSpawn(request: SpawnRequest, roles: readonly AgentRole[]): P
     role: role?.name ?? INLINE,
     label: request.label.trim(),
     task: request.task.trim(),
-    instructions: `${(role?.instructions ?? request.instructions ?? '').trim()}\n\n${CHILD_PREAMBLE}`,
+    instructions: [
+      (role?.instructions ?? request.instructions ?? '').trim(),
+      CHILD_PREAMBLE,
+      // The child being planned is at `depth + 1`; if it cannot spawn, say so.
+      depth + 1 >= 2 || role === undefined ? NO_DEEPER : '',
+    ]
+      .filter((part) => part !== '')
+      .join('\n\n'),
     tools,
     ...(request.model ?? role?.model ? { model: request.model ?? role?.model } : {}),
     spawns: role !== undefined,

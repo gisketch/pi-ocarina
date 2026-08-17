@@ -122,11 +122,18 @@ export class SessionFactory {
     spawns: boolean
     /** Who this child is, so a card it raises can say who is asking. */
     agent: { name: string; role: string }
+    /** Its own id in the fleet, so a fan-out it starts can lend its slot back. */
+    selfId: string
     /** Told when the model a role names is not configured here, so the fan-out
      *  can say so rather than swallowing it. */
     onWarning?: (warning: string) => void
   }): Promise<AgentSession> {
     const { createAgentSession, SessionManager } = await this.load()
+    // pi filters custom tools by this list too, so a child that may spawn has
+    // to be handed the tool by name or it silently never has it.
+    const tools = canSpawn(options.depth, options.spawns)
+      ? [...options.tools, SPAWN_TOOL]
+      : options.tools
 
     const { session } = await createAgentSession({
       cwd: options.cwd,
@@ -136,19 +143,18 @@ export class SessionFactory {
       model: await this.#childModel(options.model, options.onWarning),
       // pi filters custom tools by this list too, so a child that may spawn has
       // to be handed the tool by name or it silently never has it.
-      tools: canSpawn(options.depth, options.spawns)
-        ? [...options.tools, SPAWN_TOOL]
-        : options.tools,
+      tools,
       resourceLoader: await this.#loader(options.cwd, options.workspaceId, options.handle, {
         ask: false,
         appendSystemPrompt: options.instructions,
         depth: options.depth,
         spawns: options.spawns,
         agent: options.agent,
+        selfId: options.selfId,
       }),
     })
 
-    await this.bindToolsToWorkspace(session, options.cwd)
+    await this.bindToolsToWorkspace(session, options.cwd, tools)
     return session
   }
 
@@ -203,9 +209,21 @@ export class SessionFactory {
    *  a different folder, so the tools are rebuilt bound to the right cwd.
    *  Replacing `agent.state.tools` is pi's own documented way to swap tools.
    *  Revisit when pi honours cwd, or when sessions move to a utilityProcess. */
-  async bindToolsToWorkspace(session: AgentSession, cwd: string): Promise<void> {
+  async bindToolsToWorkspace(
+    session: AgentSession,
+    cwd: string,
+    /** What this session may hold. Absent means everything, which is what a
+     *  thread gets. A child passes its role's ceiling.
+     *
+     *  Without this the rebinding *widened* every child: it put all seven
+     *  built-ins back regardless of what `createAgentSession({ tools })` had
+     *  narrowed them to, so a read-only `planner` was handed `write`, `edit`
+     *  and `bash` immediately after being denied them, and decision 13's
+     *  ceiling was decorative. Found in review. */
+    allowed?: readonly string[],
+  ): Promise<void> {
     const sdk = await this.load()
-    const rebound = [
+    const all = [
       sdk.createReadTool(cwd),
       sdk.createBashTool(cwd),
       sdk.createEditTool(cwd),
@@ -214,8 +232,11 @@ export class SessionFactory {
       sdk.createFindTool(cwd),
       sdk.createLsTool(cwd),
     ]
+    const rebound = allowed ? all.filter((tool) => allowed.includes(tool.name)) : all
 
-    const replaced = new Set(rebound.map((tool) => tool.name))
+    // Every built-in is replaced, not only the ones being kept: a tool this
+    // session may not hold must be removed, not left bound to the wrong cwd.
+    const replaced = new Set(all.map((tool) => tool.name))
     const kept = session.agent.state.tools.filter((tool) => !replaced.has(tool.name))
     // Extension and custom tools are left alone — they bind their own cwd.
     session.agent.state.tools = [...rebound, ...kept]

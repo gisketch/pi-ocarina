@@ -130,6 +130,7 @@ class ShellState {
     if (workspaceId) {
       terminals.kill(workspaceId)
       blockNav.forget(threadId)
+      agentPeek.forget(threadId)
       catalog.closeColumn(threadId)
       return
     }

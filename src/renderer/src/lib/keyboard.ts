@@ -98,7 +98,16 @@ function goWorkspace(state: KeyState, index: number): KeyResult {
 
 /** Overlays that own a text caret. Their input must receive every keystroke
  *  the shell would otherwise read as a binding. */
-const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>(['palette', 'switcher', 'model', 'search'])
+const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
+  'palette',
+  'switcher',
+  'model',
+  'search',
+  // The roles form has a name field, an instructions field and a model field.
+  // Without this, typing a role called "scout" moved thread focus, opened the
+  // terminal and closed a column. Found in review.
+  'roles',
+])
 
 function focusFor(overlay: Overlay | null): Action[] {
   if (overlay === 'palette') return [{ type: 'focusPalette' }]

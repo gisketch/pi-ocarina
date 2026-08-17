@@ -60,7 +60,9 @@ export interface SessionCommands {
   /** The roles a child agent can be spawned as, and the names it may borrow.
    *  Both live in the catalog, which only main writes. */
   listRoles: { params: Record<string, never>; result: { roles: AgentRole[]; names: string[] } }
-  saveRole: { params: { role: AgentRole }; result: { ok: true } }
+  /** `ok: false` when the name is already another role's — a spawn names a
+   *  role by name, so two of them is not a state the store can hold. */
+  saveRole: { params: { role: AgentRole }; result: { ok: boolean; reason?: string } }
   deleteRole: { params: { roleId: string }; result: { ok: true } }
   setNamePool: { params: { names: string[] }; result: { ok: true } }
   revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }

@@ -33,6 +33,22 @@ export class ModelControl {
    *  nearest supported level here means the UI can say which one it landed on,
    *  and stepping down rather than up means a clamp never costs more money than
    *  the user asked to spend. */
+  /** Either setter, chosen by command name.
+   *
+   *  One entry point because the driver does the same three things after both —
+   *  apply, announce from the session, report ok — and two cases that differ
+   *  only in one call were two places for that to drift. */
+  async apply(session: AgentSession, name: string, params: unknown): Promise<void> {
+    if (name === 'setReasoning') {
+      const { reasoning } = params as { reasoning: ReasoningLevel }
+      this.setReasoning(session, reasoning)
+      return
+    }
+
+    const { provider, model } = params as { provider: string; model: string }
+    await this.set(session, provider, model)
+  }
+
   setReasoning(session: AgentSession, reasoning: ReasoningLevel): void {
     const model = session.model as PiModelLike | undefined
     if (!model) return

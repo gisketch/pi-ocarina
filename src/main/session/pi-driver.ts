@@ -17,9 +17,9 @@ import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
-import { handleRoles } from './role-commands'
+import { handleArchive, handleRoles } from './role-commands'
 import { PiTranslator } from './pi-translate'
-import { emitUsage, replayInto } from './session-report'
+import { emitUsage, replayAndCharge } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { subscribeSession } from './session-events'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
@@ -66,7 +66,9 @@ export class PiDriver implements SessionDriver {
     this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, this.#asks, model)
-    this.#fleet = fleetFor(this.#sessions, emit, catalog)
+    this.#fleet = fleetFor(this.#sessions, emit, catalog, (toolCallId) =>
+      this.#approvals.takeBlocked(toolCallId),
+    )
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
@@ -162,16 +164,12 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
-      case 'setModel': {
-        const { threadId, provider, model } = params as CommandParams<'setModel'>
-        await this.#models.set(this.#threads.get(threadId).session, provider, model)
-        this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
-        return { ok: true } as CommandResult<N>
-      }
-
+      case 'setModel':
       case 'setReasoning': {
-        const { threadId, reasoning } = params as CommandParams<'setReasoning'>
-        this.#models.setReasoning(this.#threads.get(threadId).session, reasoning)
+        const { threadId } = params as CommandParams<'setModel'>
+        await this.#models.apply(this.#threads.get(threadId).session, name, params)
+        // Announced from the session rather than echoed back: what pi actually
+        // took is the only honest thing to put in the chip.
         this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
         return { ok: true } as CommandResult<N>
       }
@@ -210,17 +208,14 @@ export class PiDriver implements SessionDriver {
         return handleRoles(this.#catalog, name, params) as CommandResult<N>
 
       case 'archiveThread': {
-        const { threadId } = params as CommandParams<'archiveThread'>
-        this.#threads.close(threadId)
-        await this.#workspaces.setArchived(threadId, true)
-        return { ok: true } as CommandResult<N>
+        // Closing first: a thread with no column has nobody watching whatever
+        // it is still doing.
+        this.#threads.close((params as CommandParams<'archiveThread'>).threadId)
+        return (await handleArchive(this.#workspaces, name, params)) as CommandResult<N>
       }
 
-      case 'unarchiveThread': {
-        const { threadId } = params as CommandParams<'unarchiveThread'>
-        await this.#workspaces.setArchived(threadId, false)
-        return { ok: true } as CommandResult<N>
-      }
+      case 'unarchiveThread':
+        return (await handleArchive(this.#workspaces, name, params)) as CommandResult<N>
 
       case 'answerAsk': {
         const { threadId, askId, answers } = params as CommandParams<'answerAsk'>
@@ -283,7 +278,12 @@ export class PiDriver implements SessionDriver {
     // it costs nothing there.
     const open = this.#threads.find(threadId)
     if (open) {
-      replayInto(this.#emit, threadId, open.session.sessionManager.buildContextEntries())
+      replayAndCharge(
+        this.#emit,
+        threadId,
+        open.session.sessionManager.buildContextEntries(),
+        this.#fleet,
+      )
       // Replay ends by stating the thread from its history, which cannot know
       // about a turn that is still streaming — it would report `done` over a
       // turn still being written. Only this side knows, so it says so.
@@ -306,7 +306,7 @@ export class PiDriver implements SessionDriver {
     // The active branch, not every entry in the file: a session that has been
     // rewound holds abandoned branches too, and replaying those would show the
     // user a conversation that never happened.
-    replayInto(this.#emit, threadId, sessionManager.buildContextEntries())
+    replayAndCharge(this.#emit, threadId, sessionManager.buildContextEntries(), this.#fleet)
 
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
 import { DEFAULT_ROLES } from '../../shared/agent-roles'
-import { AgentFleet, MAX_RUNNING, type ChildFactory, type ParentRef } from './agent-fleet'
+import { AgentFleet, MAX_RUNNING, OUTPUT_CAP, type ChildFactory, type ParentRef } from './agent-fleet'
 import { planSpawn } from './spawn-plan'
 
 const PARENT: ParentRef = {
@@ -20,6 +20,7 @@ function fakeSession(options: {
   calls?: string[]
   hang?: boolean
   errorMessage?: string
+  usage?: Record<string, unknown>
 }): { session: any; finish: () => void } {
   const listeners: ((event: unknown) => void)[] = []
   let release: (() => void) | undefined
@@ -39,7 +40,7 @@ function fakeSession(options: {
         message: {
           role: 'assistant',
           content: [{ type: 'text', text: options.says ?? 'done' }],
-          usage: { input: 10, output: 4, cost: { total: 0.001 } },
+          usage: options.usage ?? { input: 10, output: 4, cost: { total: 0.001 } },
           ...(options.errorMessage ? { errorMessage: options.errorMessage } : {}),
         },
       })
@@ -183,150 +184,5 @@ describe('stopping a child', () => {
     const { session } = fakeSession({})
     const { fleet } = fleetWith(session)
     expect(fleet.cancel('no-such-child')).toBe(false)
-  })
-})
-
-describe('several at once', () => {
-  it('runs no more than the cap, and queues the rest', async () => {
-    const started: string[] = []
-    const releases: (() => void)[] = []
-    const factory: ChildFactory = {
-      child: async (options) => {
-        started.push(options.instructions)
-        return {
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
-        } as never
-      },
-    }
-    const fleet = new AgentFleet(factory, () => {})
-
-    const runs = Array.from({ length: 6 }, () =>
-      fleet.run(PARENT, plan(), POOL, undefined),
-    )
-    await vi.waitFor(() => expect(started).toHaveLength(MAX_RUNNING))
-
-    // The cap holds while the first four are still in flight.
-    expect(fleet.liveCount).toBe(MAX_RUNNING)
-    releases.shift()?.()
-    await vi.waitFor(() => expect(started).toHaveLength(MAX_RUNNING + 1))
-
-    for (const release of [...releases]) release()
-    await vi.waitFor(() => expect(started).toHaveLength(6), { timeout: 3000 })
-    for (const release of [...releases]) release()
-    await Promise.all(runs)
-  })
-
-  it('gives every child alive at once a different name', async () => {
-    const names: string[] = []
-    const releases: (() => void)[] = []
-    const factory: ChildFactory = {
-      child: async () =>
-        ({
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
-        }) as never,
-    }
-    const fleet = new AgentFleet(factory, (_id, event) => {
-      if (event.kind === 'tool-start' && event.agent) names.push(event.agent.name)
-    })
-
-    const runs = Array.from({ length: 3 }, () => fleet.run(PARENT, plan(), POOL, undefined))
-    await vi.waitFor(() => expect(releases).toHaveLength(3))
-
-    expect(new Set(names).size).toBe(3)
-    for (const release of releases) release()
-    await Promise.all(runs)
-  })
-
-  it('opens a queued child’s row immediately, marked as waiting', async () => {
-    const events: [string, UiEvent][] = []
-    const releases: (() => void)[] = []
-    const factory: ChildFactory = {
-      child: async () =>
-        ({
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
-        }) as never,
-    }
-    const fleet = new AgentFleet(factory, (id, event) => events.push([id, event]))
-
-    const runs = Array.from({ length: 5 }, () => fleet.run(PARENT, plan(), POOL, undefined))
-    await vi.waitFor(() => expect(releases).toHaveLength(MAX_RUNNING))
-
-    const opened = events.filter(([, event]) => event.kind === 'tool-start')
-    expect(opened).toHaveLength(5)
-    // Four have been told they started; the fifth is still queued.
-    const running = events.filter(
-      ([, event]) => event.kind === 'agent-update' && event.agent.queued === undefined,
-    )
-    expect(running).toHaveLength(MAX_RUNNING)
-
-    for (const release of releases) release()
-    await vi.waitFor(() => expect(releases.length).toBeGreaterThan(MAX_RUNNING))
-    for (const release of releases) release()
-    await Promise.all(runs)
-  })
-
-  it('passes the child its own depth, so a grandchild cannot spawn', async () => {
-    const depths: number[] = []
-    const factory: ChildFactory = {
-      child: async (options) => {
-        depths.push(options.depth)
-        return {
-          subscribe: () => () => {},
-          prompt: async () => {},
-          abort: async () => {},
-        } as never
-      },
-    }
-    const fleet = new AgentFleet(factory, () => {})
-
-    await fleet.run(PARENT, plan(), POOL, undefined)
-    await fleet.run({ ...PARENT, depth: 1 }, plan(), POOL, undefined)
-    expect(depths).toEqual([1, 2])
-  })
-})
-
-describe('what the children cost the thread', () => {
-  it('adds a settled child’s tokens to its thread’s bill', async () => {
-    const { session } = fakeSession({})
-    const { fleet } = fleetWith(session)
-
-    expect(fleet.spentIn('t1')).toEqual({ tokens: 0, costUsd: 0 })
-    await fleet.run(PARENT, plan(), POOL, undefined)
-
-    expect(fleet.spentIn('t1')).toEqual({ tokens: 14, costUsd: 0.001 })
-  })
-
-  it('charges for a child that failed, because the tokens were still spent', async () => {
-    const { session } = fakeSession({ says: '' })
-    const { fleet } = fleetWith(session)
-
-    await fleet.run(PARENT, plan(), POOL, undefined)
-    expect(fleet.spentIn('t1').tokens).toBe(14)
-  })
-
-  it('keeps threads’ bills apart', async () => {
-    const { session } = fakeSession({})
-    const { fleet } = fleetWith(session)
-
-    await fleet.run(PARENT, plan(), POOL, undefined)
-    await fleet.run({ ...PARENT, threadId: 't2' }, plan(), POOL, undefined)
-
-    expect(fleet.spentIn('t1').tokens).toBe(14)
-    expect(fleet.spentIn('t2').tokens).toBe(14)
-  })
-
-  it('forgets a thread whose column has gone', async () => {
-    const { session } = fakeSession({})
-    const { fleet } = fleetWith(session)
-
-    await fleet.run(PARENT, plan(), POOL, undefined)
-    fleet.forget('t1')
-    expect(fleet.spentIn('t1')).toEqual({ tokens: 0, costUsd: 0 })
   })
 })

@@ -22,6 +22,16 @@ export const CHILD_PREAMBLE = [
   'your work. Do not end with a question: nobody will answer it.',
 ].join(' ')
 
+/** Added for a child that is itself a child.
+ *
+ *  The depth limit is enforced by not giving the tool to anyone deep enough to
+ *  break it, which leaves a grandchild looking for a tool it cannot see. Saying
+ *  so is cheaper than letting it search. */
+export const NO_DEEPER = [
+  'You cannot start agents of your own — you are already one level down. Do the',
+  'work yourself, or report back that it needs splitting.',
+].join(' ')
+
 /** The four roles a fresh profile starts with.
  *
  *  The division is pi's own sample set: recon that reads widely, planning and

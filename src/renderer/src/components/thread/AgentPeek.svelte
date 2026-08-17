@@ -3,6 +3,7 @@
   import { agentMark, agentTone, elapsedText } from '$lib/agent-row'
   import { agentClock } from '$lib/state/agent-clock.svelte'
   import { agentPeek } from '$lib/state/agent-peek.svelte'
+  import { tokensIn } from '../../../../shared/vocabulary'
   import { app } from '$lib/state/app.svelte'
   import { labelFor } from '$lib/tool-label'
 
@@ -31,7 +32,7 @@
   const cost = $derived.by(() => {
     const usage = peeked?.entry.usage
     if (!usage) return ''
-    const tokens = usage.input + usage.output
+    const tokens = tokensIn(usage)
     return `${tokens.toLocaleString()} tokens · $${usage.cost.toFixed(4)}`
   })
 </script>

@@ -72,6 +72,12 @@ class AgentPeek {
     this.#at = null
   }
 
+  /** The thread's column has gone. A peek left pointing at it would own `h` and
+   *  `escape` over a column it is not drawn in. */
+  forget(threadId: string): void {
+    if (this.#at?.threadId === threadId) this.close()
+  }
+
   /** Stops the child being watched. Its siblings keep running.
    *
    *  Confirms first: this is a destructive key inside a surface that is
@@ -113,14 +119,23 @@ class AgentPeek {
   handleKey(event: KeyLike, mode: string, threadId: string): boolean {
     if (event.ctrlKey || event.metaKey || event.altKey) return false
     // The composer's keys are the composer's: `x` in a sentence is a letter.
-    if (mode === 'INSERT') return false
+    // LEADER's are the chord's: `␣ x` closes a column and `␣ h` moves a thread,
+    // and a peek that ate them would stop a child instead. Found in review.
+    if (mode === 'INSERT' || mode === 'LEADER') return false
+
+    // A peek belongs to the column it was opened in. When the reader moves to
+    // another thread it has nothing to show them, and leaving it open would
+    // give it `h` and `escape` in a column it is not even drawn over.
+    if (this.#at && this.#at.threadId !== threadId) this.close()
 
     if (this.open) {
       if (event.key === 'h' || event.key === 'Escape') {
         this.close()
         return true
       }
-      if (event.key === 'x') {
+      // Only while there is something to stop: `x` on a settled child would
+      // otherwise be swallowed for no reason.
+      if (event.key === 'x' && this.peeked?.entry.status === 'running') {
         void this.stop()
         return true
       }

@@ -90,6 +90,9 @@ export interface SpawnDeps {
   /** How deep the agent holding this tool is: 0 for a thread, 1 for a child.
    *  A child of a child never gets the tool at all. */
   depth: number
+  /** This agent's own child id, when it is itself a child. Used to lend its
+   *  slot back while it waits on the children it is starting. */
+  selfId?: string
 }
 
 /** The tool's name, needed by anything that has to hand it to a session by
@@ -141,12 +144,16 @@ export function spawnAgentsTool(deps: SpawnDeps) {
         depth: deps.depth,
       }
 
-      const plans = asked.map((one) => planSpawn(one, roles))
+      const plans = asked.map((one) => planSpawn(one, roles, deps.depth))
       const pool = deps.names()
       const raised: string[] = []
-      const entries = await Promise.all(
-        plans.map((plan) =>
-          deps.fleet.run(parent, plan, pool, signal, (warning) => raised.push(warning)),
+      // A spawning child gives its slot back while it waits: it is blocked, not
+      // working, and a blocked child holding a slot deadlocks a full cap.
+      const entries = await deps.fleet.whileWaiting(deps.selfId ?? '', () =>
+        Promise.all(
+          plans.map((plan) =>
+            deps.fleet.run(parent, plan, pool, signal, (warning) => raised.push(warning)),
+          ),
         ),
       )
 

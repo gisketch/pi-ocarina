@@ -7,6 +7,8 @@ import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 function toolWith(run?: SpawnDeps['fleet']['run']) {
   const started: unknown[] = []
   const fleet = {
+    // A thread holds no slot, so the real one runs the work straight through.
+    whileWaiting: (_id: string, work: () => Promise<unknown>) => work(),
     run:
       run ??
       (async (_parent, plan) => {

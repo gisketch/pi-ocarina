@@ -11,90 +11,64 @@
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { EmitEvent } from '../../shared/protocol'
-import type { AgentEntry, AgentRole, AgentStatus, AgentUsage } from '../../shared/vocabulary'
+import type { AgentEntry, AgentRole, AgentStatus } from '../../shared/vocabulary'
 import { NamePool } from './agent-names'
 import { driveChild } from './agent-run'
+import { SlotPool } from './agent-slots'
+import { SpendBook, type Spent } from './agent-spend'
+import {
+  MAX_RUNNING,
+  OUTPUT_CAP,
+  type ChildFactory,
+  type Live,
+  type ParentRef,
+} from './agent-types'
 import type { Plan } from './spawn-plan'
 
-/** How much of a child's final message the parent is given.
- *
- *  pi's own subagent tool caps at the same figure, for the same reason: a child
- *  that pastes a file back would put it in the parent's context, which is the
- *  cost subagents exist to avoid. */
-export const OUTPUT_CAP = 50 * 1024
+export {
+  MAX_PER_CALL,
+  MAX_RUNNING,
+  OUTPUT_CAP,
+  type ChildFactory,
+  type ParentRef,
+} from './agent-types'
 
-/** How many children run at once, anywhere in the app.
- *
- *  Counted across the whole tree rather than per parent: a per-parent cap
- *  multiplies with depth, and depth two exists precisely so the number of live
- *  sessions stays something a reader can hold in their head. Four is what one
- *  person can actually watch — eight rows updating is weather, not monitoring. */
-export const MAX_RUNNING = 4
-
-/** How many children one call may ask for. The rest of a fan-out queues; this
- *  is a bound on the *ask*, so a model cannot open eighty rows at once. */
-export const MAX_PER_CALL = 8
-
-export interface ParentRef {
-  threadId: string
-  workspaceId: string
-  cwd: string
-  /** The spawn call's own id. The child's rows nest under it. */
-  toolCallId: string
-  /** How deep the spawning agent is: 0 is the thread itself. A child of a
-   *  child is depth 2 and gets no spawn tool of its own. */
-  depth: number
-}
-
-/** What the fleet needs to build a child. Passed in rather than imported so the
- *  fleet can be tested without pi. */
-export interface ChildFactory {
-  child(options: {
-    cwd: string
-    workspaceId: string
-    handle: { threadId: string }
-    instructions: string
-    tools: string[]
-    model?: string
-    /** 1 for a child of a thread, 2 for a child of a child. Decides whether it
-     *  may spawn at all. */
-    depth: number
-    /** Whether its role allows it to spawn, if it is shallow enough. */
-    spawns: boolean
-    /** Who it is, so a card it raises can say who is asking. */
-    agent: { name: string; role: string }
-    onWarning?: (warning: string) => void
-  }): Promise<AgentSession>
-}
-
-interface Live {
-  threadId: string
-  entry: AgentEntry
-  stop: () => void
-}
-
-const NO_USAGE: AgentUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 }
+const NO_USAGE = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 }
 
 export class AgentFleet {
   readonly #factory: ChildFactory
   readonly #emit: EmitEvent
+  /** Whether the gate stopped a call, so a child's refused call reads as
+   *  `denied` rather than as a tool that broke. */
+  readonly #wasBlocked: (toolCallId: string) => boolean
   readonly #names = new NamePool()
   readonly #live = new Map<string, Live>()
-  /** Callers waiting for a slot under the running cap, oldest first. */
-  readonly #waiting: (() => void)[] = []
-  #running = 0
+  readonly #slots = new SlotPool(MAX_RUNNING)
+  readonly #spend = new SpendBook()
   #counter = 0
-  /** Thread id → what its children have cost, ever. */
-  readonly #spent = new Map<string, { tokens: number; costUsd: number }>()
 
-  constructor(factory: ChildFactory, emit: EmitEvent) {
+  constructor(
+    factory: ChildFactory,
+    emit: EmitEvent,
+    wasBlocked: (toolCallId: string) => boolean = () => false,
+  ) {
     this.#factory = factory
     this.#emit = emit
+    this.#wasBlocked = wasBlocked
   }
 
-  /** Every live child, anywhere. What the cap is measured against. */
+  /** Children actually running, anywhere in the app.
+   *
+   *  Not the size of `#live`: a queued child is registered there too, so that
+   *  cancelling can reach it before it ever starts. Queued is not running, and
+   *  the cap is about running. */
   get liveCount(): number {
-    return this.#live.size
+    return [...this.#live.values()].filter((live) => !live.queued).length
+  }
+
+  /** Children waiting for a slot. */
+  get queuedCount(): number {
+    return [...this.#live.values()].filter((live) => live.queued).length
   }
 
   /** What one thread's children have spent, live and settled.
@@ -102,13 +76,27 @@ export class AgentFleet {
    *  Kept here rather than derived from the rows: the rows are the renderer's,
    *  and the figure the status bar shows has to be true in main before it is
    *  drawn anywhere. Survives a child settling; forgotten when the thread is. */
-  spentIn(threadId: string): { tokens: number; costUsd: number } {
-    return this.#spent.get(threadId) ?? { tokens: 0, costUsd: 0 }
+  spentIn(threadId: string): Spent {
+    return this.#spend.of(threadId)
   }
 
-  /** A thread's column has gone; its bill goes with it. */
+  /** A thread's column has gone; its bill goes with it.
+   *
+   *  The thread is also marked closed, because a child still settling would
+   *  otherwise charge it again a moment later and leave an entry nobody can
+   *  reach or clear. Reopening clears the mark. */
   forget(threadId: string): void {
-    this.#spent.delete(threadId)
+    this.#spend.forget(threadId)
+  }
+
+  /** Seeds a reopened thread with what its children spent before it closed.
+   *
+   *  Read back from the recorded entries, which are the same ones the rows are
+   *  drawn from. Without it a thread's total fell when it was reopened, which
+   *  is the fan-out looking free again — the exact reading decision 11 exists
+   *  to prevent. */
+  restore(threadId: string, entries: readonly AgentEntry[]): void {
+    this.#spend.restore(threadId, entries)
   }
 
   /** Runs one child to completion and returns what the parent should read.
@@ -150,8 +138,25 @@ export class AgentFleet {
       agent: entry,
     })
 
-    await this.#slot()
+    // Registered *before* the wait, not after: a child that is queued must be
+    // reachable by `cancel` and by `cancelThread`, or stopping a fan-out would
+    // silently leave the queued half to run — model turn, tool calls, writes
+    // and all — after the reader had already stopped it. Found in review.
+    let stopped = signal?.aborted === true
+    const stopQueued = (): void => {
+      stopped = true
+    }
+    this.#live.set(id, { threadId: parent.threadId, entry, stop: stopQueued, queued: true })
+    if (signal && !stopped) signal.addEventListener('abort', stopQueued, { once: true })
+
+    await this.#slots.take()
     try {
+      // Whoever stopped it while it waited: the turn, the peek, or the thread
+      // closing. It never becomes a session.
+      if (stopped) {
+        return this.#settle(parent, { ...entry, queued: undefined }, 'cancelled')
+      }
+
       // The clock starts when it starts, not when it was asked for: a child
       // that waited two minutes for a slot did not take two minutes to work.
       const started: AgentEntry = { ...entry, queued: undefined, startedAt: Date.now() }
@@ -167,6 +172,7 @@ export class AgentFleet {
         depth: parent.depth + 1,
         spawns: plan.spawns,
         agent: { name, role: plan.role },
+        selfId: id,
         onWarning: (warning) => warn?.(`${plan.label}: ${warning}`),
       })
 
@@ -176,27 +182,96 @@ export class AgentFleet {
     } finally {
       this.#names.release(name)
       this.#live.delete(id)
-      this.#free()
+      this.#slots.give()
     }
   }
 
-  /** Waits for a slot under the running cap. */
-  #slot(): Promise<void> {
-    if (this.#running < MAX_RUNNING) {
-      this.#running += 1
-      return Promise.resolve()
+  /** Lends this fan-out's slot back while it waits on its own children.
+   *
+   *  A depth-1 child that spawns is blocked, not working, and a blocked child
+   *  holding a slot is what deadlocks a full cap: four spawning children would
+   *  each wait for a slot none of them will release. Only a session that holds a
+   *  slot gives one back — a thread does not, so its fan-out is unaffected. */
+  async whileWaiting<T>(childId: string, work: () => Promise<T>): Promise<T> {
+    const holds = this.#live.get(childId)?.queued === false
+    return holds ? this.#slots.lend(work) : work()
+  }
+
+  async #drive(
+    parent: ParentRef,
+    id: string,
+    entry: AgentEntry,
+    session: AgentSession,
+    plan: Plan,
+    signal: AbortSignal | undefined,
+  ): Promise<AgentEntry> {
+    let cancelled = false
+    const stop = (): void => {
+      cancelled = true
+      // Fire and forget: `abort` resolves when the session has stopped, and the
+      // call that is waiting on the turn is what reports the outcome.
+      void session.abort()
     }
-    return new Promise<void>((resolve) => this.#waiting.push(resolve))
+    // The same id, now holding a stop that can actually reach a session.
+    this.#live.set(id, { threadId: parent.threadId, entry, stop, queued: false })
+
+    if (signal) {
+      if (signal.aborted) stop()
+      else signal.addEventListener('abort', stop, { once: true })
+    }
+
+    try {
+      return await this.#turn(parent, id, entry, session, plan, () => cancelled)
+    } finally {
+      // pi builds one AbortController per turn, not per tool call, so a listener
+      // left behind keeps every settled child of that turn reachable.
+      signal?.removeEventListener('abort', stop)
+    }
   }
 
-  /** Hands the slot to whoever has been waiting longest. */
-  #free(): void {
-    const next = this.#waiting.shift()
-    if (next) next()
-    else this.#running -= 1
+  async #turn(
+    parent: ParentRef,
+    id: string,
+    entry: AgentEntry,
+    session: AgentSession,
+    plan: Plan,
+    cancelledNow: () => boolean,
+  ): Promise<AgentEntry> {
+    const ran = await driveChild({
+      session,
+      threadId: parent.threadId,
+      childId: id,
+      task: plan.task,
+      usage: entry.usage,
+      emit: this.#emit,
+      wasBlocked: this.#wasBlocked,
+    })
+    const counted = { ...entry, usage: ran.usage }
+
+    if (cancelledNow()) return this.#settle(parent, counted, 'cancelled')
+    if (ran.said === '') {
+      const why = ran.broke || 'the child reported nothing'
+      return this.#settle(parent, { ...counted, output: why }, 'fail')
+    }
+
+    const capped = ran.said.slice(0, OUTPUT_CAP)
+    return this.#settle(
+      parent,
+      {
+        ...counted,
+        output: capped,
+        ...(capped.length < ran.said.length ? { truncated: true as const } : {}),
+      },
+      'ok',
+    )
   }
 
-  /** Stops one child. Its siblings keep running. */
+  /** Stops one child. Its siblings keep running.
+   *
+   *  Works on a queued child as well as a running one: a queued child has no
+   *  session to abort, so its stop is a flag that keeps it from ever becoming
+   *  one. Without that, `x` on a queued child confirmed a destructive action
+   *  and then did nothing at all. */
   cancel(childId: string): boolean {
     const live = this.#live.get(childId)
     if (!live) return false
@@ -216,65 +291,6 @@ export class AgentFleet {
     }
   }
 
-  async #drive(
-    parent: ParentRef,
-    id: string,
-    entry: AgentEntry,
-    session: AgentSession,
-    plan: Plan,
-    signal: AbortSignal | undefined,
-  ): Promise<AgentEntry> {
-    let cancelled = false
-    const stop = (): void => {
-      cancelled = true
-      // Fire and forget: `abort` resolves when the session has stopped, and the
-      // call that is waiting on the turn is what reports the outcome.
-      void session.abort()
-    }
-    this.#live.set(id, { threadId: parent.threadId, entry, stop })
-
-    if (signal) {
-      if (signal.aborted) stop()
-      else signal.addEventListener('abort', stop, { once: true })
-    }
-
-    const ran = await driveChild({
-      session,
-      threadId: parent.threadId,
-      childId: id,
-      task: plan.task,
-      usage: entry.usage,
-      emit: this.#emit,
-    })
-    const counted = { ...entry, usage: ran.usage }
-
-    if (cancelled) return this.#settle(parent, counted, 'cancelled')
-    if (ran.said === '') {
-      const why = ran.broke || 'the child reported nothing'
-      return this.#settle(parent, { ...counted, output: why }, 'fail')
-    }
-
-    const capped = ran.said.slice(0, OUTPUT_CAP)
-    return this.#settle(
-      parent,
-      {
-        ...counted,
-        output: capped,
-        ...(capped.length < ran.said.length ? { truncated: true as const } : {}),
-      },
-      'ok',
-    )
-  }
-
-  /** Adds a child's bill to its thread's. */
-  #charge(threadId: string, usage: AgentUsage): void {
-    const held = this.#spent.get(threadId) ?? { tokens: 0, costUsd: 0 }
-    this.#spent.set(threadId, {
-      tokens: held.tokens + usage.input + usage.output,
-      costUsd: held.costUsd + usage.cost,
-    })
-  }
-
   #settle(parent: ParentRef, entry: AgentEntry, status: AgentStatus): AgentEntry {
     // A cancelled child reports nothing: a half-finished report read as a
     // finished one is the failure mode this avoids.
@@ -286,7 +302,7 @@ export class AgentFleet {
     }
 
     // Charged even when it was cancelled or failed: the tokens were spent.
-    this.#charge(parent.threadId, settled.usage)
+    this.#spend.charge(parent.threadId, settled.usage)
 
     this.#emit(parent.threadId, { kind: 'agent-update', id: entry.id, agent: settled })
     this.#emit(parent.threadId, { kind: 'tool-end', id: entry.id, status: rowStatus(status) })
@@ -319,8 +335,9 @@ export function fleetFor(
   },
   emit: EmitEvent,
   catalog: { roles: () => AgentRole[]; namePool: () => string[] },
+  wasBlocked: (toolCallId: string) => boolean = () => false,
 ): AgentFleet {
-  const fleet = new AgentFleet(sessions, emit)
+  const fleet = new AgentFleet(sessions, emit, wasBlocked)
   sessions.enableSpawning({
     fleet,
     // Read fresh on every call, so a role added in settings is spawnable

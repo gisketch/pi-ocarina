@@ -6,7 +6,8 @@
   import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
-  import type { ToolKind, ToolRow } from '$lib/thread'
+  import type { ToolRow } from '$lib/thread'
+  import { kindsIn, pointableRows } from '$lib/ledger-rows'
   import { labelFor, widestLabel } from '$lib/tool-label'
 
   interface Props {
@@ -45,9 +46,11 @@
   // and none of them moves when a call lands and `editing` becomes `edited`.
   // Derived from the kinds present, never measured: a rect read here would
   // force layout on rows the column is deliberately not laying out.
-  const kindsIn = (list: ToolRow[]): ToolKind[] =>
-    list.flatMap((row) => [row.kind, ...kindsIn(row.children ?? [])])
   const gutter = $derived(widestLabel(kindsIn(rows)))
+
+  const stops = $derived(pointableRows(rows))
+  const anyFocused = $derived(stops.some((row) => focusedNav === navIdOf(row)))
+  const anyHosting = $derived(stops.some((row) => menuOn(navIdOf(row))))
   // Keyed by nav id, not by row id: a tool call id is only unique within its
   // call, which is the same reason the nav id is built from both. Two ledgers
   // holding a row with the same id must not open each other's.
@@ -71,6 +74,7 @@
   <div
     class="entry"
     class:dim={points && dimmed && focusedNav !== navIdOf(row)}
+    class:lit={points && focusedNav === navIdOf(row)}
     class:hosting={points && menuOn(navIdOf(row))}
     use:navTarget={{ threadId, navId: points ? navIdOf(row) : null }}
   >
@@ -125,8 +129,8 @@
      did. Lifting it on the row alone was half a fix. -->
 <div
   class="ledger"
-  class:dim={dimmed && !rows.some((row) => focusedNav === navIdOf(row))}
-  class:hosting={rows.some((row) => menuOn(navIdOf(row)))}
+  class:dim={dimmed && !anyFocused}
+  class:hosting={anyHosting}
   style="--gutter: {gutter}ch"
 >
   {#each rows as row (row.id)}
@@ -174,6 +178,16 @@
     contain: layout style;
   }
   /* Muted by colour, not by `opacity` and `filter` — see ThreadView. */
+  /* A parent entry's dim sets tokens, and tokens cascade — so a focused child
+     inside a dimmed parent inherited the dim it was exempt from. Restoring them
+     on the focused entry is what makes the ring readable. */
+  .entry.lit {
+    --tone-1: oklch(0.76 0.14 var(--accent-hue));
+    --tone-2: oklch(0.78 0.11 calc(var(--accent-hue) + 60));
+    --tone-3: oklch(0.8 0.09 calc(var(--accent-hue) + 180));
+    --fg-bright: #efefea;
+    --fg-body: #e8e8e3;
+  }
   .entry.dim {
     --tone-1: var(--fg-dimmer);
     --tone-2: var(--fg-dimmer);

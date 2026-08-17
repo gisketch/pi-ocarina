@@ -259,6 +259,17 @@ export interface AgentUsage {
   cost: number
 }
 
+/** A child's tokens, counted the way pi counts a session's.
+ *
+ *  All four buckets, not just input and output: pi's own `tokens.total` is the
+ *  sum of all of them, and the thread's figure adds the two together. Counting
+ *  them differently made a read-heavy fan-out — where cached reads dominate —
+ *  report a fraction of what it spent. One function so the status bar and the
+ *  peek cannot drift apart. */
+export function tokensIn(usage: AgentUsage): number {
+  return usage.input + usage.output + usage.cacheRead + usage.cacheWrite
+}
+
 /** One child, as the orchestrator asks for it. */
 export interface SpawnRequest {
   /** A saved role's name. Omitted when `instructions` are given inline. */

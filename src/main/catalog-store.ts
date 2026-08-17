@@ -147,14 +147,24 @@ export class CatalogStore {
     return found ? { ...found, tools: [...found.tools] } : undefined
   }
 
-  /** Adds a role, or replaces the one with the same id. */
-  saveRole(role: AgentRole): void {
+  /** Adds a role, or replaces the one with the same id.
+   *
+   *  A name already taken by a *different* role is refused rather than written:
+   *  `parseRoles` keeps the first of two roles sharing a name, so accepting the
+   *  write would show the user a saved role that disappeared on the next
+   *  launch. A spawn names a role by name, so two of them is not a state the
+   *  store can hold. */
+  saveRole(role: AgentRole): { ok: boolean; reason?: string } {
+    const taken = this.#state.roles.some((one) => one.name === role.name && one.id !== role.id)
+    if (taken) return { ok: false, reason: `a role called "${role.name}" already exists` }
+
     const index = this.#state.roles.findIndex((one) => one.id === role.id)
     const clean: AgentRole = { ...role, tools: [...new Set(role.tools)] }
 
     if (index === -1) this.#state.roles.push(clean)
     else this.#state.roles[index] = clean
     this.#persist()
+    return { ok: true }
   }
 
   deleteRole(id: string): void {

@@ -236,3 +236,44 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > The screen shows the shipped roles when there is no backend, which is what
 > makes it reviewable in the browser harness at all — an error where four roles
 > belong says nothing about whether the screen works.
+
+## Review — `done`
+
+Six reviewers across correctness (main and renderer), spec conformance,
+security, standards and test coverage, each finding then handed to an
+independent skeptic told to refute it. 59 raised, 39 survived, all fixed.
+
+The one that mattered: **`bindToolsToWorkspace` re-granted every built-in to
+every child**, so decision 13's tool ceiling had never actually held — a
+read-only `planner` was handed `write`, `edit` and `bash` one line after being
+denied them.
+
+Four more that would have bitten. A child cancelled while it was still queued
+ran its whole turn anyway, because a queued child was in no registry and
+`abort()` on a session with no active run is a silent no-op. A depth-2 fan-out
+deadlocked, because a parent waiting on its own children kept its slot. Typing a
+role name drove the app, because the roles overlay was not in `TYPING_OVERLAYS`.
+And children's cached tokens were dropped from the thread's total, which for a
+read-heavy scout is most of what it spent.
+
+Also fixed: a reopened thread lost its children's bill; two roles could be saved
+under one name and the second vanished on restart; the peek ate the `␣ x` and
+`␣ h` leader chords and stayed open over a column it was not drawn in; a focused
+child row rendered dimmed and its block menu was clipped; a child's denied call
+read as a broken tool and leaked the gate's record of it; a cancelled child left
+its own rows pulsing forever; the roles form's field cursor moved a highlight but
+not the caret; the name pool had no editor at all though M9 claimed one; a
+grandchild was left looking for a tool it could not see; and the approval card
+named the child without drawing its sigil.
+
+Test gaps the review named, now closed: `canSpawn` — the whole of the depth limit
+and the inline-child escalation guard — had no test; `AgentFleet.cancel` could be
+deleted with every test still passing; the output cap and its `truncated` flag
+were untested; the queued-row test never asserted the mark it was named for; and
+neither live test checked that the parent actually used what its children
+reported.
+
+Seven files crossed 350 lines under the fixes and were split at real seams:
+`agent-slots.ts`, `agent-spend.ts` and `agent-types.ts` out of the fleet,
+`ledger-rows.ts` out of the ledger, `RoleForm.svelte` out of the roles overlay,
+and the fleet's tests into three files by what they prove.

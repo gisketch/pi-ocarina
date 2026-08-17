@@ -261,3 +261,34 @@ describe('the roles a profile starts with', () => {
     expect(catalog.roles()[0].tools).not.toContain('write')
   })
 })
+
+describe('two roles cannot share a name', () => {
+  it('refuses the second, rather than saving one that vanishes on restart', async () => {
+    // `parseRoles` keeps the first of two roles sharing a name, so accepting
+    // the write would show a saved role that is gone on the next launch.
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-dupe-'))
+    const catalog = new CatalogStore(join(dir, 'catalog.json'))
+    await catalog.load()
+
+    const refused = catalog.saveRole({
+      id: 'mine',
+      name: 'scout',
+      instructions: 'also a scout',
+      tools: [],
+    })
+
+    expect(refused.ok).toBe(false)
+    expect(refused.reason).toContain('scout')
+    expect(catalog.roles().filter((role) => role.name === 'scout')).toHaveLength(1)
+  })
+
+  it('still lets a role keep its own name when it is edited', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-dupe-'))
+    const catalog = new CatalogStore(join(dir, 'catalog.json'))
+    await catalog.load()
+
+    const scout = catalog.role('scout')!
+    expect(catalog.saveRole({ ...scout, instructions: 'changed' }).ok).toBe(true)
+    expect(catalog.role('scout')?.instructions).toBe('changed')
+  })
+})

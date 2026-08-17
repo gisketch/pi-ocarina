@@ -8,13 +8,28 @@
 
 import type { AgentSession, SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
+import type { AgentEntry } from '../../shared/vocabulary'
 import { emitReplay } from './replay'
 
 type Emit = (threadId: string, event: UiEvent) => void
 
-/** States a thread from its history, replacing whatever the renderer holds. */
-export function replayInto(emit: Emit, threadId: string, entries: readonly SessionEntry[]): void {
-  emitReplay((event) => emit(threadId, event), entries)
+/** States a thread from its history, replacing whatever the renderer holds.
+ *
+ *  Returns the children the history held, so the caller can put their bill back
+ *  on the thread: they are sessions pi never knew about, and without this a
+ *  reopened thread's total *fell* — a fan-out looking free the second time you
+ *  look at it. */
+export function replayInto(
+  emit: Emit,
+  threadId: string,
+  entries: readonly SessionEntry[],
+): AgentEntry[] {
+  const children: AgentEntry[] = []
+  emitReplay((event) => {
+    if (event.kind === 'tool-start' && event.agent) children.push(event.agent)
+    emit(threadId, event)
+  }, entries)
+  return children
 }
 
 /** What this thread's children have spent, which pi cannot know about. */
@@ -51,4 +66,19 @@ export function emitUsage(
   } catch {
     // Stats are a nicety; losing them must never break a turn.
   }
+}
+
+/** Replays a thread and puts its children's bill back on it, in one step.
+ *
+ *  The two belong together: the entries the rows are drawn from are the same
+ *  ones the total is summed from, and doing them apart is how a reopened thread
+ *  came to show its children and not their cost. */
+export function replayAndCharge(
+  emit: Emit,
+  threadId: string,
+  entries: readonly SessionEntry[],
+  spend: { forget: (threadId: string) => void; restore: (threadId: string, entries: readonly AgentEntry[]) => void },
+): void {
+  spend.forget(threadId)
+  spend.restore(threadId, replayInto(emit, threadId, entries))
 }

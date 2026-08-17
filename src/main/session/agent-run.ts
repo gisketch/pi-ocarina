@@ -35,6 +35,10 @@ export async function driveChild(options: {
   task: string
   usage: AgentUsage
   emit: EmitEvent
+  /** Whether the approval gate stopped a call. pi reports every failure the
+   *  same way, so without this a call the reader refused reads as one that
+   *  broke — and the gate's record of it is never consumed, which leaks. */
+  wasBlocked: (toolCallId: string) => boolean
 }): Promise<Ran> {
   const { session, threadId, childId, task, emit } = options
   const usage = { ...options.usage }
@@ -43,7 +47,7 @@ export async function driveChild(options: {
 
   // A fresh translator per child: it holds per-session state, and two children
   // sharing one would close each other's calls.
-  const translator = new PiTranslator()
+  const translator = new PiTranslator(() => undefined, options.wasBlocked)
   const unsubscribe = session.subscribe((event) => {
     for (const translated of translator.translate(event)) {
       if (translated.kind === 'tool-start') {
@@ -71,6 +75,10 @@ export async function driveChild(options: {
   try {
     await session.prompt(task)
   } finally {
+    // Calls pi abandoned when the turn was aborted report nothing, so they are
+    // settled here. Without this a cancelled child leaves rows pulsing forever
+    // under a row that has already stopped.
+    for (const event of translator.abandonOpenTools()) emit(threadId, event)
     unsubscribe()
   }
 

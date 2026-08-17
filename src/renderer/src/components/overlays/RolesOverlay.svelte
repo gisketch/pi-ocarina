@@ -1,5 +1,6 @@
 <script lang="ts">
   import Backdrop from './Backdrop.svelte'
+  import RoleForm from './RoleForm.svelte'
   import { wrapIndex } from '$lib/fuzzy'
   import { roles } from '$lib/state/roles.svelte'
   import { READ_ONLY_TOOLS } from '../../../../shared/vocabulary'
@@ -13,11 +14,12 @@
    *  the screen. */
   const { onclose }: { onclose: () => void } = $props()
 
-  /** Every tool a role may be given. A fixed list rather than free text: a
-   *  typo'd tool name is a role that silently cannot do its job. */
-  const TOOLS = [...READ_ONLY_TOOLS, 'bash', 'write', 'edit']
-
   let selected = $state(0)
+  /** The pool's field, so `n` can reach it from the list. */
+  let poolField = $state.raw<HTMLElement | null>(null)
+  /** Whether the name pool is being edited. One list, one textarea: a pool is a
+   *  list of words, and a row-per-word editor would be ceremony. */
+  let pooling = $state(false)
   /** The role being edited, or null while the list has the keys. A copy: the
    *  list must not change under the reader while they are typing into it. */
   let editing = $state.raw<AgentRole | null>(null)
@@ -28,6 +30,7 @@
   $effect(() => {
     void roles.load()
   })
+
 
   function edit(role: AgentRole): void {
     editing = { ...role, tools: [...role.tools] }
@@ -45,22 +48,26 @@
 
     // The id is set once, when the role is first saved: renaming a role must
     // not orphan it into a second entry.
-    await roles.save({ ...draft, id: draft.id || roles.idFor(draft.name) })
-    editing = null
-  }
-
-  function toggleTool(tool: string): void {
-    if (!editing) return
-    const held = editing.tools
-    editing = {
-      ...editing,
-      tools: held.includes(tool) ? held.filter((one) => one !== tool) : [...held, tool],
-    }
+    const saved = await roles.save({ ...draft, id: draft.id || roles.idFor(draft.name) })
+    // A refused save keeps the form open with what was typed still in it.
+    if (saved) editing = null
   }
 
   function onkeydown(event: KeyboardEvent): void {
     if (isTyping(event.target)) {
-      if (event.key === 'Escape') (event.target as HTMLElement).blur()
+      // `esc` leaves the field without leaving the form; the field's own keys
+      // are otherwise its own, so a role called "scout" is a name and not five
+      // bindings.
+      if (event.key === 'Escape') {
+        ;(event.target as HTMLElement).blur()
+        event.preventDefault()
+      }
+      // `tab` walks the fields, which is the one way to move without a mouse
+      // while the caret is in one.
+      if (event.key === 'Tab') {
+        field = wrapIndex(field + (event.shiftKey ? -1 : 1), FIELDS.length)
+        event.preventDefault()
+      }
       return
     }
 
@@ -99,6 +106,11 @@
       case 'a':
         add()
         break
+      case 'n':
+        // Straight to the pool, since it is one field below a list the cursor
+        // does not walk into.
+        poolField?.focus()
+        break
       case 'Enter':
         if (roles.roles[selected]) edit(roles.roles[selected])
         break
@@ -131,62 +143,14 @@
     </div>
 
     {#if editing}
-      <div class="form">
-        <label class="row" class:on={field === 0}>
-          <span class="key">name</span>
-          <input
-            class="value"
-            value={editing.name}
-            placeholder="scout"
-            oninput={(event) => (editing = { ...editing!, name: event.currentTarget.value })}
-          />
-        </label>
-
-        <label class="row tall" class:on={field === 1}>
-          <span class="key">instructions</span>
-          <textarea
-            class="value"
-            rows="5"
-            value={editing.instructions}
-            placeholder="You find things in a codebase and report where they are…"
-            oninput={(event) =>
-              (editing = { ...editing!, instructions: event.currentTarget.value })}
-          ></textarea>
-        </label>
-
-        <div class="row" class:on={field === 2}>
-          <span class="key">tools</span>
-          <span class="tools">
-            {#each TOOLS as tool (tool)}
-              <button
-                type="button"
-                class="tool"
-                class:picked={editing.tools.includes(tool)}
-                onclick={() => toggleTool(tool)}
-              >
-                {editing.tools.includes(tool) ? '■' : '□'} {tool}
-              </button>
-            {/each}
-          </span>
-        </div>
-
-        <label class="row" class:on={field === 3}>
-          <span class="key">model</span>
-          <input
-            class="value"
-            value={editing.model ?? ''}
-            placeholder="this session's model"
-            oninput={(event) =>
-              (editing = { ...editing!, model: event.currentTarget.value || undefined })}
-          />
-        </label>
-
-        <div class="foot">
-          <button type="button" class="primary" onclick={() => void commit()}>save</button>
-          <button type="button" class="ghost" onclick={() => (editing = null)}>cancel</button>
-          <span class="hint">a model this machine has no credentials for falls back with a warning</span>
-        </div>
-      </div>
+      <RoleForm
+        role={editing}
+        {field}
+        onchange={(next) => (editing = next)}
+        onfield={(next) => (field = next)}
+        onsave={() => void commit()}
+        oncancel={() => (editing = null)}
+      />
     {:else}
       <div class="list">
         {#if roles.roles.length === 0}
@@ -203,9 +167,25 @@
         {/each}
       </div>
 
+      <label class="row pool" class:on={pooling}>
+        <span class="key">names</span>
+        <textarea
+          class="value"
+          bind:this={poolField}
+          rows="2"
+          value={roles.names.join(' ')}
+          placeholder="odysseus penelope circe…"
+          onfocus={() => (pooling = true)}
+          onblur={(event) => {
+            pooling = false
+            void roles.setNames(event.currentTarget.value.split(/\s+/))
+          }}
+        ></textarea>
+      </label>
+
       <div class="foot">
         <button type="button" class="primary" onclick={add}>add a role</button>
-        <span class="hint">⏎ edit · a add · d delete · esc close</span>
+        <span class="hint">⏎ edit · a add · d delete · esc close · a child borrows one name per run</span>
       </div>
     {/if}
 
@@ -242,11 +222,6 @@
     font-size: 10.5px;
   }
   .list,
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
   .entry,
   .row {
     display: flex;
@@ -271,7 +246,7 @@
   .row.on {
     border-color: var(--accent-soft);
   }
-  .row.tall {
+  .row.pool {
     align-items: flex-start;
   }
   .name {
@@ -300,23 +275,6 @@
     outline: none;
     border-color: var(--accent-soft);
   }
-  .tools {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .tool {
-    border: none;
-    background: transparent;
-    font: inherit;
-    font-size: 10.5px;
-    color: var(--fg-dim);
-    cursor: pointer;
-    padding: 0;
-  }
-  .tool.picked {
-    color: var(--fg-bright);
-  }
   .foot {
     display: flex;
     align-items: baseline;
@@ -324,17 +282,7 @@
     padding-top: 6px;
     border-top: 1px solid var(--line-mid);
   }
-  .primary,
-  .ghost {
-    border: 1px solid var(--line-strong);
-    background: transparent;
-    font: inherit;
-    font-size: 10.5px;
-    padding: 3px 9px;
-    color: var(--fg-bright);
-    cursor: pointer;
-  }
-  .ghost {
+  .primary {
     color: var(--fg-dim);
   }
   .error {

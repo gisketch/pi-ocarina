@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
 import { PiDriver } from './pi-driver'
-import { MODEL, isState, live, waitFor, workspace } from './pi-live-harness'
+import { MODEL, isState, live, textOf, waitFor, workspace } from './pi-live-harness'
 
 /** Talks to a real model, so it is opt-in: `PIOCARINA_PI_LIVE=1 pnpm test`.
  *
@@ -60,6 +60,10 @@ describe.skipIf(!live)('spawn_agents against a real session', () => {
       if (settled?.kind !== 'agent-update') throw new Error('unreachable')
       expect(settled.agent.status).toBe('ok')
       expect(settled.agent.output ?? '').toContain('ocarina')
+
+      // And the parent read it: the whole point of the envelope is that what
+      // the child found reaches the reply.
+      expect(textOf(events)).toContain('ocarina')
     },
   )
 })
@@ -103,6 +107,9 @@ describe.skipIf(!live)('several children at once', () => {
 
       const done = events.filter((event) => event.kind === 'agent-update' && event.agent.endedAt)
       expect(done.length).toBeGreaterThanOrEqual(3)
+
+      // The parent consolidated them rather than reporting one and stopping.
+      expect(textOf(events)).toContain('ocarina')
     },
   )
 })

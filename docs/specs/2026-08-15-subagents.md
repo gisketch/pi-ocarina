@@ -286,6 +286,15 @@ its role names would be worse than the warning.
 
 ### 13. The orchestrator may narrow a child's tools, never widen them
 
+**Amended 2026-08-17, by review.** The ceiling was decorative for the first day
+of its life. `bindToolsToWorkspace` exists because pi 0.84 builds its tools
+against `process.cwd()` rather than the session's, and it put **all seven**
+built-ins back — after `createAgentSession({ tools })` had narrowed them. A
+read-only `planner` was handed `write`, `edit` and `bash` immediately after being
+denied them. The rebinding now takes the effective allow-list and removes what
+the session may not hold rather than only rebinding what it may.
+
+
 A role's tool set is a ceiling. The spawn call may remove from it — "developer
 without bash" is reasonable and always safe — and may not add.
 
@@ -369,6 +378,14 @@ Observable behavior, in the order a reader meets it.
   cannot exhaust today; it will read as a bug the day the cap is raised.
 - **A crashing child takes the app down** (decision 1's accepted cost). No
   mitigation is specified.
+- **A queued child is registered before it waits**, so cancelling reaches it.
+  Found in review: a queued child was in no registry, so `cancelThread` could not
+  see it; when its slot freed, `session.abort()` on a session with no active run
+  was a silent no-op and the child ran its whole turn — model call, tool calls
+  and writes — after the reader had already stopped it.
+- **A child that is waiting on its own children lends its slot back.** Found in
+  review: with the cap full of spawning children, each held a slot none of them
+  would release until the others finished, and a depth-2 fan-out deadlocked.
 - **A user who has pi's own subagent package installed has two tools that do the
   same job**, and the model picks between them. Found live: with
   `git:github.com/elpapi42/pi-minimal-subagent` in the user's pi packages, an
