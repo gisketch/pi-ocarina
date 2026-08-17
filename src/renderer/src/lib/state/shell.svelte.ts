@@ -4,6 +4,7 @@ import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { askKeys } from './ask-keys.svelte'
 import { createThread } from './new-thread'
+import { routeToOverlay } from './key-routing.svelte'
 import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
 import { threadGit } from './thread-git.svelte'
@@ -156,28 +157,9 @@ class ShellState {
 
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
-    // The destructive modal outranks everything, including the close confirm.
-    if (confirm.pending) return confirm.handleKey(event)
-    // The worktree question is modal for the same reason: it is answered
-    // before a thread exists, and a key that fell through would move a column
-    // behind it.
-    if (worktreeAsk.open) return worktreeAsk.handleKey(event)
-    // The sweep is a list of directories with a removal key in it. Same rank:
-    // a key falling through would move a column behind it.
-    if (sweep.open) return sweep.handleKey(event)
-    // The commit card owns its keys while it is open, for the same reason.
-    if (commit.open) return commit.handleKey(event)
-
-    // The viewer is modal and floats over everything: while it is up it owns
-    // every key, which is what lets a filter be `/` and a jump be `gg` without
-    // colliding with the bindings underneath.
-    if (changes.open) return changes.handleKey(event)
-
-    // A question waiting in this column owns the choice keys, below the modals
-    // above and above ordinary column keys. `enter` from NORMAL takes them
-    // back after an `esc` released them.
-    if (event.key === 'Enter' && app.mode === 'NORMAL' && askKeys.resume()) return true
-    if (askKeys.handleKey(event)) return true
+    // Everything modal answers first, in one place that owns the ranking.
+    const answered = routeToOverlay(event)
+    if (answered !== null) return answered
 
     // A menu or a set of hints can outlive what they point at: a column can be
     // clicked away, a restore can take the block, a compaction can fold it out

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AskQuestion, UiEvent } from '../../../../shared/protocol'
+import type { UiEvent } from '../../../../shared/protocol'
+import type { AskQuestion } from '../../../../shared/vocabulary'
 
 const invoke = vi.fn().mockResolvedValue({ ok: true })
 vi.mock('../session', () => ({
