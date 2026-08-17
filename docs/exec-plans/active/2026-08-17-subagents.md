@@ -197,7 +197,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > left the event protocol (`commands.ts`, re-exported so no call site moved), and
 > the child-agent approval tests left the gate's own.
 
-## M8 — Reopening the thread — `todo`
+## M8 — Reopening the thread — `done`
 
 > Close the thread, open it again, and the children are still there.
 

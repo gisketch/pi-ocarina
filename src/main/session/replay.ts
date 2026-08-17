@@ -2,6 +2,7 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
 import { joinTextParts, toolBody, toolKind, toolTarget } from './pi-translate'
 import { answerFromResult, askFromCall, ASK_TOOL, endedUnanswered } from './ask-replay'
+import { agentsFromResult, rowsFromResult, SPAWN_TOOL } from './spawn-replay'
 
 // Colour codes reach the transcript when something formats for a terminal.
 // They are noise in a GUI, and they would make replay differ from live text.
@@ -36,6 +37,8 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   const openCalls = new Set<string>()
   /** Calls that were questions, so their result rebuilds a card. */
   const asked = new Set<string>()
+  /** Calls whose result carries a fan-out's children. */
+  const spawned = new Set<string>()
 
   for (const entry of entries) {
     if (entry.type !== 'message') {
@@ -88,7 +91,15 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
         continue
       }
 
-      const body = toolBody(message.toolName ?? '', message)
+      // A fan-out is rebuilt as its children, under the row that started them.
+      // The alternative is one row saying `spawn_agents ✓` about work the
+      // reader watched four agents do.
+      if (spawned.has(id)) {
+        const entries = agentsFromResult(message)
+        if (entries) events.push(...rowsFromResult(id, entries))
+      }
+
+      const body = spawned.has(id) ? undefined : toolBody(message.toolName ?? '', message)
       if (body) events.push({ kind: 'tool-body', id, body })
       events.push({ kind: 'tool-end', id, status: message.isError ? 'fail' : 'ok' })
       continue
@@ -120,6 +131,10 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
           events.push(ask)
           continue
         }
+      }
+
+      if (content.type === 'toolCall' && content.id && content.name === SPAWN_TOOL) {
+        spawned.add(content.id)
       }
 
       if (content.type === 'toolCall' && content.id) {
