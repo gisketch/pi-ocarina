@@ -133,34 +133,15 @@
     }
   }
 
-  /** A paste is either pictures, a wall of text, or something ordinary.
-   *
-   *  Ordinary falls through to the browser on purpose: native paste keeps
-   *  native undo, and undo is the veto a reader reaches for first. */
   async function onpaste(event: ClipboardEvent): Promise<void> {
-    const data = event.clipboardData
-    if (!data) return
+    const next = await pasting.fromEvent(event, text, input)
+    if (!next) return
 
-    const files = [...data.files]
-    if (files.some((file) => file.type.startsWith('image/'))) {
-      event.preventDefault()
-      await pasting.images(files)
-      return
-    }
-
-    const pasted = data.getData('text/plain')
-    if (pasted === '') return
-
-    const field = input
-    const folded = pasting.text(text, { start: field?.selectionStart ?? text.length, end: field?.selectionEnd ?? text.length }, pasted)
-    if (!folded) return
-
-    event.preventDefault()
-    text = folded.text
+    text = next.text
     // The caret belongs after the token, which only exists once Svelte has
     // written the new value into the field.
     await tick()
-    field?.setSelectionRange(folded.caret, folded.caret)
+    input?.setSelectionRange(next.caret, next.caret)
     trackCaret()
   }
 

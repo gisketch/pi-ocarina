@@ -151,3 +151,37 @@ describe('untrusted input cannot stall the column', () => {
     expect(under(`${'[]('.repeat(120_000)}x)`, 400)).toBe(true)
   })
 })
+
+describe('a mention', () => {
+  it('becomes a chip, so it looks the same sent as it did while typed', () => {
+    expect(parseInline('why is @src/app.ts slow')).toEqual([
+      { text: 'why is ', code: false },
+      { text: '@src/app.ts', code: false, mention: true },
+      { text: ' slow', code: false },
+    ])
+  })
+
+  it('is a chip at the very start of a line', () => {
+    expect(parseInline('@a.ts please')[0]).toMatchObject({ text: '@a.ts', mention: true })
+  })
+
+  it('leaves an email address alone', () => {
+    // Without the shape rule, an email address and a mention of a person both
+    // become chips claiming to be files.
+    expect(parseInline('mail me@example.com now').every((one) => !one.mention)).toBe(true)
+  })
+
+  it('leaves a bare handle alone', () => {
+    expect(parseInline('thanks @alice').every((one) => !one.mention)).toBe(true)
+  })
+
+  it('does not decorate inside code', () => {
+    const segments = parseInline('`@src/a.ts`')
+    expect(segments.every((one) => !one.mention)).toBe(true)
+  })
+
+  it('keeps every character of the line', () => {
+    const text = 'see @a/b.ts and @c.ts, thanks'
+    expect(parseInline(text).map((one) => one.text).join('')).toBe(text)
+  })
+})

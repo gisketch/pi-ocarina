@@ -8,6 +8,7 @@
     href={part.href}
     target="_blank"
     rel="noreferrer noopener">{part.text}</a
+  >{:else if part.mention}<span class="mention">{part.text}</span
   >{:else if part.code}<code class:b={part.bold}>{part.text}</code
   >{:else}<span
     class:b={part.bold}
@@ -28,6 +29,15 @@
   }
   code.b {
     font-weight: 700;
+  }
+
+  /* A file the message referred to. Drawn the way the composer draws it while
+     it is being typed, so it reads as the same thing before and after sending
+     — the design's chips, flowing with the text. */
+  .mention {
+    color: var(--accent);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
+    outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.32);
   }
 
   .b {

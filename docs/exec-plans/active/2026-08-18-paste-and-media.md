@@ -49,7 +49,7 @@ Status legend: `todo` · `in-progress` · `done`.
   mirror's text box matches the textarea's.
 - Blocked by: P1
 
-## P4 — the sent message shows what travelled — `todo`
+## P4 — the sent message shows what travelled — `done`
 
 > §10: chips flow with the text and expand.
 
@@ -61,7 +61,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: block-model tests; a visual pass against §10.
 - Blocked by: P2, P3
 
-## P5 — an image the agent read is an image — `todo`
+## P5 — an image the agent read is an image — `done`
 
 > One family for every picture in the transcript.
 

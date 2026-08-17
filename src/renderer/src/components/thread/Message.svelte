@@ -98,7 +98,7 @@
     {:else if node.type === 'quote'}
       <Quote {node} />
     {:else if node.type === 'image'}
-      <Picture {node} />
+      <Picture src={node.src} alt={node.alt} />
     {/if}
   {/if}
 {/snippet}

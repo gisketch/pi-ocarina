@@ -19,6 +19,12 @@ export interface InlineSegment {
   strike?: boolean
   /** Set when the run is part of a link. Already checked as safe to follow. */
   href?: string
+  /** A file the message referred to with `@path`.
+   *
+   *  Drawn as a chip, the way the composer draws it while it is being typed —
+   *  so a mention looks the same before and after it is sent, which is what
+   *  makes it recognisable as the same thing. */
+  mention?: boolean
 }
 
 /** Schemes a link may use. An allow-list: the renderer hands these to the
@@ -38,6 +44,13 @@ export function safeHref(url: string): string | null {
   }
   return null
 }
+
+/** An `@path` reference. Sticky, anchored at an index, like the autolink.
+ *
+ *  Only after whitespace or at the start of a line, and it must contain a `.`
+ *  or a `/` — the same shape a path has. Without that rule an email address and
+ *  a mention of a person both become chips claiming to be files. */
+const MENTION = /@[^\s@]*[./][^\s]*/y
 
 /** Bare URLs an agent dropped into prose without link syntax.
  *
@@ -179,6 +192,19 @@ export function parseInline(text: string): InlineSegment[] {
       else open[mark.flag] = true
       at += mark.marker.length - 1
       continue
+    }
+
+    // Before the autolink check, and outside its `h`/`w` guard: a mention
+    // starts with `@` and would never be reached from inside it.
+    if (!code && text[at] === '@' && (at === 0 || /\s/.test(text[at - 1]))) {
+      MENTION.lastIndex = at
+      const mentioned = MENTION.exec(text)
+      if (mentioned) {
+        push()
+        segments.push({ text: mentioned[0], code, ...open, mention: true })
+        at += mentioned[0].length - 1
+        continue
+      }
     }
 
     if (open.href === undefined && (text[at] === 'h' || text[at] === 'w')) {

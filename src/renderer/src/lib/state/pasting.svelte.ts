@@ -58,6 +58,42 @@ class Pasting {
     return staged
   }
 
+  /** The whole of a paste event: pictures, a wall of text, or nothing to do.
+   *
+   *  Returns what the composer should become, or null when the browser should
+   *  handle the paste itself — the ordinary case, kept native so that native
+   *  undo keeps working for it.
+   *
+   *  Calls `preventDefault` itself, because whether the default is wanted is
+   *  exactly what this decides. */
+  async fromEvent(
+    event: ClipboardEvent,
+    text: string,
+    field: HTMLTextAreaElement | null,
+  ): Promise<{ text: string; caret: number } | null> {
+    const data = event.clipboardData
+    if (!data) return null
+
+    const files = [...data.files]
+    if (files.some((file) => file.type.startsWith('image/'))) {
+      event.preventDefault()
+      await this.images(files)
+      return null
+    }
+
+    const pasted = data.getData('text/plain')
+    if (pasted === '') return null
+
+    const folded = this.text(text, {
+      start: field?.selectionStart ?? text.length,
+      end: field?.selectionEnd ?? text.length,
+    }, pasted)
+    if (!folded) return null
+
+    event.preventDefault()
+    return folded
+  }
+
   /** Drops folds whose tokens the reader deleted. Called on every edit. */
   prune(text: string): void {
     const kept = foldsIn(text, this.folds)

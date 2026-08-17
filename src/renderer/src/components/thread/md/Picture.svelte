@@ -1,7 +1,14 @@
 <script lang="ts">
-  import type { MarkdownNode } from '$lib/thread'
-
-  const { node }: { node: MarkdownNode & { type: 'image' } } = $props()
+  /** Every picture in the transcript, wherever it came from.
+   *
+   *  One component on purpose: an image attached to a message, one pasted from
+   *  the clipboard, one the agent read, and one written into an answer as
+   *  markdown are the same thing to a reader, and four previews that differed
+   *  would be four bugs waiting to be reported.
+   *
+   *  Takes `src` and `alt` rather than a markdown node, so a ledger body can
+   *  use it without inventing a node to pass. */
+  const { src, alt = '' }: { src: string; alt?: string } = $props()
 
   let failed = $state(false)
 </script>
@@ -9,9 +16,9 @@
 <!-- The seam a screenshot arrives through. An image that will not load says so
      rather than leaving a gap the reader cannot explain. -->
 {#if failed}
-  <div class="missing">image unavailable{node.alt ? ` — ${node.alt}` : ''}</div>
+  <div class="missing">image unavailable{alt ? ` — ${alt}` : ''}</div>
 {:else}
-  <img src={node.src} alt={node.alt} loading="lazy" onerror={() => (failed = true)} />
+  <img {src} {alt} loading="lazy" onerror={() => (failed = true)} />
 {/if}
 
 <style>

@@ -29,7 +29,7 @@
     {:else if node.type === 'table'}
       <Table {node} />
     {:else if node.type === 'image'}
-      <Picture {node} />
+      <Picture src={node.src} alt={node.alt} />
     {:else if node.type === 'list'}
       <ul>
         {#each node.items as item, j (j)}

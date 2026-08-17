@@ -105,6 +105,10 @@ export type ToolBody =
   // line was a heading, which run was code — is most of why a page was worth
   // fetching, and flattening it to text throws that away.
   | { type: 'markdown'; text: string }
+  // A picture, as a data URI. Every image in the transcript — attached, pasted,
+  // read by the agent, or written into an answer as markdown — draws through
+  // one component, so four of them cannot end up looking like four ideas.
+  | { type: 'image'; src: string; alt: string }
 
 /** One thing the reader can pick.
  *
