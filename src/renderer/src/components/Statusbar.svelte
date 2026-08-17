@@ -2,12 +2,21 @@
   import GitSummary from './GitSummary.svelte'
   import { app } from '$lib/state/app.svelte'
   import { threads } from '$lib/state/threads.svelte'
+  import { threadGit } from '$lib/state/thread-git.svelte'
   import { formatUsage } from '$lib/usage-format'
 
   // pi's own accounting for the focused thread. A thread that has not run a
   // turn has no usage, and the segment stays blank rather than showing zeros
   // that would read as a measurement.
   const model = $derived(threads.get(app.thread.id))
+
+  // An isolated thread reports its own checkout, not the workspace's: the
+  // reader is looking at a column whose branch and whose changes are not the
+  // ones the folder behind it has.
+  const isolated = $derived(Boolean(app.thread.branch))
+  $effect(() => {
+    if (isolated) threadGit.refresh(app.thread.id)
+  })
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
   const usage = $derived(formatUsage(model.usage))
 </script>
@@ -20,7 +29,10 @@
   </div>
 
   <div class="seg branch">
-    <GitSummary status={app.workspace.git} />
+    {#if isolated}
+      <span class="worktree">⑂</span>
+    {/if}
+    <GitSummary status={isolated ? threadGit.statusOf(app.thread.id) : app.workspace.git} />
   </div>
 
   <div class="seg">thread {app.threadLabel}</div>
@@ -75,6 +87,11 @@
     padding: 0 12px;
     border-right: 1px solid rgba(255, 255, 255, 0.04);
     color: var(--fg-dim);
+  }
+
+  .worktree {
+    color: var(--accent);
+    margin-right: 5px;
   }
 
   .workspace {

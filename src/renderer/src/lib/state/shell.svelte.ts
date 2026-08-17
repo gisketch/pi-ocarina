@@ -2,7 +2,8 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
-import { chooseWorktree, worktreeAsk } from './worktree-ask.svelte'
+import { createThread } from './new-thread'
+import { worktreeAsk } from './worktree-ask.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
@@ -75,22 +76,19 @@ class ShellState {
     const workspaceId = app.workspace.id
     // The question comes before the column, and only in a repository. Its
     // default answer is the thread this app has always made.
-    void chooseWorktree(app.workspace.git !== null)
-      .then((choice) => catalog.newThread(workspaceId, choice ?? undefined))
-      .then((threadId) => {
-        if (!threadId) return
-        // The person may have moved on while the backend was working. The
-        // thread is theirs either way, but stealing the caret back would be
-        // rude.
-        if (app.workspace.id !== workspaceId) return
+    void createThread(workspaceId).then((threadId) => {
+      if (!threadId) return
+      // The person may have moved on while the backend was working. The thread
+      // is theirs either way, but stealing the caret back would be rude.
+      if (app.workspace.id !== workspaceId) return
 
-        const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
-        if (column === -1) return
+      const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
+      if (column === -1) return
 
-        app.focusThread(column)
-        app.mode = 'INSERT'
-        this.focusComposer()
-      })
+      app.focusThread(column)
+      app.mode = 'INSERT'
+      this.focusComposer()
+    })
   }
 
   /** Closes the focused thread, asking first if a turn is running.

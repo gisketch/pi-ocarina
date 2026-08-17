@@ -68,7 +68,7 @@ Status legend: `todo` · `in-progress` · `done`.
   one pass in the running app.
 - Blocked by: K2.
 
-## K4 — Saying which tree a thread is in — `todo`
+## K4 — Saying which tree a thread is in — `done`
 
 - Delivered behavior: an isolated thread's column header carries a branch chip
   (`⑂ fix/OCA-231`); a thread in the workspace directory carries nothing. The

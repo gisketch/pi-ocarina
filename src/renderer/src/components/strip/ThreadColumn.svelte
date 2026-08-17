@@ -51,6 +51,12 @@
   <header class="head">
     <span class="dot {tone}"></span>
     <span class="title">{app.titleOf(thread)}</span>
+    {#if thread.branch}
+      <!-- The chip's presence is the isolation: a thread in the workspace's
+           own folder carries nothing, so there is one thing to look for
+           rather than two labels to compare. -->
+      <span class="branch" title="worktree · {thread.branch}">⑂ {thread.branch}</span>
+    {/if}
     <span class="meta">{thread.meta}</span>
   </header>
 
@@ -61,6 +67,20 @@
 </section>
 
 <style>
+  .branch {
+    font-family: var(--font-chrome);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    border: 1px solid var(--accent-soft);
+    padding: 1px 5px;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: none;
+  }
+
   .column {
     width: var(--column-w);
     flex: none;

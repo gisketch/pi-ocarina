@@ -69,6 +69,11 @@ export class StubDriver implements SessionDriver {
         return { steerId } as CommandResult<N>
       }
 
+      case 'threadGit':
+        // The stub has no repository behind it. Null is what a thread that is
+        // not isolated answers, which is every thread here.
+        return { status: null } as CommandResult<N>
+
       case 'listChanges':
         // The stub changes no files, and says so — the default `{ ok: true }`
         // would hand the viewer a result with no `files` in it.

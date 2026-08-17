@@ -5,12 +5,14 @@ import type {
   ChangedFile,
   CommandResult,
   EmitEvent,
+  GitStatus,
   SessionDriver,
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import { isAbsolute, relative } from 'node:path'
 import type { CatalogStore } from '../catalog-store'
 import { countChanges, diffLines } from './file-diff'
+import { readStatus } from '../git/service'
 import { ApprovalGate } from './approvals'
 import { ChangeLog } from './change-log'
 import { ModelControl } from './model-control'
@@ -130,6 +132,11 @@ export class PiDriver implements SessionDriver {
         const { threadId, checkpointId } = params as CommandParams<'restoreCheckpoint'>
         await restoreCheckpoint(this.#emit, threadId, this.#threads.get(threadId), checkpointId)
         return { threadId } as CommandResult<N>
+      }
+
+      case 'threadGit': {
+        const { threadId } = params as CommandParams<'threadGit'>
+        return { status: await this.#threadGit(threadId) } as CommandResult<N>
       }
 
       case 'listChanges': {
@@ -298,6 +305,17 @@ export class PiDriver implements SessionDriver {
         lines,
       }
     })
+  }
+
+  /** An isolated thread's own repository state. A thread in the workspace's
+   *  own directory answers null, because that state already reaches the chrome
+   *  on the git channel and a second source would let the two disagree. */
+  async #threadGit(threadId: string): Promise<GitStatus | null> {
+    const branch = this.#workspaces.branchOf(threadId)
+    const cwd = this.#workspaces.cwdOf(threadId)
+    if (branch === null || cwd === undefined) return null
+
+    return readStatus(cwd)
   }
 
   #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {

@@ -252,6 +252,10 @@ export interface SessionCommands {
    *  other question — what each call did — and both come from the same
    *  snapshots through the same diff, so the two cannot disagree. */
   listChanges: { params: { threadId: string }; result: { files: ChangedFile[] } }
+  /** The git state of the checkout a thread runs in, or null when the thread
+   *  is not isolated — the workspace's own state is already published on the
+   *  git channel, and answering with it here would let the two disagree. */
+  threadGit: { params: { threadId: string }; result: { status: GitStatus | null } }
   listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
   setModel: {
     params: { threadId: string; provider: string; model: string }

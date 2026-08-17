@@ -282,6 +282,7 @@ function toThread(summary: ThreadSummary): Thread {
     // column reads as idle rather than claiming to know.
     status: 'idle',
     meta: timeOf(summary.modified),
+    branch: summary.branch ?? null,
   }
 }
 

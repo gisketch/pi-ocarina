@@ -29,6 +29,10 @@ export interface Thread {
   fresh?: boolean
   /** The workspace's shell. Exactly one per workspace, created on demand. */
   terminal?: boolean
+  /** The branch of the worktree this thread runs in, or null when it runs in
+   *  the workspace's own directory. Carried on the thread rather than derived,
+   *  so a column reopened after a restart still says it is isolated. */
+  branch?: string | null
 }
 
 /** The id a workspace's terminal column always has. Derived rather than stored,

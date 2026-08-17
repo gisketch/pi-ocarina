@@ -11,6 +11,7 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
+import { threadGit } from './thread-git.svelte'
 import { toasts } from './toasts.svelte'
 import { reduceBatch } from '../thread-reducer'
 import { changes } from './changes.svelte'
@@ -71,6 +72,10 @@ class ThreadStore {
       // stops being up to date.
       if (events.some((event) => event.kind === 'tool-end')) {
         git.refreshForThread(threadId)
+        // An isolated thread's own checkout has no watcher — it is made and
+        // removed with the thread — so this is the only moment its state can
+        // be known to have moved.
+        threadGit.refresh(threadId)
         void changes.refreshFor(threadId)
       }
 
