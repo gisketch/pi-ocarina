@@ -2,6 +2,7 @@ import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
 import { buildResources, canSpawn, type ChildShape } from './session-extensions'
+import { demote, type LspExtensionDeps } from './lsp-extension'
 import { SPAWN_TOOL, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 
@@ -21,6 +22,22 @@ export interface ThreadHandle {
   threadId: string
 }
 
+/** What a session may hold, and how its search tools describe themselves. */
+export interface BindOptions {
+  /** What this session may hold. Absent means everything, which is what a
+   *  thread gets. A child passes its role's ceiling.
+   *
+   *  Without this the rebinding *widened* every child: it put all seven
+   *  built-ins back regardless of what `createAgentSession({ tools })` had
+   *  narrowed them to, so a read-only `planner` was handed `write`, `edit` and
+   *  `bash` immediately after being denied them. Found in review. */
+  allowed?: readonly string[]
+  /** Whether this workspace has language servers, which changes what `grep` and
+   *  `find` say they are for. */
+  demoteSearch?: boolean
+}
+
+
 /** Builds pi sessions that behave the way this app needs them to.
  *
  *  Everything awkward about standing a session up lives here — the approval
@@ -38,6 +55,9 @@ export class SessionFactory {
    *  arrives simply has no spawn tool. */
   #spawn: Omit<SpawnDeps, 'handle' | 'where' | 'depth'> | undefined
   #where: ((workspaceId: string, cwd: string) => SpawnDeps['where']) | undefined
+  /** Supplied after construction, like spawning. Absent means no session in
+   *  this app has language servers, which is what the tests without one get. */
+  #lsp: ((workspaceId: string, cwd: string) => LspExtensionDeps | null) | undefined
 
   constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
     this.#approvals = approvals
@@ -49,6 +69,16 @@ export class SessionFactory {
   enableSpawning(deps: Omit<SpawnDeps, 'handle' | 'where' | 'depth'>): void {
     this.#spawn = deps
     this.#where = (workspaceId, cwd) => () => ({ workspaceId, cwd })
+  }
+
+  /** Lets sessions reach their workspace's language servers. Called once. */
+  enableLsp(lsp: (workspaceId: string, cwd: string) => LspExtensionDeps | null): void {
+    this.#lsp = lsp
+  }
+
+  /** Whether this workspace's sessions get the language-server treatment. */
+  #hasLsp(workspaceId: string, cwd: string): boolean {
+    return this.#lsp?.(workspaceId, cwd) != null
   }
 
   /** Loaded on first use: pi is a heavy import and the window should paint first. */
@@ -69,7 +99,9 @@ export class SessionFactory {
       resourceLoader: await this.#loader(cwd, workspaceId, handle),
     })
 
-    await this.bindToolsToWorkspace(session, cwd)
+    await this.bindToolsToWorkspace(session, cwd, {
+      demoteSearch: this.#hasLsp(workspaceId, cwd),
+    })
     return session
   }
 
@@ -89,7 +121,9 @@ export class SessionFactory {
       resourceLoader: await this.#loader(cwd, workspaceId, { threadId }),
     })
 
-    await this.bindToolsToWorkspace(session, cwd)
+    await this.bindToolsToWorkspace(session, cwd, {
+      demoteSearch: this.#hasLsp(workspaceId, cwd),
+    })
     return session
   }
 
@@ -154,7 +188,10 @@ export class SessionFactory {
       }),
     })
 
-    await this.bindToolsToWorkspace(session, options.cwd, tools)
+    await this.bindToolsToWorkspace(session, options.cwd, {
+      allowed: tools,
+      demoteSearch: this.#hasLsp(options.workspaceId, options.cwd),
+    })
     return session
   }
 
@@ -190,7 +227,13 @@ export class SessionFactory {
   ): Promise<ResourceLoaderOf> {
     return buildResources(
       await this.load(),
-      { approvals: this.#approvals, asks: this.#asks, spawn: this.#spawn, where: this.#where },
+      {
+        approvals: this.#approvals,
+        asks: this.#asks,
+        spawn: this.#spawn,
+        where: this.#where,
+        lsp: this.#lsp,
+      },
       cwd,
       workspaceId,
       handle,
@@ -212,16 +255,9 @@ export class SessionFactory {
   async bindToolsToWorkspace(
     session: AgentSession,
     cwd: string,
-    /** What this session may hold. Absent means everything, which is what a
-     *  thread gets. A child passes its role's ceiling.
-     *
-     *  Without this the rebinding *widened* every child: it put all seven
-     *  built-ins back regardless of what `createAgentSession({ tools })` had
-     *  narrowed them to, so a read-only `planner` was handed `write`, `edit`
-     *  and `bash` immediately after being denied them, and decision 13's
-     *  ceiling was decorative. Found in review. */
-    allowed?: readonly string[],
+    options: BindOptions = {},
   ): Promise<void> {
+    const { allowed, demoteSearch = false } = options
     const sdk = await this.load()
     const all = [
       sdk.createReadTool(cwd),
@@ -232,7 +268,17 @@ export class SessionFactory {
       sdk.createFindTool(cwd),
       sdk.createLsTool(cwd),
     ]
-    const rebound = allowed ? all.filter((tool) => allowed.includes(tool.name)) : all
+    const narrowed = allowed ? all.filter((tool) => allowed.includes(tool.name)) : all
+    // Layer two of three. A description alone loses to a model's habits, so the
+    // fallback note goes on the tool the model would otherwise reach for first.
+    // Never removed: a fallback that does not exist is a lie.
+    const rebound = demoteSearch
+      ? narrowed.map((tool) =>
+          tool.name === 'grep' || tool.name === 'find'
+            ? { ...tool, description: demote(tool.description) }
+            : tool,
+        )
+      : narrowed
 
     // Every built-in is replaced, not only the ones being kept: a tool this
     // session may not hold must be removed, not left bound to the wrong cwd.

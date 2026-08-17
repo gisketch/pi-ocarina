@@ -1,6 +1,6 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { describe, expect, it } from 'vitest'
-import { PiTranslator, toolTarget } from './pi-translate'
+import { PiTranslator, toolKind, toolTarget } from './pi-translate'
 
 /** pi's event shapes, fabricated — see the note in `pi-translate.test.ts`. */
 const pi = (event: unknown): AgentSessionEvent => event as AgentSessionEvent
@@ -63,5 +63,34 @@ describe('a fetch row', () => {
     expect(toolTarget('fetch', { url: 'https://api.test/x', method: 'post' })).toBe(
       'POST api.test/x',
     )
+  })
+})
+
+describe('a language-server row', () => {
+  it('says what was asked and about what', () => {
+    expect(toolTarget('lsp_references', { path: 'src/Ledger.svelte', symbol: 'draw' })).toBe(
+      'uses of draw · src/Ledger.svelte',
+    )
+  })
+
+  it('tells the six of them apart', () => {
+    const targets = [
+      'lsp_symbols',
+      'lsp_diagnostics',
+      'lsp_definition',
+      'lsp_references',
+      'lsp_hover',
+      'lsp_rename_preview',
+    ].map((name) => toolTarget(name, { path: 'a.ts', symbol: 'x' }))
+
+    expect(new Set(targets).size).toBe(6)
+  })
+
+  it('reads sensibly for the tools that take no symbol', () => {
+    expect(toolTarget('lsp_diagnostics', { path: 'a.ts' })).toBe('problems a.ts')
+  })
+
+  it('draws as a lookup rather than as raw JSON', () => {
+    expect(toolKind('lsp_references')).toBe('grep')
   })
 })

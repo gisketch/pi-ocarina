@@ -14,6 +14,14 @@ import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
 import { askUserTool } from './ask-tool'
 import { fetchTool } from './fetch-tool'
+import {
+  appendNote,
+  injectDiagnostics,
+  lspToolsFor,
+  promptLine,
+  type LspExtensionDeps,
+  type ResultEvent,
+} from './lsp-extension'
 import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 import type { ThreadHandle } from './session-factory'
@@ -40,6 +48,9 @@ export interface Deps {
   asks: AskGate
   spawn: Omit<SpawnDeps, 'handle' | 'where' | 'depth'> | undefined
   where: ((workspaceId: string, cwd: string) => SpawnDeps['where']) | undefined
+  /** Null when this workspace has no language servers switched on, which is
+   *  the default and the case every session without them takes. */
+  lsp?: (workspaceId: string, cwd: string) => LspExtensionDeps | null
 }
 
 /** Loads pi's usual resources plus this app's own extensions.
@@ -57,6 +68,8 @@ export async function buildResources(
 ): Promise<ResourceLoaderOf> {
   const { DefaultResourceLoader, getAgentDir } = sdk
   const { approvals: gate, asks, spawn, where } = deps
+  const lsp = deps.lsp?.(workspaceId, cwd) ?? null
+  const languages = lsp ? promptLine(await lsp.labels()) : ''
 
   const loader = new DefaultResourceLoader({
     cwd,
@@ -64,7 +77,16 @@ export async function buildResources(
     // Inline text, not a path: pi reads an entry as a file when one exists at
     // that name and takes it as the prompt itself otherwise. A role's
     // instructions are prose, so they arrive as prose.
-    ...(child ? { appendSystemPrompt: [child.appendSystemPrompt] } : {}),
+    // A child's role, and the languages this workspace speaks. Both are prose,
+    // and pi takes an entry as prose when no file exists at that name.
+    ...(child || languages !== ''
+      ? {
+          appendSystemPrompt: [
+            ...(child ? [child.appendSystemPrompt] : []),
+            ...(languages !== '' ? [languages] : []),
+          ],
+        }
+      : {}),
     extensionFactories: [
       ...(child?.ask === false
         ? []
@@ -97,6 +119,27 @@ export async function buildResources(
                     selfId: child?.selfId,
                   }),
                 )
+              },
+            },
+          ]),
+      ...(lsp === null
+        ? []
+        : [
+            {
+              // The six tools, plus the hook that makes an edit report its own
+              // damage. A child holds them only if its role's tool list names
+              // them, which pi enforces for custom tools.
+              name: 'piocarina-lsp',
+              factory: (pi: ExtensionApiOf) => {
+                for (const tool of lspToolsFor(lsp)) pi.registerTool(tool)
+
+                pi.on('tool_result', async (event) => {
+                  appendNote(
+                    event as unknown as ResultEvent,
+                    await injectDiagnostics(lsp, event as unknown as ResultEvent),
+                  )
+                  return undefined
+                })
               },
             },
           ]),

@@ -6,6 +6,8 @@
   import { threads } from '$lib/state/threads.svelte'
   import { threadGit } from '$lib/state/thread-git.svelte'
   import { formatUsage } from '$lib/usage-format'
+  import { shell } from '$lib/state/shell.svelte'
+  import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
 
   // pi's own accounting for the focused thread. A thread that has not run a
   // turn has no usage, and the segment stays blank rather than showing zeros
@@ -31,6 +33,15 @@
   const asking = $derived(askKeys.owning !== null && !changes.open)
   const mode = $derived(asking ? 'ASK' : app.mode)
 
+  // Language servers belong to the workspace, so the chip follows the
+  // workspace rather than the thread. Refreshed on the switch: a server can
+  // start or stop while another workspace is in front, and a stale count is a
+  // claim about what the agent can do.
+  $effect(() => {
+    void workspaceLsp.load(app.workspace.id)
+  })
+  const lsp = $derived(workspaceLsp.chip)
+
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
   const usage = $derived(formatUsage(model.usage))
 </script>
@@ -50,6 +61,20 @@
   </div>
 
   <div class="seg">thread {app.threadLabel}</div>
+
+  {#if lsp}
+    <!-- Absent rather than "off": a bar segment that always reads off is a
+         permanent reminder of a feature the reader chose not to use. -->
+    <button
+      type="button"
+      class="seg lsp"
+      class:warn={lsp.endsWith('!')}
+      onclick={() => shell.openOverlay('workspace')}
+      title="language servers — click for workspace settings"
+    >
+      {lsp}
+    </button>
+  {/if}
 
   <div class="seg right ctx">
     ctx<span class="meter"><span class="fill" style:width="{ctxPercent}%"></span></span>{ctxPercent}%
@@ -101,6 +126,18 @@
   .mode.accented {
     background: var(--accent);
     color: var(--bg);
+  }
+
+  .lsp {
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0;
+  }
+  .lsp.warn {
+    color: var(--warn, var(--fg-bright));
   }
 
   .seg {

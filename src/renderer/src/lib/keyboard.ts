@@ -1,77 +1,25 @@
-import type { Mode } from './types'
+/** One reducer for every key the shell handles.
+ *
+ *  Pure: a key and the state in, the next state and a list of actions out. That
+ *  is what makes the whole keyboard testable without a DOM, and it is why modes
+ *  cannot drift — there is exactly one place a mode changes.
+ *
+ *  The vocabulary it speaks lives in `keyboard-types.ts`, re-exported here. */
 
-export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model' | 'search' | 'roles'
+import {
+  initialKeyState,
+  LEADER_TIMEOUT_MS,
+  MODIFIER_KEYS,
+  SCROLL_STEP,
+  type Action,
+  type KeyContext,
+  type KeyEventLike,
+  type KeyResult,
+  type KeyState,
+  type Overlay,
+} from './keyboard-types'
 
-export interface KeyState {
-  mode: Mode
-  /** Overlays are mutually exclusive by construction. */
-  overlay: Overlay | null
-}
-
-export type Action =
-  | { type: 'goWorkspace'; index: number }
-  | { type: 'moveThread'; delta: number }
-  | { type: 'moveBlock'; delta: number }
-  | { type: 'page'; delta: number }
-  | { type: 'scroll'; delta: number }
-  | { type: 'leap' }
-  | { type: 'openChanges' }
-  | { type: 'openBlockMenu' }
-  | { type: 'expandBlock'; open: boolean }
-  | { type: 'newThread' }
-  | { type: 'closeThread' }
-  | { type: 'openTerminal' }
-  | { type: 'termEscape' }
-  | { type: 'moveColumn'; delta: number }
-  | { type: 'pinWorkspace' }
-  | { type: 'compact' }
-  | { type: 'yank' }
-  | { type: 'focusComposer' }
-  | { type: 'blurComposer' }
-  | { type: 'focusPalette' }
-  | { type: 'focusSwitcher' }
-
-export interface KeyEventLike {
-  key: string
-  metaKey?: boolean
-  ctrlKey?: boolean
-  altKey?: boolean
-}
-
-export interface KeyContext {
-  /** Number of pinned workspaces; digit keys beyond this are ignored. */
-  workspaceCount: number
-  /** Whether the focused column is a shell. A shell has no blocks, so the
-   *  transcript keys stay a scroll and READ is never entered. */
-  terminalColumn: boolean
-}
-
-export interface KeyResult {
-  state: KeyState
-  actions: Action[]
-  /** Caller should preventDefault when true. */
-  preventDefault: boolean
-  /** Leader timeout lifecycle for the caller to honour. */
-  timer: 'start' | 'clear' | null
-}
-
-/** Keys that only ever modify another key. Pressing one is not an answer to
- *  anything, so a modal question must let them pass rather than read it as a
- *  decline. */
-export const MODIFIER_KEYS: ReadonlySet<string> = new Set([
-  'Shift',
-  'Control',
-  'Alt',
-  'Meta',
-  'CapsLock',
-])
-
-export const LEADER_TIMEOUT_MS = 2600
-/** How far a terminal column scrolls per keypress. Thread columns move by a
- *  block instead, so this is the pty's step only. */
-export const SCROLL_STEP = 100
-
-export const initialKeyState: KeyState = { mode: 'NORMAL', overlay: null }
+export * from './keyboard-types'
 
 function result(
   state: KeyState,
@@ -107,6 +55,9 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   // Without this, typing a role called "scout" moved thread focus, opened the
   // terminal and closed a column. Found in review.
   'roles',
+  // `y` copies an install line, and `j`/`k` walk the rows: every key it uses
+  // is its own while it is open.
+  'workspace',
 ])
 
 function focusFor(overlay: Overlay | null): Action[] {

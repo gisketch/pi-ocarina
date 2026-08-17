@@ -48,8 +48,14 @@ export interface LspToolDeps {
   settings: () => WorkspaceLsp | undefined
 }
 
-type Said = { content: { type: 'text'; text: string }[] }
-const said = (text: string): Said => ({ content: [{ type: 'text' as const, text }] })
+/** pi's tool result, as these tools use it. `details` is what the ledger reads
+ *  and the model never sees; for these it is the same text, so a row can say
+ *  what was asked without re-deriving it. */
+type Said = { content: { type: 'text'; text: string }[]; details: unknown }
+const said = (text: string): Said => ({
+  content: [{ type: 'text' as const, text }],
+  details: undefined,
+})
 
 /** Resolves a model-supplied path, refusing anything outside the workspace.
  *

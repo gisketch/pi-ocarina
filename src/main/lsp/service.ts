@@ -9,6 +9,7 @@ import type { LspServerState, WorkspaceLsp } from '../../shared/lsp'
 import type { CommandName, CommandParams } from '../../shared/commands'
 import { detectServers, worthShowing } from './detect'
 import { LspPool } from './pool'
+import type { LspExtensionDeps as LspSessionDeps } from '../session/lsp-extension'
 
 /** Just enough of the catalog for this to read and write one setting. */
 export interface LspSettingsStore {
@@ -79,6 +80,28 @@ export class LspService {
 
     const stopping = next.on === false || change.enabled === false
     if (stopping) await this.#pools.get(workspaceId)?.stopAll()
+  }
+
+  /** What a session in this workspace needs, or null when it has no servers.
+   *
+   *  Null rather than an object with everything switched off, because null is
+   *  what the session builder branches on: a workspace without LSP registers no
+   *  tools, adds no prompt line, and leaves grep's description alone. */
+  sessionDeps(workspaceId: string, cwd: string): LspSessionDeps | null {
+    const settings = this.#store.lspFor(workspaceId)
+    if (!settings?.on) return null
+
+    return {
+      pool: this.poolFor(workspaceId, cwd),
+      cwd,
+      settings: () => this.#store.lspFor(workspaceId),
+      labels: async () => {
+        const detected = await detectServers(cwd, this.#store.lspFor(workspaceId))
+        return detected
+          .filter((server) => server.enabled && server.plausible)
+          .map((server) => server.label)
+      },
+    }
   }
 
   async stopAll(): Promise<void> {

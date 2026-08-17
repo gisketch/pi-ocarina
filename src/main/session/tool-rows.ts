@@ -26,6 +26,25 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   // row that holds them has to read as the fan-out it is rather than as a
   // `raw` row with a page of JSON in it.
   spawn_agents: 'agent',
+  // The language-server tools read the program rather than the text, so they
+  // borrow the row the design already has for looking things up.
+  lsp_symbols: 'grep',
+  lsp_diagnostics: 'grep',
+  lsp_definition: 'grep',
+  lsp_references: 'grep',
+  lsp_hover: 'grep',
+  lsp_rename_preview: 'grep',
+}
+
+/** The word each language-server row leads with, so a reader can tell six
+ *  similar-looking rows apart at a glance. */
+const LSP_VERBS: Readonly<Record<string, string>> = {
+  lsp_symbols: 'outline',
+  lsp_diagnostics: 'problems',
+  lsp_definition: 'defines',
+  lsp_references: 'uses of',
+  lsp_hover: 'type of',
+  lsp_rename_preview: 'rename',
 }
 
 export function toolKind(name: string): ToolKind {
@@ -43,6 +62,18 @@ export function toolTarget(name: string, args: unknown): string {
   if (name === 'spawn_agents') {
     const agents = Array.isArray(input.agents) ? input.agents.length : 0
     return agents === 1 ? 'spawn 1 agent' : `spawn ${agents} agents`
+  }
+
+  // A language-server row says what was asked and about what: `uses of draw ·
+  // Ledger.svelte`. Without the verb the six of them are indistinguishable,
+  // and without the symbol the row says nothing a reader wanted.
+  const verb = LSP_VERBS[name]
+  if (verb) {
+    const symbol = pick('symbol')
+    const where = pick('path')
+    if (symbol && where) return `${verb} ${symbol} · ${where}`
+    if (where) return `${verb} ${where}`
+    if (symbol) return `${verb} ${symbol}`
   }
 
   // A fetch row is the method and the address, with the scheme dropped: it is

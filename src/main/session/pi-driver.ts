@@ -70,6 +70,7 @@ export class PiDriver implements SessionDriver {
     this.#fleet = fleetFor(this.#sessions, emit, catalog, (toolCallId) =>
       this.#approvals.takeBlocked(toolCallId),
     )
+    this.#sessions.enableLsp((workspaceId, cwd) => this.#lsp.sessionDeps(workspaceId, cwd))
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
@@ -235,6 +236,7 @@ export class PiDriver implements SessionDriver {
   }
 
   async dispose(): Promise<void> {
+    await this.#lsp.stopAll()
     this.#threads.closeAll()
   }
 

@@ -17,6 +17,8 @@
     onreasoning?: (direction: 1 | -1) => void
     /** Opens the roles screen: what a child agent is, when one is spawned. */
     onroles?: () => void
+    /** Opens the open workspace's own settings — language servers, today. */
+    onworkspace?: () => void
   }
 
   const {
@@ -27,6 +29,7 @@
     reasoning,
     onreasoning,
     onroles,
+    onworkspace,
   }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
@@ -68,6 +71,12 @@
       value: () => preferences.leaderTimeoutLabel,
       hint: 'range',
       nudge: (direction) => preferences.nudgeLeaderTimeout(direction),
+    },
+    {
+      label: 'workspace settings',
+      value: () => 'language servers',
+      hint: onworkspace ? 'enter' : 'none',
+      enter: onworkspace,
     },
     {
       label: 'agent roles',
