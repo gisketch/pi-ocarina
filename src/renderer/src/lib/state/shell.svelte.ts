@@ -2,6 +2,7 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
+import { askKeys } from './ask-keys.svelte'
 import { createThread } from './new-thread'
 import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
@@ -133,6 +134,7 @@ class ShellState {
 
     if (cancelTurn) threads.cancel(threadId)
     blockNav.forget(threadId)
+    askKeys.forget(threadId)
     // The column goes now. The checkout behind it is settled afterwards,
     // because the answer can need a question and a person watching a column
     // that will not close has no idea what it is waiting for.
@@ -170,6 +172,12 @@ class ShellState {
     // every key, which is what lets a filter be `/` and a jump be `gg` without
     // colliding with the bindings underneath.
     if (changes.open) return changes.handleKey(event)
+
+    // A question waiting in this column owns the choice keys, below the modals
+    // above and above ordinary column keys. `enter` from NORMAL takes them
+    // back after an `esc` released them.
+    if (event.key === 'Enter' && app.mode === 'NORMAL' && askKeys.resume()) return true
+    if (askKeys.handleKey(event)) return true
 
     // A menu or a set of hints can outlive what they point at: a column can be
     // clicked away, a restore can take the block, a compaction can fold it out
