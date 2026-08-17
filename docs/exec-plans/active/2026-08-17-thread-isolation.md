@@ -161,3 +161,28 @@ Status legend: `todo` · `in-progress` · `done`.
 > dirty worktree on close (`thread-worktree.test.ts`, `worktree-close.test.ts`),
 > and a repository with no remote (`pull-request.test.ts`, and the card's own
 > `commit-worktree.test.ts`).
+
+## K8 — Threads whose checkout is gone — `todo`
+
+> Found in review, not in the tickets: closing an isolated thread removes its
+> checkout, and the listing is built from the checkouts that exist. The thread
+> then cannot be found at all, though its transcript is safe in pi's own store.
+
+- Delivered behavior: retired worktree directories are remembered per workspace
+  in the catalog, `listThreads` enumerates them alongside the live ones, and a
+  thread whose checkout is gone is listed as archived and reachable from history
+  search. Reopening one offers the workspace's own folder rather than failing on
+  a directory that is not there.
+- Acceptance: close an isolated thread with a transcript and no commits, then
+  find it in search; the app restarts and it is still findable.
+- Validation: a temporary-repository test through `WorkspaceService`.
+- Blocked by: K5.
+
+## K9 — "Not read yet" is not "not a repository" — `todo`
+
+- Delivered behavior: a workspace's git state distinguishes a folder that is
+  not a repository from one whose first read is still out, and the new-thread
+  question waits for the answer rather than treating both as "no repository".
+- Acceptance: `␣ n` in a freshly pinned repository asks about a worktree.
+- Validation: headless tests over the projection.
+- Blocked by: nothing.
