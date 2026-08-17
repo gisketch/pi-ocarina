@@ -7,6 +7,10 @@
  *  see `raw`. */
 
 export type {
+  AgentEntry,
+  AgentRole,
+  AgentStatus,
+  AgentUsage,
   ApprovalOutcome,
   AskAnswer,
   AskOutcome,
@@ -24,6 +28,7 @@ export type {
 } from '../../../shared/vocabulary'
 
 import type {
+  AgentEntry,
   ApprovalOutcome,
   AskAnswer,
   AskOutcome,
@@ -48,8 +53,13 @@ export interface ToolRow {
   body?: ToolBody
   /** Initial expansion state, mirroring the reference's default toggles. */
   open?: boolean
-  /** Nested subagent rows, one level deep. */
+  /** Nested subagent rows. Two levels are reachable: a child agent may spawn
+   *  its own, and a grandchild may not spawn at all. */
   children?: ToolRow[]
+  /** Present only on an `agent` row: who the child is, and how it is going.
+   *  The row and the envelope the model reads are the same shape, so the two
+   *  cannot disagree about what a child was. */
+  agent?: AgentEntry
 }
 
 export type Block =

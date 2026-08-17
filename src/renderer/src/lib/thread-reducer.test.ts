@@ -278,13 +278,27 @@ describe('subagents', () => {
     expect(second.children?.[0]).toMatchObject({ status: 'fail' })
   })
 
-  it('never nests deeper than one level', () => {
-    // The ledger has one indent; a grandchild joins its parent's row instead.
+  it('nests a grandchild under its own parent, not its grandparent', () => {
+    // A child agent may spawn its own; a grandchild may not spawn at all, so
+    // two levels is as deep as the tree ever goes.
     const model = run(tool('a1'), tool('c1', 'a1'), tool('g1', 'c1'))
 
     const parent = rows(model.blocks)[0]
-    expect(parent.children?.map((row) => row.id)).toEqual(['c1', 'g1'])
-    expect(parent.children?.[0].children).toBeUndefined()
+    expect(parent.children?.map((row) => row.id)).toEqual(['c1'])
+    expect(parent.children?.[0].children?.map((row) => row.id)).toEqual(['g1'])
+  })
+
+  it('settles a grandchild without touching its siblings', () => {
+    const model = run(
+      tool('a1'),
+      tool('c1', 'a1'),
+      tool('g1', 'c1'),
+      tool('g2', 'c1'),
+      { kind: 'tool-end', id: 'g1', status: 'ok' },
+    )
+
+    const grandchildren = rows(model.blocks)[0].children?.[0].children
+    expect(grandchildren?.map((row) => row.status)).toEqual(['ok', 'running'])
   })
 
   it('keeps a child whose parent is missing as a row of its own', () => {

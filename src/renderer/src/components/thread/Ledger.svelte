@@ -1,11 +1,12 @@
 <script lang="ts">
+  import AgentRow from './AgentRow.svelte'
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
   import BlockMenu from './BlockMenu.svelte'
   import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
-  import type { ToolRow } from '$lib/thread'
+  import type { ToolKind, ToolRow } from '$lib/thread'
   import { labelFor, widestLabel } from '$lib/tool-label'
 
   interface Props {
@@ -21,9 +22,11 @@
     /** Whether anything in the thread is focused — which is what turns the
      *  dim on for every row that is not it. */
     dimmed: boolean
+    /** The workspace's hue, which a child agent's sigil borrows. */
+    hue: number
   }
 
-  const { rows, threadId, blockId, focusedNav, dimmed }: Props = $props()
+  const { rows, threadId, blockId, focusedNav, dimmed, hue }: Props = $props()
 
   const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
@@ -42,9 +45,9 @@
   // and none of them moves when a call lands and `editing` becomes `edited`.
   // Derived from the kinds present, never measured: a rect read here would
   // force layout on rows the column is deliberately not laying out.
-  const gutter = $derived(
-    widestLabel(rows.flatMap((row) => [row.kind, ...(row.children ?? []).map((c) => c.kind)])),
-  )
+  const kindsIn = (list: ToolRow[]): ToolKind[] =>
+    list.flatMap((row) => [row.kind, ...kindsIn(row.children ?? [])])
+  const gutter = $derived(widestLabel(kindsIn(rows)))
   // Keyed by nav id, not by row id: a tool call id is only unique within its
   // call, which is the same reason the nav id is built from both. Two ledgers
   // holding a row with the same id must not open each other's.
@@ -80,9 +83,16 @@
       role={isExpandable(row) ? 'button' : undefined}
       onclick={() => toggle(row)}
     >
+      {#if row.agent}
+        <!-- A child agent is a different grammar from a tool call, not a tool
+             call with extra fields, so it replaces the row rather than
+             decorating it. -->
+        <AgentRow agent={row.agent} {hue} />
+      {:else}
       <span class="kind {labelTone(row)}">{labelFor(row.kind, row.status)}</span>
       <span class="target" class:struck={row.status === 'cancelled'}>{row.target}</span>
-      {#if row.meta}
+      {/if}
+      {#if row.meta && !row.agent}
         <span class="meta {metaTone(row)}">
           {#each metaSegments(row.meta) as segment, i (i)}<span class={segment.tone ?? ''}
             >{segment.text}</span

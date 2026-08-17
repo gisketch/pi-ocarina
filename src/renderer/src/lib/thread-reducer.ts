@@ -70,6 +70,13 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
     case 'tool-progress':
       return settleRow(model, event.id, (row) => ({ ...row, meta: event.meta }), event)
 
+    // A child agent settling, or its usage moving. Separate from `tool-end`
+    // because a child ends in ways a tool call has no word for — denied at the
+    // gate, stopped by the reader — and the row must keep the distinction the
+    // envelope makes.
+    case 'agent-update':
+      return settleRow(model, event.id, (row) => ({ ...row, agent: event.agent }), event)
+
     case 'tool-body':
       return settleRow(
         model,
@@ -296,6 +303,7 @@ function startTool(
     kind: event.tool,
     target: event.target,
     status: 'running',
+    ...(event.agent ? { agent: event.agent } : {}),
   }
 
   if (event.parentId) {

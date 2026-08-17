@@ -5,6 +5,7 @@
  *  utilityProcess later without the renderer noticing. */
 
 import type {
+  AgentEntry,
   ApprovalOutcome,
   AskAnswer,
   AskOutcome,
@@ -45,7 +46,20 @@ export type UiEvent =
   | { kind: 'agent-message-start'; id: string }
   | { kind: 'agent-message-delta'; id: string; text: string }
   | { kind: 'agent-message-end'; id: string }
-  | { kind: 'tool-start'; id: string; tool: ToolKind; target: string; parentId?: string }
+  | {
+      kind: 'tool-start'
+      id: string
+      tool: ToolKind
+      target: string
+      parentId?: string
+      /** Present only on an `agent` row: who the child is. The row and the
+       *  envelope the model reads carry the same shape, so the two cannot
+       *  disagree about what a child was. */
+      agent?: AgentEntry
+    }
+  /** A child agent's row changed without ending: it settled, or its usage
+   *  moved. Additive — a backend that never sends it costs nothing. */
+  | { kind: 'agent-update'; id: string; agent: AgentEntry }
   /** A summary for a row that has not finished — "run 4/10…", "214 files…".
    *  Additive in protocol 1: a backend that never sends it costs nothing, and
    *  a reader that predates it shows a `raw` row rather than breaking. */
@@ -279,6 +293,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'agent-message-delta',
   'agent-message-end',
   'tool-start',
+  'agent-update',
   'tool-progress',
   'tool-body',
   'tool-end',

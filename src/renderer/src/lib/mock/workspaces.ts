@@ -51,6 +51,7 @@ export const WORKSPACES: Workspace[] = [
     threads: [
       { id: 'palette-flicker', title: 'palette flicker', status: 'waiting-input', meta: 'running…' },
       { id: 'icon-audit', title: 'icon set audit', status: 'idle', meta: 'idle' },
+      { id: 'fan-out', title: 'fan out', status: 'running', meta: 'running…' },
     ],
   },
   {

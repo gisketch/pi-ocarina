@@ -37,9 +37,13 @@ export function updateRow(
   return touched ? next : rows
 }
 
-/** Adds `row` under `parentId`, keeping nesting one level deep: a parent that
- *  is itself nested hands the row to its own parent rather than growing a
- *  third level the ledger has no indent for. */
+/** Adds `row` under `parentId`, wherever that parent sits.
+ *
+ *  Two levels of nesting are reachable — a child agent may spawn its own, and
+ *  a grandchild may not spawn at all — so this walks to the parent rather than
+ *  adopting a deep row into the row above it. A row whose parent is missing is
+ *  reported as unplaced by returning the array unchanged; the caller lands it
+ *  at the top level rather than dropping it, because the call did happen. */
 export function nestRow(rows: ToolRow[], parentId: string, row: ToolRow): ToolRow[] {
   let placed = false
 
@@ -51,12 +55,14 @@ export function nestRow(rows: ToolRow[], parentId: string, row: ToolRow): ToolRo
       return { ...candidate, children: [...(candidate.children ?? []), row] }
     }
 
-    if (candidate.children?.some((child) => child.id === parentId)) {
-      placed = true
-      return { ...candidate, children: [...candidate.children, row] }
-    }
+    const children = candidate.children
+    if (!children) return candidate
 
-    return candidate
+    const nested = nestRow(children, parentId, row)
+    if (nested === children) return candidate
+
+    placed = true
+    return { ...candidate, children: nested }
   })
 
   return placed ? next : rows

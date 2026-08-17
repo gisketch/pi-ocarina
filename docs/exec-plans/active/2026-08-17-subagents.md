@@ -32,7 +32,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
   the way the v6 migration is covered.
 - Blocked by: nothing.
 
-## M2 — Nesting at depth two, and the agent row — `todo`
+## M2 — Nesting at depth two, and the agent row — `done`
 
 > Demoable with no backend at all: a fixture in the browser harness draws a
 > spawn call with three children under it, and one of those children with its

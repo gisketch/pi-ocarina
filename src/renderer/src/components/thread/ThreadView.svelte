@@ -30,6 +30,9 @@
   // a command to reach. Their cards render without controls rather than
   // offering buttons that would fail against a thread the backend never had.
   const wired = $derived(catalog.source === 'live')
+  // A child agent's sigil borrows the workspace's hue, so a child reads as
+  // belonging where it runs rather than as a fifth colour in the column.
+  const hue = $derived(app.workspace.hue)
 
   // A finished compaction stands where the history it replaced used to be, so
   // the blocks above it collapse behind it until the reader asks for them.
@@ -127,6 +130,7 @@
       blockId={block.id}
       focusedNav={focused}
       dimmed={dimming}
+      {hue}
     />
   {:else if block.kind === 'checkpoint'}
     <!-- Nothing is drawn. A checkpoint is a place in the session, not a thing
