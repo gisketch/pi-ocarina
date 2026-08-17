@@ -4,7 +4,7 @@ import type {
   ModelSummary,
   UiEvent,
 } from '../../../../shared/protocol'
-import type { ApprovalOutcome, AttachmentRef, ReasoningLevel } from '../../../../shared/vocabulary'
+import type { AskAnswer, ApprovalOutcome, AttachmentRef, ReasoningLevel } from '../../../../shared/vocabulary'
 import { noticesFor } from '../notices'
 import { session } from '../session'
 import { app } from './app.svelte'
@@ -157,8 +157,9 @@ class ThreadStore {
     this.#command(threadId, 'setReasoning', { threadId, reasoning })
   }
 
-  answer(threadId: string, askId: string, optionIndex: number): void {
-    this.#command(threadId, 'answerAsk', { threadId, askId, optionIndex })
+  /** Every answer to one ask, sent once. */
+  answer(threadId: string, askId: string, answers: AskAnswer[]): void {
+    this.#command(threadId, 'answerAsk', { threadId, askId, answers })
   }
 
   resolveApproval(threadId: string, approvalId: string, outcome: ApprovalOutcome): void {

@@ -91,14 +91,16 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return push(model, {
         kind: 'ask',
         id: event.id,
-        question: event.question,
-        options: event.options,
+        questions: event.questions,
       })
 
     case 'ask-answered':
       return decide(model, event.id, 'ask', event, (block) => ({
         ...block,
-        answeredIndex: event.optionIndex,
+        outcome: event.outcome,
+        answers: event.answers,
+        said: event.said,
+        reason: event.reason,
       }))
 
     case 'approve':
@@ -187,7 +189,9 @@ function derive(model: ThreadViewModel): ThreadRunState {
 }
 
 function isPendingGate(block: Block): boolean {
-  if (block.kind === 'ask') return block.answeredIndex === undefined
+  // Pending until it has ended, however it ended: a question released by a
+  // cancelled turn is not waiting on anyone.
+  if (block.kind === 'ask') return block.outcome === undefined
   if (block.kind === 'approve') return block.outcome === undefined
   return false
 }

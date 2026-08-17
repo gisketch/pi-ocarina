@@ -8,7 +8,9 @@
 
 export type {
   ApprovalOutcome,
-  AskOption,
+  AskAnswer,
+  AskOutcome,
+  AskQuestion,
   ReasoningLevel,
   CodeLine,
   DiffLine,
@@ -23,7 +25,9 @@ export type {
 
 import type {
   ApprovalOutcome,
-  AskOption,
+  AskAnswer,
+  AskOutcome,
+  AskQuestion,
   ReasoningLevel,
   ThreadRunState,
   ToolBody,
@@ -52,7 +56,17 @@ export type Block =
   | { kind: 'user'; id: string; text: string }
   | { kind: 'agent'; id: string; text: string; streaming?: boolean }
   | { kind: 'ledger'; id: string; rows: ToolRow[] }
-  | { kind: 'ask'; id: string; question: string; options: AskOption[]; answeredIndex?: number }
+  /** A question, or several, and what became of them. `outcome` is undefined
+   *  while it is pending, which is what makes it a gate. */
+  | {
+      kind: 'ask'
+      id: string
+      questions: AskQuestion[]
+      outcome?: AskOutcome
+      answers?: AskAnswer[]
+      said?: string
+      reason?: string
+    }
   | { kind: 'approve'; id: string; command: string; note?: string; outcome?: ApprovalOutcome }
   | { kind: 'checkpoint'; id: string; label: string }
   | {

@@ -102,9 +102,69 @@ export type ToolBody =
   | { type: 'terminal'; lines: TerminalLine[]; tone?: 'normal' | 'error' }
   | { type: 'todo'; items: TodoItem[] }
 
-export interface AskOption {
-  label: string
+/** One thing the reader can pick.
+ *
+ *  `id` is what the model branches on and `title` is what the reader reads —
+ *  both travel back, so a model never has to remember what an id meant, and a
+ *  reworded option never silently changes what the model does. `description` is
+ *  the lighter subtext under the title, which is what lets a real choice be
+ *  readable without a paragraph in the question. */
+export interface AskChoice {
+  id: string
+  title: string
+  description?: string
 }
+
+/** One question in an ask.
+ *
+ *  `kind` rather than three question types: a new kind is a new value and a
+ *  renderer for it, not a new tool and not a new seam. */
+export interface AskQuestion {
+  id: string
+  kind: 'one' | 'many' | 'text'
+  /** The question itself. */
+  prompt: string
+  /** Lighter text under the prompt, for what a question cannot say in a line. */
+  description?: string
+  /** Choices, for `one` and `many`. Empty for `text`. */
+  choices?: AskChoice[]
+  /** Whether a choice question also offers "something else", typed into the
+   *  card. Never into the composer: prose in the composer means something else
+   *  entirely. */
+  allowOther?: boolean
+  /** Whether the reader may pass over it. A required question is the normal
+   *  case: the agent asked because it needs the answer. */
+  optional?: boolean
+}
+
+/** What the reader said to one question.
+ *
+ *  `skipped` is written rather than the entry being absent: a missing key reads
+ *  as a bug, and "no preference" is not "never asked". */
+export interface AskAnswer {
+  id: string
+  kind: AskQuestion['kind']
+  /** Choice ids picked. `['other']` when the reader typed instead. */
+  chosen: string[]
+  /** Their titles, in the same order. */
+  labels: string[]
+  /** Free text, for a `text` question or an off-menu answer. */
+  text?: string
+  skipped?: boolean
+}
+
+/** How an ask ended.
+ *
+ *  Held apart from the answers because three of the four ways out carry none,
+ *  and a card showing an empty answer list would read as "they said nothing"
+ *  rather than "nobody was asked to finish". */
+export type AskOutcome =
+  /** Every question answered or skipped in the card. */
+  | 'answered'
+  /** Prose in the composer, which means none of the above. */
+  | 'cancelled'
+  /** The turn ended under it: cancelled, closed, or the app quit. */
+  | 'ended'
 
 /** A file handed to the agent with a prompt.
  *

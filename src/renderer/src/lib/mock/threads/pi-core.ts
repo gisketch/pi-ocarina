@@ -103,14 +103,48 @@ export const RETRY_BACKOFF: MockThread = {
     // `waiting-input`, because a thread holding an open card is waiting on a
     // person no matter what the last turn did.
     { kind: 'thread-state', state: 'done' },
+    // Three questions in one card: the demo is what the browser harness renders,
+    // and a single-question demo would let the stepper rot unnoticed.
     {
       kind: 'ask',
       id: 'ask1',
-      question: 'Add a metrics counter for retry exhaustion?',
-      options: [
-        { label: 'Yes — counter + alert' },
-        { label: 'Just the counter' },
-        { label: 'No, ship as is' },
+      questions: [
+        {
+          id: 'counter',
+          kind: 'one',
+          prompt: 'Add a metrics counter for retry exhaustion?',
+          choices: [
+            {
+              id: 'counter-alert',
+              title: 'Counter and alert',
+              description: 'Pages someone the first time retries run out in production.',
+            },
+            {
+              id: 'counter-only',
+              title: 'Just the counter',
+              description: 'Visible on the dashboard, wakes nobody.',
+            },
+            { id: 'none', title: 'No, ship as is' },
+          ],
+        },
+        {
+          id: 'surfaces',
+          kind: 'many',
+          prompt: 'Where should it show up?',
+          choices: [
+            { id: 'dash', title: 'The sync dashboard' },
+            { id: 'logs', title: 'Structured logs' },
+            { id: 'slack', title: 'The #sync channel' },
+          ],
+          allowOther: true,
+        },
+        {
+          id: 'name',
+          kind: 'text',
+          prompt: 'What should the metric be called?',
+          description: 'Left empty, it takes the name of the retry helper.',
+          optional: true,
+        },
       ],
     },
   ],

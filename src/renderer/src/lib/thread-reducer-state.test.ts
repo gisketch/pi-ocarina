@@ -26,48 +26,13 @@ const tool = (id: string, parentId?: string): UiEvent => ({
   parentId,
 })
 
-describe('cards', () => {
-  it('marks the option the user picked', () => {
-    const model = run(
-      { kind: 'ask', id: 'q1', question: 'ship it?', options: [{ label: 'yes' }, { label: 'no' }] },
-      { kind: 'ask-answered', id: 'q1', optionIndex: 1 },
-    )
-
-    expect(model.blocks[0]).toMatchObject({ answeredIndex: 1 })
-  })
-
-  it('records how an approval was resolved', () => {
-    const model = run(
-      { kind: 'approve', id: 'p1', command: 'rm -rf /' },
-      { kind: 'approve-resolved', id: 'p1', outcome: 'deny' },
-    )
-
-    expect(model.blocks[0]).toMatchObject({ outcome: 'deny' })
-  })
-
-  it('shows an answer whose question is missing rather than losing the decision', () => {
-    const model = run({ kind: 'ask-answered', id: 'ghost', optionIndex: 0 })
-
-    expect(model.blocks[0]).toMatchObject({ kind: 'raw', detail: 'ghost' })
-  })
-
-  it('shows an approval outcome whose card is missing', () => {
-    const model = run({ kind: 'approve-resolved', id: 'ghost', outcome: 'always' })
-
-    expect(model.blocks[0]).toMatchObject({ kind: 'raw', detail: 'ghost' })
-  })
-
-  it('does not let one card’s id resolve a different kind of card', () => {
-    const model = run(
-      { kind: 'approve', id: 'shared', command: 'pnpm i' },
-      { kind: 'ask-answered', id: 'shared', optionIndex: 0 },
-    )
-
-    expect(model.blocks[0]).toMatchObject({ kind: 'approve' })
-    expect(model.blocks[0]).not.toHaveProperty('outcome')
-    expect(model.blocks[1]).toMatchObject({ kind: 'raw' })
-  })
-})
+/** One question, one choice: enough to be a gate, short enough to inline. */
+const ASK = {
+  id: 'a',
+  kind: 'one' as const,
+  prompt: '?',
+  choices: [{ id: 'a', title: 'a' }],
+}
 
 describe('thread status', () => {
   it('follows what the backend reports', () => {
@@ -77,7 +42,7 @@ describe('thread status', () => {
   it('says it is waiting while a question is unanswered', () => {
     const model = run(
       { kind: 'thread-state', state: 'running' },
-      { kind: 'ask', id: 'q1', question: '?', options: [{ label: 'a' }] },
+      { kind: 'ask', id: 'q1', questions: [ASK] },
     )
 
     expect(model.status).toBe('waiting-input')
@@ -86,8 +51,13 @@ describe('thread status', () => {
   it('returns to the real state once the question is answered', () => {
     const model = run(
       { kind: 'thread-state', state: 'running' },
-      { kind: 'ask', id: 'q1', question: '?', options: [{ label: 'a' }] },
-      { kind: 'ask-answered', id: 'q1', optionIndex: 0 },
+      { kind: 'ask', id: 'q1', questions: [ASK] },
+      {
+        kind: 'ask-answered',
+        id: 'q1',
+        outcome: 'answered',
+        answers: [{ id: 'a', kind: 'one', chosen: ['a'], labels: ['a'] }],
+      },
     )
 
     expect(model.status).toBe('running')
@@ -114,7 +84,7 @@ describe('thread status', () => {
 
   it('a done thread with an unanswered ask still reads as waiting', () => {
     const model = run(
-      { kind: 'ask', id: 'q1', question: '?', options: [{ label: 'a' }] },
+      { kind: 'ask', id: 'q1', questions: [ASK] },
       { kind: 'thread-state', state: 'done' },
     )
 

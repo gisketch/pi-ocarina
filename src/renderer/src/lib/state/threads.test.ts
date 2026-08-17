@@ -185,7 +185,8 @@ describe('what the cards do', () => {
     const id = freshId()
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
-    threads.answer(id, 'ask-1', 2)
+    const answers = [{ id: 'q', kind: 'one' as const, chosen: ['b'], labels: ['B'] }]
+    threads.answer(id, 'ask-1', answers)
     threads.resolveApproval(id, 'approve-1', 'always')
     threads.restore(id, 'cp-1')
     threads.cancelSteer(id, 'steer-1')
@@ -193,7 +194,7 @@ describe('what the cards do', () => {
     threads.retry(id)
 
     expect(invoke.mock.calls).toEqual([
-      ['answerAsk', { threadId: id, askId: 'ask-1', optionIndex: 2 }],
+      ['answerAsk', { threadId: id, askId: 'ask-1', answers }],
       ['resolveApproval', { threadId: id, approvalId: 'approve-1', outcome: 'always' }],
       ['restoreCheckpoint', { threadId: id, checkpointId: 'cp-1' }],
       ['cancelQueuedSteer', { threadId: id, steerId: 'steer-1' }],

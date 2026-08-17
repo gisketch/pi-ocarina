@@ -6,7 +6,9 @@
 
 import type {
   ApprovalOutcome,
-  AskOption,
+  AskAnswer,
+  AskOutcome,
+  AskQuestion,
   AttachmentRef,
   DiffLine,
   ReasoningLevel,
@@ -50,8 +52,19 @@ export type UiEvent =
   | { kind: 'tool-progress'; id: string; meta: string }
   | { kind: 'tool-body'; id: string; body: ToolBody }
   | { kind: 'tool-end'; id: string; status: ToolStatus; meta?: string }
-  | { kind: 'ask'; id: string; question: string; options: AskOption[] }
-  | { kind: 'ask-answered'; id: string; optionIndex: number }
+  | { kind: 'ask'; id: string; questions: AskQuestion[] }
+  /** The end of an ask, however it ended. `answers` is empty unless the
+   *  outcome is `answered`; `said` carries the message that replaced the
+   *  question when the outcome is `cancelled`, and `reason` says what ended it
+   *  when the outcome is `ended`. */
+  | {
+      kind: 'ask-answered'
+      id: string
+      outcome: AskOutcome
+      answers: AskAnswer[]
+      said?: string
+      reason?: string
+    }
   | { kind: 'approve'; id: string; command: string; note?: string }
   | { kind: 'approve-resolved'; id: string; outcome: ApprovalOutcome }
   | { kind: 'checkpoint'; id: string; label: string }
@@ -173,7 +186,13 @@ export interface SessionCommands {
   }
   steer: { params: { threadId: string; text: string }; result: { steerId: string } }
   cancelQueuedSteer: { params: { threadId: string; steerId: string }; result: { ok: true } }
-  answerAsk: { params: { threadId: string; askId: string; optionIndex: number }; result: { ok: true } }
+  /** Every answer at once. Never one question at a time: a model handed answer
+   *  one while the reader is still on question two is acting on half a
+   *  decision. */
+  answerAsk: {
+    params: { threadId: string; askId: string; answers: AskAnswer[] }
+    result: { ok: true }
+  }
   resolveApproval: {
     params: { threadId: string; approvalId: string; outcome: ApprovalOutcome }
     result: { ok: true }

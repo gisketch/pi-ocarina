@@ -128,7 +128,7 @@ describe('navBlocks', () => {
 
   it('labels cards by what they are about', () => {
     const blocks: Block[] = [
-      { kind: 'ask', id: 'q1', question: 'which one?', options: [] },
+      { kind: 'ask', id: 'q1', questions: [{ id: 'a', kind: 'one', prompt: 'which one?' }] },
       { kind: 'approve', id: 'p1', command: 'rm -rf build' },
       { kind: 'compaction', id: 'c1', running: false },
       { kind: 'raw', id: 'x1', rawKind: 'unknown-thing' },

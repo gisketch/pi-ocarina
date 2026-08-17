@@ -162,10 +162,12 @@
         />
       {:else if block.kind === 'ask'}
         <AskCard
-          question={block.question}
-          options={block.options}
-          answered={block.answeredIndex}
-          onanswer={wired ? (index) => threads.answer(threadId, block.id, index) : undefined}
+          questions={block.questions}
+          outcome={block.outcome}
+          answers={block.answers}
+          said={block.said}
+          reason={block.reason}
+          onanswer={wired ? (answers) => threads.answer(threadId, block.id, answers) : undefined}
         />
       {:else if block.kind === 'approve'}
         <ApproveCard

@@ -47,7 +47,9 @@ function short(text: string): string {
 function cardText(block: Block): string {
   switch (block.kind) {
     case 'ask':
-      return block.question
+      // Every prompt, so a leap or a search matches on the question the reader
+      // can see rather than only on the first one.
+      return block.questions.map((question) => question.prompt).join(' · ')
     case 'approve':
       return block.command
     case 'compaction':
