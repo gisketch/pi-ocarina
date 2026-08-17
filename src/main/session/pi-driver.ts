@@ -19,10 +19,8 @@ import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
 import { handleLsp, LspService } from '../lsp/service'
-import { PiTranslator } from './pi-translate'
-import { emitUsage, replayAndCharge } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
-import { subscribeSession } from './session-events'
+import { adoptSession, openThread, type OpenDeps } from './thread-open'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
 import { ThreadRegistry } from './thread-registry'
@@ -266,92 +264,29 @@ export class PiDriver implements SessionDriver {
     return this.#threads.find(threadId)?.session.sessionFile
   }
 
-  /** Reopens a thread: its history is replayed as events before the live session
-   *  is attached, so watching a thread and returning to it look the same. */
+  /** Reopens a thread. The work is `thread-open.ts`; what stays here is the
+   *  driver's own collaborators, gathered once. */
   async #openThread(threadId: string): Promise<void> {
-    // Already open in this process. Two different callers land here and both
-    // need the same answer.
-    //
-    // One is a thread the renderer just created: it subscribes only once
-    // `createThread` has returned, so the model and usage announced while the
-    // session was being adopted reached nobody.
-    //
-    // The other is a renderer that reloaded. Main keeps its sessions across a
-    // window reload, so every thread is still open here while the renderer has
-    // just lost everything it knew — and replying with only a model name left
-    // it showing empty columns until the whole app was restarted.
-    //
-    // Replaying is right for both: a freshly created thread has no history, so
-    // it costs nothing there.
-    const open = this.#threads.find(threadId)
-    if (open) {
-      replayAndCharge(
-        this.#emit,
-        threadId,
-        open.session.sessionManager.buildContextEntries(),
-        this.#fleet,
-      )
-      // Replay ends by stating the thread from its history, which cannot know
-      // about a turn that is still streaming — it would report `done` over a
-      // turn still being written. Only this side knows, so it says so.
-      if (open.session.isStreaming) this.#emit(threadId, { kind: 'thread-state', state: 'running' })
-      this.#models.announce(threadId, open.session, this.#emit)
-      emitUsage(this.#emit, threadId, open.session, this.#fleet.spentIn(threadId))
-      return
-    }
-
-    const { SessionManager } = await this.#sessions.load()
-    const location = await this.#workspaces.locate(threadId)
-    const { path } = location
-    // A thread whose worktree has been removed still has its transcript, and
-    // must still open — in the workspace's own folder, since pi needs a
-    // directory that is there. It stops being isolated at that moment, which is
-    // what `branch` coming back null says.
-    const { cwd, branch } = this.#workspaces.openableCwd(location)
-
-    const sessionManager = SessionManager.open(path)
-    // The active branch, not every entry in the file: a session that has been
-    // rewound holds abandoned branches too, and replaying those would show the
-    // user a conversation that never happened.
-    replayAndCharge(this.#emit, threadId, sessionManager.buildContextEntries(), this.#fleet)
-
-    // The thread id is already known here, unlike on creation.
-    const workspaceId = this.#workspaces.idForPath(cwd)
-    const session = await this.#sessions.open(cwd, workspaceId, sessionManager, threadId)
-    // `locate` filled the branch in from the listing, so a reopened thread
-    // keeps the tree it was created in across a restart — unless that tree is
-    // gone, in which case `openableCwd` has already said so.
-    this.#adopt(session, cwd, branch)
+    await openThread(this.#opening(), threadId)
   }
 
-  /** Takes ownership of a session: binds its tools, wires its events, and files
-   *  it under pi's own session id so the thread survives a relaunch. */
   #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {
-    const threadId = session.sessionId
-    const translator = new PiTranslator(
-      () => session.getSessionStats().contextUsage?.contextWindow,
-      (toolCallId) => this.#approvals.takeBlocked(toolCallId),
-    )
-    const unsubscribe = subscribeSession({
-      session,
-      threadId,
-      cwd,
-      translator,
+    return adoptSession(this.#opening(), session, cwd, branch)
+  }
+
+  #opening(): OpenDeps {
+    return {
       emit: this.#emit,
+      threads: this.#threads,
+      fleet: this.#fleet,
+      models: this.#models,
+      sessions: this.#sessions,
+      workspaces: this.#workspaces,
       changes: this.#changes,
       steers: this.#steers,
-      spent: () => this.#fleet.spentIn(threadId),
-    })
-
-    this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
-    this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
-    // A reopened thread carries its whole history's accounting; without this
-    // the meter would read zero until the thread's next turn ended.
-    emitUsage(this.#emit, threadId, session, this.#fleet.spentIn(threadId))
-    if (session.sessionFile) {
-      this.#workspaces.remember(threadId, { path: session.sessionFile, cwd, branch })
+      takeBlocked: (toolCallId) => this.#approvals.takeBlocked(toolCallId),
     }
-    return threadId
   }
+
 
 }
