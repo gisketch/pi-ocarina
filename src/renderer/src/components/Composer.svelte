@@ -30,6 +30,8 @@
 
   let text = $state('')
   let sending = $state(false)
+  /** The field's scroll offset, mirrored so chips stay on their words. */
+  let fieldScroll = $state(0)
 
   const insert = $derived(app.mode === 'INSERT')
 
@@ -226,7 +228,7 @@
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
     <div class="field">
-      <Mirror {text} folds={pasting.folds} />
+      <Mirror {text} folds={pasting.folds} scrollTop={fieldScroll} />
       <textarea
       bind:this={input}
       bind:value={text}
@@ -247,6 +249,7 @@
         if (app.mode === 'INSERT') app.mode = 'NORMAL'
       }}
         onpaste={onpaste}
+        onscroll={() => (fieldScroll = input?.scrollTop ?? 0)}
       ></textarea>
     </div>
     <span class="hints">

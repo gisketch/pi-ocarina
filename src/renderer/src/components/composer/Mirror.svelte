@@ -13,14 +13,30 @@
   import { segment } from '$lib/composer-segments'
   import type { Fold } from '$lib/paste'
 
-  const { text, folds }: { text: string; folds: readonly Fold[] } = $props()
+  const {
+    text,
+    folds,
+    /** How far the real field has scrolled.
+     *
+     *  The mirror has to follow it exactly. A composer taller than its box
+     *  scrolls, and a mirror that stayed put would leave every chip behind,
+     *  attached to whatever words happened to be at that height. Measured in
+     *  the harness before this existed: the field at 200, the mirror at 0. */
+    scrollTop = 0,
+  }: { text: string; folds: readonly Fold[]; scrollTop?: number } = $props()
 
   const parts = $derived(segment(text, folds))
+
+  let box = $state<HTMLDivElement | null>(null)
+
+  $effect(() => {
+    if (box) box.scrollTop = scrollTop
+  })
 </script>
 
 <!-- `aria-hidden`: the textarea above is the real control, and a screen reader
      meeting the same words twice would read the message twice. -->
-<div class="mirror field-metrics" aria-hidden="true">{#each parts as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<span
+<div bind:this={box} class="mirror field-metrics" aria-hidden="true">{#each parts as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<span
         class={part.kind}>{part.text}</span
       >{/if}{/each}</div>
 
