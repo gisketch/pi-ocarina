@@ -43,8 +43,21 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   thread's own figures. **Approved 2026-08-17.** Tickets in
   [2026-08-17-subagents.md](../exec-plans/active/2026-08-17-subagents.md).
 - [2026-08-16-leap.md](2026-08-16-leap.md) — reach a block by typing the words
-  you can see. Grilled; awaiting approval. Supersedes the block-labelling leap
-  in H3.
+  you can see. **Approved 2026-08-16; implemented as H5** in
+  [2026-08-16-chat-navigation.md](../exec-plans/active/2026-08-16-chat-navigation.md).
+  Supersedes the block-labelling leap in H3.
+- [2026-08-17-lsp-integration.md](2026-08-17-lsp-integration.md) — opt-in
+  language servers per workspace; the agent asks the LSP first and greps as a
+  fallback. **Approved 2026-08-18.** Tickets in
+  [2026-08-18-lsp.md](../exec-plans/active/2026-08-18-lsp.md).
+- [2026-08-17-web-fetch.md](2026-08-17-web-fetch.md) — a `fetch` tool that hands
+  the agent a page as clean Markdown instead of raw HTML. **Approved
+  2026-08-18.** Tickets in
+  [2026-08-18-web-fetch.md](../exec-plans/active/2026-08-18-web-fetch.md).
+- [2026-08-17-paste-and-media.md](2026-08-17-paste-and-media.md) — clipboard
+  screenshots, large pastes folded to a chip, mentions as chips, and images
+  drawn wherever they appear. **Approved 2026-08-18.** Tickets in
+  [2026-08-18-paste-and-media.md](../exec-plans/active/2026-08-18-paste-and-media.md).
 
 ## Need grilling
 
