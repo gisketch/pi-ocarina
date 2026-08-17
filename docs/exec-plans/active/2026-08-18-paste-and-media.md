@@ -79,3 +79,32 @@ Status legend: `todo` · `in-progress` · `done`.
 ## Order
 
 P1 → P2 → P3 → P4 → P5
+
+## Review — 2026-08-18
+
+- **P1 — a pasted screenshot left no trace in the sent message.** Images travel
+  as bytes, which carry no filename, so the model could not refer to one and
+  the message — which is only its text — showed the reader nothing of what they
+  had attached. The prompt names them now, which also puts them in replay.
+- **P2 — chips left their words behind whenever the composer scrolled.** Found
+  by measuring rather than by reading: field at 200, mirror at 0. This is the
+  one invariant the mirror exists to hold.
+- **P2 — the field's scrollbar narrowed the textarea and not the mirror.**
+  Measured at 502 against 494. Reserving a gutter on both only moves the
+  problem, because `stable` reserves on an `overflow: hidden` box and reserves
+  nothing where scrollbars are overlays. The scrollbar is gone from both.
+- **P2 — backspace inside a chip took one character**, broke the token, dropped
+  the paste and left its characters behind as literal text. A chip is one thing.
+- **P2 — a staged screenshot had no thumbnail and no way to open it.**
+- **P3 — the composer and the transcript disagreed about what a mention is**, so
+  `@alice` was a chip while typed and plain text once sent. One rule now.
+- **P3 — `spliceFolds` rewrote its own output**, so a paste containing an
+  earlier chip's token had that token replaced a second time.
+
+Two spec promises were unmet and are now built rather than amended away: `cmd+z`
+restores a folded paste (native undo cannot — the fold is applied by
+assignment), and a caret inside a token opens a peek showing what was pasted.
+
+`Composer.svelte` crossed 350 twice and split at real seams: `composer/Field.svelte`
+holds the textarea and its mirror, because they share one invariant and belong
+in one file; `composer-send.ts` holds what pressing ⏎ does.
