@@ -75,6 +75,12 @@ class AskKeys {
   /** One key for the card that has them. Returns false when the key was not
    *  ours, so the shell can carry on with it. */
   handleKey(event: { key: string; shiftKey?: boolean }): boolean {
+    // Never while the composer has the caret. Every other modal in the shell is
+    // opened by the reader, so outranking INSERT is what they are for; a
+    // question arrives on its own, and taking the keys from someone mid-sentence
+    // would be the app typing over them.
+    if (app.mode === 'INSERT') return false
+
     const askId = this.holding
     if (askId === null) return false
 

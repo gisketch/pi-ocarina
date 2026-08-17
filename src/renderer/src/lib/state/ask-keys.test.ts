@@ -170,6 +170,16 @@ describe('answering with the keys', () => {
     expect(flow.at).toBe(0)
   })
 
+  it('never takes the caret from the composer', () => {
+    const flow = asks.flow('ask-1', QUESTIONS)
+    app.mode = 'INSERT'
+
+    // The key belongs to the field the reader is typing in. The card does not
+    // consume it, and the cursor does not move.
+    expect(press('j')).toBe(false)
+    expect(flow.cursor).toBe(0)
+  })
+
   it('swallows a stray key rather than letting it move the column', () => {
     expect(press('l')).toBe(true)
     expect(app.threadIndex).toBe(0)
