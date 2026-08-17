@@ -67,6 +67,24 @@ export function spliceFolds(text: string, folds: readonly Fold[]): string {
   return out
 }
 
+/** The fold the caret is sitting inside, if any.
+ *
+ *  What makes a folded paste readable before it is sent: the composer cannot
+ *  put a clickable element inside a textarea, but it always knows where the
+ *  caret is, and a caret inside the token is the reader asking what is in it. */
+export function foldAt(text: string, caret: number, folds: readonly Fold[]): Fold | null {
+  for (const fold of folds) {
+    let from = 0
+    for (;;) {
+      const at = text.indexOf(fold.token, from)
+      if (at === -1) break
+      if (caret >= at && caret <= at + fold.token.length) return fold
+      from = at + fold.token.length
+    }
+  }
+  return null
+}
+
 /** Inserts a paste at the caret, folded or not.
  *
  *  Returns the new text, where the caret lands, and the fold to hold — null

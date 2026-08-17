@@ -41,6 +41,16 @@ const DROP = new Set([
   'dialog',
 ])
 
+/** How deep the tree may get.
+ *
+ *  Every walk over it — measuring text, choosing the article, writing Markdown,
+ *  rendering a run of inline marks — is recursive, so the depth of a fetched
+ *  page is the depth of this app's call stack. A page of ten thousand nested
+ *  `<div>`s overflowed it and failed the fetch. Real pages do not go past about
+ *  thirty; past this, nesting carries no structure worth keeping, and the text
+ *  inside it is kept anyway. */
+export const MAX_DEPTH = 100
+
 /** Tags that close a sibling of their own kind. A page full of unclosed `<li>`
  *  is the normal case, not the broken one. */
 const CLOSED_BY_SELF = new Set(['li', 'p', 'tr', 'td', 'th', 'dt', 'dd', 'option'])
@@ -73,10 +83,24 @@ export function parse(html: string): HtmlNode {
   // Depth of a dropped subtree. While this is above zero nothing is kept, so a
   // `<nav>` containing a `<script>` unwinds correctly.
   let dropped = 0
+  /** Open elements past `MAX_DEPTH`. Balanced like `dropped`, but their text is
+   *  kept — the structure is what is refused, not the content. */
+  let deep = 0
 
   const top = (): HtmlNode => stack[stack.length - 1]
 
   for (const token of tokenize(html)) {
+    if (deep > 0) {
+      if (token.type === 'text') {
+        if (token.text !== '') top().children.push(token.text)
+      } else if (token.type === 'open' && !token.selfClosing && !DROP.has(token.name)) {
+        deep += 1
+      } else if (token.type === 'close') {
+        deep -= 1
+      }
+      continue
+    }
+
     if (dropped > 0) {
       if (token.type === 'open' && !token.selfClosing && DROP.has(token.name)) dropped += 1
       else if (token.type === 'close' && DROP.has(token.name)) dropped -= 1
@@ -101,6 +125,11 @@ export function parse(html: string): HtmlNode {
     }
 
     closeImplied(stack, token)
+
+    if (!token.selfClosing && stack.length >= MAX_DEPTH) {
+      deep = 1
+      continue
+    }
 
     const node: HtmlNode = { name: token.name, attrs: token.attrs, children: [] }
     top().children.push(node)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { bodyKind, extractArticle } from './extract'
 import { decodeEntities, tokenize } from './html-text'
-import { parse, pickContent, textLength } from './html-tree'
+import { MAX_DEPTH, parse, pickContent, textLength } from './html-tree'
 
 describe('tokenize', () => {
   it('reads a tag, its attributes and its text', () => {
@@ -184,5 +184,37 @@ describe('bodyKind', () => {
 
   it('assumes text when the server said nothing', () => {
     expect(bodyKind('')).toBe('text')
+  })
+})
+
+describe('a page built to break the reader', () => {
+  const deep = (count: number, tag = 'div'): string =>
+    `<html><body>${`<${tag}>`.repeat(count)}hello${`</${tag}>`.repeat(count)}</body></html>`
+
+  it('survives nesting far past anything a real page has', () => {
+    // Every walk over the tree is recursive, so a fetched page's depth is this
+    // app's call stack. Ten thousand nested divs overflowed it and failed the
+    // fetch outright.
+    expect(extractArticle(deep(10_000)).markdown).toContain('hello')
+  })
+
+  it('survives nesting that never closes', () => {
+    const html = `<html><body>${'<div>'.repeat(20_000)}hello</body></html>`
+    expect(extractArticle(html).markdown).toContain('hello')
+  })
+
+  it('survives deep inline nesting', () => {
+    expect(extractArticle(`<body><p>${'<span>'.repeat(10_000)}hi</p></body>`).markdown).toContain(
+      'hi',
+    )
+  })
+
+  it('keeps the text it refused to keep the structure of', () => {
+    // The nesting is what is dropped past the cap, never the content.
+    expect(extractArticle(deep(MAX_DEPTH + 50)).markdown).toContain('hello')
+  })
+
+  it('still reads an ordinary page the same way', () => {
+    expect(extractArticle('<body><article><p>normal</p></article></body>').markdown).toBe('normal')
   })
 })

@@ -8,7 +8,7 @@
  *  with a real invariant — a fold's text must live exactly as long as its token
  *  — and because the component is already the longest thing in the renderer. */
 
-import { applyPaste, foldsIn, spliceFolds, type Fold } from '../paste'
+import { applyPaste, foldAt, foldsIn, spliceFolds, type Fold } from '../paste'
 import { attachments } from './attachments.svelte'
 import { session } from '../session'
 
@@ -92,6 +92,32 @@ class Pasting {
 
     event.preventDefault()
     return folded
+  }
+
+  /** Puts the newest fold back as plain text.
+   *
+   *  The spec promises that undo after a fold restores what was pasted, and
+   *  native undo cannot deliver it: the fold is applied by assignment, not by
+   *  the browser, so there is nothing in the field's own undo stack to return
+   *  to. Returns null when there is no fold to unfold, and the browser's undo
+   *  is left alone. */
+  undo(text: string): { text: string; caret: number } | null {
+    const newest = this.folds[this.folds.length - 1]
+    if (!newest) return null
+
+    const at = text.indexOf(newest.token)
+    if (at === -1) return null
+
+    this.folds = this.folds.slice(0, -1)
+    return {
+      text: text.slice(0, at) + newest.text + text.slice(at + newest.token.length),
+      caret: at + newest.text.length,
+    }
+  }
+
+  /** What the caret is standing in, so the composer can show it. */
+  at(text: string, caret: number): Fold | null {
+    return foldAt(text, caret, this.folds)
   }
 
   /** Drops folds whose tokens the reader deleted. Called on every edit. */

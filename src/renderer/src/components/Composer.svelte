@@ -2,7 +2,8 @@
   import { tick } from 'svelte'
   import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
-  import { isSendKey, planSend, sendHint } from '$lib/composer'
+  import { isSendKey, sendHint } from '$lib/composer'
+  import { sendMessage } from '$lib/composer-send'
   import { wrapIndex } from '$lib/fuzzy'
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
@@ -10,7 +11,8 @@
   import { attachments } from '$lib/state/attachments.svelte'
   import { pasting } from '$lib/state/pasting.svelte'
   import StagedChips from './composer/StagedChips.svelte'
-  import Mirror from './composer/Mirror.svelte'
+  import Field from './composer/Field.svelte'
+  import FoldPeek from './composer/FoldPeek.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
@@ -30,8 +32,6 @@
 
   let text = $state('')
   let sending = $state(false)
-  /** The field's scroll offset, mirrored so chips stay on their words. */
-  let fieldScroll = $state(0)
 
   const insert = $derived(app.mode === 'INSERT')
 
@@ -84,6 +84,9 @@
     caret = input?.selectionStart ?? 0
   }
 
+  // A caret inside a fold's token is the reader asking what is in it.
+  const peeked = $derived(pasting.at(text, caret))
+
   const thread = $derived(app.thread)
   const runState = $derived(threads.get(thread.id).runState)
   const hint = $derived(sendHint(runState))
@@ -109,45 +112,55 @@
       run(command)
       return
     }
-
-    const plan = planSend(text, runState)
-    if (plan.action === 'none' || sending) return
+    if (sending) return
 
     sending = true
     try {
-      const threadId = await targetThread()
-      if (!threadId) return
-
-      // Every fold's real text goes back where its token stood, so a paste
-      // dropped into the middle of a sentence reaches the model there.
-      const said = pasting.expand(plan.text)
-      if (plan.action === 'prompt') threads.prompt(threadId, said, attachments.list)
-      else threads.steer(threadId, said)
-
-      attachments.clear()
-      pasting.clear()
-
-      // Cleared only once it has gone somewhere: losing a prompt to a failed
-      // send would mean retyping it.
-      text = ''
+      const went = await sendMessage(text, {
+        runState,
+        targetThread,
+        expand: (said) => pasting.expand(said),
+        attachments: () => attachments.list,
+        prompt: (threadId, said, files) => threads.prompt(threadId, said, files),
+        steer: (threadId, said) => threads.steer(threadId, said),
+        sent: () => {
+          attachments.clear()
+          pasting.clear()
+        },
+      })
+      if (went) text = ''
     } finally {
       sending = false
     }
   }
 
-  async function onpaste(event: ClipboardEvent): Promise<void> {
-    const next = await pasting.fromEvent(event, text, input)
+  /** Applies whatever the paste layer decided, then puts the caret where it
+   *  said. The wait is Svelte's: the token only exists in the field once the
+   *  new value has been written to it. */
+  async function applyToField(next: { text: string; caret: number } | null): Promise<void> {
     if (!next) return
-
     text = next.text
-    // The caret belongs after the token, which only exists once Svelte has
-    // written the new value into the field.
     await tick()
     input?.setSelectionRange(next.caret, next.caret)
     trackCaret()
   }
 
+  const onpaste = async (event: ClipboardEvent): Promise<void> =>
+    applyToField(await pasting.fromEvent(event, text, input))
+
   function onkeydown(event: KeyboardEvent): void {
+    // The fold was applied by assignment, not by the browser, so there is
+    // nothing in the field's own undo stack to go back to. Only handled when
+    // there is a fold to unfold; otherwise the browser's undo is untouched.
+    if ((event.metaKey || event.ctrlKey) && event.key === 'z' && !event.shiftKey) {
+      const undone = pasting.undo(text)
+      if (undone) {
+        event.preventDefault()
+        void applyToField(undone)
+        return
+      }
+    }
+
     if (menu !== null) {
       switch (event.key) {
         case 'ArrowDown':
@@ -223,35 +236,30 @@
     />
   {/if}
 
+  {#if peeked}<FoldPeek fold={peeked} />{/if}
   <StagedChips />
 
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
-    <div class="field">
-      <Mirror {text} folds={pasting.folds} scrollTop={fieldScroll} />
-      <textarea
-      bind:this={input}
+    <Field
       bind:value={text}
+      bind:element={input}
+      folds={pasting.folds}
+      placeholder="Message pi in {app.workspace.name}…  (i to focus)"
       {onkeydown}
-      onselect={trackCaret}
-      onclick={trackCaret}
+      {onpaste}
+      onmove={trackCaret}
       oninput={() => {
         trackCaret()
         // Deleting a chip is how a reader drops a paste, so the held text has
         // to follow the token rather than outlive it.
         pasting.prune(text)
       }}
-      onkeyup={trackCaret}
-      rows="1"
-      placeholder="Message pi in {app.workspace.name}…  (i to focus)"
       onfocus={() => blockNav.startTyping()}
       onblur={() => {
         if (app.mode === 'INSERT') app.mode = 'NORMAL'
       }}
-        onpaste={onpaste}
-        onscroll={() => (fieldScroll = input?.scrollTop ?? 0)}
-      ></textarea>
-    </div>
+    />
     <span class="hints">
       <span><span class="kbd">⏎</span> {hint}</span>
       <span><span class="kbd">⇧⏎</span> newline</span>
@@ -287,48 +295,6 @@
   .caret {
     color: var(--accent);
     line-height: 1.5;
-  }
-
-  /* The field is a stacking context so the mirror can sit exactly under the
-     textarea's glyphs. */
-  .field {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    display: flex;
-  }
-
-  /* Everything that decides where a glyph lands, in one place. The mirror
-     carries this class too — if the two ever disagree, the caret drifts. */
-  textarea,
-  .field :global(.field-metrics) {
-    font-family: var(--font-body);
-    font-size: 13px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    padding: 0;
-    margin: 0;
-    border: none;
-  }
-
-  textarea {
-    flex: 1;
-    position: relative;
-    background: transparent;
-    outline: none;
-    /* Transparent, not hidden: the caret and the selection are the browser's
-       and have to stay visible over the mirror's chips. */
-    color: transparent;
-    caret-color: var(--accent);
-    resize: none;
-    overflow-y: auto;
-    min-width: 0;
-    scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
-  }
-  textarea::placeholder {
-    color: var(--fg-dimmest);
   }
 
   .hints {

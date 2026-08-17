@@ -1,0 +1,41 @@
+/** What pressing ⏎ in the composer actually does with the message.
+ *
+ *  Lifted out of the component because it is the one step with real
+ *  consequences — it starts a turn, or queues into one — and because reading it
+ *  next to caret tracking and menu filtering made it hard to see. The component
+ *  keeps the field; this keeps the sequence.
+ */
+
+import type { AttachmentRef, ThreadRunState } from '../../../shared/vocabulary'
+import { planSend } from './composer'
+
+export interface SendDeps {
+  runState: ThreadRunState
+  /** A fresh column has no thread behind it yet; sending is what creates one.
+   *  Null when it could not be created, and nothing is sent. */
+  targetThread: () => Promise<string | null>
+  /** Every fold's real text back where its token stood. */
+  expand: (text: string) => string
+  attachments: () => AttachmentRef[]
+  prompt: (threadId: string, text: string, attachments: AttachmentRef[]) => void
+  steer: (threadId: string, text: string) => void
+  /** Called once the message has gone somewhere, never before: losing a prompt
+   *  to a failed send would mean retyping it. */
+  sent: () => void
+}
+
+/** Sends or queues. Returns whether the composer should clear. */
+export async function sendMessage(text: string, deps: SendDeps): Promise<boolean> {
+  const plan = planSend(text, deps.runState)
+  if (plan.action === 'none') return false
+
+  const threadId = await deps.targetThread()
+  if (!threadId) return false
+
+  const said = deps.expand(plan.text)
+  if (plan.action === 'prompt') deps.prompt(threadId, said, deps.attachments())
+  else deps.steer(threadId, said)
+
+  deps.sent()
+  return true
+}
