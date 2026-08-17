@@ -17,6 +17,7 @@ import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
+import { handleRoles } from './role-commands'
 import { PiTranslator } from './pi-translate'
 import { emitUsage, replayInto } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
@@ -201,6 +202,12 @@ export class PiDriver implements SessionDriver {
         // running, and the fleet settles this one child as `cancelled`.
         return { ok: this.#fleet.cancel(agentId) } as CommandResult<N>
       }
+
+      case 'listRoles':
+      case 'saveRole':
+      case 'deleteRole':
+      case 'setNamePool':
+        return handleRoles(this.#catalog, name, params) as CommandResult<N>
 
       case 'archiveThread': {
         const { threadId } = params as CommandParams<'archiveThread'>

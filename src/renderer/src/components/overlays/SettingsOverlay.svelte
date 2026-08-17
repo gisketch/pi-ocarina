@@ -15,6 +15,8 @@
      *  preference that nothing would read. */
     reasoning?: string
     onreasoning?: (direction: 1 | -1) => void
+    /** Opens the roles screen: what a child agent is, when one is spawned. */
+    onroles?: () => void
   }
 
   const {
@@ -24,6 +26,7 @@
     model = 'pi default',
     reasoning,
     onreasoning,
+    onroles,
   }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
@@ -65,6 +68,12 @@
       value: () => preferences.leaderTimeoutLabel,
       hint: 'range',
       nudge: (direction) => preferences.nudgeLeaderTimeout(direction),
+    },
+    {
+      label: 'agent roles',
+      value: () => 'edit',
+      hint: onroles ? 'enter' : 'none',
+      enter: onroles,
     },
     { label: 'keymap', value: () => 'view', hint: 'enter', enter: onkeymap },
   ])

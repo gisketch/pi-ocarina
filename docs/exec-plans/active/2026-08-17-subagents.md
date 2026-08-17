@@ -213,7 +213,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
   spawn the app quit under; a manual reopen of a real thread.
 - Blocked by: M7.
 
-## M9 — The roles screen — `todo`
+## M9 — The roles screen — `done`
 
 > The first real form in the app. Keyboard-first, like everything else.
 
@@ -226,3 +226,13 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 - Validation: unit tests for the store edits and the in-use guard; a harness pass
   adding a role and spawning it.
 - Blocked by: M8.
+
+> **No in-use guard, deliberately.** The ticket asked for one; it would protect
+> nothing. A running child already holds its instructions and is unaffected by a
+> role being deleted, and a child that spawns afterwards gets the tool's own "no
+> role named …" error, which lists the roles that do exist. The guard would need
+> a live-children query the settings screen has no other use for.
+>
+> The screen shows the shipped roles when there is no backend, which is what
+> makes it reviewable in the browser harness at all — an error where four roles
+> belong says nothing about whether the screen works.

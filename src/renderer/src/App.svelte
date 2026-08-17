@@ -18,6 +18,7 @@
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
+  import RolesOverlay from './components/overlays/RolesOverlay.svelte'
   import CommitCard from './components/overlays/CommitCard.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
@@ -233,12 +234,15 @@
       onclose={() => shell.closeOverlay()}
       onkeymap={() => shell.openOverlay('keymap')}
       onmodel={() => shell.openOverlay('model')}
+      onroles={() => shell.openOverlay('roles')}
       model={threads.get(app.thread.id).model?.name ?? 'pi default'}
       reasoning={threads.get(app.thread.id).model?.reasoning}
       onreasoning={threads.get(app.thread.id).model
         ? (direction) => stepReasoning(direction)
         : undefined}
     />
+  {:else if shell.overlay === 'roles'}
+    <RolesOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'model'}
     <ModelOverlay
       onclose={() => shell.closeOverlay()}

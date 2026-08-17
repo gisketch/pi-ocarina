@@ -67,6 +67,12 @@ export class SessionClient {
     }
   }
 
+  /** Whether there is a backend to talk to at all. False in the browser
+   *  harness, which has no Electron behind it. */
+  get wired(): boolean {
+    return this.#send !== null
+  }
+
   invoke<N extends CommandName>(name: N, params: CommandParams<N>): Promise<CommandResult<N>> {
     if (!this.#send) {
       return Promise.reject(new Error(`no session backend: ${name} is unavailable`))

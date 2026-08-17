@@ -5,6 +5,7 @@
  *  so nothing that imports them had to move. */
 
 import type {
+  AgentRole,
   ApprovalOutcome,
   AskAnswer,
   AttachmentRef,
@@ -56,6 +57,12 @@ export interface SessionCommands {
     result: { ok: true }
   }
   listApprovalRules: { params: { workspaceId: string }; result: { rules: string[] } }
+  /** The roles a child agent can be spawned as, and the names it may borrow.
+   *  Both live in the catalog, which only main writes. */
+  listRoles: { params: Record<string, never>; result: { roles: AgentRole[]; names: string[] } }
+  saveRole: { params: { role: AgentRole }; result: { ok: true } }
+  deleteRole: { params: { roleId: string }; result: { ok: true } }
+  setNamePool: { params: { names: string[] }; result: { ok: true } }
   revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }
   cancelTurn: { params: { threadId: string }; result: { ok: true } }
   /** Stops one child agent. Its siblings keep running, and the turn stays open

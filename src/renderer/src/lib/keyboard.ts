@@ -1,6 +1,6 @@
 import type { Mode } from './types'
 
-export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model' | 'search'
+export type Overlay = 'palette' | 'switcher' | 'keymap' | 'settings' | 'model' | 'search' | 'roles'
 
 export interface KeyState {
   mode: Mode

@@ -1,3 +1,4 @@
+import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../../shared/agent-roles'
 import {
   type CommandName,
   type CommandParams,
@@ -60,6 +61,15 @@ export class StubDriver implements SessionDriver {
       // The stub runs no children, so there is never one to stop.
       case 'cancelAgent':
         return { ok: false } as CommandResult<N>
+
+      // The stub has no catalog, so it has the shipped roles and nothing else.
+      case 'listRoles':
+        return { roles: [...DEFAULT_ROLES], names: [...DEFAULT_NAME_POOL] } as CommandResult<N>
+
+      case 'saveRole':
+      case 'deleteRole':
+      case 'setNamePool':
+        return { ok: true } as CommandResult<N>
 
       case 'restoreCheckpoint': {
         const { threadId } = params as CommandParams<'restoreCheckpoint'>
