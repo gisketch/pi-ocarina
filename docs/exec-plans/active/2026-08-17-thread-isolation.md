@@ -80,7 +80,7 @@ Status legend: `todo` · `in-progress` · `done`.
   visual pass.
 - Blocked by: K2.
 
-## K5 — Closing and sweeping — `todo`
+## K5 — Closing — `done`
 
 > The ticket that can lose work, so it is the one with the explicit rules.
 
@@ -91,12 +91,24 @@ Status legend: `todo` · `in-progress` · `done`.
   holds commits is never removed. Quitting with the thread open leaves
   everything. A `/worktrees` command lists every worktree under
   `.ocarina/worktrees`, marks those with no live thread, and removes the ones
-  the reader picks.
+  the reader picks. **The sweep is split out as K5b below; the close rules are
+  what K5 delivered.**
 - Acceptance: no rule removes a worktree holding commits; a discarded dirty
   worktree leaves nothing in `git worktree list`; nothing is removed at startup.
 - Validation: temporary-repository tests for each of the three close paths;
   a live pass for the confirm modal.
 - Blocked by: K2.
+
+## K5b — The sweep command — `todo`
+
+- Delivered behavior: `/worktrees` lists every checkout under
+  `.ocarina/worktrees` for the focused workspace, marks the ones with no live
+  thread and says what each holds, and removes the ones the reader picks under
+  the same three rules K5 uses. Nothing is swept at startup.
+- Acceptance: a worktree holding commits cannot be swept; a worktree with a
+  live thread is listed but not offered for removal.
+- Validation: headless tests over the list and its removal calls.
+- Blocked by: K5.
 
 ## K6 — Commit, push, pull request — `todo`
 

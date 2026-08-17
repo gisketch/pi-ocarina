@@ -3,6 +3,8 @@ import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { createThread } from './new-thread'
+import { settleWorktree } from './worktree-close'
+import { threadGit } from './thread-git.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
@@ -130,7 +132,13 @@ class ShellState {
 
     if (cancelTurn) threads.cancel(threadId)
     blockNav.forget(threadId)
+    // The column goes now. The checkout behind it is settled afterwards,
+    // because the answer can need a question and a person watching a column
+    // that will not close has no idea what it is waiting for.
+    const isolated = app.workspace.threads.find((thread) => thread.id === threadId)?.branch
     catalog.closeThread(threadId)
+    threadGit.forget(threadId)
+    if (isolated) void settleWorktree(threadId)
   }
 
   /** Moves the focused column itself, rather than the focus. */

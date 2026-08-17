@@ -190,10 +190,9 @@ export interface ThreadSummary {
   /** ISO timestamp of the last write, for the column's right-hand label. */
   modified: string
   messageCount: number
-  /** The branch of the worktree this thread runs in, or null when it runs in
-   *  the workspace's own directory. Carried in the listing rather than derived
-   *  in the renderer, so a thread reopened after a restart is still known to be
-   *  isolated. */
+  /** The branch of this thread's worktree, or null when it runs in the
+   *  workspace's own folder. Carried in the listing so a thread reopened after
+   *  a restart is still known to be isolated. */
   branch?: string | null
 }
 
@@ -205,8 +204,7 @@ export interface SessionCommands {
   listThreads: { params: { workspaceId: string }; result: { threads: ThreadSummary[] } }
   /** `worktree` runs the thread in its own checkout on a new branch, made
    *  before the session starts — pi is given a working directory once, so this
-   *  cannot be decided later. A failure to create it rejects the command and
-   *  leaves no thread behind. */
+   *  cannot be decided later. A failure rejects, leaving no thread behind. */
   createThread: {
     params: { workspaceId: string; title?: string; worktree?: { branch: string } }
     result: { threadId: string }
@@ -252,6 +250,19 @@ export interface SessionCommands {
    *  other question — what each call did — and both come from the same
    *  snapshots through the same diff, so the two cannot disagree. */
   listChanges: { params: { threadId: string }; result: { files: ChangedFile[] } }
+  /** What removing this thread's worktree would cost, or null when it has none.
+   *  `commits` counts commits on its branch and nowhere else. */
+  threadWorktree: {
+    params: { threadId: string }
+    result: { worktree: { branch: string; path: string; dirty: number; commits: number } | null }
+  }
+  /** Removes a thread's worktree. Refuses one holding commits outright — the
+   *  commits are the work — and a dirty one unless `force` says the reader was
+   *  asked and answered. */
+  removeThreadWorktree: {
+    params: { threadId: string; force?: boolean }
+    result: { ok: boolean; reason?: string }
+  }
   /** The git state of the checkout a thread runs in, or null when the thread
    *  is not isolated — the workspace's own state is already published on the
    *  git channel, and answering with it here would let the two disagree. */
