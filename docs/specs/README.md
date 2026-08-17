@@ -30,6 +30,10 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   tool-calling turn projects into blocks. Amends the thread & ledger spec.
 - [2026-08-15-git-terminal.md](2026-08-15-git-terminal.md) — git status pipeline,
   commit card, pty drawer, toasts/modals/banner.
+- [2026-08-16-thread-isolation.md](2026-08-16-thread-isolation.md) — an optional
+  worktree per thread, and the path from a finished thread to a pull request.
+  **Approved 2026-08-17.** Tickets in
+  [2026-08-17-thread-isolation.md](../exec-plans/active/2026-08-17-thread-isolation.md).
 - [2026-08-16-leap.md](2026-08-16-leap.md) — reach a block by typing the words
   you can see. Grilled; awaiting approval. Supersedes the block-labelling leap
   in H3.
@@ -41,8 +45,6 @@ on one before implementing it. Each carries its own list of what the grill must
 settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
-- [2026-08-16-thread-isolation.md](2026-08-16-thread-isolation.md) — a worktree
-  for each thread, and the path from a finished thread to a pull request.
 - [2026-08-15-ask-tool.md](2026-08-15-ask-tool.md) — a custom tool that lets the
   agent ask the user a question. pi 0.84 has no elicitation of its own.
   **The card is already drawn; the tool is not built.**
