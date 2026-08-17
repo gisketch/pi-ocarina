@@ -120,3 +120,23 @@ describe('listThreads', () => {
     expect(await service.listThreads('w1')).toEqual([])
   })
 })
+
+describe('a session that fails to start', () => {
+  it('takes its checkout back with it', async () => {
+    const { startThread } = await import('./start-thread')
+    const failing = {
+      create: async () => {
+        throw new Error('pi would not start')
+      },
+    } as unknown as Parameters<typeof startThread>[0]['sessions']
+
+    await expect(
+      startThread({ workspaces: service, sessions: failing }, 'w1', { branch: 'feat/doomed' }, () => 't'),
+    ).rejects.toThrow('pi would not start')
+
+    const { stdout } = await run('git', ['worktree', 'list'], { cwd: repo })
+    expect(stdout).not.toContain('feat-doomed')
+    const { stdout: branches } = await run('git', ['branch'], { cwd: repo })
+    expect(branches).not.toContain('feat/doomed')
+  })
+})

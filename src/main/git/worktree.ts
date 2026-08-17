@@ -144,6 +144,15 @@ export async function removeWorktree(
   }
 }
 
+/** Deletes a branch outright.
+ *
+ *  Only for undoing a creation that failed seconds ago. Removing a worktree
+ *  deliberately leaves its branch alone — the branch is where the commits are —
+ *  so this is not part of that path and must not become part of it. */
+export async function deleteBranch(repo: string, branch: string): Promise<void> {
+  await git(repo, ['branch', '-D', branch]).catch(() => '')
+}
+
 /** What removing this worktree would cost.
  *
  *  `commits` counts what is reachable from its HEAD and from no other branch —

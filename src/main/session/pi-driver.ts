@@ -8,6 +8,7 @@ import type {
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
+import { startThread } from './start-thread'
 import {
   dropWorktree,
   dropWorktreeAt,
@@ -87,7 +88,14 @@ export class PiDriver implements SessionDriver {
     switch (name) {
       case 'createThread': {
         const { workspaceId, worktree } = params as CommandParams<'createThread'>
-        return { threadId: await this.#createThread(workspaceId, worktree) } as CommandResult<N>
+        return {
+          threadId: await startThread(
+            { workspaces: this.#workspaces, sessions: this.#sessions },
+            workspaceId,
+            worktree,
+            (session, cwd, branch) => this.#adopt(session, cwd, branch),
+          ),
+        } as CommandResult<N>
       }
 
       case 'openThread': {
@@ -257,18 +265,6 @@ export class PiDriver implements SessionDriver {
   /** The pi session file backing a thread — the transcript's real home. */
   sessionFile(threadId: string): string | undefined {
     return this.#threads.find(threadId)?.session.sessionFile
-  }
-
-  async #createThread(workspaceId: string, worktree?: { branch: string }): Promise<string> {
-    // The checkout first: pi is given a working directory when the session
-    // starts, so a worktree that fails to appear must stop the creation rather
-    // than leave a thread running in the tree it was meant to keep out of.
-    const { cwd, branch } = await this.#workspaces.cwdForNewThread(workspaceId, worktree)
-    const handle: ThreadHandle = { threadId: '' }
-
-    const session = await this.#sessions.create(cwd, workspaceId, handle)
-    handle.threadId = this.#adopt(session, cwd, branch)
-    return handle.threadId
   }
 
   /** Reopens a thread: its history is replayed as events before the live session
