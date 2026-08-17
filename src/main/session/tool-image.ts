@@ -9,7 +9,7 @@
  *  that did not happen is worse than a plain row. */
 
 import { readFile, stat } from 'node:fs/promises'
-import { isAbsolute, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type { ToolBody } from '../../shared/vocabulary'
 
 const MIMES: Readonly<Record<string, string>> = {
@@ -52,10 +52,15 @@ export async function imageBody(
   const mime = imageMime(path)
   if (!mime) return null
 
-  const full = isAbsolute(path) ? path : resolve(cwd, path)
+  // `resolve` on both branches: an absolute path taken as written keeps its
+  // `..` segments, so `/w/repo/../secret.png` passed a prefix test against
+  // `/w/repo` and was read and inlined. Normalising first is the whole check.
+  const full = resolve(isAbsolute(path) ? path : join(cwd, path))
+  const root = resolve(cwd)
   // Outside the workspace is not this app's to open, whatever the model asked
-  // the read tool for.
-  if (full !== cwd && !full.startsWith(`${cwd}/`)) return null
+  // the read tool for. The separator matters: `/w/repo-secrets` must not pass
+  // a prefix test against `/w/repo`.
+  if (full !== root && !full.startsWith(`${root}/`)) return null
 
   try {
     const info = await stat(full)

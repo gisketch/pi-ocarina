@@ -6,7 +6,7 @@
 
 // A devDependency on purpose — see the note in `ask-tool.ts`.
 import { Type, type Static } from 'typebox'
-import { isAbsolute, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type { WorkspaceLsp } from '../../shared/lsp'
 import type { LspClient, Position } from './client'
 import { describeAmbiguous, describeMissing, flatten, locate } from './locate'
@@ -62,8 +62,9 @@ const said = (text: string): Said => ({
  *  A path is untrusted input even when a model wrote it, and these tools open
  *  files. `../../../etc/passwd` is a path. */
 function inWorkspace(cwd: string, path: string): string | null {
-  const full = isAbsolute(path) ? resolve(path) : resolve(cwd, path)
-  return full === cwd || full.startsWith(`${cwd}/`) ? full : null
+  const full = resolve(isAbsolute(path) ? path : join(cwd, path))
+  const root = resolve(cwd)
+  return full === root || full.startsWith(`${root}/`) ? full : null
 }
 
 /** Everything the six share: resolve the file, get a server, find the symbol. */

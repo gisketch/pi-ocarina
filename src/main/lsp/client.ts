@@ -56,6 +56,13 @@ export interface Diagnostic {
  *  server does not hold an edit open. */
 const DIAGNOSTIC_WAIT_MS = 4_000
 
+/** How long a server gets to finish starting. Generous — a type-checker
+ *  indexing a large repository is slow — but finite. */
+const START_MS = 30_000
+
+/** How long a server gets to shut down politely before it is killed. */
+const STOP_MS = 2_000
+
 /** Open documents are held so positional requests work; a long session would
  *  otherwise hand the server every file it ever touched. */
 const MAX_OPEN = 100
@@ -124,6 +131,40 @@ export async function startClient(
   if (!child.stdout || !child.stdin) {
     throw new Error(`${spec.command} started without a usable stdio pipe`)
   }
+
+  /** A failed exec is reported asynchronously, on the process object.
+   *
+   *  Without a listener that is an unhandled 'error' event, which Electron's
+   *  default handler turns into a modal alert blocking the whole app — and it
+   *  fires again on every attempt. A missing binary is the ordinary case here,
+   *  not an exceptional one: the settings screen offers servers the reader has
+   *  not installed yet.
+   *
+   *  Nothing is written to the process until it has actually started. With
+   *  ENOENT the pipes exist but are already destroyed, so building the
+   *  connection first meant the JSON-RPC writer failed inside the library, as
+   *  a rejection no caller could reach. */
+  await new Promise<void>((resolve, reject) => {
+    child.once('spawn', resolve)
+    child.once('error', (cause: NodeJS.ErrnoException) => {
+      reject(
+        cause.code === 'ENOENT'
+          ? new Error(`${spec.command} is not installed — install it, or switch this server off`)
+          : cause,
+      )
+    })
+  })
+
+  /** The process going away after it started. Every request in flight fails
+   *  with it, and `initialize` has to stop waiting. */
+  const died = new Promise<never>((_, reject) => {
+    child.once('error', reject)
+    child.once('exit', (code) => {
+      reject(new Error(`${spec.command} exited (${code ?? 'signal'}) before it was ready`))
+    })
+  })
+  // Nothing else awaits it, and an unobserved rejection is its own crash.
+  died.catch(() => {})
   // Drained rather than inherited: a server that logs heavily would otherwise
   // fill the app's own output with noise nobody asked for.
   child.stderr?.resume()
@@ -134,13 +175,19 @@ export async function startClient(
   )
 
   const published = new Map<string, Diagnostic[]>()
-  const waiting = new Map<string, (diagnostics: Diagnostic[]) => void>()
+  /** Several calls can be waiting on the same file at once, so this is a list
+   *  per uri rather than one callback — a Map of single callbacks silently
+   *  dropped whichever call registered first, and its timeout then deleted the
+   *  other call's waiter on the way out. */
+  const waiting = new Map<string, ((diagnostics: Diagnostic[]) => void)[]>()
 
   connection.onNotification(
     'textDocument/publishDiagnostics',
     (params: { uri: string; diagnostics: Diagnostic[] }) => {
       published.set(params.uri, params.diagnostics ?? [])
-      waiting.get(params.uri)?.(params.diagnostics ?? [])
+      const listeners = waiting.get(params.uri)
+      waiting.delete(params.uri)
+      for (const listener of listeners ?? []) listener(params.diagnostics ?? [])
     },
   )
   // Servers ask questions of their own. Answering nothing is fine; failing to
@@ -148,9 +195,14 @@ export async function startClient(
   connection.onRequest('workspace/configuration', () => [null])
   connection.onRequest('client/registerCapability', () => null)
   connection.onRequest('window/workDoneProgress/create', () => null)
+  // A connection whose process has gone reports it here. Unhandled, these
+  // surface as uncaught errors from inside the library rather than as a failed
+  // call — the failure is already carried by whichever request was in flight.
+  connection.onError(() => {})
+  connection.onClose(() => {})
   connection.listen()
 
-  await connection.sendRequest<InitializeResult>('initialize', {
+  const ready = connection.sendRequest<InitializeResult>('initialize', {
     processId: process.pid,
     rootUri: uriOf(root),
     workspaceFolders: [{ uri: uriOf(root), name: root.slice(root.lastIndexOf('/') + 1) }],
@@ -168,24 +220,80 @@ export async function startClient(
       workspace: { workspaceFolders: true, configuration: true },
     },
   })
+
+  // Observed even when the race settles on something else. When the process
+  // died, `initialize` rejects too — a write to a destroyed pipe — and a
+  // rejection nobody is listening to is its own crash.
+  ready.catch(() => {})
+
+  /** A server that never answers must not wedge its language forever. The pool
+   *  caches the promise this returns, so one that never settles is permanent
+   *  until the app restarts. */
+  const tooSlow = new Promise<never>((_, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${spec.command} did not answer initialize within ${START_MS / 1000}s`)),
+      START_MS,
+    )
+    timer.unref?.()
+    void ready.finally(() => clearTimeout(timer))
+  })
+  tooSlow.catch(() => {})
+
+  try {
+    await Promise.race([ready, died, tooSlow])
+  } catch (cause) {
+    connection.dispose()
+    child.kill()
+    throw cause
+  }
   connection.sendNotification('initialized', {})
 
   /** Documents the server has been handed, newest last. */
   const open: string[] = []
 
-  const ensureOpen = async (path: string): Promise<string> => {
+  /** Version numbers per open document, so a resync is a change and not a
+   *  second open. */
+  const versions = new Map<string, number>()
+
+  /** Hands the server the file, or the file *again* when it has changed.
+   *
+   *  Resyncing is the whole of why an edit's diagnostics are worth anything.
+   *  The agent edits on disk; the server is still holding the copy it was given
+   *  at `didOpen`, so without a `didChange` every diagnostic after the first
+   *  describes the file as it was before the edit — reporting errors that are
+   *  fixed and staying silent about the one just introduced. */
+  const ensureOpen = async (path: string, resync = false): Promise<string> => {
     const uri = uriOf(path)
-    if (open.includes(uri)) return uri
+
+    if (open.includes(uri)) {
+      if (!resync) return uri
+      const text = await readFile(path, 'utf8')
+      const version = (versions.get(uri) ?? 1) + 1
+      versions.set(uri, version)
+      connection.sendNotification('textDocument/didChange', {
+        textDocument: { uri, version },
+        contentChanges: [{ text }],
+      })
+      // The server answers a change with a fresh publish; the cached one is
+      // about a file that no longer exists in that form.
+      published.delete(uri)
+      return uri
+    }
 
     const text = await readFile(path, 'utf8')
     connection.sendNotification('textDocument/didOpen', {
       textDocument: { uri, languageId: spec.id, version: 1, text },
     })
+    versions.set(uri, 1)
     open.push(uri)
 
     while (open.length > MAX_OPEN) {
       const oldest = open.shift()
-      if (oldest) connection.sendNotification('textDocument/didClose', { textDocument: { uri: oldest } })
+      if (oldest) {
+        versions.delete(oldest)
+        published.delete(oldest)
+        connection.sendNotification('textDocument/didClose', { textDocument: { uri: oldest } })
+      }
     }
     return uri
   }
@@ -250,29 +358,42 @@ export async function startClient(
     },
 
     async diagnostics(path) {
-      const uri = await ensureOpen(path)
+      // Always resynced: this is asked right after an edit, and the answer is
+      // worthless if it describes the file as it was before.
+      const uri = await ensureOpen(path, true)
       const already = published.get(uri)
       if (already) return already
 
       // Diagnostics arrive as a notification whenever the server is ready, so
       // the only honest way to ask for them is to wait a bounded moment.
       return new Promise<Diagnostic[]>((resolve) => {
+        const settle = (diagnostics: Diagnostic[]): void => {
+          clearTimeout(timer)
+          resolve(diagnostics)
+        }
         const timer = setTimeout(() => {
-          waiting.delete(uri)
+          const listeners = waiting.get(uri)?.filter((one) => one !== settle) ?? []
+          if (listeners.length > 0) waiting.set(uri, listeners)
+          else waiting.delete(uri)
           resolve(published.get(uri) ?? [])
         }, DIAGNOSTIC_WAIT_MS)
 
-        waiting.set(uri, (diagnostics) => {
-          clearTimeout(timer)
-          waiting.delete(uri)
-          resolve(diagnostics)
-        })
+        waiting.set(uri, [...(waiting.get(uri) ?? []), settle])
       })
     },
 
     async stop() {
       try {
-        await connection.sendRequest('shutdown')
+        // Raced, not simply awaited: a wedged server would otherwise never be
+        // killed, and `stopAll` — which quitting the app waits on — would hang
+        // with it.
+        await Promise.race([
+          connection.sendRequest('shutdown'),
+          new Promise((resolve) => {
+            const timer = setTimeout(resolve, STOP_MS)
+            timer.unref?.()
+          }),
+        ])
         connection.sendNotification('exit')
       } catch {
         // A server that already died has nothing to say about shutting down.

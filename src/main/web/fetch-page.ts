@@ -92,7 +92,9 @@ async function readCapped(
       if (done) break
       if (!value) continue
       bytes += value.byteLength
-      if (bytes >= MAX_BYTES) {
+      // Strictly greater: a body of exactly the cap is complete, and calling it
+      // truncated tells the model a page continued when it did not.
+      if (bytes > MAX_BYTES) {
         chunks.push(value.slice(0, value.byteLength - (bytes - MAX_BYTES)))
         truncated = true
         break
@@ -116,6 +118,31 @@ async function readCapped(
     bytes: truncated ? MAX_BYTES : bytes,
     truncated,
   }
+}
+
+/** How big a body actually was, without keeping it.
+ *
+ *  Bounded by the same cap: a binary is not decoded, and counting an unbounded
+ *  stream to report a number would be worse than the number being approximate. */
+async function countBytes(response: Response): Promise<number> {
+  const stream = response.body
+  if (!stream) return 0
+
+  const reader = stream.getReader()
+  let bytes = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes += value?.byteLength ?? 0
+      if (bytes >= MAX_BYTES) break
+    }
+  } catch {
+    // A stream that broke mid-count still reports what it managed.
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+  return bytes
 }
 
 export async function fetchPage(ask: FetchAsk, signal?: AbortSignal): Promise<FetchOutcome> {
@@ -157,15 +184,20 @@ export async function fetchPage(ask: FetchAsk, signal?: AbortSignal): Promise<Fe
   const kind = bodyKind(contentType)
 
   if (method === 'HEAD' || kind === 'binary') {
-    // Nothing readable to carry back, so the body is not even fetched.
-    await response.body?.cancel().catch(() => {})
-    const declared = Number(response.headers.get('content-length') ?? 0)
+    // Nothing readable to carry back. The header is used when the server sent
+    // one; when it did not, the bytes are counted rather than reported as
+    // zero — "0.0KB" for a real image is a measurement that is simply false.
+    const declared = Number(response.headers.get('content-length'))
+    const known = Number.isFinite(declared) && declared > 0
+    const counted = known ? declared : method === 'HEAD' ? 0 : await countBytes(response)
+    if (known) await response.body?.cancel().catch(() => {})
+
     return {
       url: response.url || ask.url,
       status: response.status,
       ok: response.ok,
       contentType,
-      bytes: Number.isFinite(declared) ? declared : 0,
+      bytes: counted,
       truncated: false,
       kind,
       body: '',

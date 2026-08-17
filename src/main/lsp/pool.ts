@@ -26,6 +26,8 @@ interface Live {
   refs: number
   lastUsed: number
   degraded?: boolean
+  /** Evicted while calls were still using it. Stopped when the last one ends. */
+  orphaned?: boolean
 }
 
 export interface PoolOptions {
@@ -95,6 +97,8 @@ export class LspPool {
       try {
         return await this.#attempt(spec, work)
       } catch (again) {
+        // The second attempt started a fresh client, so this is that one — the
+        // entry a reader will see in the settings screen and the chip.
         const live = this.#live.get(spec.id)
         if (live) live.degraded = true
         throw again
@@ -108,8 +112,7 @@ export class LspPool {
     try {
       return await work(live.client)
     } finally {
-      live.refs -= 1
-      live.lastUsed = this.#now()
+      this.#release(live)
     }
   }
 
@@ -133,11 +136,29 @@ export class LspPool {
     return promise
   }
 
+  /** Takes a client out of the pool and stops it.
+   *
+   *  Stopping waits for the calls still holding it. Eviction happens when one
+   *  call saw a transport error, and its siblings may be perfectly healthy —
+   *  killing the process under them would turn one failure into several. They
+   *  are already unreachable to new work the moment it leaves `#live`. */
   async #evict(id: string): Promise<void> {
     const live = this.#live.get(id)
     if (!live) return
     this.#live.delete(id)
+
+    if (live.refs > 0) {
+      live.orphaned = true
+      return
+    }
     await live.client.stop().catch(() => {})
+  }
+
+  /** Stops an evicted client once its last in-flight call lets go. */
+  #release(live: Live): void {
+    live.refs -= 1
+    live.lastUsed = this.#now()
+    if (live.orphaned && live.refs === 0) void live.client.stop().catch(() => {})
   }
 
   /** Stops every server with no work and no recent use. */

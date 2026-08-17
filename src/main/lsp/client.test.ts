@@ -104,3 +104,39 @@ describe('symbolKind', () => {
     expect(symbolKind(999)).toBe('symbol')
   })
 })
+
+describe('a file that changed under the server', () => {
+  it('resyncs before answering, so an edit is described by its own diagnostics', async () => {
+    // The agent edits on disk while the server holds the copy it was given at
+    // didOpen. Without a didChange, every diagnostic after the first describes
+    // the file as it was before the edit.
+    const changing = join(root, 'b.ts')
+    await writeFile(changing, 'const a = 1\n', 'utf8')
+
+    const first = await client.diagnostics(changing)
+    expect(first).toHaveLength(2)
+
+    await writeFile(changing, 'const a = 1\nconst b = 2\nconst c = 3\n', 'utf8')
+    const second = await client.diagnostics(changing)
+
+    // The fixture answers a change with a fresh publish, as a real server does.
+    expect(second).toHaveLength(2)
+  })
+})
+
+describe('a server that cannot be started', () => {
+  it('rejects rather than reaching Node as an unhandled error', async () => {
+    // Electron turns an unhandled 'error' into a modal alert that blocks the
+    // whole app, and it fires again on every attempt. A missing binary is the
+    // ordinary case: the settings screen offers servers not yet installed.
+    await expect(
+      startClient({ ...spec, command: '/nonexistent/language-server' }, root),
+    ).rejects.toThrow(/not installed|ENOENT/)
+  })
+
+  it('names the binary, so the message is actionable', async () => {
+    await expect(startClient({ ...spec, command: 'no-such-ls-binary' }, root)).rejects.toThrow(
+      /no-such-ls-binary/,
+    )
+  })
+})

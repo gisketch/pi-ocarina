@@ -28,7 +28,10 @@ function handle(message) {
       return
 
     case 'textDocument/didOpen':
-      // A real server publishes when it is ready, not when it is asked.
+    case 'textDocument/didChange':
+      // A real server publishes when it is ready, not when it is asked — and it
+      // publishes again whenever the document changes, which is what makes an
+      // edit's diagnostics describe the edit.
       setTimeout(() => {
         send({
           jsonrpc: '2.0',

@@ -32,17 +32,32 @@ export class LspService {
     return this.#store.lspFor(workspaceId)
   }
 
-  /** The pool for a workspace, made on first use.
+  /** The pool for one checkout, made on first use.
+   *
+   *  Keyed by the directory, not by the workspace: a thread isolated in a
+   *  worktree is a different checkout of the same workspace, and a server is
+   *  started with a root. Keyed by workspace alone, whichever thread asked
+   *  first decided the root for all of them, and every later thread got symbols
+   *  and diagnostics for someone else's files.
    *
    *  Making one costs nothing — a pool starts no processes until a call needs
    *  one — so there is no reason to be careful about when this is called. */
   poolFor(workspaceId: string, cwd: string): LspPool {
-    const already = this.#pools.get(workspaceId)
+    const key = `${workspaceId}\u0000${cwd}`
+    const already = this.#pools.get(key)
     if (already) return already
 
     const pool = this.#make(cwd)
-    this.#pools.set(workspaceId, pool)
+    this.#pools.set(key, pool)
     return pool
+  }
+
+  /** Every pool belonging to a workspace, across its checkouts. */
+  #poolsOf(workspaceId: string): LspPool[] {
+    const prefix = `${workspaceId}\u0000`
+    return [...this.#pools.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([, pool]) => pool)
   }
 
   /** What the settings screen and the status bar draw. */
@@ -52,8 +67,13 @@ export class LspService {
     if (!workspace) return { on: false, servers: [] }
 
     const detected = await detectServers(workspace.path, settings)
-    const pool = this.#pools.get(workspaceId)
-    const decorated = pool ? pool.decorate(detected) : detected
+    // A workspace can have several checkouts running servers at once; the
+    // reader is being told what is alive for this workspace, not for one of
+    // its worktrees.
+    const decorated = this.#poolsOf(workspaceId).reduce(
+      (states, pool) => pool.decorate(states),
+      detected,
+    )
 
     return { on: settings?.on === true, servers: worthShowing(decorated) }
   }
@@ -79,7 +99,7 @@ export class LspService {
     this.#store.setLsp(workspaceId, next)
 
     const stopping = next.on === false || change.enabled === false
-    if (stopping) await this.#pools.get(workspaceId)?.stopAll()
+    if (stopping) await Promise.all(this.#poolsOf(workspaceId).map((pool) => pool.stopAll()))
   }
 
   /** What a session in this workspace needs, or null when it has no servers.

@@ -84,5 +84,10 @@ export function describeMissing(name: string, available: readonly Found[]): stri
 
 export function describeAmbiguous(name: string, candidates: readonly Found[]): string {
   const lines = candidates.map((one) => `  line ${one.line} — ${one.kind} ${one.name}`)
-  return `"${name}" is several things in this file. Ask again with a line:\n${lines.join('\n')}`
+  // Deliberately not "ask again with a line": no tool here takes one, and
+  // telling a model to retry in a way that cannot work buys a wasted call and
+  // then a worse guess.
+  return `"${name}" is several things in this file, and the right one cannot be told apart by name:\n${lines.join(
+    '\n',
+  )}\nRead the file around these lines to see which you mean.`
 }
