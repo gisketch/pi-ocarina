@@ -2,7 +2,9 @@ import { listWorkspaceFiles } from './files'
 import { stat } from 'node:fs/promises'
 import type { ThreadSummary, WorkspaceSummary } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
+import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { worktreeDirName } from '../../shared/branch-name'
 import {
   addWorktree,
   listWorktrees,
@@ -84,8 +86,17 @@ export class WorkspaceService {
       return owner !== null && samePath(owner, root)
     })
 
+    // A checkout that has been removed still has sessions filed under its
+    // directory, and a thread nobody can list is a thread history search has
+    // lost. The directory is gone; the name it stood under is not.
+    const retired = this.#store.listRetired(workspaceId).map((branch) => ({
+      cwd: join(worktreeRoot(root), worktreeDirName(branch)),
+      branch,
+    }))
+
     return [
       { cwd: root, branch: null },
+      ...retired,
       // Named the way this app names them, not the way git reports them. git
       // resolves symlinks; the sessions were started under the unresolved path,
       // and pi lists sessions by the directory string it was given.
@@ -192,6 +203,32 @@ export class WorkspaceService {
    *  workspace's own directory. */
   branchOf(threadId: string): string | null {
     return this.#located.get(threadId)?.branch ?? null
+  }
+
+  /** Records that a checkout is gone, so its threads stay listed.
+   *
+   *  Takes the path it stood in rather than a workspace id, because the caller
+   *  that removes a worktree knows where it was and not which workspace owns
+   *  it. A path outside every pinned workspace is not recorded: there would be
+   *  nothing to list it under. */
+  retire(path: string, branch: string): void {
+    const workspaceId = this.idForPath(path)
+    if (!this.#store.workspace(workspaceId)) return
+    this.#store.retire(workspaceId, branch)
+  }
+
+  /** Where a thread can actually be opened.
+   *
+   *  A thread whose worktree has been removed still has a transcript, and it
+   *  can still be read — but pi needs a directory that exists to run in, so it
+   *  is offered its workspace's own folder. It is no longer isolated, and the
+   *  caller says so by passing the branch back as null. */
+  openableCwd(location: ThreadLocation): { cwd: string; branch: string | null } {
+    if (existsSync(location.cwd)) return { cwd: location.cwd, branch: location.branch ?? null }
+
+    const workspaceId = this.idForPath(location.cwd)
+    const fallback = this.#store.workspace(workspaceId)?.path
+    return { cwd: fallback ?? location.cwd, branch: null }
   }
 
   /** Finds a thread, scanning pinned workspaces only if it has not been seen. */

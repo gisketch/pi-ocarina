@@ -18,8 +18,13 @@ function service(threads: Record<string, { cwd: string; branch: string | null }>
   return {
     branchOf: (threadId: string) => threads[threadId]?.branch ?? null,
     cwdOf: (threadId: string) => threads[threadId]?.cwd,
+    pathOf: () => repo,
+    retire: (_path: string, branch: string) => retired.push(branch),
   } as unknown as WorkspaceService
 }
+
+/** Branches whose checkout was removed, so its threads stay listed. */
+let retired: string[] = []
 
 function checkouts(trees: { path: string }[]): string[] {
   return trees.map((one) => basename(one.path))
@@ -30,6 +35,7 @@ async function git(cwd: string, ...args: string[]): Promise<void> {
 }
 
 beforeEach(async () => {
+  retired = []
   repo = await mkdtemp(join(tmpdir(), 'piocarina-thread-worktree-'))
   await git(repo, 'init', '-b', 'main')
   await git(repo, 'config', 'user.email', 'test@example.com')
@@ -68,10 +74,13 @@ describe('worktreeOf', () => {
 })
 
 describe('dropWorktree', () => {
-  it('takes a clean one away', async () => {
+  it('takes a clean one away, and remembers the branch it took', async () => {
     const workspaces = service({ alone: { cwd: tree, branch: 'fix/OCA-231' } })
 
     expect(await dropWorktree(workspaces, 'alone', false)).toEqual({ ok: true })
+    // Without this the thread that lived there stops being listed at all, and
+    // history search loses a transcript that is still on disk.
+    expect(retired).toEqual(['fix/OCA-231'])
     // git reports resolved paths; the name is what identifies the checkout.
     expect(checkouts(await listWorktrees(repo))).not.toContain(basename(tree))
   })
@@ -109,7 +118,7 @@ describe('dropWorktree', () => {
 
 describe('dropWorktreeAt', () => {
   it('refuses a path outside the workspace it was asked about', async () => {
-    const workspaces = { pathOf: () => repo } as unknown as WorkspaceService
+    const workspaces = { pathOf: () => repo, retire: () => {} } as unknown as WorkspaceService
 
     expect(await dropWorktreeAt(workspaces, 'w1', '/tmp/somewhere/else', true)).toEqual({
       ok: false,
@@ -123,9 +132,10 @@ describe('dropWorktreeAt', () => {
   })
 
   it('removes one it does own', async () => {
-    const workspaces = { pathOf: () => repo } as unknown as WorkspaceService
+    const workspaces = service({})
 
     expect(await dropWorktreeAt(workspaces, 'w1', tree, false)).toEqual({ ok: true })
     expect(checkouts(await listWorktrees(repo))).not.toContain(basename(tree))
+    expect(retired).toEqual(['fix/OCA-231'])
   })
 })

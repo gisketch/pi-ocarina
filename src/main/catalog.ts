@@ -19,7 +19,7 @@ export interface WorkspaceEntry {
  *  session store is the truth about what threads exist, so it cannot drift out
  *  of sync here. */
 export interface CatalogState {
-  version: 5
+  version: 6
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
@@ -29,6 +29,14 @@ export interface CatalogState {
    *  strip; the session file stays on disk, so history search still finds it
    *  and opening it from there brings the column back. */
   archived: Record<string, string[]>
+  /** Workspace id → branches whose worktree this app has removed.
+   *
+   *  pi lists sessions by working directory, and the app finds those
+   *  directories with `git worktree list` — so a checkout that is gone takes
+   *  its thread out of every listing with it, and history search stops finding
+   *  a conversation whose transcript is still on disk. Remembering the branch
+   *  is enough: the directory it stood in is derived from it. */
+  retired: Record<string, string[]>
   /** Workspace id → column ids in the order the user arranged them with
    *  ⇧H/⇧L. Ids not listed sort after, so a thread created since the last
    *  save still appears rather than being dropped by an older order. */
@@ -43,12 +51,13 @@ export interface CatalogState {
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
   return {
-    version: 5,
+    version: 6,
     workspaces: [],
     workspaceIndex: 0,
     focus: [],
     approvals: {},
     archived: {},
+    retired: {},
     order: {},
     preferences: { ...DEFAULT_PREFERENCES },
   }
@@ -147,9 +156,10 @@ export function parseCatalog(raw: string): CatalogLoad {
   }
 
   // Each older version simply lacked a field: 2 had no preferences, 3 no
-  // archived list, 4 no column order. They upgrade by taking the defaults for
-  // what they never stored; nothing the user pinned or approved is lost.
-  if (![2, 3, 4, 5].includes(record.version as number)) {
+  // archived list, 4 no column order, 5 no retired worktrees. They upgrade by
+  // taking the defaults for what they never stored; nothing the user pinned or
+  // approved is lost.
+  if (![2, 3, 4, 5, 6].includes(record.version as number)) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -158,12 +168,13 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 5,
+      version: 6,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,
       approvals: parseIdLists(record.approvals),
       archived: parseIdLists(record.archived),
+      retired: parseIdLists(record.retired),
       order: parseIdLists(record.order),
       preferences: parsePreferences(record.preferences),
     },

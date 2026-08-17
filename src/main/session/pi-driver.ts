@@ -9,13 +9,7 @@ import type {
 import type { AttachmentRef } from '../../shared/vocabulary'
 import type { CatalogStore } from '../catalog-store'
 import { startThread } from './start-thread'
-import {
-  dropWorktree,
-  dropWorktreeAt,
-  listWorkspaceWorktrees,
-  threadGitStatus,
-  worktreeOf,
-} from './thread-worktree'
+import { worktreeCommand } from './worktree-commands'
 import { ApprovalGate } from './approvals'
 import { ChangeLog } from './change-log'
 import { changedFiles } from './changed-files'
@@ -133,37 +127,12 @@ export class PiDriver implements SessionDriver {
         return { threadId } as CommandResult<N>
       }
 
-      case 'threadWorktree': {
-        const { threadId } = params as CommandParams<'threadWorktree'>
-        return { worktree: await worktreeOf(this.#workspaces, threadId) } as CommandResult<N>
-      }
-
-      case 'removeThreadWorktree': {
-        const { threadId, force } = params as CommandParams<'removeThreadWorktree'>
-        return (await dropWorktree(this.#workspaces, threadId, force ?? false)) as CommandResult<N>
-      }
-
-      case 'listWorktrees': {
-        const { workspaceId } = params as CommandParams<'listWorktrees'>
-        return {
-          worktrees: await listWorkspaceWorktrees(this.#workspaces, workspaceId),
-        } as CommandResult<N>
-      }
-
-      case 'removeWorktree': {
-        const { workspaceId, path, force } = params as CommandParams<'removeWorktree'>
-        return (await dropWorktreeAt(
-          this.#workspaces,
-          workspaceId,
-          path,
-          force ?? false,
-        )) as CommandResult<N>
-      }
-
-      case 'threadGit': {
-        const { threadId } = params as CommandParams<'threadGit'>
-        return { status: await threadGitStatus(this.#workspaces, threadId) } as CommandResult<N>
-      }
+      case 'threadWorktree':
+      case 'removeThreadWorktree':
+      case 'listWorktrees':
+      case 'removeWorktree':
+      case 'threadGit':
+        return (await worktreeCommand(this.#workspaces, name, params)) as CommandResult<N>
 
       case 'listChanges': {
         const { threadId } = params as CommandParams<'listChanges'>
@@ -297,7 +266,13 @@ export class PiDriver implements SessionDriver {
     }
 
     const { SessionManager } = await this.#sessions.load()
-    const { path, cwd } = await this.#workspaces.locate(threadId)
+    const location = await this.#workspaces.locate(threadId)
+    const { path } = location
+    // A thread whose worktree has been removed still has its transcript, and
+    // must still open — in the workspace's own folder, since pi needs a
+    // directory that is there. It stops being isolated at that moment, which is
+    // what `branch` coming back null says.
+    const { cwd, branch } = this.#workspaces.openableCwd(location)
 
     const sessionManager = SessionManager.open(path)
     // The active branch, not every entry in the file: a session that has been
@@ -308,9 +283,10 @@ export class PiDriver implements SessionDriver {
     // The thread id is already known here, unlike on creation.
     const workspaceId = this.#workspaces.idForPath(cwd)
     const session = await this.#sessions.open(cwd, workspaceId, sessionManager, threadId)
-    // `locate` filled this in from the listing, so a reopened thread keeps the
-    // branch it was created on across a restart.
-    this.#adopt(session, cwd, this.#workspaces.branchOf(threadId))
+    // `locate` filled the branch in from the listing, so a reopened thread
+    // keeps the tree it was created in across a restart — unless that tree is
+    // gone, in which case `openableCwd` has already said so.
+    this.#adopt(session, cwd, branch)
   }
 
   /** Takes ownership of a session: binds its tools, wires its events, and files

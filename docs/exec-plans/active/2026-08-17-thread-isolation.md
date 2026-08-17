@@ -162,7 +162,7 @@ Status legend: `todo` · `in-progress` · `done`.
 > and a repository with no remote (`pull-request.test.ts`, and the card's own
 > `commit-worktree.test.ts`).
 
-## K8 — Threads whose checkout is gone — `todo`
+## K8 — Threads whose checkout is gone — `done`
 
 > Found in review, not in the tickets: closing an isolated thread removes its
 > checkout, and the listing is built from the checkouts that exist. The thread

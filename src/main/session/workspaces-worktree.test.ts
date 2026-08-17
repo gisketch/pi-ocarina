@@ -30,6 +30,7 @@ const sdk = {
 let repo: string
 let service: WorkspaceService
 const archived: string[] = []
+let retired: string[] = []
 
 function store(): CatalogStore {
   const workspace = { id: 'w1', path: repo, name: 'repo' }
@@ -37,6 +38,8 @@ function store(): CatalogStore {
     snapshot: () => ({ workspaces: [workspace] }),
     workspace: (id: string) => (id === 'w1' ? workspace : undefined),
     listArchived: () => archived,
+    listRetired: () => retired,
+    retire: (_workspaceId: string, branch: string) => retired.push(branch),
     archive: (_workspaceId: string, threadId: string) => archived.push(threadId),
     unarchive: () => {},
   } as unknown as CatalogStore
@@ -45,6 +48,7 @@ function store(): CatalogStore {
 beforeEach(async () => {
   sessions.clear()
   archived.length = 0
+  retired = []
   repo = await mkdtemp(join(tmpdir(), 'piocarina-workspaces-'))
   await run('git', ['init', '-b', 'main'], { cwd: repo })
   await run('git', ['config', 'user.email', 'test@example.com'], { cwd: repo })
@@ -138,5 +142,36 @@ describe('a session that fails to start', () => {
     expect(stdout).not.toContain('feat-doomed')
     const { stdout: branches } = await run('git', ['branch'], { cwd: repo })
     expect(branches).not.toContain('feat/doomed')
+  })
+})
+
+describe('a checkout that has been removed', () => {
+  it('still lists its threads, and still says which branch they were on', async () => {
+    const gone = join(repo, '.ocarina', 'worktrees', 'fix-gone')
+    sessions.set(gone, [{ id: 'orphan', path: join(gone, 'orphan.jsonl'), cwd: gone }])
+    retired = ['fix/gone']
+
+    const listed = await service.listThreads('w1')
+
+    expect(listed.map((thread) => [thread.id, thread.branch])).toEqual([['orphan', 'fix/gone']])
+    expect(service.cwdOf('orphan')).toBe(gone)
+  })
+
+  it('opens in the workspace itself, since pi needs a directory that is there', () => {
+    const gone = join(repo, '.ocarina', 'worktrees', 'fix-gone')
+
+    expect(service.openableCwd({ path: 'x.jsonl', cwd: gone, branch: 'fix/gone' })).toEqual({
+      cwd: repo,
+      branch: null,
+    })
+  })
+
+  it('leaves a checkout that is still there alone', async () => {
+    const tree = await addWorktree(repo, 'feat/here')
+
+    expect(service.openableCwd({ path: 'x.jsonl', cwd: tree, branch: 'feat/here' })).toEqual({
+      cwd: tree,
+      branch: 'feat/here',
+    })
   })
 })

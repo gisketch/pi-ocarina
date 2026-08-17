@@ -105,8 +105,15 @@ export async function dropWorktreeAt(
   const refused = refuse(await worktreeState(path), force)
   if (refused) return { ok: false, reason: refused }
 
+  // Read before the removal: afterwards there is no checkout to ask which
+  // branch it was on.
+  const branch = (await listWorktrees(root).catch(() => []))
+    .filter((tree) => samePath(tree.path, path))
+    .map((tree) => tree.branch)[0]
+
   try {
     await removeWorktree(root, path, { force })
+    if (branch) workspaces.retire(path, branch)
     return { ok: true }
   } catch (cause) {
     return { ok: false, reason: cause instanceof Error ? cause.message : String(cause) }
@@ -135,6 +142,7 @@ export async function dropWorktree(
 
   try {
     await removeWorktree(repo, found.path, { force })
+    workspaces.retire(found.path, found.branch)
     return { ok: true }
   } catch (cause) {
     return { ok: false, reason: cause instanceof Error ? cause.message : String(cause) }

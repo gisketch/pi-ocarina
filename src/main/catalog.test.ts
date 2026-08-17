@@ -38,12 +38,13 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 5,
+      version: 6,
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
       approvals: {},
       archived: {},
+      retired: {},
       order: {},
       preferences: DEFAULT_PREFERENCES,
     })
@@ -54,12 +55,13 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 5,
+      version: 6,
       workspaces: [],
       workspaceIndex: 2,
       focus: [1, 0],
       approvals: {},
       archived: {},
+      retired: {},
       order: {},
       preferences: DEFAULT_PREFERENCES,
     })
@@ -169,12 +171,13 @@ describe('writeCatalog', () => {
   it('round-trips state', async () => {
     const file = await tempFile()
     const state: CatalogState = {
-      version: 5,
+      version: 6,
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
       approvals: { w1: ['bash:pnpm', 'write'] },
       archived: { w1: ['s-old'] },
+      retired: { w1: ['fix/gone'] },
       order: { w1: ['s1', 's-old'] },
       preferences: { grain: false, motion: false, leaderTimeoutMs: 1800 },
     }
@@ -243,7 +246,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(5)
+    expect(state.version).toBe(6)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences).toEqual(DEFAULT_PREFERENCES)
@@ -262,7 +265,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(5)
+    expect(state.version).toBe(6)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences.leaderTimeoutMs).toBe(1200)
@@ -295,7 +298,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(5)
+    expect(state.version).toBe(6)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.archived).toEqual({ w1: ['s-old'] })
@@ -317,5 +320,26 @@ describe('catalog versions', () => {
 
     expect(warning).toMatch(/unsupported/)
     expect(state).toEqual(DEFAULT_CATALOG)
+  })
+})
+
+describe('retired worktrees', () => {
+  it('reads them back, dropping what it cannot', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({ version: 6, retired: { w1: ['fix/gone', '', 3], w2: 'all' } }),
+    )
+
+    expect(state.retired).toEqual({ w1: ['fix/gone'] })
+  })
+
+  it('upgrades a version 5 catalog, which never stored any', () => {
+    const { state, warning } = parseCatalog(
+      JSON.stringify({ version: 5, archived: { w1: ['s-old'] } }),
+    )
+
+    expect(warning).toBeUndefined()
+    expect(state.version).toBe(6)
+    expect(state.archived).toEqual({ w1: ['s-old'] })
+    expect(state.retired).toEqual({})
   })
 })

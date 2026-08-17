@@ -40,6 +40,7 @@ export class CatalogStore {
       focus: [...this.#state.focus],
       approvals: structuredClone(this.#state.approvals),
       archived: structuredClone(this.#state.archived),
+      retired: structuredClone(this.#state.retired),
       order: structuredClone(this.#state.order),
     }
   }
@@ -67,6 +68,22 @@ export class CatalogStore {
 
   listArchived(workspaceId: string): string[] {
     return [...(this.#state.archived[workspaceId] ?? [])]
+  }
+
+  /** Records that a branch's worktree is gone, so its threads stay findable.
+   *
+   *  The branch, not the directory: the directory's name is derived from it,
+   *  and a workspace that moves on disk would take a stored path with it. */
+  retire(workspaceId: string, branch: string): void {
+    const existing = this.#state.retired[workspaceId] ?? []
+    if (existing.includes(branch)) return
+
+    this.#state.retired[workspaceId] = [...existing, branch]
+    this.#persist()
+  }
+
+  listRetired(workspaceId: string): string[] {
+    return [...(this.#state.retired[workspaceId] ?? [])]
   }
 
   hasApproval(workspaceId: string, key: string): boolean {
@@ -132,6 +149,7 @@ export class CatalogStore {
     delete this.#state.approvals[removed.id]
     // A folder that is no longer pinned has no strip to hide threads from.
     delete this.#state.archived[removed.id]
+    delete this.#state.retired[removed.id]
     delete this.#state.order[removed.id]
     this.#state.workspaceIndex = Math.min(
       this.#state.workspaceIndex,
