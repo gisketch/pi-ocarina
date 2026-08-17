@@ -2,7 +2,7 @@ import type { AgentSession, ExtensionFactory } from '@earendil-works/pi-coding-a
 import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
 import { askUserTool } from './ask-tool'
-import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
+import { SPAWN_TOOL, spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
@@ -39,7 +39,7 @@ export class SessionFactory {
   /** Supplied after construction: the fleet is built from this factory, so the
    *  two cannot be constructed in one order. A session started before it
    *  arrives simply has no spawn tool. */
-  #spawn: Omit<SpawnDeps, 'handle' | 'where'> | undefined
+  #spawn: Omit<SpawnDeps, 'handle' | 'where' | 'depth'> | undefined
   #where: ((workspaceId: string, cwd: string) => SpawnDeps['where']) | undefined
 
   constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
@@ -49,7 +49,7 @@ export class SessionFactory {
   }
 
   /** Lets sessions spawn children. Called once, after the fleet exists. */
-  enableSpawning(deps: Omit<SpawnDeps, 'handle' | 'where'>): void {
+  enableSpawning(deps: Omit<SpawnDeps, 'handle' | 'where' | 'depth'>): void {
     this.#spawn = deps
     this.#where = (workspaceId, cwd) => () => ({ workspaceId, cwd })
   }
@@ -116,6 +116,13 @@ export class SessionFactory {
     instructions: string
     tools: string[]
     model?: string
+    /** 1 for a child of a thread, 2 for a child of a child. A child at depth 1
+     *  may spawn its own; one at depth 2 gets no spawn tool, which is how the
+     *  tree stays as deep as the column can indent. */
+    depth: number
+    /** Whether its role allows it to spawn. An inline prompt never may: it is
+     *  held to read-only tools, and a child it started could write. */
+    spawns: boolean
     /** Told when the model a role names is not configured here, so the fan-out
      *  can say so rather than swallowing it. */
     onWarning?: (warning: string) => void
@@ -128,10 +135,16 @@ export class SessionFactory {
       // reopened, and its transcript lives only in the rows under the call.
       sessionManager: SessionManager.inMemory(options.cwd),
       model: await this.#childModel(options.model, options.onWarning),
-      tools: options.tools,
+      // pi filters custom tools by this list too, so a child that may spawn has
+      // to be handed the tool by name or it silently never has it.
+      tools: canSpawn(options.depth, options.spawns)
+        ? [...options.tools, SPAWN_TOOL]
+        : options.tools,
       resourceLoader: await this.#resources(options.cwd, options.workspaceId, options.handle, {
         ask: false,
         appendSystemPrompt: options.instructions,
+        depth: options.depth,
+        spawns: options.spawns,
       }),
     })
 
@@ -171,7 +184,7 @@ export class SessionFactory {
     cwd: string,
     workspaceId: string,
     handle: ThreadHandle,
-    child?: { ask: boolean; appendSystemPrompt: string },
+    child?: { ask: boolean; appendSystemPrompt: string; depth: number; spawns: boolean },
   ): Promise<ResourceLoaderOf> {
     const { DefaultResourceLoader, getAgentDir } = await this.load()
     const gate = this.#approvals
@@ -197,10 +210,11 @@ export class SessionFactory {
                 },
               },
             ]),
-        // A child does not get this: a grandchild would make the tree deeper
-        // than the column can indent or the cap can count. M4 gives a child its
-        // own, one level down.
-        ...(child || !this.#spawn || !this.#where
+        // Two levels, and the limit is enforced by simply not giving the tool
+        // to anyone deep enough to break it. A grandchild that could spawn
+        // would make the tree deeper than the column can indent, and would
+        // multiply a cap that is meant to bound the whole app.
+        ...(!canSpawn(child?.depth ?? 0, child?.spawns ?? true) || !this.#spawn || !this.#where
           ? []
           : [
               {
@@ -211,6 +225,7 @@ export class SessionFactory {
                       ...this.#spawn!,
                       handle,
                       where: this.#where!(workspaceId, cwd),
+                      depth: child?.depth ?? 0,
                     }),
                   )
                 },
@@ -314,4 +329,13 @@ function splitModel(named: string): ModelRef {
   const at = named.indexOf('/')
   if (at === -1) throw new Error(`model "${named}" needs the form provider/id`)
   return { provider: named.slice(0, at), id: named.slice(at + 1) }
+}
+
+/** Whether an agent at this depth, under this role, may spawn children.
+ *
+ *  Two rules in one place: the tree is at most two levels deep, and only a
+ *  saved role spawns. The second is what stops an inline child — read-only by
+ *  decision 13 — from starting a `developer` and writing through it. */
+function canSpawn(depth: number, spawns: boolean): boolean {
+  return depth < 2 && spawns
 }

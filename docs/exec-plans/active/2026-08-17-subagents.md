@@ -90,7 +90,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > retry the identical spawn; and `spawn_agents` rendered as a `raw` row with a
 > page of JSON in it, because pi's tool-name map had never heard of it.
 
-## M4 — Several at once: names, caps, depth — `todo`
+## M4 — Several at once: names, caps, depth — `done`
 
 > Three children in one call, three rows, three different names, and a fourth
 > that waits for a slot.
@@ -108,6 +108,15 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 - Validation: unit tests for the queue, the tree-wide cap, name uniqueness under
   concurrency, name release, and the depth refusal.
 - Blocked by: M3.
+
+> **Proven live.** Three scouts ran at once from one call, took three different
+> names, and all three reported back. Two things the work turned up. First, a
+> child at depth 1 needs `spawn_agents` handed to it *by name*: pi filters custom
+> tools by the `tools` list too, so a child would otherwise have the extension
+> registered and the tool invisible. Second, and more important, giving every
+> child the spawn tool opens an escalation — an inline child, held to read-only
+> tools by D13, could start a `developer` and write through it. So only a child
+> with a saved role may spawn, and only at depth 1.
 
 ## M5 — The live cell and the one clock — `todo`
 

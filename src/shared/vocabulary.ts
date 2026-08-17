@@ -233,6 +233,10 @@ export interface AgentEntry {
   /** The short line the row shows. Written by the orchestrator. */
   label: string
   status: AgentStatus
+  /** Set while the child is waiting for a slot under the running cap. It has a
+   *  row from the moment it is asked for — four rows and four missing ones
+   *  would read as a fan-out that lost half of itself. */
+  queued?: true
   /** The child's final message. Absent while running, and absent for a
    *  cancelled child — a half-finished report read as a finished one is the
    *  failure mode. */

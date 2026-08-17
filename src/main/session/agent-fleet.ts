@@ -23,12 +23,27 @@ import type { Plan } from './spawn-plan'
  *  cost subagents exist to avoid. */
 export const OUTPUT_CAP = 50 * 1024
 
+/** How many children run at once, anywhere in the app.
+ *
+ *  Counted across the whole tree rather than per parent: a per-parent cap
+ *  multiplies with depth, and depth two exists precisely so the number of live
+ *  sessions stays something a reader can hold in their head. Four is what one
+ *  person can actually watch — eight rows updating is weather, not monitoring. */
+export const MAX_RUNNING = 4
+
+/** How many children one call may ask for. The rest of a fan-out queues; this
+ *  is a bound on the *ask*, so a model cannot open eighty rows at once. */
+export const MAX_PER_CALL = 8
+
 export interface ParentRef {
   threadId: string
   workspaceId: string
   cwd: string
   /** The spawn call's own id. The child's rows nest under it. */
   toolCallId: string
+  /** How deep the spawning agent is: 0 is the thread itself. A child of a
+   *  child is depth 2 and gets no spawn tool of its own. */
+  depth: number
 }
 
 /** What the fleet needs to build a child. Passed in rather than imported so the
@@ -41,6 +56,11 @@ export interface ChildFactory {
     instructions: string
     tools: string[]
     model?: string
+    /** 1 for a child of a thread, 2 for a child of a child. Decides whether it
+     *  may spawn at all. */
+    depth: number
+    /** Whether its role allows it to spawn, if it is shallow enough. */
+    spawns: boolean
     onWarning?: (warning: string) => void
   }): Promise<AgentSession>
 }
@@ -58,6 +78,9 @@ export class AgentFleet {
   readonly #emit: EmitEvent
   readonly #names = new NamePool()
   readonly #live = new Map<string, Live>()
+  /** Callers waiting for a slot under the running cap, oldest first. */
+  readonly #waiting: (() => void)[] = []
+  #running = 0
   #counter = 0
 
   constructor(factory: ChildFactory, emit: EmitEvent) {
@@ -93,6 +116,7 @@ export class AgentFleet {
       role: plan.role,
       label: plan.label,
       status: 'running',
+      queued: true,
       usage: { ...NO_USAGE },
       startedAt: Date.now(),
     }
@@ -108,7 +132,13 @@ export class AgentFleet {
       agent: entry,
     })
 
+    await this.#slot()
     try {
+      // The clock starts when it starts, not when it was asked for: a child
+      // that waited two minutes for a slot did not take two minutes to work.
+      const started: AgentEntry = { ...entry, queued: undefined, startedAt: Date.now() }
+      this.#emit(parent.threadId, { kind: 'agent-update', id, agent: started })
+
       const session = await this.#factory.child({
         cwd: parent.cwd,
         workspaceId: parent.workspaceId,
@@ -116,17 +146,35 @@ export class AgentFleet {
         instructions: plan.instructions,
         tools: plan.tools,
         model: plan.model,
+        depth: parent.depth + 1,
+        spawns: plan.spawns,
         onWarning: (warning) => warn?.(`${plan.label}: ${warning}`),
       })
 
-      const settled = await this.#drive(parent, id, entry, session, plan, signal)
-      return settled
+      return await this.#drive(parent, id, started, session, plan, signal)
     } catch (error) {
-      return this.#settle(parent, { ...entry, output: reasonOf(error) }, 'fail')
+      return this.#settle(parent, { ...entry, queued: undefined, output: reasonOf(error) }, 'fail')
     } finally {
       this.#names.release(name)
       this.#live.delete(id)
+      this.#free()
     }
+  }
+
+  /** Waits for a slot under the running cap. */
+  #slot(): Promise<void> {
+    if (this.#running < MAX_RUNNING) {
+      this.#running += 1
+      return Promise.resolve()
+    }
+    return new Promise<void>((resolve) => this.#waiting.push(resolve))
+  }
+
+  /** Hands the slot to whoever has been waiting longest. */
+  #free(): void {
+    const next = this.#waiting.shift()
+    if (next) next()
+    else this.#running -= 1
   }
 
   /** Stops one child. Its siblings keep running. */

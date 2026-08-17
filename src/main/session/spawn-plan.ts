@@ -24,6 +24,12 @@ export interface Plan {
   tools: string[]
   /** Absent means the parent's model. */
   model?: string
+  /** Whether this child may spawn children of its own, if it is shallow enough.
+   *
+   *  A saved role may; an inline prompt may not. Otherwise an inline child —
+   *  the least-vetted thing in the system, held to read-only tools by decision
+   *  13 — could start a `developer` child and write through it. */
+  spawns: boolean
   /** Things the orchestrator asked for and did not get, said plainly enough
    *  that it can ask differently next time. */
   warnings: string[]
@@ -74,6 +80,7 @@ export function planSpawn(request: SpawnRequest, roles: readonly AgentRole[]): P
     instructions: `${(role?.instructions ?? request.instructions ?? '').trim()}\n\n${CHILD_PREAMBLE}`,
     tools,
     ...(request.model ?? role?.model ? { model: request.model ?? role?.model } : {}),
+    spawns: role !== undefined,
     warnings,
   }
 }

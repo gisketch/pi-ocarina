@@ -369,5 +369,20 @@ Observable behavior, in the order a reader meets it.
   cannot exhaust today; it will read as a bug the day the cap is raised.
 - **A crashing child takes the app down** (decision 1's accepted cost). No
   mitigation is specified.
+- **A user who has pi's own subagent package installed has two tools that do the
+  same job**, and the model picks between them. Found live: with
+  `git:github.com/elpapi42/pi-minimal-subagent` in the user's pi packages, an
+  agent told to use the scout role called `subagent` instead and reported that it
+  could not run a scout. The two are not equivalent — pi's spawns a `pi -p`
+  subprocess, which by decision 1's own reasoning has no approval gate and no
+  sandbox — so the collision is a security difference, not only a confusion. The
+  app does not disable a user's own packages, and nothing here can stop a model
+  reaching for one. The live test carries a retry, and the retry is the finding.
+- **A role added in settings is spawnable immediately but not advertised until
+  the next session.** The tool's description lists the configured roles, and pi
+  reads a description once when the session is built. Validation reads the store
+  fresh, so a newly added role works when named; the model simply has not been
+  shown it. Found live: with nothing listing the roles at all, a model told to
+  "use the scout role" wrote an inline prompt instead.
 - **Shared approval rules widen blast radius** (decision 8's accepted cost). The
   card naming the child is the only mitigation.
