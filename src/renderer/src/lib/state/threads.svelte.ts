@@ -13,6 +13,7 @@ import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
 import { threadGit } from './thread-git.svelte'
 import { askNotice } from './ask-notice.svelte'
+import { asks } from './ask.svelte'
 import { toasts } from './toasts.svelte'
 import { reduceBatch } from '../thread-reducer'
 import { changes } from './changes.svelte'
@@ -80,11 +81,9 @@ class ThreadStore {
         void changes.refreshFor(threadId)
       }
 
+      applyAskEffects(threadId, events)
+
       for (const event of events) {
-        // A question that has just arrived decides for itself who is told and
-        // how loudly, from where the reader happens to be standing.
-        if (event.kind === 'ask') askNotice.arrived(threadId, event.id)
-        if (event.kind === 'ask-answered') askNotice.settled(threadId)
         if (event.kind === 'connectivity') {
           connectivity.report(threadId, event.state, event.retryInSeconds)
         }
@@ -207,6 +206,25 @@ class ThreadStore {
     const box = new ThreadBox()
     this.#boxes.set(threadId, box)
     return box
+  }
+}
+
+/** What a question arriving, or ending, does outside the reducer.
+ *
+ *  Exported so it can be exercised without a live subscription: this is the
+ *  only path that tells the reader a thread is asking, and the one place a
+ *  half-answered card is thrown away. */
+export function applyAskEffects(threadId: string, events: readonly UiEvent[]): void {
+  for (const event of events) {
+    // A question that has just arrived decides for itself who is told and how
+    // loudly, from where the reader happens to be standing.
+    if (event.kind === 'ask') askNotice.arrived(threadId, event.id)
+    if (event.kind === 'ask-answered') {
+      askNotice.settled(threadId)
+      // However it ended, nobody is walking it any more. Kept, the flow would
+      // hold a reader's half-made choices for the life of the app.
+      asks.forget(event.id)
+    }
   }
 }
 

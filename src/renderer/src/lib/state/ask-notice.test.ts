@@ -22,7 +22,7 @@ const { app } = await import('./app.svelte')
 const { askNotice } = await import('./ask-notice.svelte')
 const { catalog } = await import('./catalog.svelte')
 const { replayThread } = await import('../thread-reducer')
-const { threads } = await import('./threads.svelte')
+const { applyAskEffects, threads } = await import('./threads.svelte')
 const { toasts } = await import('./toasts.svelte')
 
 const QUESTIONS: AskQuestion[] = [{ id: 'q', kind: 'text', prompt: 'when?' }]
@@ -136,5 +136,19 @@ describe('the bar at the bottom edge', () => {
     // Nothing is pending, so nothing is below — even before `settled` is told.
     expect(askNotice.belowIn('s1')).toBe(false)
     expect(askNotice.asking('w1')).toBe(false)
+  })
+})
+
+describe('the flow behind a card', () => {
+  it('is dropped when the card ends, however it ended', async () => {
+    const { asks } = await import('./ask.svelte')
+    ask('s1')
+    asks.flow('ask-1', QUESTIONS).write('half a thought')
+
+    applyAskEffects('s1', [
+      { kind: 'ask-answered', id: 'ask-1', outcome: 'cancelled', answers: [], said: 'no' },
+    ])
+
+    expect(asks.flow('ask-1', QUESTIONS).typed).toEqual({})
   })
 })
