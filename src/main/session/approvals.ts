@@ -70,7 +70,11 @@ export function describeCall(toolName: string, input: unknown): string {
 
   if (toolName === 'bash') return pick('command') ?? 'bash'
   if (toolName === FETCH_TOOL) {
-    return `${methodOf(input).toUpperCase()} ${pick('url') ?? '?'}`
+    const body = pick('body')
+    // The body is the part that changes something on someone else's server, so
+    // a card without it asks the reader to approve a request they cannot see.
+    const said = body ? ` — ${body.length > 200 ? `${body.slice(0, 200)}…` : body}` : ''
+    return `${methodOf(input).toUpperCase()} ${pick('url') ?? '?'}${said}`
   }
   const path = pick('path') ?? pick('file_path')
   return path ? `${toolName} ${path}` : toolName

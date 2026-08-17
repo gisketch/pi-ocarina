@@ -118,3 +118,49 @@ describe('the approval gate and the web', () => {
     expect((await verdict).blocked).toBe(true)
   })
 })
+
+describe('a fetch that failed', () => {
+  const run = async (over: Partial<FetchOutcome>) => {
+    const tool = fetchTool({ fetch: async () => outcome(over) })
+    return tool.execute('t1', { url: 'https://example.com/x' }, undefined)
+  }
+
+  it('throws, because that is the only thing pi reads as a failure', async () => {
+    // pi marks a call failed only when execute throws, so returning a 500 as
+    // an ordinary result drew a successful row for a fetch that got nothing.
+    await expect(run({ ok: false, status: 500 })).rejects.toThrow('500')
+  })
+
+  it('throws when the request never landed at all', async () => {
+    await expect(run({ error: 'no response within 30s', ok: false })).rejects.toThrow(
+      'no response',
+    )
+  })
+
+  it('carries the outcome on the failure, so the row can still say what happened', async () => {
+    const thrown = await run({ ok: false, status: 404 }).catch((error: unknown) => error)
+    expect((thrown as { details?: unknown }).details).toMatchObject({ status: 404 })
+  })
+
+  it('returns normally for a page that arrived', async () => {
+    await expect(run({})).resolves.toBeDefined()
+  })
+})
+
+describe('approving a request that changes something', () => {
+  it('shows the body, which is the part that changes it', () => {
+    expect(describeCall(FETCH_TOOL, { url: 'https://api.test/x', method: 'POST', body: '{"a":1}' })).toBe(
+      'POST https://api.test/x — {"a":1}',
+    )
+  })
+
+  it('shortens a body too long to read on a card', () => {
+    const said = describeCall(FETCH_TOOL, {
+      url: 'https://api.test/x',
+      method: 'POST',
+      body: 'x'.repeat(500),
+    })
+    expect(said.length).toBeLessThan(260)
+    expect(said).toContain('…')
+  })
+})

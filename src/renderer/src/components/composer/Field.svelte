@@ -83,11 +83,17 @@
     padding: 0;
     margin: 0;
     border: none;
+    scrollbar-gutter: stable;
   }
 
   textarea {
     flex: 1;
     position: relative;
+    /* Reserved always, so the content width does not change the moment the
+       message grows tall enough to scroll. Without it the textarea narrowed by
+       the scrollbar and the mirror did not, and every line after the first wrap
+       landed somewhere else. */
+    scrollbar-gutter: stable;
     background: transparent;
     outline: none;
     /* Transparent, not hidden: the caret and the selection are the browser's

@@ -112,6 +112,16 @@ function registerWindowControls(): void {
 
 /** The only way a folder path enters the app: a person picking one. */
 function registerDialogs(): void {
+  /** Hands a staged file to the operating system.
+   *
+   *  Only a real path, and never a URL: this exists so the reader can look at a
+   *  screenshot they pasted, not so anything on screen can make the app open
+   *  something. */
+  ipcMain.handle('files:open', async (_event, path: unknown) => {
+    if (typeof path !== 'string' || path === '') return
+    await shell.openPath(path)
+  })
+
   ipcMain.handle('dialog:pick-directory', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {

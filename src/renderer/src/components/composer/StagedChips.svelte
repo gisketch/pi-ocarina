@@ -6,15 +6,33 @@
    *  chips are drawn. The first is the sent message; keeping the shape here
    *  means the two cannot drift into looking like different ideas. */
   import { attachments } from '$lib/state/attachments.svelte'
+  import { bridge } from '$lib/bridge'
 
   const chips = $derived(attachments.list)
+
+  const isImage = (mime: string | undefined): boolean => (mime ?? '').startsWith('image/')
 </script>
 
 {#if chips.length > 0}
   <div class="chips">
     {#each chips as attachment (attachment.path)}
-      <span class="chip" class:image={(attachment.mime ?? '').startsWith('image/')}>
-        <span class="glyph">▤</span>{attachment.name}
+      <span class="chip" class:image={isImage(attachment.mime)}>
+        {#if isImage(attachment.mime)}
+          <!-- A pasted screenshot has no name worth reading, so the thumbnail
+               is the only thing that says which one it is. Main wrote the file,
+               so the renderer is showing a path it was handed, not one it
+               found. -->
+          <img src={`file://${attachment.path}`} alt="" />
+        {:else}
+          <span class="glyph">▤</span>
+        {/if}
+        {attachment.name}
+        <button
+          type="button"
+          class="act"
+          aria-label="open {attachment.name}"
+          onclick={() => void bridge?.files.open(attachment.path)}>↗</button
+        >
         <button
           type="button"
           class="drop"
@@ -54,6 +72,15 @@
   .chip.image .glyph {
     color: var(--accent);
   }
+  img {
+    width: 16px;
+    height: 16px;
+    object-fit: cover;
+    align-self: center;
+    border: 1px solid var(--line-faint);
+  }
+
+  .act,
   .drop {
     background: none;
     border: none;
@@ -63,6 +90,9 @@
     font-size: 10px;
     cursor: pointer;
     transition: color 0.15s;
+  }
+  .act:hover {
+    color: var(--accent);
   }
   .drop:hover {
     color: var(--err);

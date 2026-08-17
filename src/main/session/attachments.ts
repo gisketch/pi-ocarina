@@ -42,9 +42,23 @@ export async function readImages(attachments: readonly AttachmentRef[]): Promise
  *  for pi to open with its read tool. Saying so in the message is honest; a
  *  silent drop would leave the user thinking the file went with it. */
 export function describeAttachments(attachments: readonly AttachmentRef[]): string {
+  const images = attachments.filter(isImageAttachment)
   const others = attachments.filter((attachment) => !isImageAttachment(attachment))
-  if (others.length === 0) return ''
+  if (images.length === 0 && others.length === 0) return ''
 
-  const paths = others.map((attachment) => attachment.path).join('\n')
-  return `\n\nAttached files (read them if relevant):\n${paths}`
+  const parts: string[] = []
+
+  // Images travel as bytes, which carry no filename — so the model was shown a
+  // picture it could not refer to, and the sent message, which is only this
+  // text, showed nothing at all of what the reader attached.
+  if (images.length > 0) {
+    parts.push(`Images attached: ${images.map((attachment) => attachment.name).join(', ')}`)
+  }
+  if (others.length > 0) {
+    parts.push(
+      `Attached files (read them if relevant):\n${others.map((attachment) => attachment.path).join('\n')}`,
+    )
+  }
+
+  return `\n\n${parts.join('\n\n')}`
 }

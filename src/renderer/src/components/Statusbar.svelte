@@ -13,6 +13,9 @@
   // turn has no usage, and the segment stays blank rather than showing zeros
   // that would read as a measurement.
   const model = $derived(threads.get(app.thread.id))
+  /** Read by the LSP effect: a server starts during a turn, never at a
+   *  moment the reader did something the bar could hang off. */
+  const runState = $derived(model.runState)
 
   // An isolated thread reports its own checkout, not the workspace's: the
   // reader is looking at a column whose branch and whose changes are not the
@@ -34,13 +37,19 @@
   const mode = $derived(asking ? 'ASK' : app.mode)
 
   // Language servers belong to the workspace, so the chip follows the
-  // workspace rather than the thread. Refreshed on the switch: a server can
-  // start or stop while another workspace is in front, and a stale count is a
-  // claim about what the agent can do.
+  // workspace rather than the thread — and it follows the turn, because a
+  // server starts when the agent first asks one a question, which is during a
+  // turn and never at a moment the reader did anything. Without the run state
+  // in this effect the count was whatever it had been when the workspace was
+  // opened, which for a fresh workspace is always "none".
   $effect(() => {
+    void app.workspace.id
+    void runState
     void workspaceLsp.load(app.workspace.id)
   })
   const lsp = $derived(workspaceLsp.chip)
+  /** On, with nothing started. The chip says so quietly rather than counting. */
+  const lspIdle = $derived(lsp === 'lsp' || lsp === 'lsp !')
 
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
   const usage = $derived(formatUsage(model.usage))
@@ -68,6 +77,7 @@
     <button
       type="button"
       class="seg lsp"
+      class:idle={lspIdle}
       class:warn={lsp.endsWith('!')}
       onclick={() => shell.openOverlay('workspace')}
       title="language servers — click for workspace settings"
@@ -135,6 +145,9 @@
     color: var(--accent);
     cursor: pointer;
     padding: 0;
+  }
+  .lsp.idle {
+    color: var(--fg-dimmest);
   }
   .lsp.warn {
     color: var(--warn, var(--fg-bright));

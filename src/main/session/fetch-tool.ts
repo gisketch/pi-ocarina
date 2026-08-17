@@ -91,6 +91,18 @@ export function fetchTool(deps: FetchDeps = {}) {
         signal,
       )
 
+      // pi marks a call failed only when `execute` throws, so returning a
+      // 500 or a timeout as an ordinary result drew a successful row for a
+      // fetch that got nothing. The spec asks for failures to read as
+      // failures; this is the only way to say so.
+      if (outcome.error || !outcome.ok) {
+        const failure = new Error(describeOutcome(outcome))
+        // Carried so the row can still say the status and the size rather than
+        // only that something went wrong.
+        Object.assign(failure, { details: outcome })
+        throw failure
+      }
+
       return {
         content: [{ type: 'text' as const, text: describeOutcome(outcome) }],
         // The ledger reads this to draw the row. It never reaches the model.

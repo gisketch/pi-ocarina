@@ -33,6 +33,11 @@ const api = {
      *  this is the sanctioned replacement. The renderer never reads the file —
      *  it hands the path to main, which does. */
     pathFor: (file: File): string => webUtils.getPathForFile(file),
+    /** Opens a file the app itself staged — a pasted screenshot, a dropped
+     *  image — in whatever the operating system uses for it. The renderer never
+     *  reads it; main does, and only for a path the app wrote or the reader
+     *  chose. */
+    open: (path: string): Promise<void> => ipcRenderer.invoke('files:open', path),
   },
   dialog: {
     /** Native folder picker; null when the user cancels. The renderer never

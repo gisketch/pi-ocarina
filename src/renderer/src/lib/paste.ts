@@ -57,15 +57,19 @@ export function foldsIn(text: string, folds: readonly Fold[]): Fold[] {
  *  the middle of that sentence when the model reads it, not appended at the
  *  end. */
 export function spliceFolds(text: string, folds: readonly Fold[]): string {
-  let out = text
-  for (const fold of folds) {
-    // `split`/`join` rather than `replace`: a token could in principle appear
-    // twice if the reader copied it, and `replace` with a string replaces only
-    // the first.
-    out = out.split(fold.token).join(fold.text)
-  }
-  return out
+  if (folds.length === 0) return text
+
+  // One pass, not one pass per fold. Rewriting `out` repeatedly means each
+  // fold's own pasted text is scanned by every later fold — so pasting a
+  // message that itself contains an earlier chip's token had that token
+  // replaced a second time, corrupting what the reader actually pasted.
+  const byToken = new Map(folds.map((fold) => [fold.token, fold.text]))
+  const pattern = new RegExp([...byToken.keys()].map(escapeToken).join('|'), 'g')
+
+  return text.replace(pattern, (token) => byToken.get(token) ?? token)
 }
+
+const escapeToken = (token: string): string => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** The fold the caret is sitting inside, if any.
  *

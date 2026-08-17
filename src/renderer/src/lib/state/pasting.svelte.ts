@@ -120,6 +120,23 @@ class Pasting {
     return foldAt(text, caret, this.folds)
   }
 
+  /** Deletes the whole token the caret is standing at the end of.
+   *
+   *  Backspace inside a chip used to take one character, which broke the token
+   *  — so `prune` dropped the paste and left the remaining characters sitting
+   *  in the composer as literal text the reader then had to clear by hand. A
+   *  chip is one thing; deleting it deletes all of it. */
+  backspace(text: string, caret: number): { text: string; caret: number } | null {
+    const fold = foldAt(text, caret, this.folds)
+    if (!fold) return null
+
+    const at = text.lastIndexOf(fold.token, caret)
+    if (at === -1 || caret <= at) return null
+
+    this.folds = this.folds.filter((one) => one !== fold)
+    return { text: text.slice(0, at) + text.slice(at + fold.token.length), caret: at }
+  }
+
   /** Drops folds whose tokens the reader deleted. Called on every edit. */
   prune(text: string): void {
     const kept = foldsIn(text, this.folds)

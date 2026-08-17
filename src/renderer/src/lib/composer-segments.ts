@@ -17,10 +17,13 @@ export type Segment =
   | { kind: 'mention'; text: string }
   | { kind: 'fold'; text: string }
 
-/** A mention: an `@` at the start or after whitespace, up to the next space.
- *  The same rule `mentionAt` applies, so what the picker inserts is what the
- *  mirror decorates. */
-const MENTION = /(^|\s)(@[^\s]+)/g
+/** A mention: an `@` at the start or after whitespace, whose text has the
+ *  shape of a path.
+ *
+ *  The shape rule is the transcript's, deliberately: this decorated anything
+ *  after an `@`, so `@alice` was a chip while it was typed and plain text the
+ *  moment it was sent. One rule, one appearance. */
+const MENTION = /(^|\s)(@[^\s@]*[./][^\s]*)/g
 
 /** Where each fold's token sits in the text. */
 function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: number }[] {

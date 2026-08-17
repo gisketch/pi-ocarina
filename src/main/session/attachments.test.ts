@@ -51,8 +51,25 @@ describe('describeAttachments', () => {
     expect(describeAttachments([log])).toContain('/tmp/trace.log')
   })
 
-  it('says nothing when every file is an image', () => {
-    expect(describeAttachments([{ name: 'a.png', path: '/a.png', mime: 'image/png' }])).toBe('')
+  it('names an image, because its bytes carry no name', () => {
+    // An image travels as bytes, so nothing else in the message says it was
+    // there — the model could not refer to it, and the sent message, which is
+    // only this text, showed the reader no trace of what they attached.
+    const said = describeAttachments([{ name: 'shot.png', path: '/a/shot.png', mime: 'image/png' }])
+
+    expect(said).toContain('shot.png')
+    // The name, not the path: main read the bytes, so nothing should open it.
+    expect(said).not.toContain('/a/shot.png')
+  })
+
+  it('names images and files separately, because they arrive differently', () => {
+    const said = describeAttachments([
+      { name: 'shot.png', path: '/a/shot.png', mime: 'image/png' },
+      log,
+    ])
+
+    expect(said).toContain('Images attached: shot.png')
+    expect(said).toContain('/tmp/trace.log')
   })
 
   it('says nothing when there are no attachments', () => {

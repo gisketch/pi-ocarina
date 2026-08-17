@@ -149,6 +149,17 @@
     applyToField(await pasting.fromEvent(event, text, input))
 
   function onkeydown(event: KeyboardEvent): void {
+    // A chip is one thing. Taking a character out of the middle of a token
+    // dropped the paste and left its characters behind as literal text.
+    if (event.key === 'Backspace' && input?.selectionStart === input?.selectionEnd) {
+      const cut = pasting.backspace(text, input?.selectionStart ?? 0)
+      if (cut) {
+        event.preventDefault()
+        void applyToField(cut)
+        return
+      }
+    }
+
     // The fold was applied by assignment, not by the browser, so there is
     // nothing in the field's own undo stack to go back to. Only handled when
     // there is a fold to unfold; otherwise the browser's undo is untouched.
