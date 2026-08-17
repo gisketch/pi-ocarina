@@ -169,3 +169,28 @@ describe('the tool', () => {
     expect(vi.isMockFunction(definition.execute)).toBe(false)
   })
 })
+
+describe('two questions in one thread', () => {
+  it('are released together when the turn ends', async () => {
+    const { asks } = gate()
+    const first = asks.ask('t1', [ONE])
+    const second = asks.ask('t1', [ONE])
+
+    asks.end('t1', 'thread closed')
+
+    await expect(first).resolves.toMatchObject({ reason: 'thread closed' })
+    await expect(second).resolves.toMatchObject({ reason: 'thread closed' })
+    expect(asks.pendingCount).toBe(0)
+  })
+
+  it('are both cancelled by one message', async () => {
+    const { asks } = gate()
+    const first = asks.ask('t1', [ONE])
+    const second = asks.ask('t1', [ONE])
+
+    asks.cancel('t1', 'do the other thing')
+
+    await expect(first).resolves.toMatchObject({ said: 'do the other thing' })
+    await expect(second).resolves.toMatchObject({ said: 'do the other thing' })
+  })
+})

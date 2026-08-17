@@ -104,6 +104,9 @@ export class PiDriver implements SessionDriver {
 
       case 'prompt': {
         const { threadId, text, attachments } = params as CommandParams<'prompt'>
+        // Prose instead of a choice means none of the above. The question ends
+        // carrying what was said, and the message goes on as an ordinary one.
+        this.#asks.cancel(threadId, text)
         await startTurn(this.#emit, threadId, this.#threads.get(threadId), text, attachments ?? [])
         return { ok: true } as CommandResult<N>
       }
@@ -116,6 +119,7 @@ export class PiDriver implements SessionDriver {
 
       case 'steer': {
         const { threadId, text } = params as CommandParams<'steer'>
+        this.#asks.cancel(threadId, text)
         return { steerId: await steerTurn(this.#emit, this.#steers, threadId, this.#threads.get(threadId), text) } as CommandResult<N>
       }
 

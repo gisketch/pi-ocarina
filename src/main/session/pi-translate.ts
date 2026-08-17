@@ -2,6 +2,7 @@ import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
 import type { TerminalLine, ToolBody, ToolKind } from '../../shared/vocabulary'
 import type { CallChange } from './change-log'
+import { ASK_TOOL } from './ask-replay'
 import { diffOf } from './tool-diff'
 
 /** Longest tool body we forward. A tool that prints a megabyte should not cost
@@ -199,6 +200,10 @@ export class PiTranslator {
       }
 
       case 'tool_execution_start':
+        // The question is published by the gate, with the card as its record.
+        // A tool row beside it would say the same thing twice, in the wrong
+        // words.
+        if (event.toolName === ASK_TOOL) return []
         this.#open.add(event.toolCallId)
         return [
           {
@@ -210,6 +215,7 @@ export class PiTranslator {
         ]
 
       case 'tool_execution_end': {
+        if (event.toolName === ASK_TOOL) return []
         this.#open.delete(event.toolCallId)
         const events: UiEvent[] = []
         // A file the driver was watching answers for itself: the diff is the

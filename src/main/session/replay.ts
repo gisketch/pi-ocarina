@@ -1,6 +1,7 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
 import { joinTextParts, toolBody, toolKind, toolTarget } from './pi-translate'
+import { answerFromResult, askFromCall, ASK_TOOL, endedUnanswered } from './ask-replay'
 
 // Colour codes reach the transcript when something formats for a terminal.
 // They are noise in a GUI, and they would make replay differ from live text.
@@ -33,6 +34,8 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   // Calls that started and never reported back. A turn interrupted mid-tool
   // writes the call to the transcript and never writes its result.
   const openCalls = new Set<string>()
+  /** Calls that were questions, so their result rebuilds a card. */
+  const asked = new Set<string>()
 
   for (const entry of entries) {
     if (entry.type !== 'message') {
@@ -74,6 +77,14 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       const id = message.toolCallId
       if (!id) continue
       openCalls.delete(id)
+
+      // A question the reader was part of is rebuilt as the card it was, not
+      // as a tool row saying `ask_user ✓`.
+      if (message.toolName === ASK_TOOL || asked.has(id)) {
+        events.push(answerFromResult(id, message))
+        continue
+      }
+
       const body = toolBody(message.toolName ?? '', message)
       if (body) events.push({ kind: 'tool-body', id, body })
       events.push({ kind: 'tool-end', id, status: message.isError ? 'fail' : 'ok' })
@@ -98,6 +109,16 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
         events.push({ kind: 'agent-message-end', id })
       }
 
+      if (content.type === 'toolCall' && content.id && content.name === ASK_TOOL) {
+        const ask = askFromCall(content.id, content.arguments)
+        if (ask) {
+          asked.add(content.id)
+          openCalls.add(content.id)
+          events.push(ask)
+          continue
+        }
+      }
+
       if (content.type === 'toolCall' && content.id) {
         openCalls.add(content.id)
         events.push({
@@ -115,7 +136,11 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
   // A call with no result is a call that was still running when the turn ended
   // — interrupted, or the app was closed. Left open it pulses forever, claiming
   // to be working on something nothing is working on.
-  for (const id of openCalls) events.push({ kind: 'tool-end', id, status: 'cancelled' })
+  for (const id of openCalls) {
+    // A question nobody answered because the app went away. It is a record
+    // now, and not answerable: the call it belonged to is gone.
+    events.push(asked.has(id) ? endedUnanswered(id) : { kind: 'tool-end', id, status: 'cancelled' })
+  }
 
   // A transcript that stops on the user's own words is a turn that never
   // finished — the app was closed or killed mid-flight. Saying "done" there
