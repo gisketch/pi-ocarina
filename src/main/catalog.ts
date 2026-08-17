@@ -1,5 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
+import { parseNamePool, parseRoles } from '../shared/agent-roles'
 import { DEFAULT_PREFERENCES, parsePreferences, type Preferences } from '../shared/preferences'
+import type { AgentRole } from '../shared/vocabulary'
 
 export { DEFAULT_PREFERENCES, LEADER_TIMEOUT_RANGE, parsePreferences } from '../shared/preferences'
 export type { Preferences } from '../shared/preferences'
@@ -19,7 +21,7 @@ export interface WorkspaceEntry {
  *  session store is the truth about what threads exist, so it cannot drift out
  *  of sync here. */
 export interface CatalogState {
-  version: 6
+  version: 7
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
@@ -41,6 +43,17 @@ export interface CatalogState {
    *  ⇧H/⇧L. Ids not listed sort after, so a thread created since the last
    *  save still appears rather than being dropped by an older order. */
   order: Record<string, string[]>
+  /** The roles a child agent can be spawned as. */
+  roles: AgentRole[]
+  /** The names children are drawn from, one spawn at a time. */
+  namePool: string[]
+  /** Whether the shipped roles and names have ever been written.
+   *
+   *  Seeding happens once and never again, so a user who edited a default keeps
+   *  the edit and a user who deleted all four keeps them deleted. Without this
+   *  marker an empty list is indistinguishable from a cleared one, and every
+   *  launch would put the defaults back. */
+  seeded: boolean
   preferences: Preferences
 }
 
@@ -51,7 +64,7 @@ export interface CatalogState {
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
   return {
-    version: 6,
+    version: 7,
     workspaces: [],
     workspaceIndex: 0,
     focus: [],
@@ -59,6 +72,9 @@ export function defaultCatalog(): CatalogState {
     archived: {},
     retired: {},
     order: {},
+    roles: [],
+    namePool: [],
+    seeded: false,
     preferences: { ...DEFAULT_PREFERENCES },
   }
 }
@@ -156,10 +172,11 @@ export function parseCatalog(raw: string): CatalogLoad {
   }
 
   // Each older version simply lacked a field: 2 had no preferences, 3 no
-  // archived list, 4 no column order, 5 no retired worktrees. They upgrade by
-  // taking the defaults for what they never stored; nothing the user pinned or
-  // approved is lost.
-  if (![2, 3, 4, 5, 6].includes(record.version as number)) {
+  // archived list, 4 no column order, 5 no retired worktrees, 6 no roles. They
+  // upgrade by taking the defaults for what they never stored; nothing the user
+  // pinned or approved is lost. A catalog that predates roles reads as unseeded,
+  // so the shipped roles arrive on its next launch.
+  if (![2, 3, 4, 5, 6, 7].includes(record.version as number)) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -168,7 +185,7 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 6,
+      version: 7,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,
@@ -176,6 +193,9 @@ export function parseCatalog(raw: string): CatalogLoad {
       archived: parseIdLists(record.archived),
       retired: parseIdLists(record.retired),
       order: parseIdLists(record.order),
+      roles: parseRoles(record.roles),
+      namePool: parseNamePool(record.namePool),
+      seeded: record.seeded === true,
       preferences: parsePreferences(record.preferences),
     },
   }

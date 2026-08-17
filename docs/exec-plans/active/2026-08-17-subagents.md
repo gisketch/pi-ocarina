@@ -7,7 +7,7 @@ Status legend: `todo` · `in-progress` · `done`.
 
 Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 
-## M1 — Roles, names, and the shared vocabulary — `todo`
+## M1 — Roles, names, and the shared vocabulary — `done`
 
 > Nothing is visible except a settings file that now has content. Everything
 > else stands on it, and it goes first because the shapes are breaking changes

@@ -186,3 +186,89 @@ export interface AttachmentRef {
 export function isImageAttachment(attachment: AttachmentRef): boolean {
   return (attachment.mime ?? '').startsWith('image/')
 }
+
+/** A role a child agent can be spawned as.
+ *
+ *  A role is only an added system prompt with a ceiling around it: the tools it
+ *  may hold and the model it runs on. The orchestrator names one, and may
+ *  narrow the tools or change the model, but never writes a saved role's
+ *  instructions. */
+export interface AgentRole {
+  id: string
+  name: string
+  /** Appended to the child's system prompt. The whole of what a role is. */
+  instructions: string
+  /** The ceiling. A spawn may remove from this list and may not add to it. */
+  tools: string[]
+  /** Used when the spawn does not name one. Absent means the parent's model. */
+  model?: string
+}
+
+/** The tools an inline role may hold.
+ *
+ *  An inline role is a system prompt the model wrote in the moment: the
+ *  least-vetted thing in the system, so it gets the least. Writing needs a
+ *  saved role. */
+export const READ_ONLY_TOOLS: readonly string[] = ['read', 'grep', 'find', 'ls']
+
+/** How a child ended, as the parent model reads it.
+ *
+ *  Distinct from `ToolStatus` on purpose: a child that was denied at the
+ *  approval gate and one that the reader stopped are different facts, and the
+ *  parent must be able to branch on which. */
+export type AgentStatus = 'running' | 'ok' | 'fail' | 'denied' | 'cancelled'
+
+/** One child, as both the row and the envelope entry.
+ *
+ *  The same shape serves the display and the model because they must not
+ *  disagree about what a child was — the row saying `scout` while the entry
+ *  says something else is the failure this avoids. */
+export interface AgentEntry {
+  /** The child's own tool-call id, and the `parentId` its rows carry. */
+  id: string
+  /** Drawn from the pool, unique among children alive at the same moment. */
+  name: string
+  /** The role's name, or `inline` when the orchestrator wrote the prompt. */
+  role: string
+  /** The short line the row shows. Written by the orchestrator. */
+  label: string
+  status: AgentStatus
+  /** The child's final message. Absent while running, and absent for a
+   *  cancelled child — a half-finished report read as a finished one is the
+   *  failure mode. */
+  output?: string
+  /** Set when the per-child cap cut the output, so the parent knows it holds a
+   *  fragment. */
+  truncated?: true
+  usage: AgentUsage
+  startedAt: number
+  endedAt?: number
+}
+
+/** What a child cost. Rolled into the thread's own figures, and shown per
+ *  child in the peek. */
+export interface AgentUsage {
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  cost: number
+}
+
+/** One child, as the orchestrator asks for it. */
+export interface SpawnRequest {
+  /** A saved role's name. Omitted when `instructions` are given inline. */
+  role?: string
+  /** An inline system prompt, used when no saved role fits. Takes the
+   *  read-only ceiling. */
+  instructions?: string
+  /** The child's brief: everything it needs, since it sees nothing else. */
+  task: string
+  /** The row's line — short, imperative, what this child is for. */
+  label: string
+  /** Overrides the role's model. */
+  model?: string
+  /** Narrows the role's tools. Anything not already in the role's list is
+   *  dropped rather than granted. */
+  tools?: string[]
+}

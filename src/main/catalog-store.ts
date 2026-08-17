@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../shared/agent-roles'
+import type { AgentRole } from '../shared/vocabulary'
 import { nameFor, voiceFor } from '../shared/workspace-identity'
 import {
   defaultCatalog,
@@ -30,6 +32,10 @@ export class CatalogStore {
     const { state, warning } = await readCatalog(this.#file)
     this.#state = state
     this.#warning = warning
+    // Here rather than at the call site: every path that opens a catalog wants
+    // the shipped roles present, and a second caller that forgot to seed would
+    // report an app with no roles at all.
+    this.seedOnce()
     return { state: this.snapshot(), warning }
   }
 
@@ -42,6 +48,8 @@ export class CatalogStore {
       archived: structuredClone(this.#state.archived),
       retired: structuredClone(this.#state.retired),
       order: structuredClone(this.#state.order),
+      roles: structuredClone(this.#state.roles),
+      namePool: [...this.#state.namePool],
     }
   }
 
@@ -110,6 +118,60 @@ export class CatalogStore {
 
   listApprovals(workspaceId: string): string[] {
     return [...(this.#state.approvals[workspaceId] ?? [])]
+  }
+
+  /** Writes the shipped roles and names, once and only once.
+   *
+   *  Called on load. The marker is what makes it once: an empty role list is
+   *  otherwise indistinguishable from a list the user cleared, and every launch
+   *  would put the four defaults back under them. A catalog written before
+   *  roles existed reads as unseeded, so it gets them on its next launch and
+   *  never again. */
+  seedOnce(): void {
+    if (this.#state.seeded) return
+
+    this.#state.roles = DEFAULT_ROLES.map((role) => ({ ...role, tools: [...role.tools] }))
+    this.#state.namePool = [...DEFAULT_NAME_POOL]
+    this.#state.seeded = true
+    this.#persist()
+  }
+
+  roles(): AgentRole[] {
+    return structuredClone(this.#state.roles)
+  }
+
+  /** The role a spawn named, matched by name rather than id: the model writes
+   *  the name it was shown, and ids are ours. */
+  role(name: string): AgentRole | undefined {
+    const found = this.#state.roles.find((one) => one.name === name)
+    return found ? { ...found, tools: [...found.tools] } : undefined
+  }
+
+  /** Adds a role, or replaces the one with the same id. */
+  saveRole(role: AgentRole): void {
+    const index = this.#state.roles.findIndex((one) => one.id === role.id)
+    const clean: AgentRole = { ...role, tools: [...new Set(role.tools)] }
+
+    if (index === -1) this.#state.roles.push(clean)
+    else this.#state.roles[index] = clean
+    this.#persist()
+  }
+
+  deleteRole(id: string): void {
+    const index = this.#state.roles.findIndex((one) => one.id === id)
+    if (index === -1) return
+
+    this.#state.roles.splice(index, 1)
+    this.#persist()
+  }
+
+  namePool(): string[] {
+    return [...this.#state.namePool]
+  }
+
+  setNamePool(names: string[]): void {
+    this.#state.namePool = [...new Set(names.filter((one) => one !== ''))]
+    this.#persist()
   }
 
   get warning(): string | undefined {

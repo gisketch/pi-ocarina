@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -184,5 +184,80 @@ describe('answering before anything has asked it to load', () => {
 
     await fresh.load()
     expect(fresh.snapshot().workspaces).toHaveLength(1)
+  })
+})
+
+describe('the roles a profile starts with', () => {
+  async function store(): Promise<{ file: string; catalog: CatalogStore }> {
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-roles-'))
+    const file = join(dir, 'catalog.json')
+    const catalog = new CatalogStore(file)
+    await catalog.load()
+    return { file, catalog }
+  }
+
+  it('seeds four roles and a pool on a fresh profile', async () => {
+    const { catalog } = await store()
+    expect(catalog.roles().map((role) => role.name)).toEqual([
+      'scout',
+      'planner',
+      'reviewer',
+      'developer',
+    ])
+    expect(catalog.namePool().length).toBeGreaterThan(20)
+  })
+
+  it('keeps an edit rather than putting the shipped role back', async () => {
+    const { file, catalog } = await store()
+    const scout = catalog.role('scout')
+    catalog.saveRole({ ...scout!, instructions: 'mine now' })
+    await catalog.flush()
+
+    const reopened = new CatalogStore(file)
+    await reopened.load()
+    expect(reopened.role('scout')?.instructions).toBe('mine now')
+  })
+
+  it('leaves a deleted role deleted', async () => {
+    const { file, catalog } = await store()
+    for (const role of catalog.roles()) catalog.deleteRole(role.id)
+    await catalog.flush()
+
+    const reopened = new CatalogStore(file)
+    await reopened.load()
+    expect(reopened.roles()).toEqual([])
+  })
+
+  it('seeds a catalog written before roles existed, once', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-roles-v6-'))
+    const file = join(dir, 'catalog.json')
+    await writeFile(file, JSON.stringify({ version: 6, workspaces: [] }), 'utf8')
+
+    const catalog = new CatalogStore(file)
+    await catalog.load()
+    expect(catalog.roles()).toHaveLength(4)
+
+    catalog.deleteRole(catalog.roles()[0].id)
+    await catalog.flush()
+
+    const reopened = new CatalogStore(file)
+    await reopened.load()
+    expect(reopened.roles()).toHaveLength(3)
+  })
+
+  it('replaces a role by id rather than adding a second', async () => {
+    const { catalog } = await store()
+    const scout = catalog.role('scout')!
+    catalog.saveRole({ ...scout, name: 'recon' })
+    expect(catalog.roles()).toHaveLength(4)
+    expect(catalog.role('scout')).toBeUndefined()
+    expect(catalog.role('recon')).toBeDefined()
+  })
+
+  it('hands out copies, so a caller cannot edit the store by holding a role', async () => {
+    const { catalog } = await store()
+    const roles = catalog.roles()
+    roles[0].tools.push('write')
+    expect(catalog.roles()[0].tools).not.toContain('write')
   })
 })
