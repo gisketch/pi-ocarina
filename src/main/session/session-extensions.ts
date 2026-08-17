@@ -1,8 +1,8 @@
 /** Everything a pi session is built out of besides its model.
  *
- *  The three inline extensions this app injects live here — the approval gate,
- *  `ask_user` and `spawn_agents` — because they are the interesting part and
- *  the factory above them is otherwise about pi's construction quirks.
+ *  The inline extensions this app injects live here — the approval gate,
+ *  `ask_user`, `spawn_agents` and `fetch` — because they are the interesting
+ *  part and the factory above them is otherwise about pi's construction quirks.
  *
  *  Which of them a session gets depends on what it is. A thread gets all three.
  *  A child gets the gate and nothing else: its question would arrive in the
@@ -13,6 +13,7 @@ import type { ExtensionFactory } from '@earendil-works/pi-coding-agent'
 import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
 import { askUserTool } from './ask-tool'
+import { fetchTool } from './fetch-tool'
 import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 import type { ThreadHandle } from './session-factory'
@@ -99,6 +100,15 @@ export async function buildResources(
               },
             },
           ]),
+      {
+        // Every session gets it. A child only holds it if its role's tool list
+        // names it — pi filters custom tools by that list too — so the shipped
+        // read-only roles do not reach the network by default.
+        name: 'piocarina-fetch',
+        factory: (pi: ExtensionApiOf) => {
+          pi.registerTool(fetchTool())
+        },
+      },
       {
         name: 'piocarina-approvals',
         factory: (pi) => {

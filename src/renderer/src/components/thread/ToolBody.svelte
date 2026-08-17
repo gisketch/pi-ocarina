@@ -1,6 +1,7 @@
 <script lang="ts">
   import { DRAWN_DIFF_LINES } from '$lib/ledger'
   import type { ToolBody } from '$lib/thread'
+  import Prose from './md/Prose.svelte'
 
   const { body }: { body: ToolBody } = $props()
 
@@ -42,6 +43,8 @@
   </div>
 {:else if body.type === 'terminal'}
   <div class="panel terminal" class:error={body.tone === 'error'}>{#each body.lines as line, i (i)}<div class={line.tone ?? ''}>{line.text}</div>{/each}</div>
+{:else if body.type === 'markdown'}
+  <div class="panel prose"><Prose text={body.text} /></div>
 {:else if body.type === 'todo'}
   <div class="panel todo">
     {#each body.items as item, i (i)}
@@ -54,6 +57,14 @@
 {/if}
 
 <style>
+  .panel.prose {
+    padding: 9px 12px;
+    /* A fetched page is the one body that can be long prose rather than
+       lines, so it scrolls inside itself instead of stretching the row. */
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
   .panel {
     margin: 2px 6px 6px;
     font-size: 11.5px;

@@ -4,6 +4,7 @@ import type { TerminalLine, ToolBody, ToolKind } from '../../shared/vocabulary'
 import type { CallChange } from './change-log'
 import { ASK_TOOL, askable } from './ask-replay'
 import { toolKind, toolTarget } from './tool-rows'
+import { FETCH_TOOL } from './fetch-tool'
 
 export { toolKind, toolTarget } from './tool-rows'
 import { diffOf } from './tool-diff'
@@ -56,7 +57,32 @@ export function toolBody(toolName: string, result: unknown): ToolBody | undefine
   if (toolName === 'read') {
     return { type: 'code', lines: lines.map((line) => ({ text: line })) }
   }
+  if (toolName === FETCH_TOOL) {
+    // The first line is the status line the model reads; the row's meta
+    // already says all of it, so the panel starts at the page itself.
+    const body = text.split('\n').slice(2).join('\n').trim()
+    return body === '' ? undefined : { type: 'markdown', text: body }
+  }
   return undefined
+}
+
+/** What a finished fetch adds to its row: the status and the size.
+ *
+ *  Read from `details`, which the tool sets and which never reaches the model,
+ *  so the row states what actually happened rather than parsing the prose the
+ *  model was given. */
+export function fetchMeta(result: unknown): string | undefined {
+  const details = (result as { details?: unknown } | null)?.details as
+    | { status?: number; bytes?: number; truncated?: boolean; error?: string }
+    | undefined
+  if (!details) return undefined
+  if (details.error) return 'failed'
+
+  const parts: string[] = []
+  if (typeof details.status === 'number' && details.status > 0) parts.push(String(details.status))
+  if (typeof details.bytes === 'number') parts.push(`${(details.bytes / 1024).toFixed(1)}KB`)
+  if (details.truncated) parts.push('truncated')
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 /** Translates one pi session's events into the UI vocabulary.
@@ -203,7 +229,11 @@ export class PiTranslator {
           kind: 'tool-end',
           id: event.toolCallId,
           status: blocked ? 'denied' : event.isError ? 'fail' : 'ok',
-          meta: blocked ? 'denied' : (changed?.meta ?? undefined),
+          meta: blocked
+            ? 'denied'
+            : event.toolName === FETCH_TOOL
+              ? fetchMeta(event.result)
+              : (changed?.meta ?? undefined),
         })
         return events
       }

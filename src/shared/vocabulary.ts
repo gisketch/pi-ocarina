@@ -101,6 +101,10 @@ export type ToolBody =
   | { type: 'diff'; lines: DiffLine[] }
   | { type: 'terminal'; lines: TerminalLine[]; tone?: 'normal' | 'error' }
   | { type: 'todo'; items: TodoItem[] }
+  // A fetched page. Markdown rather than lines because the structure — which
+  // line was a heading, which run was code — is most of why a page was worth
+  // fetching, and flattening it to text throws that away.
+  | { type: 'markdown'; text: string }
 
 /** One thing the reader can pick.
  *

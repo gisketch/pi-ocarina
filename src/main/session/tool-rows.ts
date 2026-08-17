@@ -45,6 +45,16 @@ export function toolTarget(name: string, args: unknown): string {
     return agents === 1 ? 'spawn 1 agent' : `spawn ${agents} agents`
   }
 
+  // A fetch row is the method and the address, with the scheme dropped: it is
+  // always http or https, and the row is short. A GET says nothing about its
+  // method, because that is the one the reader assumes.
+  if (name === 'fetch') {
+    const raw = pick('url') ?? ''
+    const method = (pick('method') ?? 'GET').toUpperCase()
+    const said = raw.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    if (said !== '') return method === 'GET' ? said : `${method} ${said}`
+  }
+
   // A search is what it looked for, not where it looked. `path` came first for
   // every tool, so `grep {pattern: 'export', path: '.'}` drew a row reading
   // `grepped .` — the one word the reader wanted was the one thrown away.

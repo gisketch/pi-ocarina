@@ -1,5 +1,7 @@
 import type { ApprovalOutcome } from '../../shared/vocabulary'
 import type { UiEvent } from '../../shared/protocol'
+import { FETCH_TOOL } from './fetch-tool'
+import { isWriteMethod, parseUrl } from '../web/fetch-page'
 
 /** Tools that change something. Read-only tools never interrupt the user.
  *
@@ -8,8 +10,25 @@ import type { UiEvent } from '../../shared/protocol'
  *  set is that policy. */
 const GATED: ReadonlySet<string> = new Set(['bash', 'write', 'edit'])
 
-export function needsApproval(toolName: string): boolean {
+/** Whether this call needs a yes before it runs.
+ *
+ *  `fetch` is the one tool whose answer depends on its arguments rather than
+ *  its name: reading a page changes nothing, and a `POST` changes something on
+ *  a server this app does not own. Rather than invent a second consent
+ *  mechanism for the web, the write methods come through this gate. */
+export function needsApproval(toolName: string, input?: unknown): boolean {
+  if (toolName === FETCH_TOOL) return isWriteMethod(methodOf(input))
   return GATED.has(toolName)
+}
+
+function methodOf(input: unknown): string {
+  const raw = (input as { method?: unknown })?.method
+  return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : 'GET'
+}
+
+function urlOf(input: unknown): string {
+  const raw = (input as { url?: unknown })?.url
+  return typeof raw === 'string' ? raw : ''
 }
 
 /** Shell syntax that lets one approved-looking command carry another.
@@ -26,6 +45,13 @@ const COMPOUND = /[;&|`$(){}<>\n]/
  *  chains or substitutes gets a rule matching that exact command and nothing
  *  else, because its first word does not describe what it actually does. */
 export function ruleKey(toolName: string, input: unknown): string {
+  // A yes to posting at one host is not a yes to posting at every host, so the
+  // rule carries the method and the origin — never the whole URL, which would
+  // make every path a separate question the user has already answered.
+  if (toolName === FETCH_TOOL) {
+    const url = parseUrl(urlOf(input))
+    return `fetch:${methodOf(input).toUpperCase()}:${url ? url.origin : '?'}`
+  }
   if (toolName !== 'bash') return toolName
 
   const raw = (input as { command?: unknown })?.command
@@ -43,6 +69,9 @@ export function describeCall(toolName: string, input: unknown): string {
     typeof record[key] === 'string' ? (record[key] as string) : undefined
 
   if (toolName === 'bash') return pick('command') ?? 'bash'
+  if (toolName === FETCH_TOOL) {
+    return `${methodOf(input).toUpperCase()} ${pick('url') ?? '?'}`
+  }
   const path = pick('path') ?? pick('file_path')
   return path ? `${toolName} ${path}` : toolName
 }
@@ -112,7 +141,7 @@ export class ApprovalGate {
     toolCallId,
     agent,
   }: ApprovalRequest): Promise<ApprovalVerdict> {
-    if (!needsApproval(toolName)) return { blocked: false }
+    if (!needsApproval(toolName, input)) return { blocked: false }
     if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
 
     this.#counter += 1
