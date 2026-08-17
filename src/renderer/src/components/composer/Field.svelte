@@ -83,17 +83,20 @@
     padding: 0;
     margin: 0;
     border: none;
-    scrollbar-gutter: stable;
   }
 
   textarea {
     flex: 1;
     position: relative;
-    /* Reserved always, so the content width does not change the moment the
-       message grows tall enough to scroll. Without it the textarea narrowed by
-       the scrollbar and the mirror did not, and every line after the first wrap
-       landed somewhere else. */
-    scrollbar-gutter: stable;
+    /* No scrollbar at all, on either box.
+       A scrollbar takes width from the textarea and not from the mirror, and
+       every line after the first wrap then lands somewhere else. Reserving a
+       gutter on both only moves the problem: `stable` reserves on the mirror
+       (overflow: hidden) and reserves nothing on a platform with overlay
+       scrollbars, so the two disagree by exactly the gutter. Removing it is the
+       only rule that holds everywhere — and the composer is a few lines tall,
+       where a scrollbar was never the way anyone moved through it. */
+    scrollbar-width: none;
     background: transparent;
     outline: none;
     /* Transparent, not hidden: the caret and the selection are the browser's
@@ -103,8 +106,10 @@
     resize: none;
     overflow-y: auto;
     min-width: 0;
-    scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
+  }
+  textarea::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
   textarea::placeholder {
     color: var(--fg-dimmest);
