@@ -1,14 +1,16 @@
 <script lang="ts">
   import AgentRow from './AgentRow.svelte'
+  import ToolLine from './ToolLine.svelte'
+  import EarlierCalls from './EarlierCalls.svelte'
   import ToolBody from './ToolBody.svelte'
-  import { chevron, initialOpenState, isExpandable, labelTone, metaSegments, metaTone, nodeTone } from '$lib/ledger'
+  import { chevron, initialOpenState, isExpandable, metaSegments, metaTone, nodeTone } from '$lib/ledger'
   import BlockMenu from './BlockMenu.svelte'
   import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
-  import { kindsIn, pointableRows } from '$lib/ledger-rows'
-  import { labelFor, widestLabel } from '$lib/tool-label'
+  import { kindsIn, pointableRows, tailOf } from '$lib/ledger-rows'
+  import { widestLabel } from '$lib/tool-label'
 
   interface Props {
     rows: ToolRow[]
@@ -97,8 +99,7 @@
              decorating it. -->
         <AgentRow agent={row.agent} {hue} rows={row.children} />
       {:else}
-      <span class="kind {labelTone(row)}">{labelFor(row.kind, row.status)}</span>
-      <span class="target" class:struck={row.status === 'cancelled'}>{row.target}</span>
+        <ToolLine {row} />
       {/if}
       {#if row.meta && !row.agent}
         <span class="meta {metaTone(row)}">
@@ -114,8 +115,15 @@
     {/if}
 
     {#if row.children?.length}
+      {@const tail = row.agent ? tailOf(row.children) : { hidden: 0, shown: row.children }}
       <div class="children">
-        {#each row.children as child (child.id)}
+        <!-- A child's own calls are capped here and complete in the peek: thirty
+             indented rows bury the fan-out they belong to, and the newest are
+             what a reader is looking for. -->
+        {#if tail.hidden > 0}
+          <EarlierCalls count={tail.hidden} />
+        {/if}
+        {#each tail.shown as child (child.id)}
           {@render entry(child, true)}
         {/each}
       </div>
@@ -265,34 +273,7 @@
     background: var(--bg-hover);
   }
 
-  .kind {
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    /* The reference's 36px is the floor, not the width: a row now says what is
-       happening to it, and `editing` does not fit in four characters. */
-    width: max(36px, var(--gutter, 4ch));
-    flex: none;
-  }
-  .kind.accent {
-    color: var(--accent);
-  }
-  .kind.err {
-    color: var(--err);
-  }
-  .kind.warn {
-    color: var(--warn);
-  }
-  .kind.muted {
-    color: var(--fg-dim);
-  }
 
-  .target {
-    color: var(--fg);
-  }
-  .target.struck {
-    color: var(--fg-dim);
-    text-decoration: line-through;
-  }
 
   .meta {
     margin-left: auto;

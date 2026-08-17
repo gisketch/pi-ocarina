@@ -35,8 +35,24 @@ describe('toolTarget', () => {
     expect(toolTarget('bash', { command: 'pnpm test' })).toBe('pnpm test')
   })
 
-  it('labels grep with the pattern', () => {
-    expect(toolTarget('grep', { pattern: 'TODO' })).toBe('TODO')
+  it('labels grep with the pattern, quoted the way the design draws it', () => {
+    expect(toolTarget('grep', { pattern: 'TODO' })).toBe('"TODO"')
+  })
+
+  it('says what a search looked for, not where it looked', () => {
+    // `path` used to be picked first, so this row read `.` — the one word the
+    // reader wanted was the one thrown away.
+    expect(toolTarget('grep', { pattern: 'export', path: '.' })).toBe('"export"')
+  })
+
+  it('adds where it looked when that is worth saying', () => {
+    expect(toolTarget('grep', { pattern: 'export', path: 'src' })).toBe('"export" · src')
+  })
+
+  it('names a tool the design has no row for, so its row is not just a path', () => {
+    // `ls` and `find` are labelled `tool`, so without the name the row read
+    // `tool .` and said nothing at all.
+    expect(toolTarget('ls', { path: '.' })).toBe('ls .')
   })
 
   it('still names a tool it does not recognise', () => {

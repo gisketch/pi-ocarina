@@ -119,6 +119,14 @@ one worker, and nobody can send a named agent back in.
 
 ### 4. Children are watched in two places: nested rows and a peek
 
+**Amended 2026-08-17, from use.** A child's own calls are capped in the
+transcript at the newest five, with a line counting what is not shown and
+pointing at the peek. A scout can make thirty calls, and thirty indented rows
+bury the fan-out they belong to. The peek holds all of them; the transcript
+holds the tail, because what a child did a minute ago is what a reader is
+looking for.
+
+
 The rows under the spawn call are the record; a peek opened on a focused row is
 the monitor. Children never become columns — a column means a thread, and a child
 has no session file, cannot be resumed and is not in the catalog, so a column
@@ -253,6 +261,15 @@ Accepted cost: a large total does not say it is large because the thread fanned
 out, and answering that needs the peek.
 
 ### 12. Four roles ship, all editable, and a role is optional
+
+**Amended 2026-08-17, from use.** A direct request outranks the tool's own
+judgement about when to fan out. A user asked for "2 subagents" to create two
+files, and the agent ran two shell commands instead — correctly following the
+description's advice not to fan out for small work. The advice was right and the
+outcome was wrong: a request is not advice. The description now says so first,
+and lists the words people actually use, including "subagent", which appeared
+nowhere in a tool that called them "child agents".
+
 
 Scout, planner, developer and reviewer are seeded on first run — pi's own sample
 division, where scout reads on a cheap model, planner and reviewer read without

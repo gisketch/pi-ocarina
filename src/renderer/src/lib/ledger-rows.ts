@@ -32,3 +32,24 @@ export function pointableRows(rows: readonly ToolRow[]): ToolRow[] {
     ...pointableRows((row.children ?? []).filter((child) => child.agent !== undefined)),
   ])
 }
+
+/** How many of a child's own calls the transcript shows.
+ *
+ *  A scout can make thirty calls, and thirty indented rows under one child bury
+ *  the fan-out they belong to. The peek is where all of them live; the
+ *  transcript keeps the tail. */
+export const SHOWN_CALLS = 5
+
+/** The calls to draw under a child, newest last, with a count of what is
+ *  hidden.
+ *
+ *  The *latest* are kept rather than the first: what a child did a minute ago is
+ *  the thing a reader is looking for, and the early calls are the ones the peek
+ *  is for. */
+export function tailOf(
+  rows: readonly ToolRow[],
+  limit: number = SHOWN_CALLS,
+): { hidden: number; shown: readonly ToolRow[] } {
+  if (rows.length <= limit) return { hidden: 0, shown: rows }
+  return { hidden: rows.length - limit, shown: rows.slice(-limit) }
+}

@@ -47,6 +47,18 @@ export const FAN_OUT: MockThread = {
     { kind: 'tool-start', id: 'spawn-1', tool: 'agent', target: 'spawn 3 agents' },
 
     { kind: 'tool-start', id: CIRCE.id, tool: 'agent', target: '', parentId: 'spawn-1', agent: CIRCE },
+    // Eight calls under one child, so the transcript's cap is visible: the
+    // three oldest are counted, the newest five are drawn.
+    ...['a', 'b', 'c', 'd', 'e', 'f', 'g'].flatMap((at) => [
+      {
+        kind: 'tool-start' as const,
+        id: `c-circe-${at}`,
+        tool: 'read' as const,
+        target: `src/sync/${at}.ts`,
+        parentId: CIRCE.id,
+      },
+      { kind: 'tool-end' as const, id: `c-circe-${at}`, status: 'ok' as const },
+    ]),
     { kind: 'tool-start', id: 'c-circe-grep', tool: 'grep', target: '"runSync" · src/**', parentId: CIRCE.id },
     { kind: 'tool-end', id: 'c-circe-grep', status: 'ok', meta: '7 matches' },
     {

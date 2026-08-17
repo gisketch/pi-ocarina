@@ -16,11 +16,13 @@ import { MAX_PER_CALL, type AgentFleet, type ParentRef } from './agent-fleet'
 import { faultInSpawn, planSpawn } from './spawn-plan'
 import type { ThreadHandle } from './session-factory'
 
-const DESCRIPTION = `Hand scoped work to child agents that run at the same time as each other.
+const DESCRIPTION = `Hand scoped work to child agents — subagents — that run at the same time as each other.
+
+**If the user asks for subagents, agents, or work done in parallel, call this tool.** A direct request outranks every judgement below: do not decide the work is too small, do not do it yourself instead, and do not reach for a differently-named subagent tool if one exists. The words that mean this tool: subagent, sub-agent, child agent, spawn, fan out, delegate, in parallel, at the same time.
 
 Each child starts with a fresh context, does what its task says, and reports back in one message. It cannot see this conversation, so its task must contain everything it needs. You cannot talk to it again once it starts.
 
-Use this when the work splits into parts that do not depend on each other — several places to search, several files to change, a change and its review. Do not use it for work that must happen in order, for a single small edit, or when you already have what you need.
+When the user has not asked either way, use this when the work splits into parts that do not depend on each other — several places to search, several files to change, a change and its review. Do not use it for work that must happen in order, or when you already have what you need.
 
 Name a role for each child. A role decides its instructions, the tools it may use and the model it runs on. You may narrow its tools and change its model; you cannot give it a tool its role does not have.
 
@@ -104,10 +106,17 @@ export function spawnAgentsTool(deps: SpawnDeps) {
     name: SPAWN_TOOL,
     label: 'Agents',
     description: DESCRIPTION + rolesIn(deps.roles()),
-    promptSnippet: 'spawn_agents — hand independent work to child agents',
+    promptSnippet: 'spawn_agents — hand independent work to child agents (subagents)',
+    // pi appends these to the system prompt while the tool is active. The
+    // description is read when the model is already reaching for a tool; this is
+    // what makes it reach. The first line is here because of a real session: a
+    // user asked for "2 subagents" and the model ran two shell commands
+    // instead, correctly following the description's own advice not to fan out
+    // for small work. A request is not advice.
     promptGuidelines: [
+      'When the user asks for subagents, agents, or work done in parallel, call spawn_agents. Their request settles it — do not judge the work too small to split, and do not do it yourself instead.',
       'Prefer one child per independent piece of work, in a single call, over a run of separate calls.',
-      "A child cannot see this conversation. Anything it needs goes in its task, including paths and names you consider obvious.",
+      'A child cannot see this conversation. Anything it needs goes in its task, including paths and names you consider obvious.',
     ],
     parameters: PARAMETERS,
     executionMode: 'parallel' as const,

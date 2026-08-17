@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kindsIn, pointableRows } from './ledger-rows'
+import { kindsIn, pointableRows, SHOWN_CALLS, tailOf } from './ledger-rows'
 import type { AgentEntry, ToolRow } from './thread'
 
 const entry = (name: string): AgentEntry => ({
@@ -58,5 +58,35 @@ describe('the rows a reader can point at', () => {
   it('reaches a grandchild, which is as deep as the tree goes', () => {
     const rows = pointableRows([tool('spawn', [child('c1', [child('g1')])])])
     expect(rows.map((row) => row.id)).toEqual(['spawn', 'c1', 'g1'])
+  })
+})
+
+describe('how many of a child’s calls the transcript shows', () => {
+  const calls = (count: number): ToolRow[] =>
+    Array.from({ length: count }, (_, at) => tool(`r${at}`))
+
+  it('shows everything when there is little', () => {
+    const { hidden, shown } = tailOf(calls(3))
+    expect(hidden).toBe(0)
+    expect(shown).toHaveLength(3)
+  })
+
+  it('shows everything at exactly the limit', () => {
+    expect(tailOf(calls(SHOWN_CALLS)).hidden).toBe(0)
+  })
+
+  it('keeps the newest, because that is what a reader is looking for', () => {
+    const { hidden, shown } = tailOf(calls(12))
+    expect(hidden).toBe(7)
+    expect(shown.map((row) => row.id)).toEqual(['r7', 'r8', 'r9', 'r10', 'r11'])
+  })
+
+  it('counts what it hid, so nothing goes missing silently', () => {
+    const { hidden, shown } = tailOf(calls(30))
+    expect(hidden + shown.length).toBe(30)
+  })
+
+  it('takes a limit of its own', () => {
+    expect(tailOf(calls(10), 2).shown.map((row) => row.id)).toEqual(['r8', 'r9'])
   })
 })
