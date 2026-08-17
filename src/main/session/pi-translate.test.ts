@@ -313,3 +313,10 @@ describe('a call that changed a file', () => {
     expect(runEdit(() => null).some((event) => event.kind === 'tool-body')).toBe(false)
   })
 })
+
+describe('a search by a tool the design has no row for', () => {
+  it('keeps its name, the way every other raw row does', () => {
+    // `find` is labelled `tool`, so without the name the row read `tool "x"`.
+    expect(toolTarget('find', { pattern: '*.ts', path: 'src' })).toBe('find "*.ts" · src')
+  })
+})

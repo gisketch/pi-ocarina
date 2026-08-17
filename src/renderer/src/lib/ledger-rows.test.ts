@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kindsIn, pointableRows, SHOWN_CALLS, tailOf } from './ledger-rows'
+import { drawnChildren, hiddenUnder, kindsIn, pointableRows, SHOWN_CALLS, tailOf } from './ledger-rows'
 import type { AgentEntry, ToolRow } from './thread'
 
 const entry = (name: string): AgentEntry => ({
@@ -88,5 +88,44 @@ describe('how many of a child’s calls the transcript shows', () => {
 
   it('takes a limit of its own', () => {
     expect(tailOf(calls(10), 2).shown.map((row) => row.id)).toEqual(['r8', 'r9'])
+  })
+})
+
+describe('what the transcript actually draws under a child', () => {
+  const calls = (count: number): ToolRow[] =>
+    Array.from({ length: count }, (_, at) => tool(`r${at}`))
+
+  it('caps a child’s plain calls at the newest five', () => {
+    const row = child('c1', calls(9))
+    expect(drawnChildren(row).map((one) => one.id)).toEqual(['r4', 'r5', 'r6', 'r7', 'r8'])
+    expect(hiddenUnder(row)).toBe(4)
+  })
+
+  it('never hides a nested agent, which is a stop and the way into the peek', () => {
+    const row = child('c1', [...calls(9), child('g1')])
+    const drawn = drawnChildren(row).map((one) => one.id)
+
+    expect(drawn).toContain('g1')
+    expect(pointableRows([row]).map((one) => one.id)).toContain('g1')
+  })
+
+  it('keeps the drawn order, so the list still reads as a sequence', () => {
+    const row = child('c1', [child('g1'), ...calls(9)])
+    expect(drawnChildren(row)[0].id).toBe('g1')
+  })
+
+  it('never lets navigation land on a row the transcript hid', () => {
+    // A stop that is not drawn is a `j` that appears to do nothing.
+    const row = child('c1', calls(9))
+    const stops = pointableRows([row]).map((one) => one.id)
+    const drawn = new Set([row.id, ...drawnChildren(row).map((one) => one.id)])
+
+    for (const stop of stops) expect(drawn.has(stop)).toBe(true)
+  })
+
+  it('leaves a plain tool row’s children alone', () => {
+    const row = tool('t1', calls(9))
+    expect(drawnChildren(row)).toHaveLength(9)
+    expect(hiddenUnder(row)).toBe(0)
   })
 })

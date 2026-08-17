@@ -56,7 +56,7 @@
 
   function pick(index: number): void {
     if (settled) return
-    flow.cursor = index
+    flow.moveTo(index)
     flow.toggle()
     // A single-choice question answers itself on a click: there is nothing
     // else the reader was going to say about it.
@@ -105,10 +105,10 @@
     {/if}
 
     <div class="keys">
-      {#if flow.at > 0}<span><span class="key">⇧tab</span> back</span>{/if}
+      {#if flow.at > 0}<span><span class="key">h</span> back</span>{/if}
       <span><span class="key">j/k</span> move</span>
       {#if question?.kind === 'many'}<span><span class="key">space</span> toggle</span>{/if}
-      {#if question?.allowOther}<span><span class="key">o</span> something else</span>{/if}
+      {#if question?.allowOther}<span><span class="key">o/l</span> something else</span>{/if}
       <span>
         <span class="key">⏎</span>
         {flow.last ? 'send answers' : 'next'}

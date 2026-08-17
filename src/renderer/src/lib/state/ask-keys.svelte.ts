@@ -45,6 +45,19 @@ class AskKeys {
     return this.#released[threadId] === askId ? null : askId
   }
 
+  /** Whether a card is *actually* taking keys right now.
+   *
+   *  `holding` says which card would answer; this says whether it would get the
+   *  chance. The composer outranks it, an overlay in front of it outranks it,
+   *  and a chord in progress outranks it — all three are already refused by
+   *  `handleKey`, and the status bar read `ASK` over them anyway. One predicate
+   *  so the bar, the card and the key path cannot disagree about who has the
+   *  keyboard. */
+  get owning(): string | null {
+    if (app.mode !== 'NORMAL' && app.mode !== 'READ') return null
+    return this.holding
+  }
+
   /** Whether this card is the one with the keys. */
   focused(threadId: string, askId: string): boolean {
     return threadId === app.thread.id && this.holding === askId
@@ -95,7 +108,14 @@ class AskKeys {
     // Never while a real field has the caret — the card's own text inputs
     // included. Their keys are already the browser's to handle, and taking
     // them here would type every character twice.
-    if (isEditable(event.target)) return false
+    //
+    // `esc` is the exception, and has to be: the field is the one place a
+    // reader can be stuck, and the key that means "out of here" everywhere
+    // else was the one key the field swallowed.
+    if (isEditable(event.target)) {
+      if (event.key !== 'Escape') return false
+      ;(event.target as { blur?: () => void }).blur?.()
+    }
 
     // Never while the composer has the caret. Every other modal in the shell is
     // opened by the reader, so outranking INSERT is what they are for; a
@@ -181,7 +201,14 @@ class AskKeys {
         // Right means forward: into the field when the row has one, on to the
         // next question when it does not. Never to the next column — a card
         // holding the keys owns them, and `esc` is how a reader leaves.
+        //
+        // And never *send*. `l` is the shell's move-to-next-column reflex, so
+        // on a one-question ask — the ordinary shape — a habitual press would
+        // have taken whatever the cursor was on and handed it to the model,
+        // unasked and unrepeatable. Submitting is `enter`'s, which is what the
+        // card's own legend says.
         if (flow.startTyping()) return true
+        if (flow.last) return true
         this.#advance(threadId, askId, flow)
         return true
       case 'h':

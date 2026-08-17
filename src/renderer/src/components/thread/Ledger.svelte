@@ -9,7 +9,7 @@
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import type { ToolRow } from '$lib/thread'
-  import { kindsIn, pointableRows, tailOf } from '$lib/ledger-rows'
+  import { drawnChildren, hiddenUnder, kindsIn, pointableRows } from '$lib/ledger-rows'
   import { widestLabel } from '$lib/tool-label'
 
   interface Props {
@@ -115,15 +115,16 @@
     {/if}
 
     {#if row.children?.length}
-      {@const tail = row.agent ? tailOf(row.children) : { hidden: 0, shown: row.children }}
+      {@const hidden = hiddenUnder(row)}
       <div class="children">
         <!-- A child's own calls are capped here and complete in the peek: thirty
              indented rows bury the fan-out they belong to, and the newest are
-             what a reader is looking for. -->
-        {#if tail.hidden > 0}
-          <EarlierCalls count={tail.hidden} />
+             what a reader is looking for. A nested *agent* is never hidden — it
+             is a stop `j` can land on, and the way into the peek. -->
+        {#if hidden > 0}
+          <EarlierCalls count={hidden} />
         {/if}
-        {#each tail.shown as child (child.id)}
+        {#each drawnChildren(row) as child (child.id)}
           {@render entry(child, true)}
         {/each}
       </div>
@@ -196,14 +197,6 @@
     --fg-bright: #efefea;
     --fg-body: #e8e8e3;
   }
-  /* The sigil's cells are computed in JS and written as inline backgrounds, so
-     the tokens below cannot reach them: a dimmed agent row kept a full-colour
-     sigil beside a greyed-out name. Desaturated rather than faded, to match how
-     the rest of the row dims — and scoped to a 10px decoration, which is why
-     the filter this file otherwise avoids is safe here. */
-  .entry.dim :global(.sigil) {
-    filter: saturate(0) brightness(0.62);
-  }
   .entry.dim {
     --tone-1: var(--fg-dimmer);
     --tone-2: var(--fg-dimmer);
@@ -221,6 +214,19 @@
     --err: var(--fg-dimmer);
     --err-text: var(--fg-dimmer);
     --warn: var(--fg-dimmer);
+  }
+  /* The sigil's cells are computed in JS and written as inline backgrounds, so
+     the tokens above cannot reach them: a dimmed agent row kept a full-colour
+     sigil beside a greyed-out name. Desaturated rather than faded, to match how
+     the rest of the row dims — and scoped to a 10px decoration, which is why
+     the filter this file otherwise avoids is safe here.
+
+     `> .row` and not a descendant: an entry contains the entries nested under
+     it, so a descendant selector would grey a focused child's sigil from its
+     dimmed parent — and exempting the focused one in turn would un-grey every
+     dimmed child of a focused parent. A row's own state decides its own row. */
+  .entry.dim > :global(.row) :global(.sigil) {
+    filter: saturate(0) brightness(0.62);
   }
   /* A row contains its own layout and paint, which would slice the menu off at
      the row's own height. The ledger's spine is drawn by the parent, so
@@ -332,7 +338,7 @@
     font-size: 11px;
     color: var(--fg-dim);
   }
-  .row.nested .kind {
+  .row.nested :global(.kind) {
     font-size: 9px;
   }
 </style>

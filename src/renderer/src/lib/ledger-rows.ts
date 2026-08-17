@@ -27,10 +27,36 @@ export function kindsIn(rows: readonly ToolRow[]): ToolKind[] {
  *  around it, and a menu opened on a child was clipped by containment the
  *  ledger never lifted. */
 export function pointableRows(rows: readonly ToolRow[]): ToolRow[] {
-  return rows.flatMap((row) => [
-    row,
-    ...pointableRows((row.children ?? []).filter((child) => child.agent !== undefined)),
-  ])
+  return rows.flatMap((row) => [row, ...pointableRows(drawnChildren(row).filter(isAgent))])
+}
+
+/** The children of a row that are actually drawn.
+ *
+ *  The cap and the stop list have to agree: a row that navigation can land on
+ *  but the transcript does not draw is a `j` that appears to do nothing, and a
+ *  ring on something invisible. One function so they cannot drift. */
+export function drawnChildren(row: ToolRow): readonly ToolRow[] {
+  const children = row.children ?? []
+  if (!row.agent) return children
+
+  // A nested agent is never hidden: it is a stop, and hiding it would take the
+  // peek with it. The cap is for the plain tool calls it is buried in.
+  const agents = children.filter(isAgent)
+  const calls = children.filter((child) => !isAgent(child))
+  const { shown } = tailOf(calls)
+
+  // Redrawn in the order they arrived, so the list still reads as a sequence.
+  const kept = new Set([...agents, ...shown])
+  return children.filter((child) => kept.has(child))
+}
+
+/** How many of a row's children the transcript is not drawing. */
+export function hiddenUnder(row: ToolRow): number {
+  return (row.children ?? []).length - drawnChildren(row).length
+}
+
+function isAgent(row: ToolRow): boolean {
+  return row.agent !== undefined
 }
 
 /** How many of a child's own calls the transcript shows.

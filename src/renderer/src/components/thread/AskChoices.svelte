@@ -69,6 +69,7 @@
             aria-label="something else"
             oninput={(event) => flow.write(event.currentTarget.value)}
             onfocus={() => flow.other()}
+            onblur={() => flow.stopTyping()}
             onkeydown={held}
           />
         </span>

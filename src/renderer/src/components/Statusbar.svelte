@@ -2,6 +2,7 @@
   import GitSummary from './GitSummary.svelte'
   import { app } from '$lib/state/app.svelte'
   import { askKeys } from '$lib/state/ask-keys.svelte'
+  import { changes } from '$lib/state/changes.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { threadGit } from '$lib/state/thread-git.svelte'
   import { formatUsage } from '$lib/usage-format'
@@ -23,7 +24,11 @@
   // nothing said why. Derived here rather than added to the key reducer, which
   // knows nothing about asks and should not — a card takes the keys by being on
   // screen, not by a keystroke.
-  const asking = $derived(askKeys.holding !== null)
+  //
+  // `owning`, not `holding`: a question can be pending while the caret is in
+  // the composer or a viewer is open, and a bar reading `ASK` over a live caret
+  // lies about the one thing a reader must be able to trust it for.
+  const asking = $derived(askKeys.owning !== null && !changes.open)
   const mode = $derived(asking ? 'ASK' : app.mode)
 
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))

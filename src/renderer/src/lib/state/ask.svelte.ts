@@ -66,6 +66,17 @@ class Flow {
     return true
   }
 
+  /** Puts the cursor on a row, from the pointer.
+   *
+   *  The same seam the keys use, and for the same reason they use it: clicking
+   *  a choice after the free-text field used to move the cursor and leave the
+   *  caret's flag on, so the next `j` was typed into the answer — the very bug
+   *  `move` was changed to stop, coming back through the mouse. */
+  moveTo(index: number): void {
+    this.cursor = index
+    this.typing = false
+  }
+
   move(delta: number): void {
     const rows = this.rows
     if (rows === 0) return
@@ -77,6 +88,10 @@ class Flow {
     const order = [...Array.from({ length: choices }, (_, at) => at), ...(other ? [-1] : [])]
     const now = order.indexOf(this.cursor)
     const next = Math.max(0, Math.min(order.length - 1, (now === -1 ? 0 : now) + delta))
+
+    // Leaving the free-text row with nothing in it gives the pick back, or the
+    // question stays unanswerable behind text nobody typed.
+    if (this.cursor === -1 && order[next] !== -1) this.#dropEmptyOther()
 
     this.cursor = order[next]
     // Moving the cursor never starts typing, not even onto the free-text row.
@@ -162,11 +177,27 @@ class Flow {
     this.write((this.typed[question.id] ?? '').slice(0, -1))
   }
 
-  /** Leaves the field without leaving the question. */
+  /** Leaves the field without leaving the question.
+   *
+   *  An empty free-text row gives up its pick on the way out. Keeping it made a
+   *  `many` question unanswerable: `ready` demands text once OTHER is picked, so
+   *  a reader who opened the field, typed nothing and moved on could pick every
+   *  real choice and still not be allowed to send. */
   stopTyping(): void {
     if (this.question?.kind === 'text') return
     this.typing = false
+    this.#dropEmptyOther()
     if (this.cursor === -1) this.cursor = 0
+  }
+
+  /** Drops an `other` pick that has no text behind it. */
+  #dropEmptyOther(): void {
+    const question = this.question
+    if (!question || (this.typed[question.id] ?? '').trim() !== '') return
+
+    const held = this.picked[question.id] ?? []
+    if (!held.includes(OTHER)) return
+    this.picked = { ...this.picked, [question.id]: held.filter((one) => one !== OTHER) }
   }
 
   step(delta: number): void {

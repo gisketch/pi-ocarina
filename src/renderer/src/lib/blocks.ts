@@ -11,6 +11,7 @@
 
 import { parseMarkdown } from './markdown'
 import { segmentText, segmentsOf } from './markdown-segments'
+import { pointableRows } from './ledger-rows'
 import type { Block, ToolRow } from './thread'
 
 export interface NavBlock {
@@ -218,12 +219,11 @@ export function step(list: NavBlock[], current: string | null, delta: number): s
   return list[next]?.id ?? null
 }
 
-/** Every agent row under this one, at any depth, in the order they are drawn. */
+/** Every agent row under this one, at any depth, in the order they are drawn.
+ *
+ *  Read from `pointableRows`, which is what the ledger draws its own stops and
+ *  its dim from: a stop the transcript does not draw is a `j` that appears to
+ *  do nothing. */
 function agentsIn(row: ToolRow): ToolRow[] {
-  const found: ToolRow[] = []
-  for (const child of row.children ?? []) {
-    if (child.agent) found.push(child)
-    found.push(...agentsIn(child))
-  }
-  return found
+  return pointableRows([row]).filter((one) => one !== row)
 }

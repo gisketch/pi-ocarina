@@ -54,7 +54,10 @@ export function toolTarget(name: string, args: unknown): string {
     const pattern = pick('pattern') ?? pick('query')
     if (pattern) {
       const where = pick('path')
-      return where && where !== '.' ? `"${pattern}" · ${where}` : `"${pattern}"`
+      const said = where && where !== '.' ? `"${pattern}" · ${where}` : `"${pattern}"`
+      // `find` has no row of its own in the design, so its label is `tool` and
+      // the name has to ride in the target or the row says nothing.
+      return toolKind(name) === 'raw' ? `${name} ${said}` : said
     }
   }
 
