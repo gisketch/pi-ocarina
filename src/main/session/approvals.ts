@@ -64,6 +64,12 @@ export interface ApprovalRequest {
    *  as `denied` rather than as a generic failure — pi only ever says
    *  `isError`, and "the user said no" is not the same as "the tool broke". */
   toolCallId?: string
+  /** Set when a child agent is the one asking.
+   *
+   *  A card that says only "write auth.ts?" is unanswerable while four children
+   *  are running: the reader has to know which of them wants it before they can
+   *  decide. */
+  agent?: { name: string; role: string }
 }
 
 export interface ApprovalVerdict {
@@ -104,6 +110,7 @@ export class ApprovalGate {
     toolName,
     input,
     toolCallId,
+    agent,
   }: ApprovalRequest): Promise<ApprovalVerdict> {
     if (!needsApproval(toolName)) return { blocked: false }
     if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
@@ -115,8 +122,10 @@ export class ApprovalGate {
       kind: 'approve',
       id,
       // No note: the command line already says what is about to happen, and
-      // the workspace id is a uuid that would mean nothing to the reader.
+      // the workspace id is a uuid that would mean nothing to the reader. A
+      // child is the one thing worth naming — see `ApprovalRequest.agent`.
       command: describeCall(toolName, input),
+      ...(agent ? { agent } : {}),
     })
 
     return new Promise<ApprovalVerdict>((resolve) => {

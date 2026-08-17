@@ -65,40 +65,46 @@ describe.skipIf(!live)('spawn_agents against a real session', () => {
 })
 
 describe.skipIf(!live)('several children at once', () => {
-  it('runs three, names them apart, and reports all three', { timeout: 240_000 }, async () => {
-    const { catalog, id: workspaceId } = await workspace()
+  // Same retry, same reason: a machine with pi's own `subagent` package
+  // installed shows the model two tools that do the same job.
+  it(
+    'runs three, names them apart, and reports all three',
+    { timeout: 240_000, retry: 2 },
+    async () => {
+      const { catalog, id: workspaceId } = await workspace()
 
-    const events: UiEvent[] = []
-    const driver = new PiDriver({
-      emit: (_threadId, event) => events.push(event),
-      catalog,
-      model: MODEL,
-    })
+      const events: UiEvent[] = []
+      const driver = new PiDriver({
+        emit: (_threadId, event) => events.push(event),
+        catalog,
+        model: MODEL,
+      })
 
-    const { threadId } = await driver.execute('createThread', { workspaceId })
-    void driver.execute('prompt', {
-      threadId,
-      text:
-        'In one `spawn_agents` call, start three scouts at the same time. ' +
-        'Give each one a different question about this folder: what hello.txt contains, ' +
-        'how many files are here, and what the folder is called. ' +
-        'Do not look yourself. Report all three answers when they come back.',
-    })
+      const { threadId } = await driver.execute('createThread', { workspaceId })
+      void driver.execute('prompt', {
+        threadId,
+        text:
+          'In one `spawn_agents` call, start three scouts at the same time. ' +
+          'Give each one a different question about this folder: what hello.txt contains, ' +
+          'how many files are here, and what the folder is called. ' +
+          'Do not look yourself. Report all three answers when they come back.',
+      })
 
-    await settle(driver, threadId, events)
+      await settle(driver, threadId, events)
 
-    const children = events.filter(
-      (event) => event.kind === 'tool-start' && event.agent !== undefined,
-    )
-    expect(children.length).toBeGreaterThanOrEqual(3)
+      const children = events.filter(
+        (event) => event.kind === 'tool-start' && event.agent !== undefined,
+      )
+      expect(children.length).toBeGreaterThanOrEqual(3)
 
-    // No two children alive at the same moment share a name.
-    const names = children.map((event) => (event.kind === 'tool-start' ? event.agent!.name : ''))
-    expect(new Set(names).size).toBe(names.length)
+      // No two children alive at the same moment share a name.
+      const names = children.map((event) => (event.kind === 'tool-start' ? event.agent!.name : ''))
+      expect(new Set(names).size).toBe(names.length)
 
-    const done = events.filter((event) => event.kind === 'agent-update' && event.agent.endedAt)
-    expect(done.length).toBeGreaterThanOrEqual(3)
-  })
+      const done = events.filter((event) => event.kind === 'agent-update' && event.agent.endedAt)
+      expect(done.length).toBeGreaterThanOrEqual(3)
+    },
+  )
 })
 
 /** Waits for the turn to end, answering every approval it meets on the way.

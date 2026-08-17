@@ -181,6 +181,7 @@
         <ApproveCard
           command={block.command}
           note={block.note}
+          agent={block.agent}
           outcome={block.outcome}
           onresolve={wired
             ? (outcome) => threads.resolveApproval(threadId, block.id, outcome)

@@ -3,6 +3,7 @@ import { SessionClient } from '../../renderer/src/lib/session/client'
 import { replayThread } from '../../renderer/src/lib/thread-reducer'
 import type { UiEvent } from '../../shared/protocol'
 import { EventBatcher } from './batcher'
+import { emitUsage } from './session-report'
 import { StubDriver } from './stub-driver'
 
 /** Wires the whole seam the way the app does — driver, batcher, transport,
@@ -147,5 +148,38 @@ describe('session seam end to end', () => {
     const events = received.get(threadId) ?? []
     expect(events.at(-1)).toMatchObject({ kind: 'thread-state', state: 'idle' })
     expect(events.some((event) => event.kind === 'tool-end')).toBe(false)
+  })
+})
+
+describe('a thread’s usage figures include its children', () => {
+  it('adds what the children spent to what pi reports', () => {
+    // Subagents move work out of the parent's context, so the parent's own
+    // count falls when they are used well. An uncounted child would read as
+    // having made the thread cheaper.
+    const events: UiEvent[] = []
+    const session = {
+      getSessionStats: () => ({ contextUsage: { percent: 12 }, tokens: { total: 1_000 }, cost: 0.5 }),
+    } as never
+
+    emitUsage((_id, event) => events.push(event), 't1', session, { tokens: 400, costUsd: 0.2 })
+
+    expect(events[0]).toMatchObject({
+      kind: 'usage',
+      tokens: 1_400,
+      costUsd: 0.7,
+      // The context percentage stays the parent's: a child's context is its own
+      // and dies with it.
+      contextPercent: 12,
+    })
+  })
+
+  it('reports the parent alone when nothing was spawned', () => {
+    const events: UiEvent[] = []
+    const session = {
+      getSessionStats: () => ({ contextUsage: { percent: 3 }, tokens: { total: 10 }, cost: 0.01 }),
+    } as never
+
+    emitUsage((_id, event) => events.push(event), 't1', session)
+    expect(events[0]).toMatchObject({ tokens: 10, costUsd: 0.01 })
   })
 })

@@ -77,7 +77,15 @@ export type Block =
       said?: string
       reason?: string
     }
-  | { kind: 'approve'; id: string; command: string; note?: string; outcome?: ApprovalOutcome }
+  | {
+      kind: 'approve'
+      id: string
+      command: string
+      note?: string
+      /** Who is asking, when a child agent is. */
+      agent?: { name: string; role: string }
+      outcome?: ApprovalOutcome
+    }
   | { kind: 'checkpoint'; id: string; label: string }
   | {
       kind: 'compaction'

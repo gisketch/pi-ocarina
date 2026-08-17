@@ -123,6 +123,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         id: event.id,
         command: event.command,
         note: event.note,
+        agent: event.agent,
       })
 
     case 'approve-resolved':

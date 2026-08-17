@@ -16,7 +16,7 @@ import { ChangeLog } from './change-log'
 import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
-import { AgentFleet } from './agent-fleet'
+import { fleetFor, type AgentFleet } from './agent-fleet'
 import { PiTranslator } from './pi-translate'
 import { emitUsage, replayInto } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
@@ -65,15 +65,7 @@ export class PiDriver implements SessionDriver {
     this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, this.#asks, model)
-    // The fleet is built from the factory and then handed back to it: a child
-    // is a session, and a session may spawn children, so the two are mutually
-    // dependent and one of them has to be wired after construction.
-    this.#fleet = new AgentFleet(this.#sessions, emit)
-    this.#sessions.enableSpawning({
-      fleet: this.#fleet,
-      roles: () => catalog.roles(),
-      names: () => catalog.namePool(),
-    })
+    this.#fleet = fleetFor(this.#sessions, emit, catalog)
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
@@ -83,6 +75,7 @@ export class PiDriver implements SessionDriver {
       this.#asks.end(threadId, 'thread closed')
       // A thread with no column has nobody watching its children.
       this.#fleet.cancelThread(threadId)
+      this.#fleet.forget(threadId)
       this.#steers.forget(threadId)
       this.#changes.forget(threadId)
     })
@@ -289,7 +282,7 @@ export class PiDriver implements SessionDriver {
       // turn still being written. Only this side knows, so it says so.
       if (open.session.isStreaming) this.#emit(threadId, { kind: 'thread-state', state: 'running' })
       this.#models.announce(threadId, open.session, this.#emit)
-      emitUsage(this.#emit, threadId, open.session)
+      emitUsage(this.#emit, threadId, open.session, this.#fleet.spentIn(threadId))
       return
     }
 
@@ -333,13 +326,14 @@ export class PiDriver implements SessionDriver {
       emit: this.#emit,
       changes: this.#changes,
       steers: this.#steers,
+      spent: () => this.#fleet.spentIn(threadId),
     })
 
     this.#threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })
     this.#models.announce(threadId, this.#threads.find(threadId)?.session, this.#emit)
     // A reopened thread carries its whole history's accounting; without this
     // the meter would read zero until the thread's next turn ended.
-    emitUsage(this.#emit, threadId, session)
+    emitUsage(this.#emit, threadId, session, this.#fleet.spentIn(threadId))
     if (session.sessionFile) {
       this.#workspaces.remember(threadId, { path: session.sessionFile, cwd, branch })
     }

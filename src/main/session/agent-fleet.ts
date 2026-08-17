@@ -11,9 +11,9 @@
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { EmitEvent } from '../../shared/protocol'
-import type { AgentEntry, AgentStatus, AgentUsage } from '../../shared/vocabulary'
+import type { AgentEntry, AgentRole, AgentStatus, AgentUsage } from '../../shared/vocabulary'
 import { NamePool } from './agent-names'
-import { PiTranslator } from './pi-translate'
+import { driveChild } from './agent-run'
 import type { Plan } from './spawn-plan'
 
 /** How much of a child's final message the parent is given.
@@ -61,6 +61,8 @@ export interface ChildFactory {
     depth: number
     /** Whether its role allows it to spawn, if it is shallow enough. */
     spawns: boolean
+    /** Who it is, so a card it raises can say who is asking. */
+    agent: { name: string; role: string }
     onWarning?: (warning: string) => void
   }): Promise<AgentSession>
 }
@@ -82,6 +84,8 @@ export class AgentFleet {
   readonly #waiting: (() => void)[] = []
   #running = 0
   #counter = 0
+  /** Thread id → what its children have cost, ever. */
+  readonly #spent = new Map<string, { tokens: number; costUsd: number }>()
 
   constructor(factory: ChildFactory, emit: EmitEvent) {
     this.#factory = factory
@@ -91,6 +95,20 @@ export class AgentFleet {
   /** Every live child, anywhere. What the cap is measured against. */
   get liveCount(): number {
     return this.#live.size
+  }
+
+  /** What one thread's children have spent, live and settled.
+   *
+   *  Kept here rather than derived from the rows: the rows are the renderer's,
+   *  and the figure the status bar shows has to be true in main before it is
+   *  drawn anywhere. Survives a child settling; forgotten when the thread is. */
+  spentIn(threadId: string): { tokens: number; costUsd: number } {
+    return this.#spent.get(threadId) ?? { tokens: 0, costUsd: 0 }
+  }
+
+  /** A thread's column has gone; its bill goes with it. */
+  forget(threadId: string): void {
+    this.#spent.delete(threadId)
   }
 
   /** Runs one child to completion and returns what the parent should read.
@@ -148,6 +166,7 @@ export class AgentFleet {
         model: plan.model,
         depth: parent.depth + 1,
         spawns: plan.spawns,
+        agent: { name, role: plan.role },
         onWarning: (warning) => warn?.(`${plan.label}: ${warning}`),
       })
 
@@ -209,7 +228,7 @@ export class AgentFleet {
     const stop = (): void => {
       cancelled = true
       // Fire and forget: `abort` resolves when the session has stopped, and the
-      // call that is waiting on `prompt` is what reports the outcome.
+      // call that is waiting on the turn is what reports the outcome.
       void session.abort()
     }
     this.#live.set(id, { threadId: parent.threadId, entry, stop })
@@ -219,57 +238,41 @@ export class AgentFleet {
       else signal.addEventListener('abort', stop, { once: true })
     }
 
-    // The child's own tool calls, relayed under its row. A fresh translator per
-    // child: it holds per-session state, and two children sharing one would
-    // close each other's calls.
-    const translator = new PiTranslator()
-    let said = ''
-    let broke = ''
-    const unsubscribe = session.subscribe((event) => {
-      for (const translated of translator.translate(event)) {
-        if (translated.kind === 'tool-start') {
-          this.#emit(parent.threadId, { ...translated, parentId: id })
-          continue
-        }
-        // Rows only. A child's prose is its report, and the parent reads it as
-        // the entry's output rather than as messages in the parent's transcript.
-        if (ROW_EVENTS.has(translated.kind)) this.#emit(parent.threadId, translated)
-      }
-      if (event.type === 'message_end' && event.message.role === 'assistant') {
-        const text = textOf(event.message)
-        if (text) said = text
-        // A child whose model call failed says nothing at all, and an entry
-        // reading `fail` with an empty output tells nobody why. pi puts the
-        // reason on the message; without this it is lost and the parent model
-        // retries the same broken spawn.
-        const failure = (event.message as { errorMessage?: unknown }).errorMessage
-        if (typeof failure === 'string' && failure !== '') broke = failure
-        entry.usage = add(entry.usage, event.message.usage)
-      }
+    const ran = await driveChild({
+      session,
+      threadId: parent.threadId,
+      childId: id,
+      task: plan.task,
+      usage: entry.usage,
+      emit: this.#emit,
     })
+    const counted = { ...entry, usage: ran.usage }
 
-    try {
-      await session.prompt(plan.task)
-    } finally {
-      unsubscribe()
+    if (cancelled) return this.#settle(parent, counted, 'cancelled')
+    if (ran.said === '') {
+      const why = ran.broke || 'the child reported nothing'
+      return this.#settle(parent, { ...counted, output: why }, 'fail')
     }
 
-    if (cancelled) return this.#settle(parent, entry, 'cancelled')
-
-    if (said === '') {
-      return this.#settle(parent, { ...entry, output: broke || 'the child reported nothing' }, 'fail')
-    }
-
-    const capped = said.slice(0, OUTPUT_CAP)
+    const capped = ran.said.slice(0, OUTPUT_CAP)
     return this.#settle(
       parent,
       {
-        ...entry,
+        ...counted,
         output: capped,
-        ...(capped.length < said.length ? { truncated: true as const } : {}),
+        ...(capped.length < ran.said.length ? { truncated: true as const } : {}),
       },
       'ok',
     )
+  }
+
+  /** Adds a child's bill to its thread's. */
+  #charge(threadId: string, usage: AgentUsage): void {
+    const held = this.#spent.get(threadId) ?? { tokens: 0, costUsd: 0 }
+    this.#spent.set(threadId, {
+      tokens: held.tokens + usage.input + usage.output,
+      costUsd: held.costUsd + usage.cost,
+    })
   }
 
   #settle(parent: ParentRef, entry: AgentEntry, status: AgentStatus): AgentEntry {
@@ -282,49 +285,48 @@ export class AgentFleet {
       ...(status === 'cancelled' ? { output: undefined } : {}),
     }
 
+    // Charged even when it was cancelled or failed: the tokens were spent.
+    this.#charge(parent.threadId, settled.usage)
+
     this.#emit(parent.threadId, { kind: 'agent-update', id: entry.id, agent: settled })
     this.#emit(parent.threadId, { kind: 'tool-end', id: entry.id, status: rowStatus(status) })
     return settled
   }
 }
 
-/** What a child's own calls are allowed to put in the parent's transcript:
- *  rows, and nothing else. Its messages, its usage and its turn boundaries
- *  belong to it. */
-const ROW_EVENTS = new Set(['tool-progress', 'tool-body', 'tool-end'])
-
 /** The row's own status, which has fewer words than a child's. */
 function rowStatus(status: AgentStatus): 'ok' | 'fail' | 'cancelled' | 'denied' {
   return status === 'running' ? 'ok' : status
 }
 
-function add(usage: AgentUsage, more: unknown): AgentUsage {
-  const one = more as
-    | { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } }
-    | undefined
-  if (!one) return usage
-
-  return {
-    input: usage.input + (one.input ?? 0),
-    output: usage.output + (one.output ?? 0),
-    cacheRead: usage.cacheRead + (one.cacheRead ?? 0),
-    cacheWrite: usage.cacheWrite + (one.cacheWrite ?? 0),
-    cost: usage.cost + (one.cost?.total ?? 0),
-  }
-}
-
-function textOf(message: unknown): string {
-  const content = (message as { content?: unknown })?.content
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
-
-  return content
-    .filter((part) => (part as { type?: string }).type === 'text')
-    .map((part) => String((part as { text?: unknown }).text ?? ''))
-    .join('')
-    .trim()
-}
-
 function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** Builds a fleet and hands it back to the factory that will build its children.
+ *
+ *  A child is a session and a session may spawn children, so the two are
+ *  mutually dependent and one of them has to be wired after construction. Here
+ *  rather than in the driver's constructor, which is already a list of six
+ *  things being stood up in order. */
+export function fleetFor(
+  sessions: ChildFactory & {
+    enableSpawning: (deps: {
+      fleet: AgentFleet
+      roles: () => AgentRole[]
+      names: () => string[]
+    }) => void
+  },
+  emit: EmitEvent,
+  catalog: { roles: () => AgentRole[]; namePool: () => string[] },
+): AgentFleet {
+  const fleet = new AgentFleet(sessions, emit)
+  sessions.enableSpawning({
+    fleet,
+    // Read fresh on every call, so a role added in settings is spawnable
+    // without restarting the app.
+    roles: () => catalog.roles(),
+    names: () => catalog.namePool(),
+  })
+  return fleet
 }

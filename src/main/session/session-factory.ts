@@ -1,16 +1,13 @@
-import type { AgentSession, ExtensionFactory } from '@earendil-works/pi-coding-agent'
+import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
-import { askUserTool } from './ask-tool'
-import { SPAWN_TOOL, spawnAgentsTool, type SpawnDeps } from './spawn-tool'
+import { buildResources, canSpawn, type ChildShape } from './session-extensions'
+import { SPAWN_TOOL, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
 type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
 type ResourceLoaderOf = InstanceType<Sdk['DefaultResourceLoader']>
-// The `pi` object an inline extension is handed. pi's own type, so it cannot
-// drift; the import is type-only and costs nothing at runtime.
-type ExtensionApiOf = Parameters<ExtensionFactory>[0]
 
 /** A model named the way pi's config names it. */
 export interface ModelRef {
@@ -69,7 +66,7 @@ export class SessionFactory {
     const { session } = await createAgentSession({
       cwd,
       model: await this.#resolveModel(),
-      resourceLoader: await this.#resources(cwd, workspaceId, handle),
+      resourceLoader: await this.#loader(cwd, workspaceId, handle),
     })
 
     await this.bindToolsToWorkspace(session, cwd)
@@ -89,7 +86,7 @@ export class SessionFactory {
       cwd,
       sessionManager,
       model: await this.#resolveModel(),
-      resourceLoader: await this.#resources(cwd, workspaceId, { threadId }),
+      resourceLoader: await this.#loader(cwd, workspaceId, { threadId }),
     })
 
     await this.bindToolsToWorkspace(session, cwd)
@@ -123,6 +120,8 @@ export class SessionFactory {
     /** Whether its role allows it to spawn. An inline prompt never may: it is
      *  held to read-only tools, and a child it started could write. */
     spawns: boolean
+    /** Who this child is, so a card it raises can say who is asking. */
+    agent: { name: string; role: string }
     /** Told when the model a role names is not configured here, so the fan-out
      *  can say so rather than swallowing it. */
     onWarning?: (warning: string) => void
@@ -140,11 +139,12 @@ export class SessionFactory {
       tools: canSpawn(options.depth, options.spawns)
         ? [...options.tools, SPAWN_TOOL]
         : options.tools,
-      resourceLoader: await this.#resources(options.cwd, options.workspaceId, options.handle, {
+      resourceLoader: await this.#loader(options.cwd, options.workspaceId, options.handle, {
         ask: false,
         appendSystemPrompt: options.instructions,
         depth: options.depth,
         spawns: options.spawns,
+        agent: options.agent,
       }),
     })
 
@@ -175,84 +175,21 @@ export class SessionFactory {
     }
   }
 
-  /** Loads pi's usual resources plus one extension of ours: the approval gate.
-   *
-   *  `tool_call` is pi's only place to stand between the model and the disk, and
-   *  it can wait on a promise — so the handler simply asks the user and blocks
-   *  until they answer. */
-  async #resources(
+  /** The resource loader for one session, with this app's extensions in it. */
+  async #loader(
     cwd: string,
     workspaceId: string,
     handle: ThreadHandle,
-    child?: { ask: boolean; appendSystemPrompt: string; depth: number; spawns: boolean },
+    child?: ChildShape,
   ): Promise<ResourceLoaderOf> {
-    const { DefaultResourceLoader, getAgentDir } = await this.load()
-    const gate = this.#approvals
-    const asks = this.#asks
-
-    const loader = new DefaultResourceLoader({
+    return buildResources(
+      await this.load(),
+      { approvals: this.#approvals, asks: this.#asks, spawn: this.#spawn, where: this.#where },
       cwd,
-      agentDir: getAgentDir(),
-      // Inline text, not a path: pi reads an entry as a file when one exists at
-      // that name and takes it as the prompt itself otherwise. A role's
-      // instructions are prose, so they arrive as prose.
-      ...(child ? { appendSystemPrompt: [child.appendSystemPrompt] } : {}),
-      extensionFactories: [
-        ...(child?.ask === false
-          ? []
-          : [
-              {
-                // pi 0.84 has no elicitation of its own, so the only way an
-                // agent can ask a person anything is a tool this app gives it.
-                name: 'piocarina-ask',
-                factory: (pi: ExtensionApiOf) => {
-                  pi.registerTool(askUserTool(asks, handle))
-                },
-              },
-            ]),
-        // Two levels, and the limit is enforced by simply not giving the tool
-        // to anyone deep enough to break it. A grandchild that could spawn
-        // would make the tree deeper than the column can indent, and would
-        // multiply a cap that is meant to bound the whole app.
-        ...(!canSpawn(child?.depth ?? 0, child?.spawns ?? true) || !this.#spawn || !this.#where
-          ? []
-          : [
-              {
-                name: 'piocarina-agents',
-                factory: (pi: ExtensionApiOf) => {
-                  pi.registerTool(
-                    spawnAgentsTool({
-                      ...this.#spawn!,
-                      handle,
-                      where: this.#where!(workspaceId, cwd),
-                      depth: child?.depth ?? 0,
-                    }),
-                  )
-                },
-              },
-            ]),
-        {
-          name: 'piocarina-approvals',
-          factory: (pi) => {
-            pi.on('tool_call', async (event) => {
-              const verdict = await gate.request({
-                threadId: handle.threadId,
-                workspaceId,
-                toolName: event.toolName,
-                input: event.input,
-                toolCallId: event.toolCallId,
-              })
-              return verdict.blocked ? { block: true, reason: verdict.reason } : undefined
-            })
-          },
-        },
-      ],
-    })
-
-    // A freshly constructed loader holds nothing: without this the extension is
-    // never built, and the gate silently never runs. Learned the hard way.
-    await loader.reload()
-    return loader
+      workspaceId,
+      handle,
+      child,
+    )
   }
 
   /** Points the built-in tools at the workspace folder.
@@ -329,13 +266,4 @@ function splitModel(named: string): ModelRef {
   const at = named.indexOf('/')
   if (at === -1) throw new Error(`model "${named}" needs the form provider/id`)
   return { provider: named.slice(0, at), id: named.slice(at + 1) }
-}
-
-/** Whether an agent at this depth, under this role, may spawn children.
- *
- *  Two rules in one place: the tree is at most two levels deep, and only a
- *  saved role spawns. The second is what stops an inline child — read-only by
- *  decision 13 — from starting a `developer` and writing through it. */
-function canSpawn(depth: number, spawns: boolean): boolean {
-  return depth < 2 && spawns
 }

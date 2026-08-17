@@ -175,7 +175,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > The shell also passed 350 lines, so the surfaces that rank below the modals
 > moved into `key-routing`, which already owned the ranking above them.
 
-## M7 — Who is asking, and what it cost — `todo`
+## M7 — Who is asking, and what it cost — `done`
 
 > Approval cards stop being anonymous, and the thread's figures stop lying.
 
@@ -190,6 +190,12 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 - Validation: unit tests for the card's payload and for the rollup; one live
   pass with a developer role writing a file.
 - Blocked by: M6.
+
+> Four files crossed 350 lines under this ticket and were split at real seams:
+> driving one child session left the fleet (`agent-run.ts`), this app's inline
+> extensions left the session factory (`session-extensions.ts`), the command map
+> left the event protocol (`commands.ts`, re-exported so no call site moved), and
+> the child-agent approval tests left the gate's own.
 
 ## M8 — Reopening the thread — `todo`
 

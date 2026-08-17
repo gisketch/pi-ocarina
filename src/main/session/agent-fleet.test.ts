@@ -290,3 +290,43 @@ describe('several at once', () => {
     expect(depths).toEqual([1, 2])
   })
 })
+
+describe('what the children cost the thread', () => {
+  it('adds a settled child’s tokens to its thread’s bill', async () => {
+    const { session } = fakeSession({})
+    const { fleet } = fleetWith(session)
+
+    expect(fleet.spentIn('t1')).toEqual({ tokens: 0, costUsd: 0 })
+    await fleet.run(PARENT, plan(), POOL, undefined)
+
+    expect(fleet.spentIn('t1')).toEqual({ tokens: 14, costUsd: 0.001 })
+  })
+
+  it('charges for a child that failed, because the tokens were still spent', async () => {
+    const { session } = fakeSession({ says: '' })
+    const { fleet } = fleetWith(session)
+
+    await fleet.run(PARENT, plan(), POOL, undefined)
+    expect(fleet.spentIn('t1').tokens).toBe(14)
+  })
+
+  it('keeps threads’ bills apart', async () => {
+    const { session } = fakeSession({})
+    const { fleet } = fleetWith(session)
+
+    await fleet.run(PARENT, plan(), POOL, undefined)
+    await fleet.run({ ...PARENT, threadId: 't2' }, plan(), POOL, undefined)
+
+    expect(fleet.spentIn('t1').tokens).toBe(14)
+    expect(fleet.spentIn('t2').tokens).toBe(14)
+  })
+
+  it('forgets a thread whose column has gone', async () => {
+    const { session } = fakeSession({})
+    const { fleet } = fleetWith(session)
+
+    await fleet.run(PARENT, plan(), POOL, undefined)
+    fleet.forget('t1')
+    expect(fleet.spentIn('t1')).toEqual({ tokens: 0, costUsd: 0 })
+  })
+})

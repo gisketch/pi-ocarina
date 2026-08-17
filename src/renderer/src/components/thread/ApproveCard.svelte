@@ -4,13 +4,15 @@
   interface Props {
     command: string
     note?: string
+    /** Who is asking, when a child agent is rather than the thread itself. */
+    agent?: { name: string; role: string }
     /** How the gate actually resolved, from the thread's own events. */
     outcome?: ApprovalOutcome
     /** Absent until C3 sends the decision to the session. */
     onresolve?: (outcome: ApprovalOutcome) => void
   }
 
-  const { command, note, outcome, onresolve }: Props = $props()
+  const { command, note, agent, outcome, onresolve }: Props = $props()
 
   let chosen = $state<ApprovalOutcome | null>(null)
   const decision = $derived(outcome ?? chosen)
@@ -35,8 +37,12 @@
 <div class="approve">
   <div class="head">
     <span class="tag">! APPROVE</span>
+    <!-- Naming the child is not decoration: "write auth.ts?" cannot be
+         answered while four of them are running. -->
     <span class="body"
-      >pi wants to run <code>{command}</code>{#if note}{' '}<span class="note">{note}</span
+      >{#if agent}<span class="asker">{agent.name}</span>{' '}<span class="note">({agent.role})</span
+        >{' '}wants to run{:else}pi wants to run{/if} <code>{command}</code>{#if note}{' '}<span
+          class="note">{note}</span
         >{/if}</span
     >
     <span class="status">{status}</span>
@@ -79,6 +85,9 @@
     padding: 1px 5px;
     font-size: 11.5px;
     font-family: var(--font-body);
+  }
+  .asker {
+    color: var(--fg-bright);
   }
   .note {
     color: var(--fg-dim);

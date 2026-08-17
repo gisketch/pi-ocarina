@@ -17,15 +17,36 @@ export function replayInto(emit: Emit, threadId: string, entries: readonly Sessi
   emitReplay((event) => emit(threadId, event), entries)
 }
 
-/** Usage comes from pi's own accounting; the app never estimates its own. */
-export function emitUsage(emit: Emit, threadId: string, session: AgentSession): void {
+/** What this thread's children have spent, which pi cannot know about. */
+export interface ChildSpend {
+  tokens: number
+  costUsd: number
+}
+
+/** Usage comes from pi's own accounting; the app never estimates its own.
+ *
+ *  Children are the exception, and have to be: they are sessions pi has no
+ *  handle on, so their tokens are invisible to `getSessionStats`. Adding them
+ *  in is what stops a fan-out reading as having made a thread *cheaper* — the
+ *  parent's own count falls when work moves to a child, so an uncounted child
+ *  would look like a saving rather than a bill.
+ *
+ *  Only the totals move. The context percentage stays the parent's, because a
+ *  child's context is its own and dies with it — that number is about how full
+ *  *this* conversation is. */
+export function emitUsage(
+  emit: Emit,
+  threadId: string,
+  session: AgentSession,
+  children: ChildSpend = { tokens: 0, costUsd: 0 },
+): void {
   try {
     const stats = session.getSessionStats()
     emit(threadId, {
       kind: 'usage',
       contextPercent: stats.contextUsage?.percent ?? 0,
-      tokens: stats.tokens.total,
-      costUsd: stats.cost,
+      tokens: stats.tokens.total + children.tokens,
+      costUsd: stats.cost + children.costUsd,
     })
   } catch {
     // Stats are a nicety; losing them must never break a turn.

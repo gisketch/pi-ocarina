@@ -20,6 +20,9 @@ export interface Wiring {
   emit: EmitEvent
   changes: ChangeLog
   steers: SteerQueue
+  /** What this thread's children have spent. pi cannot see them, so the figure
+   *  has to be added in from outside its accounting. */
+  spent: () => { tokens: number; costUsd: number }
 }
 
 /** Subscribes one session, and returns the unsubscribe. */
@@ -31,6 +34,7 @@ export function subscribeSession({
   emit,
   changes,
   steers,
+  spent,
 }: Wiring): () => void {
   translator.watchChanges((toolCallId) => changes.end(threadId, toolCallId))
 
@@ -44,7 +48,7 @@ export function subscribeSession({
     }
 
     for (const translated of translator.translate(event)) emit(threadId, translated)
-    if (event.type === 'turn_end') emitUsage(emit, threadId, session)
+    if (event.type === 'turn_end') emitUsage(emit, threadId, session, spent())
     if (event.type === 'queue_update') steers.sync(threadId, event.steering)
   })
 }
