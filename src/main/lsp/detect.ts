@@ -96,6 +96,7 @@ export async function detectServers(
         plausible,
         installed,
         enabled: lspEnabledFor(settings, server.id),
+        ...(settings?.servers?.[server.id] !== undefined ? { explicit: true } : {}),
         install: server.install,
       }
     }),
@@ -104,9 +105,11 @@ export async function detectServers(
 
 /** The servers the settings screen lists.
  *
- *  A server nobody could use here is noise; one that is switched on stays
- *  listed however the workspace looks, because a reader who turned it on has
- *  to be able to turn it off. */
+ *  A server for a language this workspace does not contain is noise — the
+ *  master switch being on is not a reason to offer Rust to a repository with no
+ *  Cargo.toml. One the reader has an opinion about stays listed however the
+ *  workspace looks, because a server they switched off has to be switchable
+ *  back on. */
 export function worthShowing(states: readonly LspServerState[]): LspServerState[] {
-  return states.filter((state) => state.plausible || state.enabled)
+  return states.filter((state) => state.plausible || state.explicit)
 }

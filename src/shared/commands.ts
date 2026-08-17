@@ -4,6 +4,7 @@
  *  down are two files rather than one long one. `protocol.ts` re-exports these,
  *  so nothing that imports them had to move. */
 
+import type { LspServerState } from './lsp'
 import type {
   AgentRole,
   ApprovalOutcome,
@@ -65,6 +66,20 @@ export interface SessionCommands {
   saveRole: { params: { role: AgentRole }; result: { ok: boolean; reason?: string } }
   deleteRole: { params: { roleId: string }; result: { ok: true } }
   setNamePool: { params: { names: string[] }; result: { ok: true } }
+  /** What the Workspace Settings screen draws: every server worth showing for
+   *  this workspace, and whether it is plausible, installed, enabled, running
+   *  or degraded. Detection happens in main, which is the only side that may
+   *  look at the disk or at PATH. */
+  workspaceLsp: {
+    params: { workspaceId: string }
+    result: { on: boolean; servers: LspServerState[] }
+  }
+  /** Switches LSP for a workspace, or one server within it. Takes effect on the
+   *  next call the agent makes; a running server it turns off is stopped. */
+  setWorkspaceLsp: {
+    params: { workspaceId: string; on?: boolean; serverId?: string; enabled?: boolean }
+    result: { ok: true }
+  }
   revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }
   cancelTurn: { params: { threadId: string }; result: { ok: true } }
   /** Stops one child agent. Its siblings keep running, and the turn stays open

@@ -18,6 +18,7 @@ import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
+import { handleLsp, LspService } from '../lsp/service'
 import { PiTranslator } from './pi-translate'
 import { emitUsage, replayAndCharge } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
@@ -51,6 +52,7 @@ export class PiDriver implements SessionDriver {
   readonly #workspaces: WorkspaceService
   readonly #approvals: ApprovalGate
   readonly #catalog: CatalogStore
+  readonly #lsp: LspService
   readonly #sessions: SessionFactory
   readonly #steers: SteerQueue
   readonly #models: ModelControl
@@ -62,6 +64,7 @@ export class PiDriver implements SessionDriver {
   constructor({ emit, catalog, model, onUnpin }: PiDriverOptions) {
     this.#emit = emit
     this.#catalog = catalog
+    this.#lsp = new LspService(catalog)
     this.#approvals = new ApprovalGate(emit, catalog)
     this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
@@ -206,6 +209,10 @@ export class PiDriver implements SessionDriver {
       case 'deleteRole':
       case 'setNamePool':
         return handleRoles(this.#catalog, name, params) as CommandResult<N>
+
+      case 'workspaceLsp':
+      case 'setWorkspaceLsp':
+        return (await handleLsp(this.#lsp, name, params)) as CommandResult<N>
 
       case 'archiveThread': {
         // Closing first: a thread with no column has nobody watching whatever

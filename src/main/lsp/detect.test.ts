@@ -148,9 +148,17 @@ describe('worthShowing', () => {
     expect(shown.map((one) => one.id)).toEqual(['go'])
   })
 
-  it('keeps showing something switched on, so it can be switched off', () => {
-    const shown = worthShowing([state('rust', { enabled: true })])
+  it('keeps showing a server the reader has an opinion about', () => {
+    // Switched off explicitly, so it has to stay switchable back on.
+    const shown = worthShowing([state('rust', { explicit: true, enabled: false })])
     expect(shown.map((one) => one.id)).toEqual(['rust'])
+  })
+
+  it('does not offer a language the workspace does not contain', () => {
+    // The master switch being on is not a reason to list Rust for a repository
+    // with no Cargo.toml.
+    const shown = worthShowing([state('rust', { enabled: true })])
+    expect(shown).toEqual([])
   })
 })
 

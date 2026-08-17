@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../shared/agent-roles'
+import type { WorkspaceLsp } from '../shared/lsp'
 import type { AgentRole } from '../shared/vocabulary'
 import { nameFor, voiceFor } from '../shared/workspace-identity'
 import {
@@ -181,6 +182,24 @@ export class CatalogStore {
 
   setNamePool(names: string[]): void {
     this.#state.namePool = [...new Set(names.filter((one) => one !== ''))]
+    this.#persist()
+  }
+
+  /** A workspace's language-server settings, as stored. */
+  lspFor(workspaceId: string): WorkspaceLsp | undefined {
+    return this.#state.workspaces.find((entry) => entry.id === workspaceId)?.lsp
+  }
+
+  /** Switches LSP, or one server, for one workspace.
+   *
+   *  Written per workspace rather than globally because the answer genuinely
+   *  differs per repository: a Rust service and a folder of shell scripts do
+   *  not want the same thing, and a global switch would make one of them
+   *  wrong. */
+  setLsp(workspaceId: string, lsp: WorkspaceLsp): void {
+    const entry = this.#state.workspaces.find((one) => one.id === workspaceId)
+    if (!entry) return
+    entry.lsp = { on: lsp.on, ...(lsp.servers ? { servers: { ...lsp.servers } } : {}) }
     this.#persist()
   }
 

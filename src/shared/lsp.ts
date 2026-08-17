@@ -119,6 +119,10 @@ export interface LspServerState {
   installed: boolean
   /** The workspace has not switched this one off. */
   enabled: boolean
+  /** The reader has an opinion about this server specifically, rather than
+   *  inheriting the workspace switch. What keeps a server they turned off
+   *  listed, so they can turn it back on. */
+  explicit?: boolean
   /** Set once a process is up. */
   running?: boolean
   /** Set when the last attempt to use it failed. */

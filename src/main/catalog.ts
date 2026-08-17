@@ -1,5 +1,6 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { parseNamePool, parseRoles } from '../shared/agent-roles'
+import type { WorkspaceLsp } from '../shared/lsp'
 import { DEFAULT_PREFERENCES, parsePreferences, type Preferences } from '../shared/preferences'
 import type { AgentRole } from '../shared/vocabulary'
 
@@ -14,6 +15,9 @@ export interface WorkspaceEntry {
   name: string
   note: string
   hue: number
+  /** Language servers, per workspace. Absent means off, which is the default:
+   *  a repository with no typed code gains nothing from a background daemon. */
+  lsp?: WorkspaceLsp
 }
 
 /** What the shell restores on launch: which folders are pinned, where the user
@@ -125,9 +129,30 @@ function parseWorkspaces(value: unknown): WorkspaceEntry[] {
       name: text(record.name) ?? path,
       note: text(record.note) ?? '',
       hue: typeof record.hue === 'number' ? record.hue : 0,
+      ...(parseLsp(record.lsp) ? { lsp: parseLsp(record.lsp)! } : {}),
     })
   }
   return entries
+}
+
+/** A workspace's LSP settings, or nothing.
+ *
+ *  Anything unreadable becomes nothing rather than a default: a record written
+ *  before this field existed has no opinion about language servers, and
+ *  inventing one for it would start processes the reader never asked for. */
+function parseLsp(value: unknown): WorkspaceLsp | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.on !== 'boolean') return null
+
+  const servers: Record<string, boolean> = {}
+  if (typeof record.servers === 'object' && record.servers !== null) {
+    for (const [id, on] of Object.entries(record.servers as Record<string, unknown>)) {
+      if (typeof on === 'boolean') servers[id] = on
+    }
+  }
+
+  return { on: record.on, ...(Object.keys(servers).length > 0 ? { servers } : {}) }
 }
 
 /** A map of id → list of ids, with anything unreadable dropped. Used for both
