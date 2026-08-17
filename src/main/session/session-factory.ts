@@ -1,5 +1,7 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { ApprovalGate } from './approvals'
+import type { AskGate } from './ask-gate'
+import { askUserTool } from './ask-tool'
 import type { Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
@@ -28,10 +30,12 @@ export class SessionFactory {
   #runtime: Promise<ModelRuntimeOf> | null = null
 
   readonly #approvals: ApprovalGate
+  readonly #asks: AskGate
   readonly #model: ModelRef | undefined
 
-  constructor(approvals: ApprovalGate, model?: ModelRef) {
+  constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
     this.#approvals = approvals
+    this.#asks = asks
     this.#model = model
   }
 
@@ -89,11 +93,20 @@ export class SessionFactory {
   ): Promise<ResourceLoaderOf> {
     const { DefaultResourceLoader, getAgentDir } = await this.load()
     const gate = this.#approvals
+    const asks = this.#asks
 
     const loader = new DefaultResourceLoader({
       cwd,
       agentDir: getAgentDir(),
       extensionFactories: [
+        {
+          // pi 0.84 has no elicitation of its own, so the only way an agent can
+          // ask a person anything is a tool this app gives it.
+          name: 'piocarina-ask',
+          factory: (pi) => {
+            pi.registerTool(askUserTool(asks, handle))
+          },
+        },
         {
           name: 'piocarina-approvals',
           factory: (pi) => {

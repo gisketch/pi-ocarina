@@ -11,6 +11,7 @@ import type { CatalogStore } from '../catalog-store'
 import { startThread } from './start-thread'
 import { worktreeCommand } from './worktree-commands'
 import { ApprovalGate } from './approvals'
+import { AskGate } from './ask-gate'
 import { ChangeLog } from './change-log'
 import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
@@ -53,19 +54,22 @@ export class PiDriver implements SessionDriver {
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
   readonly #changes = new ChangeLog()
+  readonly #asks: AskGate
 
   constructor({ emit, catalog, model, onUnpin }: PiDriverOptions) {
     this.#emit = emit
     this.#catalog = catalog
     this.#approvals = new ApprovalGate(emit, catalog)
+    this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
-    this.#sessions = new SessionFactory(this.#approvals, model)
+    this.#sessions = new SessionFactory(this.#approvals, this.#asks, model)
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
     this.#threads = new ThreadRegistry((threadId) => {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)
+      this.#asks.end(threadId, 'thread closed')
       this.#steers.forget(threadId)
       this.#changes.forget(threadId)
     })
@@ -194,11 +198,11 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
-      // pi 0.84 has no elicitation of its own, so no `ask` event is ever
-      // produced and this command has nothing to answer. It is accepted rather
-      // than rejected so the seam stays whole for the day pi gains one.
-      case 'answerAsk':
+      case 'answerAsk': {
+        const { askId, answers } = params as CommandParams<'answerAsk'>
+        this.#asks.answer(askId, answers)
         return { ok: true } as CommandResult<N>
+      }
 
       default:
         // Model and reasoning control arrive with the composer work (D5).
