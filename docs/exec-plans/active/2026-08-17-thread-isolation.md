@@ -48,7 +48,7 @@ Status legend: `todo` · `in-progress` · `done`.
   live pass under `PIOCARINA_PI_LIVE=1`.
 - Blocked by: K1.
 
-## K3 — The question every new thread asks — `todo`
+## K3 — The question every new thread asks — `done`
 
 > The only way a worktree is made. Small surface, and the whole feature is
 > unreachable without it.

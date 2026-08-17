@@ -11,6 +11,7 @@
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
+  import { chooseWorktree } from '$lib/state/worktree-ask.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
@@ -94,7 +95,10 @@
    *  into existence, so the hero is not a dead end. */
   async function targetThread(): Promise<string | null> {
     if (!thread.fresh) return thread.id
-    return catalog.newThread(app.workspace.id)
+    // The same question leader-n asks, asked here because this is the other
+    // way a thread comes into existence.
+    const choice = await chooseWorktree(app.workspace.git !== null)
+    return catalog.newThread(app.workspace.id, choice ?? undefined)
   }
 
   async function send(): Promise<void> {

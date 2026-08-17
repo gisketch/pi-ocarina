@@ -2,6 +2,7 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
+import { chooseWorktree, worktreeAsk } from './worktree-ask.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
@@ -72,19 +73,24 @@ class ShellState {
     }
 
     const workspaceId = app.workspace.id
-    void catalog.newThread(workspaceId).then((threadId) => {
-      if (!threadId) return
-      // The person may have moved on while the backend was working. The thread
-      // is theirs either way, but stealing the caret back would be rude.
-      if (app.workspace.id !== workspaceId) return
+    // The question comes before the column, and only in a repository. Its
+    // default answer is the thread this app has always made.
+    void chooseWorktree(app.workspace.git !== null)
+      .then((choice) => catalog.newThread(workspaceId, choice ?? undefined))
+      .then((threadId) => {
+        if (!threadId) return
+        // The person may have moved on while the backend was working. The
+        // thread is theirs either way, but stealing the caret back would be
+        // rude.
+        if (app.workspace.id !== workspaceId) return
 
-      const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
-      if (column === -1) return
+        const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
+        if (column === -1) return
 
-      app.focusThread(column)
-      app.mode = 'INSERT'
-      this.focusComposer()
-    })
+        app.focusThread(column)
+        app.mode = 'INSERT'
+        this.focusComposer()
+      })
   }
 
   /** Closes the focused thread, asking first if a turn is running.
@@ -143,6 +149,10 @@ class ShellState {
   handleKey(event: KeyEventLike): boolean {
     // The destructive modal outranks everything, including the close confirm.
     if (confirm.pending) return confirm.handleKey(event)
+    // The worktree question is modal for the same reason: it is answered
+    // before a thread exists, and a key that fell through would move a column
+    // behind it.
+    if (worktreeAsk.open) return worktreeAsk.handleKey(event)
     // The commit card owns its keys while it is open, for the same reason.
     if (commit.open) return commit.handleKey(event)
 

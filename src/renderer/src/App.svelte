@@ -8,6 +8,7 @@
   import LeaderBar from './components/LeaderBar.svelte'
   import CloseConfirm from './components/CloseConfirm.svelte'
   import ConfirmModal from './components/ConfirmModal.svelte'
+  import WorktreeAsk from './components/WorktreeAsk.svelte'
   import ConnectivityBanner from './components/ConnectivityBanner.svelte'
   import Toasts from './components/Toasts.svelte'
   import DiffViewer from './components/overlays/DiffViewer.svelte'
@@ -200,6 +201,7 @@
   {/if}
 
   <ConfirmModal />
+  <WorktreeAsk />
 
   {#if app.mode === 'LEADER'}
     <LeaderBar />

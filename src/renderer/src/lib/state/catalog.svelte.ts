@@ -6,6 +6,7 @@ import { session } from '../session'
 import { replayThread } from '../thread-reducer'
 import { terminalId, type Thread, type Workspace } from '../types'
 import { app, PLACEHOLDER_TITLE } from './app.svelte'
+import { worktreeAsk } from './worktree-ask.svelte'
 import { threads } from './threads.svelte'
 
 /** Where the strip's workspaces come from.
@@ -95,6 +96,10 @@ class Catalog {
       return threadId
     } catch (cause) {
       this.error = describe(cause)
+      // A branch git refused is remembered by the question, so the next ask
+      // says so in the field rather than sending the reader back to git to
+      // find out again.
+      if (worktree) worktreeAsk.refuse(worktree.branch)
       return null
     }
   }
