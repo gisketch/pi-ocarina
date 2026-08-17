@@ -36,7 +36,13 @@ export function extensionForMime(mime: string): string | null {
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
 export class StagedImages {
-  #dir: string | null = null
+  /** The promise, not the path.
+   *
+   *  `#dir ??= await mkdtemp(...)` reads as one step and is two: both of two
+   *  images pasted together see null, both create a directory, and the second
+   *  assignment orphans the first — a leaked folder nobody would think to look
+   *  for. Caching the promise makes the second caller wait for the first. */
+  #dir: Promise<string> | null = null
   #count = 0
 
   /** Writes clipboard bytes to a file and describes it as an attachment. */
@@ -52,11 +58,12 @@ export class StagedImages {
     }
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMAGE_BYTES) return null
 
-    this.#dir ??= await mkdtemp(join(tmpdir(), 'piocarina-pasted-'))
+    this.#dir ??= mkdtemp(join(tmpdir(), 'piocarina-pasted-'))
+    const dir = await this.#dir
     this.#count += 1
 
     const name = `pasted-${this.#count}.${extension}`
-    const path = join(this.#dir, name)
+    const path = join(dir, name)
     await writeFile(path, bytes)
 
     return { name, path, mime }
@@ -67,9 +74,11 @@ export class StagedImages {
    *  slow leak nobody would think to look for. */
   async cleanup(): Promise<void> {
     if (!this.#dir) return
-    const dir = this.#dir
+    const pending = this.#dir
     this.#dir = null
     this.#count = 0
-    await rm(dir, { recursive: true, force: true }).catch(() => {})
+    // Awaited before removal: a directory still being created cannot be
+    // removed, and cleanup running during a paste is exactly when that happens.
+    await pending.then((dir) => rm(dir, { recursive: true, force: true })).catch(() => {})
   }
 }

@@ -82,3 +82,25 @@ describe('staging a pasted image', () => {
     await expect(staged.cleanup()).resolves.toBeUndefined()
   })
 })
+
+describe('two images pasted at once', () => {
+  it('shares one directory rather than orphaning the first', async () => {
+    // `#dir ??= await mkdtemp(...)` reads as one step and is two: both callers
+    // see null, both create a directory, and the second assignment orphans the
+    // first — a leaked folder nobody would think to look for.
+    const staged = new StagedImages()
+
+    const [a, b] = await Promise.all([
+      staged.stage(PNG, 'image/png'),
+      staged.stage(PNG, 'image/png'),
+    ])
+
+    const dirOf = (path: string): string => path.slice(0, path.lastIndexOf('/'))
+    expect(dirOf(a!.path)).toBe(dirOf(b!.path))
+    expect(a!.name).not.toBe(b!.name)
+
+    await staged.cleanup()
+    await expect(readFile(a!.path)).rejects.toThrow()
+    await expect(readFile(b!.path)).rejects.toThrow()
+  })
+})

@@ -1,41 +1,29 @@
 import { describe, it } from 'vitest'
 import { extractArticle } from './extract'
 
-describe('hostile html', () => {
-  it('10000 nested divs', () => {
-    const html = `<html><body>${'<div>'.repeat(10000)}hello${'</div>'.repeat(10000)}</body></html>`
-    try {
-      const out = extractArticle(html)
-      console.log('OK divs, markdown len', out.markdown.length)
-    } catch (e) {
-      console.log('THREW divs:', (e as Error).constructor.name, (e as Error).message)
+const try_ = (label: string, html: string) => {
+  try { extractArticle(html); console.log(label, 'ok') } catch (e) { console.log(label, 'THREW', (e as Error).message) }
+}
+
+describe('depth threshold', () => {
+  it('divs', () => {
+    for (const n of [3500, 4000, 5000, 6000, 8000]) {
+      try_(`div ${n}`, `<html><body>${'<div>'.repeat(n)}hello${'</div>'.repeat(n)}</body></html>`)
     }
   })
-  it('10000 unclosed divs', () => {
-    const html = `<html><body>${'<div>'.repeat(10000)}hello</body></html>`
-    try {
-      const out = extractArticle(html)
-      console.log('OK unclosed, markdown len', out.markdown.length)
-    } catch (e) {
-      console.log('THREW unclosed:', (e as Error).constructor.name, (e as Error).message)
+  it('blockquote', () => {
+    for (const n of [200, 400, 800, 1600, 3000]) {
+      try_(`bq ${n}`, `<html><body>${'<blockquote>'.repeat(n)}hi${'</blockquote>'.repeat(n)}</body></html>`)
     }
   })
-  it('5000 nested spans inline', () => {
-    const html = `<html><body><p>${'<span>'.repeat(5000)}hi${'</span>'.repeat(5000)}</p></body></html>`
-    try {
-      const out = extractArticle(html)
-      console.log('OK spans, len', out.markdown.length)
-    } catch (e) {
-      console.log('THREW spans:', (e as Error).constructor.name, (e as Error).message)
+  it('nested lists', () => {
+    for (const n of [500, 1000, 2000]) {
+      try_(`ul ${n}`, `<html><body>${'<ul><li>x'.repeat(n)}${'</li></ul>'.repeat(n)}</body></html>`)
     }
   })
-  it('nested blockquotes 3000', () => {
-    const html = `<html><body>${'<blockquote>'.repeat(3000)}hi${'</blockquote>'.repeat(3000)}</body></html>`
-    try {
-      const out = extractArticle(html)
-      console.log('OK quotes, len', out.markdown.length)
-    } catch (e) {
-      console.log('THREW quotes:', (e as Error).constructor.name, (e as Error).message)
+  it('spans inline', () => {
+    for (const n of [1000, 2000, 3000, 4000]) {
+      try_(`span ${n}`, `<html><body><p>${'<span>'.repeat(n)}hi${'</span>'.repeat(n)}</p></body></html>`)
     }
   })
 })

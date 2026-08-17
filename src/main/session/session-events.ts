@@ -73,7 +73,13 @@ export function subscribeSession({
       }
     }
 
-    if (event.type === 'turn_end') emitUsage(emit, threadId, session, spent())
+    if (event.type === 'turn_end') {
+      // A read abandoned by an abort never sends its end event, so its entry
+      // would sit in the map for the life of the thread. Nothing is pending
+      // once the turn is over.
+      reading.clear()
+      emitUsage(emit, threadId, session, spent())
+    }
     if (event.type === 'queue_update') steers.sync(threadId, event.steering)
   })
 }
