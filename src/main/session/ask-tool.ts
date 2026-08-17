@@ -15,11 +15,13 @@ import type { AskGate } from './ask-gate'
 import { faultIn } from './ask-gate'
 import type { ThreadHandle } from './session-factory'
 
-const DESCRIPTION = `Ask the user a question when their answer changes what you do next and you cannot find it out yourself.
+const DESCRIPTION = `Ask the user a question. They are at the keyboard and will answer.
 
-Use it for decisions only they can make: which of several approaches to take, what something should be named, whether a tradeoff is acceptable, which of two readings of an ambiguous request is the right one.
+This is the only way to ask them anything. A question written into your reply is not a question: the turn ends, the thread goes quiet, and nobody is told that you are waiting.
 
-Do not use it for anything the repository can answer — read the code instead. Do not use it to confirm work you are already sure about. Do not use it to report progress.
+Ask whenever the work in front of you contains a decision you would otherwise guess at: which of several approaches to take, what something should be called, whether a tradeoff is acceptable, which of two readings of an ambiguous request is meant. Ask before doing the work, not after — a guess you have already built is expensive to undo.
+
+Do not ask what the repository can answer: read the code instead. Do not ask permission for work you were already told to do. Do not ask to report progress.
 
 A single call may carry several questions; ask them all at once rather than in a run of separate calls. Every question and every choice needs a stable id, because that is what comes back to you.`
 
@@ -68,6 +70,15 @@ export function askUserTool(asks: AskGate, handle: ThreadHandle) {
     label: 'Ask',
     description: DESCRIPTION,
     promptSnippet: 'ask_user — ask the user a question only they can answer',
+    // pi appends these to the system prompt while the tool is active. The
+    // description is read when the model is already reaching for a tool; this
+    // is what makes it reach in the first place, and the live discipline pass
+    // showed the difference — without it the model wrote the question into its
+    // reply and ended the turn.
+    promptGuidelines: [
+      'Never end a reply with a question. If you are about to ask the user anything — which approach, what to call it, whether a tradeoff is acceptable — call ask_user instead. A question in prose ends the turn and nobody is told you are waiting.',
+      'Ask before doing the work rather than after: a guess already built is expensive to undo.',
+    ],
     parameters: PARAMETERS,
     // One at a time: two questions racing each other would put two cards on
     // screen with one reader in front of them.

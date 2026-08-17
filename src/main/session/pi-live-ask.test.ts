@@ -50,21 +50,44 @@ describe.skipIf(!live)('ask_user against a real session', () => {
 
     await driver.execute('answerAsk', { threadId, askId: ask.id, answers: [answer] })
 
-    // The agent goes on to write the file, and writing is gated. Answering that
-    // too is what lets the turn finish — without it this test times out on the
-    // approval card rather than on anything to do with the ask.
-    await waitFor(() => events.some((event) => event.kind === 'approve'), 60_000)
-    const approval = events.find((event) => event.kind === 'approve')
-    if (approval?.kind === 'approve') {
-      await driver.execute('resolveApproval', {
-        threadId,
-        approvalId: approval.id,
-        outcome: 'allow-once',
-      })
-    }
+    // From here the agent may ask again, and it may want to write — both are
+    // gates it is waiting behind, and the turn only ends once nothing is. A
+    // test that answered the first question and then waited for `done` times
+    // out on whatever the agent asked second.
+    const answeredAsks = new Set([ask.id])
+    const resolved = new Set<string>()
 
     try {
-      await waitFor(() => events.some((event) => isState(event, 'done')), 120_000)
+      await waitFor(async () => {
+        for (const event of events) {
+          if (event.kind === 'ask' && !answeredAsks.has(event.id)) {
+            answeredAsks.add(event.id)
+            const next = event.questions[0]
+            await driver.execute('answerAsk', {
+              threadId,
+              askId: event.id,
+              answers: [
+                {
+                  id: next.id,
+                  kind: next.kind,
+                  chosen: next.choices?.[0] ? [next.choices[0].id] : [],
+                  labels: next.choices?.[0] ? [next.choices[0].title] : [],
+                  text: 'ocarina',
+                },
+              ],
+            })
+          }
+          if (event.kind === 'approve' && !resolved.has(event.id)) {
+            resolved.add(event.id)
+            await driver.execute('resolveApproval', {
+              threadId,
+              approvalId: event.id,
+              outcome: 'allow-once',
+            })
+          }
+        }
+        return events.some((event) => isState(event, 'done'))
+      }, 120_000)
     } finally {
       console.log('[pi-live-ask]', JSON.stringify(events, null, 1))
     }

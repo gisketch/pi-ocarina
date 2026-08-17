@@ -164,8 +164,12 @@ describe('the tool', () => {
     const definition = tool(asks)
 
     expect(definition.name).toBe('ask_user')
-    // The description's job is mostly saying when not to call.
-    expect(definition.description).toMatch(/Do not use it/)
+    // Both halves: when to ask, and when not to.
+    expect(definition.description).toMatch(/Ask whenever/)
+    expect(definition.description).toMatch(/Do not ask/)
+    // And the guideline that makes it reach for the tool rather than writing
+    // the question into its reply, which is what the live pass found.
+    expect(definition.promptGuidelines?.[0]).toMatch(/Never end a reply with a question/)
     expect(vi.isMockFunction(definition.execute)).toBe(false)
   })
 })
