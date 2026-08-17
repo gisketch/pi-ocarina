@@ -138,6 +138,16 @@ async function measureNew(
   return { added: change?.added ?? null, removed: 0 }
 }
 
+/** Whether the repository has a remote at all.
+ *
+ *  Asked with the change list rather than at the push, because a reader who is
+ *  about to commit should be told that pushing is unavailable while they can
+ *  still do something about it. */
+export async function hasRemote(cwd: string): Promise<boolean> {
+  const stdout = await git(cwd, ['remote']).catch(() => '')
+  return lines(stdout).length > 0
+}
+
 /** A starting point for the message, built from the change set.
  *
  *  Deliberately plain. It is a scaffold the person edits, not a claim about

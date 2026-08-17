@@ -2,18 +2,16 @@ import type { AgentSession, SessionEntry } from '@earendil-works/pi-coding-agent
 import type {
   CommandName,
   CommandParams,
-  ChangedFile,
   CommandResult,
   EmitEvent,
   SessionDriver,
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
-import { isAbsolute, relative } from 'node:path'
 import type { CatalogStore } from '../catalog-store'
-import { countChanges, diffLines } from './file-diff'
 import { dropWorktree, threadGitStatus, worktreeOf } from './thread-worktree'
 import { ApprovalGate } from './approvals'
 import { ChangeLog } from './change-log'
+import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { PiTranslator } from './pi-translate'
@@ -35,18 +33,6 @@ export interface PiDriverOptions {
   /** Overrides pi's configured default. Left unset, pi chooses — which is the
    *  product decision: provider and model live in pi's config, not ours. */
   model?: ModelRef
-}
-
-/** A path as the reader knows it: relative to the workspace it is in.
- *
- *  `relative`, not a string prefix. `/repo-notes/a.ts` starts with `/repo`, and
- *  slicing by length would call it `otes/a.ts` — a path that looks like it is
- *  inside the workspace and is not. */
-function shorten(path: string, cwd: string | undefined): string {
-  if (cwd === undefined) return path
-
-  const inside = relative(cwd, path)
-  return inside === '' || inside.startsWith('..') || isAbsolute(inside) ? path : inside
 }
 
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
@@ -150,7 +136,9 @@ export class PiDriver implements SessionDriver {
 
       case 'listChanges': {
         const { threadId } = params as CommandParams<'listChanges'>
-        return { files: this.#changedFiles(threadId) } as CommandResult<N>
+        return {
+          files: changedFiles(this.#changes.changes(threadId), this.#workspaces.cwdOf(threadId)),
+        } as CommandResult<N>
       }
 
       case 'compact': {
@@ -230,6 +218,19 @@ export class PiDriver implements SessionDriver {
     return this.#threads.abortAll()
   }
 
+  /** Where a thread runs, when that is not its workspace's own folder. What
+   *  the git pipeline asks before it reads or commits anything for a thread. */
+  threadCwd(threadId: string): string | null {
+    return this.#workspaces.branchOf(threadId) === null
+      ? null
+      : (this.#workspaces.cwdOf(threadId) ?? null)
+  }
+
+  /** The branch a thread is isolated on, or null. */
+  threadBranch(threadId: string): string | null {
+    return this.#workspaces.branchOf(threadId)
+  }
+
   /** The pi session file backing a thread — the transcript's real home. */
   sessionFile(threadId: string): string | undefined {
     return this.#threads.find(threadId)?.session.sessionFile
@@ -295,27 +296,6 @@ export class PiDriver implements SessionDriver {
 
   /** Takes ownership of a session: binds its tools, wires its events, and files
    *  it under pi's own session id so the thread survives a relaunch. */
-  /** Every file a thread changed, as one diff each.
-   *
-   *  The same `diffLines` the ledger's rows go through, given a longer span:
-   *  the file before the thread's first edit against the file after its last.
-   *  A second differ here is how the two views would come to disagree. */
-  #changedFiles(threadId: string): ChangedFile[] {
-    const cwd = this.#workspaces.cwdOf(threadId)
-
-    return this.#changes.changes(threadId).map((change) => {
-      const lines = diffLines(change.before, change.after, { path: change.path })
-      const { added, removed } = countChanges(lines)
-      return {
-        path: shorten(change.path, cwd),
-        added,
-        removed,
-        existed: change.before !== '',
-        lines,
-      }
-    })
-  }
-
   #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {
     const threadId = session.sessionId
     const translator = new PiTranslator(

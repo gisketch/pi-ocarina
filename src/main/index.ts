@@ -159,11 +159,19 @@ void app.whenReady().then(async () => {
   registerDialogs()
   registerCatalog(catalog)
 
-  const git = registerGit(catalog)
+  // The driver is built after git, and git needs to ask it where a thread
+  // runs. The question is only ever asked from an IPC handler, long after both
+  // exist, so it is wired through a reference rather than by reordering.
+  let piDriver: PiDriver | null = null
+  const git = registerGit(catalog, {
+    cwdOfThread: (threadId) => piDriver?.threadCwd(threadId) ?? null,
+    branchOfThread: (threadId) => piDriver?.threadBranch(threadId) ?? null,
+  })
   const { driver, terminals } = registerSession(catalog, {
     // Unpinning a folder ends everything the app was holding for it.
     onUnpin: (workspaceId) => git.forget(workspaceId),
   })
+  piDriver = driver instanceof PiDriver ? driver : null
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),

@@ -54,7 +54,7 @@ beforeEach(() => {
   catalog.workspaces = [structuredClone(WORKSPACE)]
   catalog.source = 'live'
   app.goWorkspace(0)
-  changes.mockResolvedValue({ changes: [EDIT], message: 'update src/one.ts' })
+  changes.mockResolvedValue({ changes: [EDIT], message: 'update src/one.ts', remote: true })
   commitCall.mockResolvedValue(ok(false))
   push.mockResolvedValue(ok(true))
 })
@@ -63,7 +63,7 @@ describe('opening the card', () => {
   it('shows what would be committed, and a message to start from', async () => {
     await commit.load()
 
-    expect(changes).toHaveBeenCalledWith('w1')
+    expect(changes).toHaveBeenCalledWith('w1', 's1')
     expect(commit.open).toBe(true)
     expect(commit.changes).toEqual([EDIT])
     expect(commit.message).toBe('update src/one.ts')
@@ -94,6 +94,7 @@ describe('committing', () => {
     await commit.run({ push: false })
 
     expect(commitCall).toHaveBeenCalledWith('w1', {
+      threadId: 's1',
       message: 'update src/one.ts',
       paths: ['src/one.ts'],
       push: false,

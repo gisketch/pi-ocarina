@@ -12,6 +12,11 @@ import { toasts } from './toasts.svelte'
 class Commit {
   /** Which workspace the open card belongs to. Null when it is closed. */
   workspaceId = $state.raw<string | null>(null)
+  /** The thread the card opened on, and the branch it is isolated on. Held
+   *  from the moment it opened: the card must commit into the tree it listed,
+   *  even if the focus has moved to another column since. */
+  threadId = $state.raw<string | null>(null)
+  branch = $state.raw<string | null>(null)
   changes = $state.raw<GitChange[]>([])
   message = $state.raw('')
   loading = $state.raw(false)
@@ -21,6 +26,9 @@ class Commit {
   running = $state.raw(false)
   /** Why the last attempt failed, shown in the card as well as in a toast. */
   error = $state.raw<string | null>(null)
+  /** Whether there is a remote to push to. Assumed until the draft says
+   *  otherwise, so the card does not flash a "no remote" line while it reads. */
+  remote = $state.raw(true)
 
   get open(): boolean {
     return this.workspaceId !== null
@@ -33,19 +41,23 @@ class Commit {
     if (!workspaceId || !bridge) return
 
     this.workspaceId = workspaceId
+    this.threadId = app.thread.id || null
+    this.branch = app.thread.branch ?? null
     this.changes = []
     this.message = ''
     this.editing = false
     this.error = null
+    this.remote = true
     this.loading = true
 
     try {
-      const draft = await bridge.git.changes(workspaceId)
+      const draft = await bridge.git.changes(workspaceId, this.threadId ?? undefined)
       // A card that opened on one workspace must not fill with another's
       // changes because the read outlived the user's attention.
       if (this.workspaceId !== workspaceId) return
       this.changes = draft.changes
       this.message = draft.message
+      this.remote = draft.remote
     } catch (cause) {
       this.error = describe(cause)
     } finally {
@@ -55,6 +67,8 @@ class Commit {
 
   close(): void {
     this.workspaceId = null
+    this.threadId = null
+    this.branch = null
     this.changes = []
     this.editing = false
     this.running = false
@@ -68,6 +82,7 @@ class Commit {
     this.error = null
     const result = await bridge.git
       .commit(workspaceId, {
+        threadId: this.threadId ?? undefined,
         message: this.message,
         // The card commits what the card showed. Anything written since it
         // opened is not in this list and is left where it is.
@@ -102,6 +117,50 @@ class Commit {
     }
 
     if (stillOurs) this.error = result.reason
+  }
+
+  /** Commits, pushes the thread's branch, and opens the host's pull request
+   *  page.
+   *
+   *  One action rather than two: a branch pushed with no page opened is a job
+   *  half done, and the reader would have to go and find the page themselves —
+   *  which is the trip this whole feature exists to save. */
+  async commitAndOpen(): Promise<void> {
+    const workspaceId = this.workspaceId
+    const threadId = this.threadId
+    const branch = this.branch
+    if (!workspaceId || !threadId || !branch || !bridge || this.running) return
+
+    if (this.changes.length > 0) {
+      await this.run({ push: false })
+      // A failed commit leaves its reason in the card. Pushing a branch the
+      // reader believes carries that work would publish the wrong thing.
+      if (this.error !== null) return
+    }
+
+    const result = await bridge.git
+      .pullRequest(workspaceId, threadId)
+      .catch((cause: unknown) => ({ ok: false as const, reason: describe(cause) }))
+
+    if (!result.ok) {
+      toasts.push({ tone: 'error', text: `push failed — ${result.reason}` })
+      return
+    }
+
+    if (result.url === null) {
+      // Pushed, but no page could be worked out. The branch name is the one
+      // thing the reader needs on the host's own form.
+      await navigator.clipboard.writeText(branch).catch(() => {})
+      toasts.push({ tone: 'info', text: `pushed ${branch} · branch name copied` })
+      return
+    }
+
+    // Through the window's own open handler, which is where main's allow-list
+    // for external links already lives — this side does not decide what may be
+    // launched. `globalThis` rather than `window` so the state module stays
+    // usable outside a document.
+    globalThis.open?.(result.url, '_blank')
+    toasts.push({ tone: 'ok', text: `pushed ${branch}` })
   }
 
   /** Pushes what is already committed. The commit is not made a second time. */
@@ -152,8 +211,15 @@ class Commit {
       return true
     }
 
+    if (event.key === 'p' && !this.remote) return true
+
     if (event.key === 'c') void this.run({ push: false })
-    else if (event.key === 'p') void this.run({ push: true })
+    // On an isolated thread `p` means the whole errand: commit, push the
+    // branch, open the page where the pull request is made.
+    else if (event.key === 'p') {
+      if (this.branch) void this.commitAndOpen()
+      else void this.run({ push: true })
+    }
     else if (event.key === 'e') this.editing = true
 
     return true

@@ -30,57 +30,9 @@ export const ptyChannel = (workspaceId: string): string => `pty:${workspaceId}`
 /** Repository state, pushed whenever it changes. One message per workspace. */
 export const GIT_STATUS_CHANNEL = 'git:status'
 
-/** What `git status --porcelain=v2 --branch` says about a workspace.
- *
- *  Counts are per file, not per line: one file that is both staged and edited
- *  is one entry, so the totals add up to the number of files a person would
- *  see in `git status`. */
-export interface GitStatus {
-  /** Branch name, or the short commit when HEAD is detached. */
-  branch: string
-  detached: boolean
-  ahead: number
-  behind: number
-  /** Files staged as new. Untracked files are counted separately, because the
-   *  parse should not decide whether they are "added" — the summary does. */
-  added: number
-  modified: number
-  deleted: number
-  untracked: number
-  /** Unmerged paths. Any non-zero value means the repo is mid-merge. */
-  conflicts: number
-}
+export * from './git-protocol'
+import type { GitStatus } from './git-protocol'
 
-/** One file the commit card lists. Counts are lines; null means git could not
- *  count them, which is what it says about a binary file. */
-export interface GitChange {
-  path: string
-  status: 'M' | 'A' | 'D'
-  added: number | null
-  removed: number | null
-}
-
-/** What the card opens with: what would be committed, and a message to start
- *  from. */
-export interface GitCommitDraft {
-  changes: GitChange[]
-  message: string
-}
-
-/** Commit reports its two halves apart: a commit survives a failed push, and
- *  saying the commit failed would send someone looking for work already
- *  saved. */
-export type GitCommitResult =
-  | { ok: true; pushed: boolean }
-  | { ok: false; stage: 'commit' | 'push'; reason: string }
-
-/** A workspace's repository state, or null when the folder is not a repo. */
-export interface GitStatusMessage {
-  workspaceId: string
-  status: GitStatus | null
-}
-
-/** What the backend says happened. The reducer turns these into blocks. */
 export type UiEvent =
   | { kind: 'thread-state'; state: ThreadRunState; reason?: string }
   /** Discard the thread built so far; its history is about to be sent again.
@@ -141,6 +93,7 @@ export interface EventBatch {
 }
 
 /** A pinned folder, as the UI needs to draw it. */
+
 export interface WorkspaceSummary {
   id: string
   path: string

@@ -110,7 +110,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: headless tests over the list and its removal calls.
 - Blocked by: K5.
 
-## K6 — Commit, push, pull request — `todo`
+## K6 — Commit, push, pull request — `done`
 
 - Delivered behavior: the commit card runs against the thread's worktree and
   names the branch in its header. After a successful commit it offers *push and

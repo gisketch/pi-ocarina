@@ -5,7 +5,10 @@
 
   let input = $state<HTMLInputElement | null>(null)
 
-  const branch = $derived(branchLabel(app.workspace.git))
+  // The card's own branch, not the workspace's: an isolated thread commits
+  // into its own checkout, and a header naming the folder's branch would be
+  // naming a tree this card is not about.
+  const branch = $derived(commit.branch ? `⑂ ${commit.branch}` : branchLabel(app.workspace.git))
   const nothing = $derived(!commit.loading && commit.changes.length === 0)
 
   // Focused the moment editing starts: the key that opened the field and the
@@ -67,7 +70,13 @@
         <span><span class="key">⏎</span> done</span>
       {:else}
         <span><span class="key">c</span> commit</span>
-        <span><span class="key">p</span> commit + push</span>
+        {#if !commit.remote}
+          <span class="quiet">no remote to push to</span>
+        {:else if commit.branch}
+          <span><span class="key">p</span> push + pull request</span>
+        {:else}
+          <span><span class="key">p</span> commit + push</span>
+        {/if}
         <span><span class="key">e</span> edit message</span>
       {/if}
       <span><span class="key">esc</span> cancel</span>

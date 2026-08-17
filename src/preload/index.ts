@@ -12,6 +12,7 @@ import {
   type GitCommitDraft,
   type GitCommitResult,
   type GitStatusMessage,
+  type PullRequestResult,
 } from '../shared/protocol'
 
 // The preload is a typed bridge only — no logic. The renderer must keep working
@@ -60,14 +61,18 @@ const api = {
   git: {
     refresh: (workspaceId: string): void => ipcRenderer.send('git:refresh', workspaceId),
     statuses: (): Promise<GitStatusMessage[]> => ipcRenderer.invoke('git:statuses'),
-    changes: (workspaceId: string): Promise<GitCommitDraft> =>
-      ipcRenderer.invoke('git:changes', workspaceId),
+    changes: (workspaceId: string, threadId?: string): Promise<GitCommitDraft> =>
+      ipcRenderer.invoke('git:changes', workspaceId, threadId),
     commit: (
       workspaceId: string,
-      options: { message: string; paths: string[]; push: boolean },
+      options: { message: string; paths: string[]; push: boolean; threadId?: string },
     ): Promise<GitCommitResult> => ipcRenderer.invoke('git:commit', workspaceId, options),
-    push: (workspaceId: string): Promise<GitCommitResult> =>
-      ipcRenderer.invoke('git:push', workspaceId),
+    push: (workspaceId: string, threadId?: string): Promise<GitCommitResult> =>
+      ipcRenderer.invoke('git:push', workspaceId, threadId),
+    /** Pushes an isolated thread's branch and answers where its pull request
+     *  would be opened. */
+    pullRequest: (workspaceId: string, threadId: string): Promise<PullRequestResult> =>
+      ipcRenderer.invoke('git:pullRequest', workspaceId, threadId),
     onStatus: (listener: (message: GitStatusMessage) => void): (() => void) => {
       const handler = (_event: unknown, message: GitStatusMessage): void => listener(message)
       ipcRenderer.on(GIT_STATUS_CHANNEL, handler)
