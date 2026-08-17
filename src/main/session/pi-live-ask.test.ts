@@ -59,7 +59,7 @@ describe.skipIf(!live)('ask_user against a real session', () => {
       await driver.execute('resolveApproval', {
         threadId,
         approvalId: approval.id,
-        outcome: 'allow',
+        outcome: 'allow-once',
       })
     }
 

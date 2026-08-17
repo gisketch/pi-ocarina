@@ -162,6 +162,7 @@
         />
       {:else if block.kind === 'ask'}
         <AskCard
+          askId={block.id}
           questions={block.questions}
           outcome={block.outcome}
           answers={block.answers}
