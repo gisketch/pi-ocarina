@@ -1,0 +1,84 @@
+import { readFile } from 'node:fs/promises'
+import { describe, expect, it } from 'vitest'
+import { extensionForMime, MAX_IMAGE_BYTES, StagedImages } from './staged-images'
+
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64')
+
+describe('extensionForMime', () => {
+  it('names the types a clipboard actually carries', () => {
+    expect(extensionForMime('image/png')).toBe('png')
+    expect(extensionForMime('image/jpeg')).toBe('jpg')
+    expect(extensionForMime('image/webp')).toBe('webp')
+  })
+
+  it('reads a type with parameters on it', () => {
+    expect(extensionForMime('image/png; charset=binary')).toBe('png')
+  })
+
+  it('refuses to guess at anything else', () => {
+    // A file named for a type it is not gets opened by the wrong application,
+    // and pi is handed a mime it cannot read.
+    expect(extensionForMime('application/pdf')).toBeNull()
+    expect(extensionForMime('text/plain')).toBeNull()
+    expect(extensionForMime('')).toBeNull()
+  })
+})
+
+describe('staging a pasted image', () => {
+  it('writes the bytes and describes the file', async () => {
+    const staged = new StagedImages()
+    const attachment = await staged.stage(PNG, 'image/png')
+
+    expect(attachment).not.toBeNull()
+    expect(attachment!.name).toBe('pasted-1.png')
+    expect(attachment!.mime).toBe('image/png')
+    expect(await readFile(attachment!.path)).toEqual(Buffer.from(PNG, 'base64'))
+
+    await staged.cleanup()
+  })
+
+  it('numbers them, so two screenshots are two files', async () => {
+    const staged = new StagedImages()
+    const first = await staged.stage(PNG, 'image/png')
+    const second = await staged.stage(PNG, 'image/jpeg')
+
+    expect(first!.name).toBe('pasted-1.png')
+    expect(second!.name).toBe('pasted-2.jpg')
+    expect(first!.path).not.toBe(second!.path)
+
+    await staged.cleanup()
+  })
+
+  it('refuses a type it cannot name', async () => {
+    const staged = new StagedImages()
+    expect(await staged.stage(PNG, 'application/zip')).toBeNull()
+  })
+
+  it('refuses an empty paste', async () => {
+    const staged = new StagedImages()
+    expect(await staged.stage('', 'image/png')).toBeNull()
+  })
+
+  it('refuses something far too big to be a screenshot', async () => {
+    const staged = new StagedImages()
+    const huge = Buffer.alloc(MAX_IMAGE_BYTES + 1).toString('base64')
+
+    expect(await staged.stage(huge, 'image/png')).toBeNull()
+  })
+
+  it('removes its directory, so screenshots do not pile up per session', async () => {
+    const staged = new StagedImages()
+    const attachment = await staged.stage(PNG, 'image/png')
+
+    await staged.cleanup()
+
+    await expect(readFile(attachment!.path)).rejects.toThrow()
+  })
+
+  it('is safe to clean up twice', async () => {
+    const staged = new StagedImages()
+    await staged.stage(PNG, 'image/png')
+    await staged.cleanup()
+    await expect(staged.cleanup()).resolves.toBeUndefined()
+  })
+})

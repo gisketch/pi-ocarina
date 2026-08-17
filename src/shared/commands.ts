@@ -74,6 +74,13 @@ export interface SessionCommands {
     params: { workspaceId: string }
     result: { on: boolean; servers: LspServerState[] }
   }
+  /** Writes clipboard image bytes to a file main owns, and describes it as an
+   *  attachment. A screenshot has no path, so this is the only way one can
+   *  travel — and the renderer still never opens a file. */
+  stageImage: {
+    params: { data: string; mime: string }
+    result: { attachment: AttachmentRef | null }
+  }
   /** Switches LSP for a workspace, or one server within it. Takes effect on the
    *  next call the agent makes; a running server it turns off is stopped. */
   setWorkspaceLsp: {

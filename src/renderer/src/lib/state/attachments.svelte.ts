@@ -31,6 +31,13 @@ class Attachments {
     return staged.length
   }
 
+  /** Stages a file main already wrote — a pasted screenshot. Its path is real,
+   *  so everything downstream treats it exactly like a dropped file. */
+  push(attachment: AttachmentRef): void {
+    if (this.list.some((existing) => existing.path === attachment.path)) return
+    this.list = [...this.list, attachment]
+  }
+
   remove(path: string): void {
     this.list = this.list.filter((attachment) => attachment.path !== path)
   }

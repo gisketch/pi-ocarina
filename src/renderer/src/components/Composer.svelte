@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
   import { isSendKey, planSend, sendHint } from '$lib/composer'
@@ -7,6 +8,8 @@
   import { applyMention, mentionAt } from '$lib/mention'
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
+  import { pasting } from '$lib/state/pasting.svelte'
+  import StagedChips from './composer/StagedChips.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
@@ -28,7 +31,6 @@
   let sending = $state(false)
 
   const insert = $derived(app.mode === 'INSERT')
-  const chips = $derived(attachments.list)
 
   const query = $derived(slashQuery(text))
   const slash = $derived(query === null ? [] : filterSlash(query))
@@ -113,10 +115,14 @@
       const threadId = await targetThread()
       if (!threadId) return
 
-      if (plan.action === 'prompt') threads.prompt(threadId, plan.text, attachments.list)
-      else threads.steer(threadId, plan.text)
+      // Every fold's real text goes back where its token stood, so a paste
+      // dropped into the middle of a sentence reaches the model there.
+      const said = pasting.expand(plan.text)
+      if (plan.action === 'prompt') threads.prompt(threadId, said, attachments.list)
+      else threads.steer(threadId, said)
 
       attachments.clear()
+      pasting.clear()
 
       // Cleared only once it has gone somewhere: losing a prompt to a failed
       // send would mean retyping it.
@@ -124,6 +130,37 @@
     } finally {
       sending = false
     }
+  }
+
+  /** A paste is either pictures, a wall of text, or something ordinary.
+   *
+   *  Ordinary falls through to the browser on purpose: native paste keeps
+   *  native undo, and undo is the veto a reader reaches for first. */
+  async function onpaste(event: ClipboardEvent): Promise<void> {
+    const data = event.clipboardData
+    if (!data) return
+
+    const files = [...data.files]
+    if (files.some((file) => file.type.startsWith('image/'))) {
+      event.preventDefault()
+      await pasting.images(files)
+      return
+    }
+
+    const pasted = data.getData('text/plain')
+    if (pasted === '') return
+
+    const field = input
+    const folded = pasting.text(text, { start: field?.selectionStart ?? text.length, end: field?.selectionEnd ?? text.length }, pasted)
+    if (!folded) return
+
+    event.preventDefault()
+    text = folded.text
+    // The caret belongs after the token, which only exists once Svelte has
+    // written the new value into the field.
+    await tick()
+    field?.setSelectionRange(folded.caret, folded.caret)
+    trackCaret()
   }
 
   function onkeydown(event: KeyboardEvent): void {
@@ -202,21 +239,7 @@
     />
   {/if}
 
-  {#if chips.length > 0}
-    <div class="chips">
-      {#each chips as attachment (attachment.path)}
-        <span class="chip" class:image={(attachment.mime ?? '').startsWith('image/')}>
-          <span class="glyph">▤</span>{attachment.name}
-          <button
-            type="button"
-            class="drop"
-            aria-label="remove {attachment.name}"
-            onclick={() => attachments.remove(attachment.path)}>✕</button
-          >
-        </span>
-      {/each}
-    </div>
-  {/if}
+  <StagedChips />
 
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
@@ -226,7 +249,12 @@
       {onkeydown}
       onselect={trackCaret}
       onclick={trackCaret}
-      oninput={trackCaret}
+      oninput={() => {
+        trackCaret()
+        // Deleting a chip is how a reader drops a paste, so the held text has
+        // to follow the token rather than outlive it.
+        pasting.prune(text)
+      }}
       onkeyup={trackCaret}
       rows="1"
       placeholder="Message pi in {app.workspace.name}…  (i to focus)"
@@ -234,6 +262,7 @@
       onblur={() => {
         if (app.mode === 'INSERT') app.mode = 'NORMAL'
       }}
+      onpaste={onpaste}
     ></textarea>
     <span class="hints">
       <span><span class="kbd">⏎</span> {hint}</span>
@@ -290,47 +319,6 @@
   }
   textarea::placeholder {
     color: var(--fg-dimmest);
-  }
-
-  .chips {
-    max-width: var(--column-w);
-    margin: 0 auto 6px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .chip {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 5px;
-    border: 1px solid var(--line-strong);
-    background: var(--bg-hover);
-    padding: 2px 8px;
-    font-size: 11px;
-    font-family: var(--font-body);
-    color: var(--fg-agent);
-  }
-  .chip.image {
-    border-color: oklch(0.76 0.14 var(--accent-hue) / 0.5);
-  }
-  .glyph {
-    color: var(--fg-dim);
-  }
-  .chip.image .glyph {
-    color: var(--accent);
-  }
-  .drop {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--fg-dimmest);
-    font: inherit;
-    font-size: 10px;
-    cursor: pointer;
-    transition: color 0.15s;
-  }
-  .drop:hover {
-    color: var(--err);
   }
 
   .hints {

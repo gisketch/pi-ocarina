@@ -4,7 +4,7 @@ Spec: [2026-08-17-paste-and-media.md](../../specs/2026-08-17-paste-and-media.md)
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## P1 — a big paste folds into a token — `todo`
+## P1 — a big paste folds into a token — `done`
 
 > Pure model first: when to fold, what the token says, how it unfolds on send.
 
@@ -17,7 +17,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: `paste.test.ts` at both thresholds, multiple folds, out-of-order
   tokens, a token the user edited.
 
-## P2 — a pasted screenshot becomes an attachment — `todo`
+## P2 — a pasted screenshot becomes an attachment — `done`
 
 > Bytes from the paste event, a file in main, the existing chip row.
 

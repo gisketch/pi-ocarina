@@ -71,6 +71,12 @@ export class StubDriver implements SessionDriver {
       case 'setNamePool':
         return { ok: true } as CommandResult<N>
 
+      // The stub owns no temporary directory, so a pasted image cannot be
+      // staged. Saying so is honest; `{ ok: true }` would have been a lie in
+      // the shape of a different command's answer.
+      case 'stageImage':
+        return { attachment: null } as CommandResult<N>
+
       case 'restoreCheckpoint': {
         const { threadId } = params as CommandParams<'restoreCheckpoint'>
         return { threadId } as CommandResult<N>

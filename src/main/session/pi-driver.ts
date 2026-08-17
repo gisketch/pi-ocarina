@@ -19,6 +19,7 @@ import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
 import { handleLsp, LspService } from '../lsp/service'
+import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
@@ -56,6 +57,7 @@ export class PiDriver implements SessionDriver {
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
   readonly #changes = new ChangeLog()
+  readonly #staged = new StagedImages()
   readonly #asks: AskGate
   readonly #fleet: AgentFleet
 
@@ -209,6 +211,11 @@ export class PiDriver implements SessionDriver {
       case 'setNamePool':
         return handleRoles(this.#catalog, name, params) as CommandResult<N>
 
+      case 'stageImage': {
+        const { data, mime } = params as CommandParams<'stageImage'>
+        return { attachment: await this.#staged.stage(data, mime) } as CommandResult<N>
+      }
+
       case 'workspaceLsp':
       case 'setWorkspaceLsp':
         return (await handleLsp(this.#lsp, name, params)) as CommandResult<N>
@@ -237,6 +244,7 @@ export class PiDriver implements SessionDriver {
 
   async dispose(): Promise<void> {
     await this.#lsp.stopAll()
+    await this.#staged.cleanup()
     this.#threads.closeAll()
   }
 
