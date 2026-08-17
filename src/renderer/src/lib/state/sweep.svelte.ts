@@ -46,8 +46,11 @@ class Sweep {
     return one !== null && !one.live && one.commits === 0
   }
 
-  async show(): Promise<void> {
-    const workspaceId = app.workspace.id
+  async show(onWorkspace?: string): Promise<void> {
+    // The workspace it opened on, not the focused one: a re-read after a
+    // removal must not quietly re-list a different repository under a sheet
+    // the reader is still looking at.
+    const workspaceId = onWorkspace ?? app.workspace.id
     this.#workspaceId = workspaceId
     this.open = true
     this.loading = true
@@ -117,7 +120,7 @@ class Sweep {
     // Re-read rather than splice: another column may have closed while this
     // list was up, and a list that is only ever edited drifts from the folder
     // it claims to describe.
-    await this.show()
+    await this.show(workspaceId)
   }
 
   handleKey(event: { key: string }): boolean {

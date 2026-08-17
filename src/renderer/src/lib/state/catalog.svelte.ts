@@ -6,8 +6,8 @@ import { session } from '../session'
 import { replayThread } from '../thread-reducer'
 import { terminalId, type Thread, type Workspace } from '../types'
 import { app, PLACEHOLDER_TITLE } from './app.svelte'
-import { worktreeAsk } from './worktree-ask.svelte'
 import { threads } from './threads.svelte'
+import { toasts } from './toasts.svelte'
 
 /** Where the strip's workspaces come from.
  *
@@ -92,14 +92,14 @@ class Catalog {
     try {
       const { threadId } = await session.invoke('createThread', { workspaceId, worktree })
       threads.follow(threadId)
-      this.#insert(workspaceId, threadId)
+      this.#insert(workspaceId, threadId, PLACEHOLDER_TITLE, worktree?.branch ?? null)
       return threadId
     } catch (cause) {
       this.error = describe(cause)
-      // A branch git refused is remembered by the question, so the next ask
-      // says so in the field rather than sending the reader back to git to
-      // find out again.
-      if (worktree) worktreeAsk.refuse(worktree.branch)
+      // A refused worktree is reported by the question, which is still up and
+      // holds the field that would fix it. Everything else has no surface of
+      // its own, so it gets a toast rather than a silence.
+      if (!worktree) toasts.push({ tone: 'error', text: describe(cause) })
       return null
     }
   }
@@ -214,7 +214,12 @@ class Catalog {
   /** Puts a just-created thread on the end of its workspace's strip. The fresh
    *  placeholder is replaced, not kept beside it: it stands for "this workspace
    *  has no thread yet", which has stopped being true. */
-  #insert(workspaceId: string, threadId: string, title = PLACEHOLDER_TITLE): void {
+  #insert(
+    workspaceId: string,
+    threadId: string,
+    title = PLACEHOLDER_TITLE,
+    branch: string | null = null,
+  ): void {
     this.workspaces = this.workspaces.map((workspace) =>
       workspace.id === workspaceId
         ? {
@@ -223,7 +228,12 @@ class Catalog {
               ...workspace.threads.filter(
                 (thread) => !thread.fresh && thread.id !== threadId,
               ),
-              { id: threadId, title, status: 'idle' as const, meta: '' },
+              // The branch comes with the creation. Nothing re-lists the
+              // workspace afterwards, so a column built without it would be a
+              // column that does not know it is isolated until the app
+              // restarts — and everything that reads `branch` would be wrong
+              // in the meantime, the sweep's "a thread is open here" included.
+              { id: threadId, title, status: 'idle' as const, meta: '', branch },
             ],
           }
         : workspace,

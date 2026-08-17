@@ -52,6 +52,16 @@ export async function threadGitStatus(
   return readStatus(cwd)
 }
 
+/** Why this checkout may not go, or null when it may.
+ *
+ *  One function for both doors — closing a column and sweeping — so a rule can
+ *  never be relaxed on one of them by accident. */
+function refuse({ commits, dirty }: { commits: number; dirty: number }, force: boolean): string | null {
+  if (commits > 0) return 'the branch holds commits'
+  if (dirty > 0 && !force) return 'the worktree has uncommitted work'
+  return null
+}
+
 /** Every worktree a workspace has, and what each of them holds.
  *
  *  What the sweep lists. The state of each is read rather than remembered,
@@ -92,9 +102,8 @@ export async function dropWorktreeAt(
     return { ok: false, reason: 'not a worktree this workspace made' }
   }
 
-  const state = await worktreeState(path)
-  if (state.commits > 0) return { ok: false, reason: 'the branch holds commits' }
-  if (state.dirty > 0 && !force) return { ok: false, reason: 'the worktree has uncommitted work' }
+  const refused = refuse(await worktreeState(path), force)
+  if (refused) return { ok: false, reason: refused }
 
   try {
     await removeWorktree(root, path, { force })
@@ -117,8 +126,9 @@ export async function dropWorktree(
 ): Promise<{ ok: boolean; reason?: string }> {
   const found = await worktreeOf(workspaces, threadId)
   if (!found) return { ok: true }
-  if (found.commits > 0) return { ok: false, reason: 'the branch holds commits' }
-  if (found.dirty > 0 && !force) return { ok: false, reason: 'the worktree has uncommitted work' }
+
+  const refused = refuse(found, force)
+  if (refused) return { ok: false, reason: refused }
 
   const repo = repoOfWorktree(found.path)
   if (repo === null) return { ok: false, reason: 'not a worktree this app made' }

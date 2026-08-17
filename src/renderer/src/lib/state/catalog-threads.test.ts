@@ -68,6 +68,28 @@ describe('creating a thread', () => {
     expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['new-1'])
   })
 
+  it('carries the branch onto the column it just made', async () => {
+    emptyListingAfterCreate()
+    await catalog.load()
+
+    await catalog.newThread('w1', { branch: 'fix/OCA-231' })
+
+    // Nothing re-lists the workspace after a creation, so a column built
+    // without its branch would not know it is isolated until the app restarts
+    // — and the sweep would offer its checkout for removal while an agent was
+    // still writing in it.
+    expect(catalog.workspaces[0].threads.at(-1)?.branch).toBe('fix/OCA-231')
+  })
+
+  it('leaves an ordinary thread with no branch', async () => {
+    emptyListingAfterCreate()
+    await catalog.load()
+
+    await catalog.newThread('w1')
+
+    expect(catalog.workspaces[0].threads.at(-1)?.branch).toBeNull()
+  })
+
   it('replaces the fresh placeholder rather than sitting beside it', async () => {
     emptyListingAfterCreate()
     await catalog.load()

@@ -144,8 +144,11 @@ async function measureNew(
  *  about to commit should be told that pushing is unavailable while they can
  *  still do something about it. */
 export async function hasRemote(cwd: string): Promise<boolean> {
-  const stdout = await git(cwd, ['remote']).catch(() => '')
-  return lines(stdout).length > 0
+  // `origin` specifically: that is what both push paths write to, and a
+  // repository whose only remote is `upstream` would otherwise be offered a
+  // push that fails the moment it runs.
+  const stdout = await git(cwd, ['remote', 'get-url', 'origin']).catch(() => '')
+  return stdout.trim().length > 0
 }
 
 /** A starting point for the message, built from the change set.

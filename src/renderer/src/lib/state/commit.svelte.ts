@@ -2,6 +2,7 @@ import type { GitChange } from '../../../../shared/protocol'
 import { bridge } from '../bridge'
 import { app } from './app.svelte'
 import { git } from './git.svelte'
+import { threadGit } from './thread-git.svelte'
 import { toasts } from './toasts.svelte'
 
 /** The commit card's state.
@@ -98,6 +99,9 @@ class Commit {
     if (result.ok) {
       toasts.push({ tone: 'ok', text: result.pushed ? 'committed and pushed' : 'committed' })
       git.refresh(workspaceId)
+      // An isolated thread's checkout has no watcher, and a commit is exactly
+      // the moment its counts stop being true.
+      if (this.threadId) threadGit.refresh(this.threadId)
       if (stillOurs) this.close()
       return
     }
@@ -147,10 +151,14 @@ class Commit {
       return
     }
 
+    // The branch name goes to the clipboard either way. A host this app does
+    // not recognise gets its own web root, which is a real page and not the
+    // right one — the reader still has to type the branch into the host's own
+    // form, and having it already copied is the difference between one paste
+    // and going to look it up.
+    await navigator.clipboard.writeText(branch).catch(() => {})
+
     if (result.url === null) {
-      // Pushed, but no page could be worked out. The branch name is the one
-      // thing the reader needs on the host's own form.
-      await navigator.clipboard.writeText(branch).catch(() => {})
       toasts.push({ tone: 'info', text: `pushed ${branch} · branch name copied` })
       return
     }

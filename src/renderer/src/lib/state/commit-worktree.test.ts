@@ -104,6 +104,14 @@ describe('the card on an isolated thread', () => {
     expect(toasts.items.at(-1)?.text).toContain('branch name copied')
   })
 
+  it('copies the branch even when a page opened, since it may be the wrong one', async () => {
+    pullRequest.mockResolvedValueOnce({ ok: true, url: 'https://host/o/r', branch: 'fix/OCA-231' })
+
+    await commit.commitAndOpen()
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('fix/OCA-231')
+  })
+
   it('says why the push failed, and opens nothing', async () => {
     pullRequest.mockResolvedValueOnce({ ok: false, reason: 'no upstream' })
 

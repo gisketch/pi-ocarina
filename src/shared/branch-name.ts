@@ -16,6 +16,9 @@ export function validateBranchName(name: string): string | null {
   if (name.length === 0) return 'a branch needs a name'
   if (ILLEGAL_CHARACTERS.test(name)) return 'no spaces, and none of ~ ^ : ? * [ \\'
   if (CONTROL_CHARACTERS.test(name)) return 'no control characters'
+  // A leading dash makes the name an option to every git command it is passed
+  // to, so this one is about what happens downstream rather than about refs.
+  if (name.startsWith('-')) return 'no leading -'
   if (name.includes('..')) return 'no ..'
   if (name.includes('@{')) return 'no @{'
   if (name === '@') return '@ is not a branch name'

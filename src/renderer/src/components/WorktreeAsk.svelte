@@ -5,6 +5,7 @@
   // and nothing else — one place decides what an answer means.
   const naming = $derived(worktreeAsk.naming)
   const problem = $derived(worktreeAsk.problem)
+  const failure = $derived(worktreeAsk.failure)
 </script>
 
 {#if worktreeAsk.open}
@@ -28,14 +29,23 @@
         </div>
       {:else}
         <div class="message">Branch name</div>
-        <div class="field" class:bad={problem !== null}>
+        <div class="field" class:bad={problem !== null || failure !== null}>
           <span class="typed">{worktreeAsk.branch}</span><span class="caret"></span>
         </div>
-        <div class="detail" class:bad={problem !== null}>
-          {problem ?? 'e.g. fix/OCA-231 · esc goes back'}
+        <div class="detail" class:bad={problem !== null || failure !== null}>
+          {#if worktreeAsk.creating}
+            making the worktree…
+          {:else}
+            {problem ?? failure ?? 'e.g. fix/OCA-231 · esc goes back'}
+          {/if}
         </div>
         <div class="actions">
-          <button type="button" class="cancel" onclick={() => (worktreeAsk.naming = false)}>
+          <button
+            type="button"
+            class="cancel"
+            disabled={worktreeAsk.creating}
+            onclick={() => (worktreeAsk.naming = false)}
+          >
             back <span class="key">esc</span>
           </button>
           <button

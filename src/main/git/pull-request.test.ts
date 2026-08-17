@@ -176,3 +176,17 @@ describe('a self-hosted forge on its own port', () => {
     )
   })
 })
+
+describe('what a push echoes back', () => {
+  it('is not mistaken for a page when the remote has no .git', () => {
+    const output = 'To https://github.com/o/r\n   abc..def  fix/x -> fix/x\n'
+
+    expect(urlFromPushOutput(output)).toBeNull()
+  })
+
+  it('never carries a credential out of the remote', () => {
+    const output = 'remote: Create a pull request:\nremote:   https://user:token@github.com/o/r/pull/new/x\n'
+
+    expect(urlFromPushOutput(output)).toBe('https://github.com/o/r/pull/new/x')
+  })
+})

@@ -39,17 +39,41 @@ async function git(cwd: string, args: string[]): Promise<string> {
  *  A push also echoes the remote it pushed to, which is a URL and is not a page
  *  anybody can open; a `.git` ending is what tells the two apart. */
 export function urlFromPushOutput(output: string): string | null {
-  // Stops at whitespace and at the closing characters a host might wrap a link
-  // in; trailing sentence punctuation is trimmed after, because a URL may
-  // legitimately end in `)` or `.` and only the last one is suspect.
-  const found = output.match(/https?:\/\/[^\s<>"'`]+/g) ?? []
+  for (const line of output.split('\n')) {
+    // The `To <remote>` line is git echoing where it pushed, not a page.
+    // Skipping it by shape rather than by a `.git` suffix: a remote cloned
+    // without that suffix is echoed bare, and returning it would drop the
+    // reader on a repository home page instead of the compare view — with the
+    // built-URL fallback, which is the tested path, never reached.
+    if (/^\s*To\s/.test(line)) continue
 
-  for (const raw of found) {
-    const url = raw.replace(/[.,;:)\]}>'"]+$/, '')
-    if (url.endsWith('.git')) continue
-    return url
+    // Stops at whitespace and at the closing characters a host might wrap a
+    // link in; trailing sentence punctuation is trimmed after, because a URL
+    // may legitimately end in `)` and only the last character is suspect.
+    for (const raw of line.match(/https?:\/\/[^\s<>"'`]+/g) ?? []) {
+      const url = raw.replace(/[.,;:)\]}>'"]+$/, '')
+      if (url.endsWith('.git')) continue
+      const safe = withoutCredentials(url)
+      if (safe) return safe
+    }
   }
   return null
+}
+
+/** The same URL with any embedded credentials removed.
+ *
+ *  A token pasted into `git remote add` lives in the remote URL forever, and
+ *  git echoes that URL back during a push. This string is on its way to a
+ *  browser and a clipboard, so it does not carry one. */
+function withoutCredentials(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    parsed.username = ''
+    parsed.password = ''
+    return parsed.toString()
+  } catch {
+    return null
+  }
 }
 
 /** The "new pull request" page for a branch, worked out from a remote URL.

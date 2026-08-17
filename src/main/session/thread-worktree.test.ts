@@ -5,7 +5,7 @@ import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addWorktree, listWorktrees } from '../git/worktree'
-import { dropWorktree, threadGitStatus, worktreeOf } from './thread-worktree'
+import { dropWorktree, dropWorktreeAt, threadGitStatus, worktreeOf } from './thread-worktree'
 import type { WorkspaceService } from './workspaces'
 
 const run = promisify(execFile)
@@ -104,5 +104,28 @@ describe('dropWorktree', () => {
     const workspaces = service({ plain: { cwd: repo, branch: null } })
 
     expect(await dropWorktree(workspaces, 'plain', true)).toEqual({ ok: true })
+  })
+})
+
+describe('dropWorktreeAt', () => {
+  it('refuses a path outside the workspace it was asked about', async () => {
+    const workspaces = { pathOf: () => repo } as unknown as WorkspaceService
+
+    expect(await dropWorktreeAt(workspaces, 'w1', '/tmp/somewhere/else', true)).toEqual({
+      ok: false,
+      reason: 'not a worktree this workspace made',
+    })
+    expect(await dropWorktreeAt(workspaces, 'w1', join(repo, 'src'), true)).toEqual({
+      ok: false,
+      reason: 'not a worktree this workspace made',
+    })
+    expect(checkouts(await listWorktrees(repo))).toContain(basename(tree))
+  })
+
+  it('removes one it does own', async () => {
+    const workspaces = { pathOf: () => repo } as unknown as WorkspaceService
+
+    expect(await dropWorktreeAt(workspaces, 'w1', tree, false)).toEqual({ ok: true })
+    expect(checkouts(await listWorktrees(repo))).not.toContain(basename(tree))
   })
 })
