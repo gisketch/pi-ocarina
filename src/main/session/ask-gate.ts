@@ -92,10 +92,14 @@ export class AskGate {
     })
   }
 
-  /** The reader answered in the card. */
-  answer(askId: string, answers: AskAnswer[]): void {
+  /** The reader answered in the card.
+   *
+   *  The thread is named as well as the ask: ids are unique in this process
+   *  today, and a guard costs nothing against the day they are not — one
+   *  thread resolving another's question would be silent and wrong. */
+  answer(threadId: string, askId: string, answers: AskAnswer[]): void {
     const pending = this.#pending.get(askId)
-    if (!pending) return
+    if (!pending || pending.threadId !== threadId) return
     this.#pending.delete(askId)
 
     this.#emit(pending.threadId, { kind: 'ask-answered', id: askId, outcome: 'answered', answers })

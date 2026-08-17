@@ -13,6 +13,7 @@
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import { leap } from '$lib/state/leap.svelte'
   import { threads } from '$lib/state/threads.svelte'
+  import { app } from '$lib/state/app.svelte'
   import { askKeys } from '$lib/state/ask-keys.svelte'
   import { collapsedBefore, type Block } from '$lib/thread'
   import { labelOwning, marksTurnStart } from '$lib/thread-turn'
@@ -164,7 +165,7 @@
       {:else if block.kind === 'ask'}
         <AskCard
           askId={block.id}
-          focused={askKeys.focused(threadId, block.id)}
+          focused={app.mode !== 'INSERT' && askKeys.focused(threadId, block.id)}
           questions={block.questions}
           outcome={block.outcome}
           answers={block.answers}

@@ -13,6 +13,15 @@ import type { AskAnswer, AskOutcome, AskQuestion } from '../../shared/vocabulary
 
 export const ASK_TOOL = 'ask_user'
 
+/** What a card says when the transcript does not say why it ended. */
+export const ENDED_UNSAID = 'the turn ended'
+
+/** Whether a call's arguments hold questions a card could be made from. */
+export function askable(args: unknown): boolean {
+  const questions = (args as { questions?: unknown })?.questions
+  return Array.isArray(questions) && questions.length > 0
+}
+
 /** The `ask` event for a recorded call, or null when its arguments are not
  *  readable — a transcript from an older build, or a call that never validated. */
 export function askFromCall(id: string, args: unknown): UiEvent | null {
@@ -30,20 +39,20 @@ export function askFromCall(id: string, args: unknown): UiEvent | null {
 export function answerFromResult(id: string, result: unknown): UiEvent {
   const said = readResult(result)
 
-  if (!said) return ended(id, 'the turn ended')
+  if (!said) return ended(id, ENDED_UNSAID)
   if (said.cancelled === true) {
     return said.said !== undefined
       ? { kind: 'ask-answered', id, outcome: 'cancelled', answers: [], said: said.said }
-      : ended(id, said.reason ?? 'the turn ended')
+      : ended(id, said.reason ?? ENDED_UNSAID)
   }
-  if (!Array.isArray(said.answers)) return ended(id, 'the turn ended')
+  if (!Array.isArray(said.answers)) return ended(id, ENDED_UNSAID)
 
   return { kind: 'ask-answered', id, outcome: 'answered', answers: said.answers }
 }
 
 /** A call that never reported back at all: the app quit under it. */
 export function endedUnanswered(id: string): UiEvent {
-  return ended(id, 'the turn ended')
+  return ended(id, ENDED_UNSAID)
 }
 
 function ended(id: string, reason: string): UiEvent & { outcome: AskOutcome } {

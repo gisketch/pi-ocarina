@@ -81,9 +81,10 @@ class AskNotice {
     if (app.thread.id === threadId && app.workspace.id === workspace.id) return
 
     toasts.push({
-      // The long lifetime, because this asks the reader to decide whether to
-      // go there. It still expires: the header is what holds the fact.
-      tone: 'error',
+      // Its own tone: the long lifetime, because it asks the reader to decide
+      // whether to go there, without the colour of something having failed. It
+      // still expires — the header is what holds the fact.
+      tone: 'ask',
       text: `${thread.title} is asking a question`,
       label: 'view',
       jump: { workspaceId: workspace.id, threadId, title: thread.title },

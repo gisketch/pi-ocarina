@@ -203,8 +203,8 @@ export class PiDriver implements SessionDriver {
       }
 
       case 'answerAsk': {
-        const { askId, answers } = params as CommandParams<'answerAsk'>
-        this.#asks.answer(askId, answers)
+        const { threadId, askId, answers } = params as CommandParams<'answerAsk'>
+        this.#asks.answer(threadId, askId, answers)
         return { ok: true } as CommandResult<N>
       }
 

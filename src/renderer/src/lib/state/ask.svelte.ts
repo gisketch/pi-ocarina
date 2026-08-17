@@ -183,6 +183,28 @@ class Flow {
   }
 }
 
+/** What an answer reads like, from either side of the round trip.
+ *
+ *  The card before the answer reads it from the flow; the record after reads it
+ *  from the answers. One function, so the two cannot disagree about the same
+ *  choice — and an off-menu answer reads as what the reader typed in both. */
+export function describeAnswer(
+  question: AskQuestion,
+  chosen: readonly string[],
+  text: string,
+): string {
+  if (question.kind === 'text') return text.trim() === '' ? '—' : text
+  if (chosen.length === 0) return '—'
+
+  return chosen
+    .map((id) =>
+      id === OTHER
+        ? text.trim() || 'something else'
+        : (question.choices?.find((choice) => choice.id === id)?.title ?? id),
+    )
+    .join(', ')
+}
+
 /** A question nobody answered. Written out rather than left absent: a missing
  *  key reads as a bug, and "no preference" is not "never asked". */
 function skipped(question: AskQuestion): AskAnswer {
@@ -200,6 +222,12 @@ class Asks {
     const flow = new Flow(questions)
     this.#flows.set(askId, flow)
     return flow
+  }
+
+  /** A flow nobody keeps, for a card that is already a record: it renders from
+   *  its answers, and asking for a real flow would put one back in the map. */
+  spare(questions: readonly AskQuestion[]): Flow {
+    return new Flow(questions)
   }
 
   /** Drops a flow whose card is answered or whose thread has gone. */

@@ -188,6 +188,13 @@ class ShellState {
       return consumed
     }
 
+    // A question waiting in this column owns the choice keys — below the
+    // modals, the block menu and the leap hints, which are all on screen
+    // because the reader put them there, and above ordinary column keys.
+    // `enter` from NORMAL takes them back after an `esc` released them.
+    if (event.key === 'Enter' && app.mode === 'NORMAL' && askKeys.resume()) return true
+    if (askKeys.handleKey(event)) return true
+
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run
     // underneath it. Only an explicit yes goes ahead; anything else backs out.

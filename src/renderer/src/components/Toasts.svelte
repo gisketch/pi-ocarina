@@ -5,7 +5,7 @@
   // a toast only says which thread it means.
   const { onview }: { onview: (jump: ToastJump) => void } = $props()
 
-  const MARK = { ok: '✓', info: '▪', error: '✗' } as const
+  const MARK = { ok: '✓', info: '▪', ask: '?', error: '✗' } as const
 
   function act(toast: Toast): void {
     if (toast.jump) onview(toast.jump)
@@ -27,6 +27,12 @@
 </div>
 
 <style>
+  /* A question, in the accent rather than the error red: it is a request, not
+     a failure, and it keeps the long lifetime for reading rather than alarm. */
+  .toast.ask {
+    border-color: var(--accent-soft);
+  }
+
   .stack {
     position: absolute;
     right: 18px;

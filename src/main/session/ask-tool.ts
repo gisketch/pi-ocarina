@@ -9,6 +9,10 @@
  *  that guesses. It is one string, and it is meant to be tuned against real
  *  use rather than argued about in advance. */
 
+// A devDependency on purpose: `externalizeDepsPlugin` externalizes what is in
+// `dependencies`, so this is bundled into `dist/main` and a packaged app that
+// ships without devDependencies still starts. Pinned to the version pi
+// resolves, so the schema this builds is the schema pi validates.
 import { Type, type Static } from 'typebox'
 import type { AskQuestion } from '../../shared/vocabulary'
 import type { AskGate } from './ask-gate'

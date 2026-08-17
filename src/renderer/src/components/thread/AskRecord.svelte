@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { OTHER } from '$lib/state/ask.svelte'
+  import { describeAnswer } from '$lib/state/ask.svelte'
   import type { AskAnswer, AskQuestion } from '$lib/thread'
 
   /** What an answered card is: the questions that were asked, and what was said
@@ -10,11 +10,8 @@
   function answered(one: AskQuestion): string {
     const said = answers?.find((entry) => entry.id === one.id)
     if (!said || said.skipped) return 'skipped'
-    if (said.kind === 'text') return said.text ?? '—'
 
-    return said.labels
-      .map((label, at) => (said.chosen[at] === OTHER ? (said.text ?? label) : label))
-      .join(', ')
+    return describeAnswer(one, said.chosen, said.text ?? '')
   }
 </script>
 

@@ -79,8 +79,11 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       openCalls.delete(id)
 
       // A question the reader was part of is rebuilt as the card it was, not
-      // as a tool row saying `ask_user ✓`.
-      if (message.toolName === ASK_TOOL || asked.has(id)) {
+      // as a tool row saying `ask_user ✓`. A call whose questions could not be
+      // read never became a card, so it stays a row: the alternative is an
+      // answer event for a block that does not exist, which the reducer drops,
+      // leaving a silent gap where the agent tried to ask something.
+      if (asked.has(id)) {
         events.push(answerFromResult(id, message))
         continue
       }

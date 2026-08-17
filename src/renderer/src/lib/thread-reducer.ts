@@ -20,7 +20,14 @@ import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
 export function reduceThread(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
   const next = apply(model, event)
   const status = derive(next)
-  return status === next.status ? next : { ...next, status }
+  // The pending question is only recomputed when a card could have changed —
+  // every other event leaves it exactly where it was, and this runs on every
+  // token of every stream.
+  const asked = event.kind === 'ask' || event.kind === 'ask-answered'
+  const pendingAskId = asked ? pendingAsk(next) : (next.pendingAskId ?? null)
+
+  if (status === next.status && pendingAskId === (next.pendingAskId ?? null)) return next
+  return { ...next, status, pendingAskId }
 }
 
 /** Applies a whole coalesced batch, so one burst costs one assignment. */
@@ -183,6 +190,16 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
 /** Pending gates outrank a running turn — the agent is waiting on a person, and
  *  the header should say so. A thread that has already failed or been
  *  interrupted keeps that state: the gate is moot once the turn is over. */
+/** The oldest unanswered question, which is the one the reader should answer:
+ *  two calls in one turn each draw a card, and the one that has been waiting is
+ *  the one holding the keys. */
+function pendingAsk(model: ThreadViewModel): string | null {
+  for (const block of model.blocks) {
+    if (block.kind === 'ask' && block.outcome === undefined) return block.id
+  }
+  return null
+}
+
 function derive(model: ThreadViewModel): ThreadRunState {
   if (model.runState === 'failed' || model.runState === 'interrupted') return model.runState
   return model.blocks.some(isPendingGate) ? 'waiting-input' : model.runState

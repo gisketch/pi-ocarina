@@ -60,6 +60,8 @@ beforeEach(() => {
   history = []
   asks.forget('ask-1')
   asks.forget('ask-2')
+  askKeys.settle('ask-1')
+  askKeys.settle('ask-2')
   askKeys.forget('s1')
   feed({ kind: 'ask', id: 'ask-1', questions: QUESTIONS })
 })
@@ -151,6 +153,9 @@ describe('answering with the keys', () => {
     press('a')
     press('Enter')
 
+    // Once, and only once: a second send would carry a different answer set
+    // for a question the reader believes they have already answered.
+    expect(invoke).toHaveBeenCalledTimes(1)
     expect(invoke).toHaveBeenCalledWith('answerAsk', {
       threadId: 's1',
       askId: 'ask-1',
@@ -161,6 +166,17 @@ describe('answering with the keys', () => {
     })
   })
 
+  it('stops holding the keys the moment the answers are sent', () => {
+    press('Enter')
+    press('a')
+    press('Enter')
+
+    expect(askKeys.holding).toBeNull()
+    // A second press in the round-trip window does nothing at all.
+    expect(press('Enter')).toBe(false)
+    expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
   it('steps back on shift-tab', () => {
     const flow = asks.flow('ask-1', QUESTIONS)
     press('Enter')
@@ -168,6 +184,17 @@ describe('answering with the keys', () => {
 
     press('Tab', { shiftKey: true })
     expect(flow.at).toBe(0)
+  })
+
+  it('lets a real field have its own keys', () => {
+    const flow = asks.flow('ask-1', QUESTIONS)
+
+    // The card's text inputs are real inputs; the browser is already typing
+    // into them, and handling the key here would double every character. The
+    // cursor stays where it was, whatever the strip does with the key after.
+    press('j', { target: { tagName: 'INPUT' } })
+    expect(flow.cursor).toBe(0)
+    expect(flow.typed).toEqual({})
   })
 
   it('never takes the caret from the composer', () => {

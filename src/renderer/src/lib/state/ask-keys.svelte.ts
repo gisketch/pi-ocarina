@@ -11,6 +11,8 @@
 import type { AskAnswer } from '../../../../shared/vocabulary'
 import { app } from './app.svelte'
 import { asks } from './ask.svelte'
+import { askNotice } from './ask-notice.svelte'
+import { revealBlock } from './block-focus.svelte'
 import { threads } from './threads.svelte'
 
 class AskKeys {
@@ -18,6 +20,13 @@ class AskKeys {
    *  question is a new id, so it takes the keys even in a thread whose last
    *  question was released. */
   #released = $state.raw<Record<string, string>>({})
+  /** Asks answered here, before their `ask-answered` has come back from main.
+   *
+   *  Without this the card stays the holder for the length of the round trip,
+   *  and a second `enter` in that window answers a freshly built flow — a
+   *  different answer set, for a question the reader thinks they have already
+   *  sent. */
+  readonly #submitted = new Set<string>()
 
   /** The oldest unanswered ask in a thread, or null.
    *
@@ -25,18 +34,14 @@ class AskKeys {
    *  one the reader should be answering is the one that has been waiting. */
   pendingIn(threadId: string): string | null {
     if (threadId === '') return null
-
-    for (const block of threads.get(threadId).blocks) {
-      if (block.kind === 'ask' && block.outcome === undefined) return block.id
-    }
-    return null
+    return threads.get(threadId).pendingAskId ?? null
   }
 
   /** The ask holding the focused column's keys, or null when none is. */
   get holding(): string | null {
     const threadId = app.thread.id
     const askId = this.pendingIn(threadId)
-    if (askId === null) return null
+    if (askId === null || this.#submitted.has(askId)) return null
     return this.#released[threadId] === askId ? null : askId
   }
 
@@ -56,7 +61,9 @@ class AskKeys {
   resume(): boolean {
     const threadId = app.thread.id
     const askId = this.pendingIn(threadId)
-    if (askId === null || this.holding !== null) return false
+    // Nothing to resume while an answer is on its way: the question is over,
+    // whatever the events have not said yet.
+    if (askId === null || this.#submitted.has(askId) || this.holding !== null) return false
 
     const next = { ...this.#released }
     delete next[threadId]
@@ -64,8 +71,11 @@ class AskKeys {
     return true
   }
 
-  /** Drops what a closed thread was holding. */
+  /** Drops what a closed thread was holding, answer in flight included. */
   forget(threadId: string): void {
+    const pending = this.pendingIn(threadId)
+    if (pending !== null) this.#submitted.delete(pending)
+
     if (!(threadId in this.#released)) return
     const next = { ...this.#released }
     delete next[threadId]
@@ -74,17 +84,46 @@ class AskKeys {
 
   /** One key for the card that has them. Returns false when the key was not
    *  ours, so the shell can carry on with it. */
-  handleKey(event: { key: string; shiftKey?: boolean }): boolean {
+  handleKey(event: {
+    key: string
+    target?: unknown
+    shiftKey?: boolean
+    metaKey?: boolean
+    ctrlKey?: boolean
+    altKey?: boolean
+  }): boolean {
+    // Never while a real field has the caret — the card's own text inputs
+    // included. Their keys are already the browser's to handle, and taking
+    // them here would type every character twice.
+    if (isEditable(event.target)) return false
+
     // Never while the composer has the caret. Every other modal in the shell is
     // opened by the reader, so outranking INSERT is what they are for; a
     // question arrives on its own, and taking the keys from someone mid-sentence
     // would be the app typing over them.
     if (app.mode === 'INSERT') return false
 
+    // A modifier is not an answer, and never a choice key: ⌘k belongs to the
+    // command palette, not to a cursor.
+    if (event.metaKey === true || event.ctrlKey === true || event.altKey === true) return false
+
     const askId = this.holding
     if (askId === null) return false
 
     const threadId = app.thread.id
+
+    // The reader is scrolled up with the "a question below" bar showing. The
+    // key that bar advertises must take them to the question, not answer one
+    // they have not read — on a two-choice question, blind, that is a coin
+    // flip the model would act on.
+    if (askNotice.belowIn(threadId)) {
+      if (event.key === 'Enter') {
+        revealBlock(threadId, askId, 'nearest')
+        askNotice.seen(threadId)
+        return true
+      }
+      return false
+    }
     const block = threads.get(threadId).blocks.find((one) => one.id === askId)
     if (!block || block.kind !== 'ask') return false
 
@@ -144,9 +183,10 @@ class AskKeys {
         return true
     }
 
-    // Everything else is swallowed: the card is holding the keys, and a
-    // stray letter must not move the column behind it.
-    return true
+    // Everything else belongs to the strip. The card took `j` and `k`; it did
+    // not take the workspace digits or `h`/`l`, and a reader pinned to the
+    // asking column until they press `esc` is a reader trapped by a question.
+    return false
   }
 
   #advance(threadId: string, askId: string, flow: ReturnType<typeof asks.flow>): void {
@@ -164,10 +204,27 @@ class AskKeys {
   }
 
   #submit(threadId: string, askId: string, answers: AskAnswer[]): void {
-    threads.answer(threadId, askId, answers)
-    asks.forget(askId)
+    // Released state first, then the mark — `forget` clears an answer in
+    // flight, which is exactly what this is about to become.
     this.forget(threadId)
+    this.#submitted.add(askId)
+    threads.answer(threadId, askId, answers)
+    // The flow is dropped when `ask-answered` comes back, not here: dropping it
+    // now would have the card rebuild an empty one and redraw itself at 1 / N
+    // for the length of the round trip.
   }
+
+  /** An ask has ended, however it ended. */
+  settle(askId: string): void {
+    this.#submitted.delete(askId)
+  }
+}
+
+/** Whether the key was typed into something that takes typing. */
+function isEditable(target: unknown): boolean {
+  const element = target as { tagName?: unknown; isContentEditable?: unknown } | null
+  const tag = typeof element?.tagName === 'string' ? element.tagName : ''
+  return tag === 'INPUT' || tag === 'TEXTAREA' || element?.isContentEditable === true
 }
 
 export const askKeys = new AskKeys()

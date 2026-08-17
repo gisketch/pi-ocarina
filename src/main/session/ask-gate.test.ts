@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
 import type { AskQuestion } from '../../shared/vocabulary'
 import { AskGate, faultIn } from './ask-gate'
@@ -35,7 +35,7 @@ describe('asking', () => {
     expect(asks.pendingFor('t1')).toBe(true)
 
     const askId = (events[0].event as { id: string }).id
-    asks.answer(askId, [{ id: 'scope', kind: 'one', chosen: ['wide'], labels: ['Everywhere'] }])
+    asks.answer('t1', askId, [{ id: 'scope', kind: 'one', chosen: ['wide'], labels: ['Everywhere'] }])
 
     expect((await waiting).answers[0].chosen).toEqual(['wide'])
     expect(asks.pendingFor('t1')).toBe(false)
@@ -46,7 +46,7 @@ describe('asking', () => {
     void asks.ask('t1', [ONE])
     const askId = (events[0].event as { id: string }).id
 
-    asks.answer(askId, [{ id: 'scope', kind: 'one', chosen: ['small'], labels: ['Just this file'] }])
+    asks.answer('t1', askId, [{ id: 'scope', kind: 'one', chosen: ['small'], labels: ['Just this file'] }])
 
     expect(events[1].event).toMatchObject({ kind: 'ask-answered', id: askId, outcome: 'answered' })
   })
@@ -54,7 +54,7 @@ describe('asking', () => {
   it('ignores an answer to a question nobody is waiting on', () => {
     const { asks, events } = gate()
 
-    asks.answer('ask-ghost', [])
+    asks.answer('t1', 'ask-ghost', [])
 
     expect(events).toEqual([])
   })
@@ -126,7 +126,7 @@ describe('the tool', () => {
 
     await Promise.resolve()
     const askId = (events[0].event as { id: string }).id
-    asks.answer(askId, [{ id: 'scope', kind: 'one', chosen: ['wide'], labels: ['Everywhere'] }])
+    asks.answer('t1', askId, [{ id: 'scope', kind: 'one', chosen: ['wide'], labels: ['Everywhere'] }])
 
     const result = await running
     expect(JSON.parse(result.content[0].text)).toEqual({
@@ -170,7 +170,6 @@ describe('the tool', () => {
     // And the guideline that makes it reach for the tool rather than writing
     // the question into its reply, which is what the live pass found.
     expect(definition.promptGuidelines?.[0]).toMatch(/Never end a reply with a question/)
-    expect(vi.isMockFunction(definition.execute)).toBe(false)
   })
 })
 

@@ -94,6 +94,12 @@ export interface ThreadViewModel {
    *  Kept apart from `status` so answering an ask restores the real state
    *  instead of leaving the thread stuck at `waiting-input`. */
   runState: ThreadRunState
+  /** The oldest question still waiting on the reader, or null.
+   *
+   *  Carried rather than looked up: the header, the rail and the key routing
+   *  all ask, several times per paint and once per thread of every workspace,
+   *  and the reducer is already walking these blocks. */
+  pendingAskId?: string | null
   /** Why the thread failed, when it did. */
   reason?: string
   usage?: { contextPercent: number; tokens: number; costUsd: number }
@@ -102,7 +108,12 @@ export interface ThreadViewModel {
   connectivity?: { state: 'degraded' | 'restored'; retryInSeconds?: number }
 }
 
-export const EMPTY_THREAD: ThreadViewModel = { blocks: [], status: 'idle', runState: 'idle' }
+export const EMPTY_THREAD: ThreadViewModel = {
+  blocks: [],
+  status: 'idle',
+  runState: 'idle',
+  pendingAskId: null,
+}
 
 /** How many blocks a finished compaction stands in front of.
  *

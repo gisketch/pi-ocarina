@@ -127,3 +127,48 @@ describe('cards', () => {
     expect(model.blocks[1]).toMatchObject({ kind: 'raw' })
   })
 })
+
+describe('the pending question the model carries', () => {
+  it('names the oldest unanswered one', () => {
+    const model = run(
+      { kind: 'ask', id: 'q1', questions: [ASK] },
+      { kind: 'ask', id: 'q2', questions: [ASK] },
+    )
+
+    expect(model.pendingAskId).toBe('q1')
+  })
+
+  it('moves on as each is answered, and ends at null', () => {
+    const answered = (id: string): UiEvent => ({
+      kind: 'ask-answered',
+      id,
+      outcome: 'answered',
+      answers: [],
+    })
+
+    const one = run(
+      { kind: 'ask', id: 'q1', questions: [ASK] },
+      { kind: 'ask', id: 'q2', questions: [ASK] },
+      answered('q1'),
+    )
+    expect(one.pendingAskId).toBe('q2')
+
+    const none = run(
+      { kind: 'ask', id: 'q1', questions: [ASK] },
+      answered('q1'),
+      { kind: 'agent-message-start', id: 'm1' },
+    )
+    expect(none.pendingAskId).toBeNull()
+  })
+
+  it('survives the events that cannot change it', () => {
+    const model = run(
+      { kind: 'ask', id: 'q1', questions: [ASK] },
+      { kind: 'agent-message-start', id: 'm1' },
+      { kind: 'agent-message-delta', id: 'm1', text: 'still thinking' },
+      { kind: 'thread-state', state: 'running' },
+    )
+
+    expect(model.pendingAskId).toBe('q1')
+  })
+})

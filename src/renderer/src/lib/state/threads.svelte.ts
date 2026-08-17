@@ -12,6 +12,7 @@ import { catalog } from './catalog.svelte'
 import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
 import { threadGit } from './thread-git.svelte'
+import { askKeys } from './ask-keys.svelte'
 import { askNotice } from './ask-notice.svelte'
 import { asks } from './ask.svelte'
 import { toasts } from './toasts.svelte'
@@ -218,14 +219,29 @@ export function applyAskEffects(threadId: string, events: readonly UiEvent[]): v
   for (const event of events) {
     // A question that has just arrived decides for itself who is told and how
     // loudly, from where the reader happens to be standing.
-    if (event.kind === 'ask') askNotice.arrived(threadId, event.id)
+    //
+    // Only one that is still waiting, though. Opening a thread replays its
+    // whole history in one batch, questions and their answers together, and
+    // announcing those would toast a reader about decisions they made last
+    // week and scroll the column to one of them.
+    if (event.kind === 'ask' && pendingAfter(threadId, event.id)) {
+      askNotice.arrived(threadId, event.id)
+    }
     if (event.kind === 'ask-answered') {
       askNotice.settled(threadId)
       // However it ended, nobody is walking it any more. Kept, the flow would
-      // hold a reader's half-made choices for the life of the app.
+      // hold a reader's half-made choices for the life of the app, and the
+      // keys would still think an answer was in flight.
       asks.forget(event.id)
+      askKeys.settle(event.id)
     }
   }
+}
+
+/** Whether an ask is unanswered in the model the batch has already produced. */
+function pendingAfter(threadId: string, askId: string): boolean {
+  const block = threads.get(threadId).blocks.find((one) => one.id === askId)
+  return block?.kind === 'ask' && block.outcome === undefined
 }
 
 export const threads = new ThreadStore()

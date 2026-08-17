@@ -1,9 +1,10 @@
 /** How long a toast stays up.
  *
  *  A failure is read more slowly than a success: it usually names something,
- *  and the person has to decide whether to act. Both are generous enough to
- *  read at a glance and short enough not to pile up. */
-const LIFETIME_MS = { ok: 6000, info: 6000, error: 12000 } as const
+ *  and the person has to decide whether to act. A question gets the same span
+ *  for the same reason and is a tone of its own — it is not a failure, and
+ *  borrowing the failure's colour to borrow its lifetime would say it was. */
+const LIFETIME_MS = { ok: 6000, info: 6000, ask: 12000, error: 12000 } as const
 
 /** How many are shown at once. Beyond this the oldest goes: a stack taller
  *  than the eye can take in is a stack nobody reads. */

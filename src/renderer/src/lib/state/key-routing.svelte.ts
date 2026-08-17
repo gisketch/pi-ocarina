@@ -8,8 +8,6 @@
  *  Returns whether the key was consumed, or null when nothing here wanted it
  *  and the strip's own bindings should run. */
 
-import { app } from './app.svelte'
-import { askKeys } from './ask-keys.svelte'
 import { changes } from './changes.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
@@ -35,11 +33,8 @@ export function routeToOverlay(event: KeyEventLike): boolean | null {
   // colliding with the bindings underneath.
   if (changes.open) return changes.handleKey(event)
 
-  // A question waiting in this column owns the choice keys, below the modals
-  // above and above ordinary column keys. `enter` from NORMAL takes them
-  // back after an `esc` released them.
-  if (event.key === 'Enter' && app.mode === 'NORMAL' && askKeys.resume()) return true
-  if (askKeys.handleKey(event)) return true
-
+  // A pending question is deliberately *not* here: it arrives on its own,
+  // where everything above was put on screen by the reader, so it ranks below
+  // the block menu and the leap hints as well. The shell asks it after those.
   return null
 }
