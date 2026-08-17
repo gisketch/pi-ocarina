@@ -5,7 +5,8 @@
  *  while a row is on screen — is one function with tests rather than a
  *  template expression. */
 
-import type { AgentStatus } from './thread'
+import type { AgentEntry, AgentStatus, ToolRow } from './thread'
+import { labelFor } from './tool-label'
 
 /** What a settled child shows in place of its live cell. */
 export function agentMark(status: AgentStatus): string {
@@ -50,4 +51,28 @@ export function elapsedText(ms: number): string {
 
   const tail = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
   return hours > 0 ? `${hours}:${tail}` : tail
+}
+
+/** What a child is doing at this moment, for the row's live cell.
+ *
+ *  Read from the child's own rows rather than tracked separately: the rows are
+ *  already there, already settled by the same events, and a second source would
+ *  be a second thing to keep in step. The newest unfinished call wins — a child
+ *  running two tools at once is doing the later one most recently.
+ *
+ *  A child that has started nothing yet is thinking; one that is still waiting
+ *  for a slot under the running cap says so, because "waiting" and "working"
+ *  look identical otherwise and only one of them is worth interrupting. */
+export function doingIn(agent: AgentEntry, children: readonly ToolRow[] | undefined): string {
+  if (agent.queued) return 'queued'
+
+  const running = [...(children ?? [])].reverse().find((row) => row.status === 'running')
+  if (!running) return 'thinking'
+
+  // A child running a child of its own says whose: `working` is what the tool
+  // label alone gives, and it is the one row where the useful word — the
+  // grandchild's name — is right there and would otherwise be thrown away.
+  if (running.agent) return `${running.agent.name} · ${running.agent.label}`
+
+  return `${labelFor(running.kind, running.status)} ${running.target}`.trim()
 }

@@ -118,7 +118,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > tools by D13, could start a `developer` and write through it. So only a child
 > with a saved role may spawn, and only at depth 1.
 
-## M5 — The live cell and the one clock — `todo`
+## M5 — The live cell and the one clock — `done`
 
 > The row stops being static: the right-hand cell shows what the child is doing
 > now, and how long it has been doing it.
@@ -135,6 +135,13 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 - Validation: unit tests for start/stop/pause and for a formatter whose output
   is fixed-width; a harness pass watching a fixture tick.
 - Blocked by: M4.
+
+> **Two findings from the harness.** The preview pane reports itself
+> `visibilityState: 'hidden'`, so the clock correctly refused to tick there and
+> watching it prove itself was impossible — the visibility source is injected
+> now, which makes the pause rule the well-tested part rather than the invisible
+> one. And a child running a child of its own read as `working`, because the
+> tool label is all a nested agent row gives; it names the grandchild instead.
 
 ## M6 — The peek, and stopping one child — `todo`
 

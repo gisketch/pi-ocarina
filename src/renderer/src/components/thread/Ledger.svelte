@@ -87,7 +87,7 @@
         <!-- A child agent is a different grammar from a tool call, not a tool
              call with extra fields, so it replaces the row rather than
              decorating it. -->
-        <AgentRow agent={row.agent} {hue} />
+        <AgentRow agent={row.agent} {hue} rows={row.children} />
       {:else}
       <span class="kind {labelTone(row)}">{labelFor(row.kind, row.status)}</span>
       <span class="target" class:struck={row.status === 'cancelled'}>{row.target}</span>

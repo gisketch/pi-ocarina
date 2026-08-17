@@ -1,7 +1,8 @@
 <script lang="ts">
   import Identicon from '../Identicon.svelte'
-  import { agentMark, agentTone } from '$lib/agent-row'
-  import type { AgentEntry } from '$lib/thread'
+  import { agentMark, agentTone, doingIn, elapsedText } from '$lib/agent-row'
+  import { agentClock } from '$lib/state/agent-clock.svelte'
+  import type { AgentEntry, ToolRow } from '$lib/thread'
 
   /** One child agent, as a row under the call that spawned it.
    *
@@ -14,18 +15,39 @@
    *  Split from `Ledger.svelte` because an agent row is a different grammar
    *  from a tool row, not a tool row with extra fields — and because the ledger
    *  had no room left. */
+  // `rows` rather than `children`: Svelte 5 reserves that name for a snippet,
+  // and a prop that shadows it reads as content the component never renders.
   const {
     agent,
     hue,
-    live,
+    rows,
   }: {
     agent: AgentEntry
     /** The workspace's own hue: a child reads as belonging where it runs. */
     hue: number
-    /** What the child is doing now and for how long, already formatted. Absent
-     *  once it has settled. */
-    live?: { doing: string; elapsed: string }
+    /** The child's own rows, which is where "what it is doing now" comes from. */
+    rows?: ToolRow[]
   } = $props()
+
+  const running = $derived(agent.status === 'running')
+
+  // Only a running row watches the clock, and it stops watching the moment it
+  // settles — so an app with nothing running holds no timer at all.
+  $effect(() => {
+    if (!running) return
+    return agentClock.watch()
+  })
+
+  const doing = $derived(running ? doingIn(agent, rows) : '')
+  // Read here, in the leaf that draws it: a second passing repaints this text
+  // node rather than the row, the ledger, or the transcript.
+  const elapsed = $derived(
+    running ? elapsedText(agentClock.now - agent.startedAt) : elapsedText(finished()),
+  )
+
+  function finished(): number {
+    return (agent.endedAt ?? agent.startedAt) - agent.startedAt
+  }
 </script>
 
 <span class="agent">
@@ -33,14 +55,15 @@
   <span class="who">{agent.name}</span>
   <span class="role">{agent.role}</span>
   <span class="label">{agent.label}</span>
-  {#if agent.status === 'running' && live}
+  {#if running}
     <span class="cell">
-      <span class="doing">{live.doing}</span>
-      <span class="clock">{live.elapsed}</span>
+      <span class="doing">{doing}</span>
+      <span class="clock">{elapsed}</span>
     </span>
   {:else}
     <span class="cell settled {agentTone(agent.status)}">
       <span class="mark">{agentMark(agent.status)}</span>
+      <span class="clock">{elapsed}</span>
     </span>
   {/if}
 </span>
