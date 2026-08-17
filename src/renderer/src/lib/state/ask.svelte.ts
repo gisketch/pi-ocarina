@@ -79,7 +79,11 @@ class Flow {
     const next = Math.max(0, Math.min(order.length - 1, (now === -1 ? 0 : now) + delta))
 
     this.cursor = order[next]
-    this.typing = this.cursor === -1
+    // Moving the cursor never starts typing, not even onto the free-text row.
+    // It used to, and the next `k` was typed into the field instead of moving
+    // up — the reader had entered a mode they never asked for. `l` or `i` is
+    // what puts the caret in.
+    this.typing = false
   }
 
   /** `space` on a choice, and what `enter` does on a `one` question. */
@@ -100,6 +104,22 @@ class Flow {
       ...this.picked,
       [question.id]: held.includes(id) ? held.filter((one) => one !== id) : [...held, id],
     }
+  }
+
+  /** Puts the caret in the row the cursor is already on, when that row has a
+   *  field. `l` and `i` both mean this; `esc` takes it back out. */
+  startTyping(): boolean {
+    const question = this.question
+    if (!question) return false
+
+    if (question.kind === 'text') {
+      this.typing = true
+      return true
+    }
+    if (this.cursor !== -1 || !question.allowOther) return false
+
+    this.other()
+    return true
   }
 
   /** `o`: take the free-text row, wherever the cursor was. */

@@ -172,6 +172,23 @@ class AskKeys {
       case 'o':
         flow.other()
         return true
+      case 'i':
+        // Into the field on the row the cursor is on. Nothing happens on a row
+        // that has no field, rather than something surprising.
+        return flow.startTyping()
+      case 'l':
+      case 'ArrowRight':
+        // Right means forward: into the field when the row has one, on to the
+        // next question when it does not. Never to the next column — a card
+        // holding the keys owns them, and `esc` is how a reader leaves.
+        if (flow.startTyping()) return true
+        this.#advance(threadId, askId, flow)
+        return true
+      case 'h':
+      case 'ArrowLeft':
+        // Back a question, the mirror of `l`. Also what `⇧⇥` does.
+        flow.step(-1)
+        return true
       case 'Tab':
         // Back a step, to change an answer. Forward is `enter`, which also
         // takes what is on screen — a second forward key would let a reader
@@ -183,9 +200,9 @@ class AskKeys {
         return true
     }
 
-    // Everything else belongs to the strip. The card took `j` and `k`; it did
-    // not take the workspace digits or `h`/`l`, and a reader pinned to the
-    // asking column until they press `esc` is a reader trapped by a question.
+    // Everything else belongs to the strip. The card took the cursor keys and
+    // the answer keys; it did not take the workspace digits, so a reader is
+    // never pinned to the asking column — `esc` and `1`–`3` both leave.
     return false
   }
 

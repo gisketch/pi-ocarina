@@ -1,6 +1,7 @@
 <script lang="ts">
   import GitSummary from './GitSummary.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { askKeys } from '$lib/state/ask-keys.svelte'
   import { threads } from '$lib/state/threads.svelte'
   import { threadGit } from '$lib/state/thread-git.svelte'
   import { formatUsage } from '$lib/usage-format'
@@ -17,12 +18,20 @@
   $effect(() => {
     if (isolated) threadGit.refresh(app.thread.id)
   })
+  // A question holding the keys is a mode the reader is in, and it was the one
+  // mode the bar did not name: `j` and `k` moved choices rather than blocks and
+  // nothing said why. Derived here rather than added to the key reducer, which
+  // knows nothing about asks and should not — a card takes the keys by being on
+  // screen, not by a keystroke.
+  const asking = $derived(askKeys.holding !== null)
+  const mode = $derived(asking ? 'ASK' : app.mode)
+
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
   const usage = $derived(formatUsage(model.usage))
 </script>
 
 <footer class="statusbar">
-  <div class="mode" class:accented={app.accented}>{app.mode}</div>
+  <div class="mode" class:accented={app.accented || asking}>{mode}</div>
 
   <div class="seg workspace">
     <span class="note">♪ {app.workspace.note}</span>{app.workspace.name}
@@ -43,10 +52,18 @@
 
   <div class="seg left-line">{usage}</div>
 
+  <!-- The hints say what the keys do *now*. While a question holds them, `h`
+       and `l` are the question's, and saying "threads" would be a lie. -->
   <div class="seg left-line hints">
-    <span><span class="key">h/l</span> threads</span>
-    <span><span class="key">␣</span> leader</span>
-    <span><span class="key">⌘K</span> commands</span>
+    {#if asking}
+      <span><span class="key">j/k</span> choices</span>
+      <span><span class="key">l</span> next</span>
+      <span><span class="key">esc</span> release</span>
+    {:else}
+      <span><span class="key">h/l</span> threads</span>
+      <span><span class="key">␣</span> leader</span>
+      <span><span class="key">⌘K</span> commands</span>
+    {/if}
   </div>
 </footer>
 

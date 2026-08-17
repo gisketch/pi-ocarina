@@ -196,6 +196,14 @@
     --fg-bright: #efefea;
     --fg-body: #e8e8e3;
   }
+  /* The sigil's cells are computed in JS and written as inline backgrounds, so
+     the tokens below cannot reach them: a dimmed agent row kept a full-colour
+     sigil beside a greyed-out name. Desaturated rather than faded, to match how
+     the rest of the row dims — and scoped to a 10px decoration, which is why
+     the filter this file otherwise avoids is safe here. */
+  .entry.dim :global(.sigil) {
+    filter: saturate(0) brightness(0.62);
+  }
   .entry.dim {
     --tone-1: var(--fg-dimmer);
     --tone-2: var(--fg-dimmer);

@@ -78,7 +78,35 @@ describe('walking the questions', () => {
     expect(flow.cursor).toBe(1)
     flow.move(1)
     expect(flow.cursor).toBe(-1)
+  })
+
+  it('does not start typing just because the cursor landed on the field', () => {
+    // It used to, and the next `k` was typed into the field instead of moving
+    // up: the reader was put into a mode they never asked for.
+    flow.step(1)
+    flow.move(1)
+    flow.move(1)
+    expect(flow.cursor).toBe(-1)
+    expect(flow.typing).toBe(false)
+  })
+
+  it('starts typing on `l` or `i`, and only where there is a field', () => {
+    flow.step(1)
+    expect(flow.startTyping()).toBe(false)
+    expect(flow.typing).toBe(false)
+
+    flow.move(1)
+    flow.move(1)
+    expect(flow.startTyping()).toBe(true)
     expect(flow.typing).toBe(true)
+  })
+
+  it('takes the free-text row as picked when the caret goes in', () => {
+    flow.step(1)
+    flow.move(1)
+    flow.move(1)
+    flow.startTyping()
+    expect(flow.picked[flow.question!.id]).toContain('other')
   })
 
   it('lands in the field on a text question', () => {

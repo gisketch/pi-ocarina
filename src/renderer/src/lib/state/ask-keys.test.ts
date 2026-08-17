@@ -212,3 +212,94 @@ describe('answering with the keys', () => {
     expect(app.threadIndex).toBe(0)
   })
 })
+
+/** A question with a free-text row, which the shared fixture has not got. */
+const WITH_OTHER: AskQuestion[] = [
+  {
+    id: 'where',
+    kind: 'many',
+    prompt: 'Where?',
+    choices: [
+      { id: 'dash', title: 'Dashboard' },
+      { id: 'logs', title: 'Logs' },
+    ],
+    allowOther: true,
+  },
+  { id: 'why', kind: 'one', prompt: 'Why?', choices: [{ id: 'a', title: 'A' }] },
+]
+
+function withOther(): ReturnType<typeof asks.flow> {
+  history = []
+  asks.forget('ask-2')
+  askKeys.settle('ask-2')
+  askKeys.forget('s1')
+  feed({ kind: 'ask', id: 'ask-2', questions: WITH_OTHER })
+  return asks.flow('ask-2', WITH_OTHER)
+}
+
+describe('moving onto the free-text row', () => {
+  it('does not start typing, so the next `k` still moves', () => {
+    // The bug: landing on "something else" turned typing on, and `k` was typed
+    // into the field instead of moving the cursor up.
+    const flow = withOther()
+    press('j')
+    press('j')
+    expect(flow.cursor).toBe(-1)
+    expect(flow.typing).toBe(false)
+
+    // Up from the free-text row is the last choice, not the first.
+    press('k')
+    expect(flow.cursor).toBe(1)
+    expect(flow.typed.where ?? '').toBe('')
+  })
+
+  it('starts typing on `l`', () => {
+    const flow = withOther()
+    press('j')
+    press('j')
+    expect(press('l')).toBe(true)
+    expect(flow.typing).toBe(true)
+  })
+
+  it('starts typing on `i` too', () => {
+    const flow = withOther()
+    press('j')
+    press('j')
+    press('i')
+    expect(flow.typing).toBe(true)
+  })
+
+  it('types into the field once the caret is in it', () => {
+    const flow = withOther()
+    press('j')
+    press('j')
+    press('l')
+    press('k')
+    expect(flow.typed.where).toBe('k')
+  })
+})
+
+describe('`h` and `l` while a question holds the keys', () => {
+  it('does not change column: `l` advances the question instead', () => {
+    // A card holding the keys owns them. `esc` is how a reader leaves.
+    const flow = withOther()
+    press(' ')
+    expect(press('l')).toBe(true)
+    expect(flow.at).toBe(1)
+  })
+
+  it('steps back on `h`', () => {
+    const flow = withOther()
+    press(' ')
+    press('l')
+    expect(flow.at).toBe(1)
+
+    expect(press('h')).toBe(true)
+    expect(flow.at).toBe(0)
+  })
+
+  it('leaves the workspace digits alone, so a reader is never trapped', () => {
+    withOther()
+    expect(askKeys.handleKey({ key: '2' })).toBe(false)
+  })
+})
