@@ -1,6 +1,7 @@
 <script lang="ts">
   import Identicon from './Identicon.svelte'
   import { app } from '$lib/state/app.svelte'
+  import { askNotice } from '$lib/state/ask-notice.svelte'
 
   interface Props {
     onPin?: () => void
@@ -21,6 +22,11 @@
       onclick={() => app.goWorkspace(i)}
     >
       <Identicon name={ws.name} hue={ws.hue} size={22} />
+      {#if askNotice.asking(ws.id)}
+        <!-- A workspace never switches by itself, so this is the only thing
+             that says a thread over there is waiting on an answer. -->
+        <span class="asking" aria-label="a thread is asking">?</span>
+      {/if}
     </button>
   {/each}
 
@@ -30,6 +36,19 @@
 </nav>
 
 <style>
+  .pin {
+    position: relative;
+  }
+  .asking {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    font-family: var(--font-chrome);
+    font-size: 10px;
+    line-height: 1;
+    color: var(--warn, var(--accent));
+  }
+
   .rail {
     width: var(--rail-w);
     flex: none;

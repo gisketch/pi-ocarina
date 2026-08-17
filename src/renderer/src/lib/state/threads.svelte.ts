@@ -12,6 +12,7 @@ import { catalog } from './catalog.svelte'
 import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
 import { threadGit } from './thread-git.svelte'
+import { askNotice } from './ask-notice.svelte'
 import { toasts } from './toasts.svelte'
 import { reduceBatch } from '../thread-reducer'
 import { changes } from './changes.svelte'
@@ -80,6 +81,10 @@ class ThreadStore {
       }
 
       for (const event of events) {
+        // A question that has just arrived decides for itself who is told and
+        // how loudly, from where the reader happens to be standing.
+        if (event.kind === 'ask') askNotice.arrived(threadId, event.id)
+        if (event.kind === 'ask-answered') askNotice.settled(threadId)
         if (event.kind === 'connectivity') {
           connectivity.report(threadId, event.state, event.retryInSeconds)
         }

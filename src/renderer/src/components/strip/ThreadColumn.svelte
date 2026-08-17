@@ -5,6 +5,9 @@
   import LeapOverlay from '../thread/LeapOverlay.svelte'
   import { leap } from '$lib/state/leap.svelte'
   import type { Thread } from '$lib/types'
+  import { askKeys } from '$lib/state/ask-keys.svelte'
+  import { askNotice } from '$lib/state/ask-notice.svelte'
+  import { revealBlock } from '$lib/state/block-focus.svelte'
 
   interface Props {
     thread: Thread
@@ -33,12 +36,22 @@
             : 'idle',
   )
 
+  const asking = $derived(askKeys.pendingIn(thread.id) !== null)
+  const below = $derived(askNotice.belowIn(thread.id))
+
   let body = $state<HTMLElement | null>(null)
 
   $effect(() => {
     if (!body) return
     return registerColumnBody(thread.id, body)
   })
+
+  function reveal(): void {
+    const askId = askKeys.pendingIn(thread.id)
+    if (askId === null) return
+    revealBlock(thread.id, askId, 'nearest')
+    askNotice.seen(thread.id)
+  }
 </script>
 
 <section
@@ -50,6 +63,12 @@
 >
   <header class="head">
     <span class="dot {tone}"></span>
+    {#if asking}
+      <!-- A colour alone is a thing to learn; a question mark is a thing to
+           read. It sits before the title so a strip of columns can be scanned
+           down one edge. -->
+      <span class="asking" title="waiting on an answer">?</span>
+    {/if}
     <span class="title">{app.titleOf(thread)}</span>
     {#if thread.branch}
       <!-- The chip's presence is the isolation: a thread in the workspace's
@@ -64,9 +83,42 @@
     {@render children?.()}
     <LeapOverlay threadId={thread.id} />
   </div>
+
+  {#if below}
+    <!-- The reader is reading history and a question is waiting past the fold.
+         Nothing moved them; this is what carries it. -->
+    <button type="button" class="below" onclick={() => reveal()}>
+      ? a question below <span class="key">⏎</span>
+    </button>
+  {/if}
 </section>
 
 <style>
+  .asking {
+    color: var(--warn, var(--accent));
+    font-family: var(--font-chrome);
+    flex: none;
+  }
+
+  .below {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    padding: 5px 9px;
+    border: 1px solid var(--accent-soft);
+    background: var(--bg-float, var(--bg-panel));
+    font: inherit;
+    font-size: 10.5px;
+    color: var(--fg-bright);
+    cursor: pointer;
+  }
+  .below .key {
+    font-family: var(--font-chrome);
+    font-size: 9.5px;
+    color: var(--fg-dimmest);
+  }
+
   .branch {
     font-family: var(--font-chrome);
     font-size: 9.5px;
@@ -82,6 +134,7 @@
   }
 
   .column {
+    position: relative;
     width: var(--column-w);
     flex: none;
     display: flex;
