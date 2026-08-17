@@ -8,6 +8,7 @@ import type {
   SessionDriver,
 } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
+import { isAbsolute, relative } from 'node:path'
 import type { CatalogStore } from '../catalog-store'
 import { countChanges, diffLines } from './file-diff'
 import { ApprovalGate } from './approvals'
@@ -33,6 +34,18 @@ export interface PiDriverOptions {
   /** Overrides pi's configured default. Left unset, pi chooses — which is the
    *  product decision: provider and model live in pi's config, not ours. */
   model?: ModelRef
+}
+
+/** A path as the reader knows it: relative to the workspace it is in.
+ *
+ *  `relative`, not a string prefix. `/repo-notes/a.ts` starts with `/repo`, and
+ *  slicing by length would call it `otes/a.ts` — a path that looks like it is
+ *  inside the workspace and is not. */
+function shorten(path: string, cwd: string | undefined): string {
+  if (cwd === undefined) return path
+
+  const inside = relative(cwd, path)
+  return inside === '' || inside.startsWith('..') || isAbsolute(inside) ? path : inside
 }
 
 /** Hosts pi `AgentSession`s in the main process, one per open thread.
@@ -273,7 +286,7 @@ export class PiDriver implements SessionDriver {
       const lines = diffLines(change.before, change.after, { path: change.path })
       const { added, removed } = countChanges(lines)
       return {
-        path: cwd && change.path.startsWith(cwd) ? change.path.slice(cwd.length + 1) : change.path,
+        path: shorten(change.path, cwd),
         added,
         removed,
         existed: change.before !== '',

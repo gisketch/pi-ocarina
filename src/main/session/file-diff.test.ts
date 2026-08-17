@@ -120,3 +120,40 @@ describe('files that end awkwardly', () => {
     expect(shown('a\nb', 'a\nb\nc')).toEqual(['1 a', '2 b', '+3 c'])
   })
 })
+
+describe('a change spread across a long file', () => {
+  const long = (count: number): string =>
+    Array.from({ length: count }, (_, i) => `line ${i}`).join('\n')
+
+  it('reports two changed lines as two, however far apart they are', () => {
+    // The gate used to be the sum of the two trimmed sides, so any two edits
+    // more than ~750 lines apart made every line between them read as removed
+    // and re-added. A 900-line file with two words changed reported +891 −891.
+    const before = long(900)
+    const after = before.replace('line 5\n', 'line 5 changed\n').replace('line 895\n', 'line 895 changed\n')
+
+    expect(countChanges(diffLines(before, after))).toEqual({ added: 2, removed: 2 })
+  })
+
+  it('stays inside its budget on the file that gate was protecting', () => {
+    const before = long(1900)
+    const after = before.replace('line 10\n', 'changed\n').replace('line 1880\n', 'changed too\n')
+
+    const started = performance.now()
+    expect(countChanges(diffLines(before, after))).toEqual({ added: 2, removed: 2 })
+    expect(performance.now() - started).toBeLessThan(400)
+  })
+
+  it('says so when it really does give up', () => {
+    // A file rewritten end to end past the table's ceiling. The counts that
+    // follow are every line of one side and then the other, which is not a
+    // diff — so the output has to admit it rather than publish the numbers.
+    const before = long(2500)
+    const after = Array.from({ length: 2500 }, (_, i) => `other ${i}`).join('\n')
+
+    expect(diffLines(before, after)[0]).toEqual({
+      sign: '@',
+      text: 'too large to match line by line — shown as a replacement',
+    })
+  })
+})

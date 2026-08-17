@@ -241,7 +241,7 @@ describe('PiTranslator', () => {
 })
 
 describe('a call that changed a file', () => {
-  const change = { path: '/w/a.ts', before: 'one\ntwo\n', after: 'one\nTWO\n' }
+  const change = { path: '/w/a.ts', before: 'one\ntwo\n', after: 'one\nTWO\n', complete: true }
 
   const runEdit = (take: (id: string) => typeof change | null) => {
     const translator = new PiTranslator()
@@ -281,14 +281,14 @@ describe('a call that changed a file', () => {
   })
 
   it('says new file when there was nothing before', () => {
-    const end = runEdit(() => ({ path: '/w/n.ts', before: '', after: 'a\nb\n' })).find(
+    const end = runEdit(() => ({ path: '/w/n.ts', before: '', after: 'a\nb\n', complete: true })).find(
       (event) => event.kind === 'tool-end',
     )
     expect(end?.kind === 'tool-end' && end.meta).toBe('+2 new file')
   })
 
   it('draws no panel for an edit that changed nothing', () => {
-    const same = { path: '/w/a.ts', before: 'x\n', after: 'x\n' }
+    const same = { path: '/w/a.ts', before: 'x\n', after: 'x\n', complete: true }
     expect(runEdit(() => same).some((event) => event.kind === 'tool-body')).toBe(false)
   })
 

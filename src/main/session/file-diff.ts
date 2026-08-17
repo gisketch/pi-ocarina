@@ -21,10 +21,14 @@ const CONTEXT = 3
  *  quadratic below would stall the main process on both. */
 const MAX_BYTES = 400_000
 
-/** Above this many differing lines, the two versions are reported as a
- *  replacement rather than matched line by line. The matching below is
- *  quadratic in this number. */
-const MAX_MATCHED = 1500
+/** How large the matching table is allowed to get, in cells.
+ *
+ *  The cost is the product of the two sides, not their sum — and the sum is
+ *  what this used to gate on, which made a two-line edit 750 lines apart report
+ *  every line between them as removed and re-added. Four million cells is 16MB
+ *  of `Int32Array` and about 70ms, measured; the old gate gave up at 560k
+ *  cells, which costs ten. */
+const MAX_CELLS = 4_000_000
 
 /** A file's lines.
  *
@@ -66,17 +70,23 @@ type Op = { kind: ' ' | '-' | '+'; text: string }
  *
  *  The table is the classic one. It is only ever given the middle of a file —
  *  the part that actually differs — because `ends` has already taken the
- *  matching head and tail off both sides. */
+ *  matching head and tail off both sides.
+ *
+ *  Flat and typed, rather than an array of arrays: the same four million cells
+ *  cost 16MB here and roughly ten times that as boxed numbers, and the
+ *  allocation is what decides how large a file can be matched at all. */
 function match(before: string[], after: string[]): Op[] {
   const rows = before.length
   const cols = after.length
 
-  // One row of the table per line, holding the length of the best match so far.
-  const table: number[][] = Array.from({ length: rows + 1 }, () => new Array<number>(cols + 1).fill(0))
+  const width = cols + 1
+  const table = new Int32Array((rows + 1) * width)
+  const at = (i: number, j: number): number => table[i * width + j]
+
   for (let i = rows - 1; i >= 0; i -= 1) {
     for (let j = cols - 1; j >= 0; j -= 1) {
-      table[i][j] =
-        before[i] === after[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1])
+      table[i * width + j] =
+        before[i] === after[j] ? at(i + 1, j + 1) + 1 : Math.max(at(i + 1, j), at(i, j + 1))
     }
   }
 
@@ -92,7 +102,7 @@ function match(before: string[], after: string[]): Op[] {
     }
     // A deletion first when both are possible, so a replaced line reads as
     // "was this, now that" rather than the other way round.
-    if (table[i + 1][j] >= table[i][j + 1]) {
+    if (at(i + 1, j) >= at(i, j + 1)) {
       ops.push({ kind: '-', text: before[i] })
       i += 1
     } else {
@@ -112,30 +122,39 @@ function match(before: string[], after: string[]): Op[] {
   return ops
 }
 
-/** Everything, in order, as operations — before the context is trimmed. */
-function operations(before: string[], after: string[]): Op[] {
+/** Everything, in order, as operations — before the context is trimmed.
+ *
+ *  `matched` is false when the two versions were too large to correspond line
+ *  by line. The caller says so rather than passing off the fallback's counts as
+ *  a real diff. */
+function operations(before: string[], after: string[]): { ops: Op[]; matched: boolean } {
   const { head, tail } = ends(before, after)
   const mid = {
     before: before.slice(head, before.length - tail),
     after: after.slice(head, after.length - tail),
   }
 
-  const middle =
-    mid.before.length + mid.after.length > MAX_MATCHED
-      ? // Too large to match line by line. Reporting it as a wholesale
-        // replacement is honest: it says every line differs, which is true,
-        // rather than guessing at correspondences nobody would read anyway.
-        [
-          ...mid.before.map((text): Op => ({ kind: '-', text })),
-          ...mid.after.map((text): Op => ({ kind: '+', text })),
-        ]
-      : match(mid.before, mid.after)
+  // Gated on the table, which is what the matching actually costs. The span
+  // between the first and last change is not the set of changes: two edits at
+  // opposite ends of a long file leave almost every line in the middle
+  // identical, and reporting them all as replaced is a lie about the change,
+  // not a coarser view of it.
+  const tooBig = mid.before.length * mid.after.length > MAX_CELLS
+  const middle = tooBig
+    ? [
+        ...mid.before.map((text): Op => ({ kind: '-', text })),
+        ...mid.after.map((text): Op => ({ kind: '+', text })),
+      ]
+    : match(mid.before, mid.after)
 
-  return [
-    ...before.slice(0, head).map((text): Op => ({ kind: ' ', text })),
-    ...middle,
-    ...before.slice(before.length - tail).map((text): Op => ({ kind: ' ', text })),
-  ]
+  return {
+    ops: [
+      ...before.slice(0, head).map((text): Op => ({ kind: ' ', text })),
+      ...middle,
+      ...before.slice(before.length - tail).map((text): Op => ({ kind: ' ', text })),
+    ],
+    matched: !tooBig,
+  }
 }
 
 /** Which operations are near enough to a change to be worth drawing. */
@@ -169,7 +188,7 @@ export function diffLines(before: string, after: string, options: DiffOptions = 
     return [{ sign: '@', text: `${name} is too large to diff · ${bytes(before)} → ${bytes(after)}` }]
   }
 
-  const ops = operations(split(before), split(after))
+  const { ops, matched } = operations(split(before), split(after))
   const keep = kept(ops)
   // Two versions can differ only in their final newline, and then no line is
   // drawn at all. A "17 unchanged lines" marker with nothing to give context to
@@ -208,6 +227,13 @@ export function diffLines(before: string, after: string, options: DiffOptions = 
   }
 
   flushSkip()
+
+  // The counts below this line are not a diff of the two versions; they are
+  // every line of one followed by every line of the other. Saying so is the
+  // difference between a coarse answer and a wrong one.
+  if (!matched) {
+    lines.unshift({ sign: '@', text: 'too large to match line by line — shown as a replacement' })
+  }
 
   // Not a line, but a difference a reader would otherwise never see: the two
   // versions disagree about whether the file ends in a newline.

@@ -214,3 +214,133 @@ describe('when the backend cannot answer', () => {
     expect(changes.error).toBeNull()
   })
 })
+
+describe('stepping hunks across files', () => {
+  const changedFirstLine = file('b.ts', [
+    { sign: '+', text: 'first', line: 1 },
+    { sign: ' ', text: 'second', line: 2 },
+    { sign: '-', text: 'third', line: 3 },
+  ])
+
+  it('does not skip a file whose diff starts on a changed line', () => {
+    // Entering the next file at line 0 and then looking for the *next* hunk
+    // steps straight over a change sitting on line 0.
+    load([twoHunks, changedFirstLine])
+    changes.handleKey({ key: 'G' })
+    changes.handleKey({ key: 'g' })
+    changes.handleKey({ key: 'g' })
+
+    changes.handleKey({ key: 'n' })
+    changes.handleKey({ key: 'n' })
+    changes.handleKey({ key: 'n' })
+
+    expect(changes.at).toBe(1)
+    expect(changes.line).toBe(0)
+  })
+
+  it('lands on the start of the previous run when walking back', () => {
+    // Backwards used to land at the top of the previous file, or on a run's
+    // last line — so N then n did not return where n had been.
+    load([twoHunks])
+    changes.handleKey({ key: 'l' })
+    changes.handleKey({ key: 'G' })
+
+    changes.handleKey({ key: 'N' })
+    expect(changes.line).toBe(5)
+
+    changes.handleKey({ key: 'N' })
+    expect(changes.line).toBe(1)
+  })
+
+  it('enters the previous file at its last hunk, not its top', () => {
+    load([twoHunks, changedFirstLine])
+    changes.handleKey({ key: 'G' })
+    changes.handleKey({ key: 'l' })
+    changes.handleKey({ key: 'G' })
+
+    changes.handleKey({ key: 'N' })
+    expect(changes.at).toBe(1)
+    expect(changes.line).toBe(0)
+
+    changes.handleKey({ key: 'N' })
+    expect(changes.at).toBe(0)
+    expect(changes.line).toBe(5)
+  })
+})
+
+describe('which file a row opens', () => {
+  it('does not mistake a path that merely ends the same way', async () => {
+    // `vendor/src/a.ts` ends with `src/a.ts`. Opening the viewer there would
+    // show the reader a file they did not point at.
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({
+      files: [file('src/a.ts', []), file('vendor/src/a.ts', [])],
+    } as never)
+
+    await changes.show('t1', '/work/vendor/src/a.ts')
+
+    expect(changes.file?.path).toBe('vendor/src/a.ts')
+  })
+})
+
+describe('leaving the viewer', () => {
+  it('hands the keyboard back to the mode that opened it', async () => {
+    const { app } = await import('./app.svelte')
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
+
+    app.mode = 'READ'
+    await changes.show('t1')
+    changes.handleKey({ key: 'Escape' })
+
+    expect(app.mode).toBe('READ')
+    expect(changes.open).toBe(false)
+  })
+
+  it('returns to the strip when that is where it came from', async () => {
+    const { app } = await import('./app.svelte')
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
+
+    app.mode = 'NORMAL'
+    await changes.show('t1')
+    changes.handleKey({ key: 'Escape' })
+
+    expect(app.mode).toBe('NORMAL')
+  })
+})
+
+describe('following a thread that is still working', () => {
+  it('re-reads when a tool call ends on the thread it is watching', async () => {
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
+    await changes.show('t1')
+
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [file('late.ts', [])] } as never)
+    await changes.refreshFor('t1')
+
+    expect(changes.files.map((entry) => entry.path)).toEqual(['late.ts'])
+  })
+
+  it('ignores a thread it is not watching', async () => {
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
+    await changes.show('t1')
+    vi.mocked(session.invoke).mockClear()
+
+    await changes.refreshFor('t2')
+    expect(vi.mocked(session.invoke)).not.toHaveBeenCalled()
+  })
+
+  it('keeps what the reader has when a refresh fails', async () => {
+    const { session } = await import('../session')
+    vi.mocked(session.invoke).mockResolvedValueOnce({ files: [file('a.ts', [])] } as never)
+    await changes.show('t1')
+
+    vi.mocked(session.invoke).mockRejectedValueOnce(new Error('gone'))
+    await changes.refreshFor('t1')
+
+    expect(changes.files.map((entry) => entry.path)).toEqual(['a.ts'])
+    expect(changes.error).toBeNull()
+  })
+})

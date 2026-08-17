@@ -13,6 +13,7 @@ import { connectivity } from './connectivity.svelte'
 import { git } from './git.svelte'
 import { toasts } from './toasts.svelte'
 import { reduceBatch } from '../thread-reducer'
+import { changes } from './changes.svelte'
 import { EMPTY_THREAD, type ThreadViewModel } from '../thread'
 
 /** One thread's live view model.
@@ -65,8 +66,13 @@ class ThreadStore {
       box.loaded = true
 
       // A finished tool call may have written files without touching `.git`,
-      // which no watcher can see. This is the only moment anything knows.
-      if (events.some((event) => event.kind === 'tool-end')) git.refreshForThread(threadId)
+      // which no watcher can see. This is the only moment anything knows — and
+      // it is the same moment the change viewer, if it is open on this thread,
+      // stops being up to date.
+      if (events.some((event) => event.kind === 'tool-end')) {
+        git.refreshForThread(threadId)
+        void changes.refreshFor(threadId)
+      }
 
       for (const event of events) {
         if (event.kind === 'connectivity') {

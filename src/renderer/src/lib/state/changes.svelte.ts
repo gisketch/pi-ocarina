@@ -18,6 +18,23 @@ import { fuzzyFilter } from '../fuzzy'
 
 export type Pane = 'files' | 'diff'
 
+/** Which changed file a tool row's target names, or -1.
+ *
+ *  The row carries the path pi used — relative to the workspace, or absolute —
+ *  and the entries carry theirs relative to the workspace. A suffix match alone
+ *  is not enough twice over: it must fall on a segment boundary, or `src/a.ts`
+ *  matches `vendor/src/a.ts`; and when several entries match, the longest one
+ *  is the answer, or a repository holding both files opens the wrong one. */
+export function fileFor(target: string, paths: readonly string[]): number {
+  let best = -1
+  for (let at = 0; at < paths.length; at += 1) {
+    const path = paths[at]
+    if (target !== path && !target.endsWith(`/${path}`)) continue
+    if (best === -1 || path.length > paths[best].length) best = at
+  }
+  return best
+}
+
 class Changes {
   /** Every changed file, newest last. Raw: the list is replaced wholesale. */
   files = $state.raw<ChangedFile[]>([])
@@ -33,6 +50,9 @@ class Changes {
   /** Which line of the focused file's diff the reader is on. */
   line = $state(0)
   filter = $state('')
+  /** The mode the viewer was opened from, so `esc` gives it back. A reader who
+   *  was walking blocks in READ and looked at the change is still reading. */
+  #from: 'NORMAL' | 'READ' = 'NORMAL'
   /** Whether the filter is taking keys. Held apart from the text: `/` then
    *  backspace leaves an empty filter that is still listening, and a filter
    *  that stopped listening the moment it was emptied would be unusable. */
@@ -58,6 +78,7 @@ class Changes {
   /** Opens on a thread, optionally at a file — which is what `a` on a capped
    *  row does. */
   async show(threadId: string, path?: string): Promise<void> {
+    this.#from = app.mode === 'READ' ? 'READ' : 'NORMAL'
     this.threadId = threadId
     this.loading = true
     this.error = null
@@ -71,7 +92,9 @@ class Changes {
       // A second open, or a column change, can land while this was in flight.
       if (this.threadId !== threadId) return
       this.files = files
-      const wanted = path === undefined ? -1 : files.findIndex((file) => path.endsWith(file.path))
+      // Exact, or a path that ends on a segment boundary. `endsWith` alone
+      // matches `vendor/src/a.ts` against `src/a.ts` and opens the wrong file.
+      const wanted = path === undefined ? -1 : fileFor(path, files.map((file) => file.path))
       this.at = wanted === -1 ? 0 : wanted
       if (wanted !== -1) this.pane = 'diff'
     } catch (cause) {
@@ -83,8 +106,16 @@ class Changes {
     }
   }
 
+  /** `esc`: closes, and hands the keyboard back to where it came from. */
+  leave(): void {
+    const from = this.#from
+    this.close()
+    app.mode = from
+  }
+
   close(): void {
     this.threadId = null
+    this.#from = 'NORMAL'
     this.files = []
     this.error = null
     // The pane goes back too. A viewer reopened into whichever pane the last
@@ -96,6 +127,25 @@ class Changes {
     this.at = 0
     this.line = 0
     this.#pendingG = false
+  }
+
+  /** Re-reads the thread's changes while the viewer is watching it.
+   *
+   *  Called when a tool call ends, which is the only moment anything knows a
+   *  file may have moved — the same signal the git summary refreshes on. A
+   *  viewer left open beside a working agent otherwise shows the change as it
+   *  was when it opened. */
+  async refreshFor(threadId: string): Promise<void> {
+    if (this.threadId !== threadId) return
+
+    try {
+      const { files } = await session.invoke('listChanges', { threadId })
+      if (this.threadId !== threadId) return
+      this.absorb(files)
+    } catch {
+      // The viewer already has a list. Replacing it with an error because a
+      // refresh failed would take away what the reader was reading.
+    }
   }
 
   /** New files arriving while the viewer is open must not move the reader.
@@ -125,8 +175,7 @@ class Changes {
 
     switch (event.key) {
       case 'Escape':
-        this.close()
-        app.mode = 'NORMAL'
+        this.leave()
         return true
       case 'j':
       case 'ArrowDown':
@@ -227,25 +276,41 @@ class Changes {
    *  additions would make `n` mean the same as `j`. */
   #hunk(delta: number): void {
     this.pane = 'diff'
-    const lines = this.file?.lines ?? []
-    const changed = (at: number): boolean => lines[at]?.sign === '+' || lines[at]?.sign === '-'
 
-    let at = this.line + delta
-    // Out of the run the reader is standing in, before looking for the next.
-    while (at >= 0 && at < lines.length && changed(at) && changed(at - delta)) at += delta
-    while (at >= 0 && at < lines.length && !changed(at)) at += delta
-
-    if (at >= 0 && at < lines.length) {
-      this.line = at
+    const found = this.#hunkIn(this.file?.lines ?? [], this.line, delta)
+    if (found !== null) {
+      this.line = found
       return
     }
 
-    // Past the end of this file's changes: the next file, at its first hunk.
+    // Past this file's changes. The next file's first hunk, or its last when
+    // walking backwards — measured from outside the file, so a file whose very
+    // first line is a change is not skipped.
     const next = this.at + delta
     if (next < 0 || next >= this.shown.length) return
+
     this.at = next
-    this.line = 0
-    this.#hunk(delta === 1 ? 1 : -1)
+    const lines = this.shown[next]?.lines ?? []
+    const from = delta > 0 ? -1 : lines.length
+    this.line = this.#hunkIn(lines, from, delta) ?? (delta > 0 ? 0 : Math.max(0, lines.length - 1))
+  }
+
+  /** The start of the next run of changed lines from `from`, or null.
+   *
+   *  Backwards means the *start* of the previous run, not its last line: `N`
+   *  then `n` should land where `n` alone would have. */
+  #hunkIn(lines: readonly { sign: string }[], from: number, delta: number): number | null {
+    const changed = (at: number): boolean => lines[at]?.sign === '+' || lines[at]?.sign === '-'
+
+    let at = from + delta
+    // Out of the run the reader is standing in, before looking for the next.
+    while (at >= 0 && at < lines.length && changed(at) && changed(at - delta)) at += delta
+    while (at >= 0 && at < lines.length && !changed(at)) at += delta
+    if (at < 0 || at >= lines.length) return null
+
+    // Walking backwards lands on a run's last line; the reader wants its first.
+    if (delta < 0) while (at > 0 && changed(at - 1)) at -= 1
+    return at
   }
 
   async #copy(): Promise<void> {

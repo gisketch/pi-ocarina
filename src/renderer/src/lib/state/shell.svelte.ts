@@ -241,8 +241,10 @@ class ShellState {
         blockNav.leap()
         break
       case 'openChanges':
-        // A shell has no changes to show; the mode reconciles straight back.
-        if (app.thread.terminal) app.mode = 'NORMAL'
+        // A shell has no files to change, and a thread nobody has prompted has
+        // not changed any. Both would open a modal viewer over nothing, and a
+        // modal owns every key — so the mode goes straight back instead.
+        if (app.thread.terminal || app.thread.fresh) app.mode = 'NORMAL'
         else void changes.show(app.thread.id)
         break
       case 'openBlockMenu':

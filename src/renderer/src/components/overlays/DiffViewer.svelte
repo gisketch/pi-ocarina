@@ -7,6 +7,25 @@
   // fixed for twice.
   const files = $derived(changes.shown)
   const file = $derived(changes.file)
+
+  /** Keeps the cursor on screen.
+   *
+   *  Both panes scroll their own overflow, and the keys move an index rather
+   *  than the view — so without this, `G` on a 300-line diff moves the outline
+   *  six thousand pixels below the fold and the reader sees nothing happen. The
+   *  transcript has `revealBlock` for exactly this; the viewer needed its own.
+   *
+   *  An action rather than an effect: the element being revealed is the input,
+   *  and there is one per row in a list that can hold a whole file. */
+  function reveal(el: HTMLElement, on: boolean): { update: (on: boolean) => void } {
+    let last = false
+    const sync = (now: boolean): void => {
+      if (now && !last) el.scrollIntoView({ block: 'nearest' })
+      last = now
+    }
+    sync(on)
+    return { update: sync }
+  }
 </script>
 
 <div class="sheet" role="dialog" aria-label="changes">
@@ -23,7 +42,7 @@
 
     <div class="list">
       {#each files as entry, i (entry.path)}
-        <div class="file" class:on={i === changes.at}>
+        <div class="file" class:on={i === changes.at} use:reveal={i === changes.at}>
           <span class="path">{entry.path}</span>
           <span class="stat">
             {#if !entry.existed}<span class="new">new</span>{/if}
@@ -59,7 +78,11 @@
       <div class="body">
         {#each file.lines as line, i (i)}
           {#if line.sign === '@'}
-            <div class="dline skip" class:on={i === changes.line && changes.pane === 'diff'}>
+            <div
+              class="dline skip"
+              class:on={i === changes.line && changes.pane === 'diff'}
+              use:reveal={i === changes.line}
+            >
               {line.text}
             </div>
           {:else}
@@ -68,6 +91,7 @@
               class:on={i === changes.line && changes.pane === 'diff'}
               class:add={line.sign === '+'}
               class:del={line.sign === '-'}
+              use:reveal={i === changes.line}
             ><span class="num">{line.line ?? ''}</span>{line.sign} {line.text}</div>
           {/if}
         {/each}

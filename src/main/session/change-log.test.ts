@@ -30,6 +30,7 @@ describe('one call', () => {
       path: join(cwd, 'a.ts'),
       before: 'one\n',
       after: 'one\ntwo\n',
+      complete: true,
     })
   })
 
@@ -45,6 +46,7 @@ describe('one call', () => {
       path: join(cwd, 'new.ts'),
       before: '',
       after: 'fresh\n',
+      complete: true,
     })
   })
 
@@ -95,7 +97,9 @@ describe('a file edited more than once', () => {
     write('a.ts', 'v3\n')
     log.end('t1', 'call-2')
 
-    expect(log.changes('t1')).toEqual([{ path: join(cwd, 'a.ts'), before: 'v1\n', after: 'v3\n' }])
+    expect(log.changes('t1')).toEqual([
+      { path: join(cwd, 'a.ts'), before: 'v1\n', after: 'v3\n', complete: true },
+    ])
   })
 
   it('drops a file whose edits cancelled out', () => {
@@ -151,5 +155,46 @@ describe('which tools are watched', () => {
   it('leaves bash alone, because it does not say what it touched', () => {
     expect(CHANGING_TOOLS.has('bash')).toBe(false)
     expect(CHANGING_TOOLS.has('read')).toBe(false)
+  })
+})
+
+describe('a file it cannot hold', () => {
+  it('does not report a file grown past the cap as deleted', () => {
+    // The worst thing this module could do: the agent adds a line to a large
+    // file, the second read refuses it, and the diff publishes every line of
+    // the file as removed. Empty and unreadable are not the same answer.
+    const log = new ChangeLog()
+    write('big.ts', 'one\ntwo\n')
+
+    log.start('call-1', 'big.ts', cwd)
+    write('big.ts', 'x'.repeat(500_000))
+
+    expect(log.end('t1', 'call-1')?.complete).toBe(false)
+  })
+
+  it('leaves a file with a hole in its history out of the viewer', () => {
+    // first-against-last is only an account of anything if nothing in between
+    // was lost.
+    const log = new ChangeLog()
+    write('a.ts', 'v1\n')
+
+    log.start('c1', 'a.ts', cwd)
+    write('a.ts', 'x'.repeat(500_000))
+    log.end('t1', 'c1')
+
+    log.start('c2', 'a.ts', cwd)
+    write('a.ts', 'v3\n')
+    log.end('t1', 'c2')
+
+    expect(log.changes('t1')).toEqual([])
+  })
+
+  it('still calls a missing file empty, which is what a write needs', () => {
+    const log = new ChangeLog()
+
+    log.start('c1', 'fresh.ts', cwd)
+    write('fresh.ts', 'new\n')
+
+    expect(log.end('t1', 'c1')).toMatchObject({ before: '', after: 'new\n', complete: true })
   })
 })

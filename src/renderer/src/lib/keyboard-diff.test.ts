@@ -65,3 +65,12 @@ describe('the leader chord', () => {
     }
   })
 })
+
+describe('a column with nothing behind it', () => {
+  it('still reduces d in NORMAL — the shell decides whether there is anything to show', () => {
+    // The reducer is pure and does not know whether the column is fresh; the
+    // guard lives in the action, which is why this asserts the action rather
+    // than the mode staying put.
+    expect(press(NORMAL, 'd').actions).toEqual([{ type: 'openChanges' }])
+  })
+})
