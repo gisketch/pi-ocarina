@@ -33,7 +33,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: `staged-images.test.ts` for naming, extension and cleanup; a
   manual paste pass.
 
-## P3 — the composer draws chips — `todo`
+## P3 — the composer draws chips — `done`
 
 > A mirror behind the textarea. Decorates, never re-flows.
 

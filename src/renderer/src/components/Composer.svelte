@@ -10,6 +10,7 @@
   import { attachments } from '$lib/state/attachments.svelte'
   import { pasting } from '$lib/state/pasting.svelte'
   import StagedChips from './composer/StagedChips.svelte'
+  import Mirror from './composer/Mirror.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
@@ -243,7 +244,9 @@
 
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
-    <textarea
+    <div class="field">
+      <Mirror {text} folds={pasting.folds} />
+      <textarea
       bind:this={input}
       bind:value={text}
       {onkeydown}
@@ -262,8 +265,9 @@
       onblur={() => {
         if (app.mode === 'INSERT') app.mode = 'NORMAL'
       }}
-      onpaste={onpaste}
-    ></textarea>
+        onpaste={onpaste}
+      ></textarea>
+    </div>
     <span class="hints">
       <span><span class="kbd">⏎</span> {hint}</span>
       <span><span class="kbd">⇧⏎</span> newline</span>
@@ -301,15 +305,37 @@
     line-height: 1.5;
   }
 
-  textarea {
+  /* The field is a stacking context so the mirror can sit exactly under the
+     textarea's glyphs. */
+  .field {
+    position: relative;
     flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--fg-body);
+    min-width: 0;
+    display: flex;
+  }
+
+  /* Everything that decides where a glyph lands, in one place. The mirror
+     carries this class too — if the two ever disagree, the caret drifts. */
+  textarea,
+  .field :global(.field-metrics) {
     font-family: var(--font-body);
     font-size: 13px;
     line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    padding: 0;
+    margin: 0;
+    border: none;
+  }
+
+  textarea {
+    flex: 1;
+    position: relative;
+    background: transparent;
+    outline: none;
+    /* Transparent, not hidden: the caret and the selection are the browser's
+       and have to stay visible over the mirror's chips. */
+    color: transparent;
     caret-color: var(--accent);
     resize: none;
     overflow-y: auto;
