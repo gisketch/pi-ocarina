@@ -52,7 +52,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
   (still falls back to top level); the harness opened once.
 - Blocked by: M1.
 
-## M3 — One child, end to end — `todo`
+## M3 — One child, end to end — `done`
 
 > The tracer bullet. A real agent spawns one child, the child's tool calls
 > appear nested under the call, and the parent reads the result.
@@ -78,6 +78,17 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
   rule, the inline ceiling, and the envelope shape; one live pass under
   `PIOCARINA_PI_LIVE=1`.
 - Blocked by: M2.
+
+> **Proven live.** A real agent, given only the tool's description, spawned a
+> scout, the scout's `read` arrived nested under it, and the parent's reply
+> carried the word the scout found. Three things the live run found that no
+> offline test could: the shipped `scout` pinned a model from a provider this
+> machine was not signed in to, so every scout died before reading anything —
+> shipped roles now name no model, and a named model that is not configured
+> falls back with a warning; a failed child reported an empty output rather than
+> the model's own error, which read as "said nothing" and invited the parent to
+> retry the identical spawn; and `spawn_agents` rendered as a `raw` row with a
+> page of JSON in it, because pi's tool-name map had never heard of it.
 
 ## M4 — Several at once: names, caps, depth — `todo`
 

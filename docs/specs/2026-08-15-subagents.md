@@ -270,8 +270,19 @@ reopen the injection question decision 2 closed: the worry was a system prompt
 arriving from a file in a cloned repository, not one the model composes in a
 thread the reader is watching.
 
-Accepted cost: shipped defaults carry model ids, and a default pointing at a
-retired model fails at spawn time rather than in the settings screen.
+**Amended 2026-08-17, by a live run.** The shipped roles name **no model at
+all**. An earlier version pinned the scout to a cheap model from a provider this
+machine was not signed in to, and every scout died before reading anything — the
+model then fell back to inline roles and the fan-out limped. A shipped model id
+is a guess about which providers a machine has credentials for, and a wrong guess
+fails at the first spawn rather than in the settings screen. Naming no model
+means a child borrows the session's own, which always works; putting a cheap
+model behind the scout is a choice the user makes once, knowing what they have.
+
+A model a role does name is still not fatal: if it is not configured here, the
+child falls back to the session's model and the envelope carries a warning
+saying so. A child silently running on a model ten times the price of the one
+its role names would be worse than the warning.
 
 ### 13. The orchestrator may narrow a child's tools, never widen them
 

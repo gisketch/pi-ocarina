@@ -16,6 +16,7 @@ import { ChangeLog } from './change-log'
 import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
+import { AgentFleet } from './agent-fleet'
 import { PiTranslator } from './pi-translate'
 import { emitUsage, replayInto } from './session-report'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
@@ -55,6 +56,7 @@ export class PiDriver implements SessionDriver {
   readonly #queries: WorkspaceQueries
   readonly #changes = new ChangeLog()
   readonly #asks: AskGate
+  readonly #fleet: AgentFleet
 
   constructor({ emit, catalog, model, onUnpin }: PiDriverOptions) {
     this.#emit = emit
@@ -63,6 +65,15 @@ export class PiDriver implements SessionDriver {
     this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, this.#asks, model)
+    // The fleet is built from the factory and then handed back to it: a child
+    // is a session, and a session may spawn children, so the two are mutually
+    // dependent and one of them has to be wired after construction.
+    this.#fleet = new AgentFleet(this.#sessions, emit)
+    this.#sessions.enableSpawning({
+      fleet: this.#fleet,
+      roles: () => catalog.roles(),
+      names: () => catalog.namePool(),
+    })
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
@@ -70,6 +81,8 @@ export class PiDriver implements SessionDriver {
       // Anything waiting on an answer is released rather than left hanging.
       this.#approvals.abandon(threadId)
       this.#asks.end(threadId, 'thread closed')
+      // A thread with no column has nobody watching its children.
+      this.#fleet.cancelThread(threadId)
       this.#steers.forget(threadId)
       this.#changes.forget(threadId)
     })

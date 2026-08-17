@@ -24,6 +24,10 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   todo: 'todo',
   skill: 'skill',
   agent: 'agent',
+  // This app's own tool. The children it starts nest under this row, so the
+  // row that holds them has to read as the fan-out it is rather than as a
+  // `raw` row with a page of JSON in it.
+  spawn_agents: 'agent',
 }
 
 export function toolKind(name: string): ToolKind {
@@ -35,6 +39,13 @@ export function toolTarget(name: string, args: unknown): string {
   const input = (args ?? {}) as Record<string, unknown>
   const pick = (key: string): string | undefined =>
     typeof input[key] === 'string' ? (input[key] as string) : undefined
+
+  // The spawn call's row says how many children it started; each of them has a
+  // row of its own underneath saying what it is.
+  if (name === 'spawn_agents') {
+    const agents = Array.isArray(input.agents) ? input.agents.length : 0
+    return agents === 1 ? 'spawn 1 agent' : `spawn ${agents} agents`
+  }
 
   const target =
     pick('path') ?? pick('file_path') ?? pick('command') ?? pick('pattern') ?? pick('url')

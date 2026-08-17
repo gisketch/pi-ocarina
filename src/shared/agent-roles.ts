@@ -24,10 +24,19 @@ export const CHILD_PREAMBLE = [
 
 /** The four roles a fresh profile starts with.
  *
- *  The division is pi's own sample set: recon on a cheap model, planning and
+ *  The division is pi's own sample set: recon that reads widely, planning and
  *  review that read without writing, and one role that holds everything. They
  *  are examples as much as defaults — reading four working roles teaches the
- *  shape faster than an empty form does. */
+ *  shape faster than an empty form does.
+ *
+ *  **None of them names a model.** A shipped model id is a guess about which
+ *  providers this machine has credentials for, and a wrong guess fails at the
+ *  first spawn rather than in the settings screen. Proven live: an earlier
+ *  version pinned the scout to a cheap model from a provider this machine was
+ *  not signed in to, and every scout died before it read anything. Naming no
+ *  model means a child borrows the session's own, which always works; putting a
+ *  cheap model behind the scout is a choice the user makes, once, knowing what
+ *  they have. */
 export const DEFAULT_ROLES: readonly AgentRole[] = [
   {
     id: 'scout',
@@ -36,7 +45,6 @@ export const DEFAULT_ROLES: readonly AgentRole[] = [
       'You find things in a codebase and report where they are. Read widely and ' +
       'cheaply. Report paths and line numbers, not opinions about the code.',
     tools: [...READ_ONLY_TOOLS, 'bash'],
-    model: 'anthropic/claude-haiku-4-5',
   },
   {
     id: 'planner',

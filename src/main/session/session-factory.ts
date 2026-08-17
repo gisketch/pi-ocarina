@@ -1,12 +1,16 @@
-import type { AgentSession } from '@earendil-works/pi-coding-agent'
+import type { AgentSession, ExtensionFactory } from '@earendil-works/pi-coding-agent'
 import type { ApprovalGate } from './approvals'
 import type { AskGate } from './ask-gate'
 import { askUserTool } from './ask-tool'
+import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 
 // Derived from the factory: pi's ModelRuntime constructor is private.
 type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
 type ResourceLoaderOf = InstanceType<Sdk['DefaultResourceLoader']>
+// The `pi` object an inline extension is handed. pi's own type, so it cannot
+// drift; the import is type-only and costs nothing at runtime.
+type ExtensionApiOf = Parameters<ExtensionFactory>[0]
 
 /** A model named the way pi's config names it. */
 export interface ModelRef {
@@ -32,11 +36,22 @@ export class SessionFactory {
   readonly #approvals: ApprovalGate
   readonly #asks: AskGate
   readonly #model: ModelRef | undefined
+  /** Supplied after construction: the fleet is built from this factory, so the
+   *  two cannot be constructed in one order. A session started before it
+   *  arrives simply has no spawn tool. */
+  #spawn: Omit<SpawnDeps, 'handle' | 'where'> | undefined
+  #where: ((workspaceId: string, cwd: string) => SpawnDeps['where']) | undefined
 
   constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
     this.#approvals = approvals
     this.#asks = asks
     this.#model = model
+  }
+
+  /** Lets sessions spawn children. Called once, after the fleet exists. */
+  enableSpawning(deps: Omit<SpawnDeps, 'handle' | 'where'>): void {
+    this.#spawn = deps
+    this.#where = (workspaceId, cwd) => () => ({ workspaceId, cwd })
   }
 
   /** Loaded on first use: pi is a heavy import and the window should paint first. */
@@ -81,6 +96,72 @@ export class SessionFactory {
     return session
   }
 
+  /** A child agent: a session with no file, a narrowed tool set, and its own
+   *  system prompt.
+   *
+   *  It takes the approval gate bound to its **parent's** thread and workspace,
+   *  which is the whole reason children run in this process rather than as
+   *  spawned `pi` subprocesses: a child that writes to disk raises a card in the
+   *  thread the reader is watching, under the rules that workspace already has.
+   *
+   *  It does not take `ask_user`. A child's question would arrive in the parent's
+   *  column with none of the parent's context around it, and several children
+   *  could ask at once — so a child that wants something from a person says so in
+   *  its final message and lets the parent ask. */
+  async child(options: {
+    cwd: string
+    workspaceId: string
+    /** The parent's thread: where the child's rows and cards appear. */
+    handle: ThreadHandle
+    instructions: string
+    tools: string[]
+    model?: string
+    /** Told when the model a role names is not configured here, so the fan-out
+     *  can say so rather than swallowing it. */
+    onWarning?: (warning: string) => void
+  }): Promise<AgentSession> {
+    const { createAgentSession, SessionManager } = await this.load()
+
+    const { session } = await createAgentSession({
+      cwd: options.cwd,
+      // No session file: a child is not a thread. It is never listed, never
+      // reopened, and its transcript lives only in the rows under the call.
+      sessionManager: SessionManager.inMemory(options.cwd),
+      model: await this.#childModel(options.model, options.onWarning),
+      tools: options.tools,
+      resourceLoader: await this.#resources(options.cwd, options.workspaceId, options.handle, {
+        ask: false,
+        appendSystemPrompt: options.instructions,
+      }),
+    })
+
+    await this.bindToolsToWorkspace(session, options.cwd)
+    return session
+  }
+
+  /** The model a child runs on, falling back rather than failing.
+   *
+   *  A role ships with a model id, and an id ages: the model is retired, or the
+   *  user never configured that provider. Failing the child there would mean a
+   *  fan-out that dies on first use because of a default nobody chose — proven
+   *  live, where the shipped `scout` named a model this machine did not have and
+   *  every scout failed before running. It falls back to the session's own model
+   *  and says so, because a child quietly running on a model ten times the price
+   *  of the one its role names is worse than a warning. */
+  async #childModel(
+    named: string | undefined,
+    warn: ((warning: string) => void) | undefined,
+  ): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
+    if (!named) return this.#resolveModel()
+
+    try {
+      return await this.#resolveModel(named)
+    } catch {
+      warn?.(`model "${named}" is not configured here; used this session's model instead`)
+      return this.#resolveModel()
+    }
+  }
+
   /** Loads pi's usual resources plus one extension of ours: the approval gate.
    *
    *  `tool_call` is pi's only place to stand between the model and the disk, and
@@ -90,6 +171,7 @@ export class SessionFactory {
     cwd: string,
     workspaceId: string,
     handle: ThreadHandle,
+    child?: { ask: boolean; appendSystemPrompt: string },
   ): Promise<ResourceLoaderOf> {
     const { DefaultResourceLoader, getAgentDir } = await this.load()
     const gate = this.#approvals
@@ -98,15 +180,42 @@ export class SessionFactory {
     const loader = new DefaultResourceLoader({
       cwd,
       agentDir: getAgentDir(),
+      // Inline text, not a path: pi reads an entry as a file when one exists at
+      // that name and takes it as the prompt itself otherwise. A role's
+      // instructions are prose, so they arrive as prose.
+      ...(child ? { appendSystemPrompt: [child.appendSystemPrompt] } : {}),
       extensionFactories: [
-        {
-          // pi 0.84 has no elicitation of its own, so the only way an agent can
-          // ask a person anything is a tool this app gives it.
-          name: 'piocarina-ask',
-          factory: (pi) => {
-            pi.registerTool(askUserTool(asks, handle))
-          },
-        },
+        ...(child?.ask === false
+          ? []
+          : [
+              {
+                // pi 0.84 has no elicitation of its own, so the only way an
+                // agent can ask a person anything is a tool this app gives it.
+                name: 'piocarina-ask',
+                factory: (pi: ExtensionApiOf) => {
+                  pi.registerTool(askUserTool(asks, handle))
+                },
+              },
+            ]),
+        // A child does not get this: a grandchild would make the tree deeper
+        // than the column can indent or the cap can count. M4 gives a child its
+        // own, one level down.
+        ...(child || !this.#spawn || !this.#where
+          ? []
+          : [
+              {
+                name: 'piocarina-agents',
+                factory: (pi: ExtensionApiOf) => {
+                  pi.registerTool(
+                    spawnAgentsTool({
+                      ...this.#spawn!,
+                      handle,
+                      where: this.#where!(workspaceId, cwd),
+                    }),
+                  )
+                },
+              },
+            ]),
         {
           name: 'piocarina-approvals',
           factory: (pi) => {
@@ -177,15 +286,32 @@ export class SessionFactory {
     return available.length > 0 ? available : runtime.getAvailableSnapshot()
   }
 
-  async #resolveModel(): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
-    if (!this.#model) return undefined
+  /** The model this session runs on.
+   *
+   *  A child may name its own as `provider/id`; naming none means it borrows
+   *  whatever the app is configured with, which is what "inherits the parent's
+   *  model" amounts to here. */
+  async #resolveModel(named?: string): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
+    const wanted = named ? splitModel(named) : this.#model
+    if (!wanted) return undefined
 
     const { ModelRuntime } = await this.load()
     this.#runtime ??= ModelRuntime.create()
-    const model = (await this.#runtime).getModel(this.#model.provider, this.#model.id)
+    const model = (await this.#runtime).getModel(wanted.provider, wanted.id)
     if (!model) {
-      throw new Error(`pi has no model "${this.#model.provider}/${this.#model.id}" configured`)
+      throw new Error(`pi has no model "${wanted.provider}/${wanted.id}" configured`)
     }
     return model
   }
+}
+
+/** `provider/id`, the way pi's own config and its `--model` flag spell it.
+ *
+ *  Split on the first slash only: a model id may contain slashes of its own
+ *  (`anthropic/claude-…` versus an OpenRouter id like `x-ai/grok`), and the
+ *  provider never does. */
+function splitModel(named: string): ModelRef {
+  const at = named.indexOf('/')
+  if (at === -1) throw new Error(`model "${named}" needs the form provider/id`)
+  return { provider: named.slice(0, at), id: named.slice(at + 1) }
 }
