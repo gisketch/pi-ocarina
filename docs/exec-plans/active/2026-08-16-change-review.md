@@ -220,3 +220,50 @@ The shape J6 asked for, as a test rather than a one-off measurement, in
 
 The differ's own budget is in `file-diff.test.ts`: a one-line change in a
 4,000-line file stays under 50ms, which is what the head-and-tail trim buys.
+
+
+## Review round (2026-08-17)
+
+Six review dimensions ran adversarially — every finding attacked by a skeptic
+told to default to refuting it. Nineteen claims, ten survived. One dimension
+(paint) and three verifiers died when the machine slept; what they would have
+found is not known, and the ones below are what came back.
+
+The two worst were the same mistake in different places: **the code stating
+something untrue with complete confidence.**
+
+1. **P1 — a two-line edit reported `+891 −891`.** The matching gave up when the
+   sum of the two trimmed sides passed 1500, but the span between the first and
+   last change is not the set of changes. Two edits 750 lines apart left almost
+   every line between them identical, and every one of them was published as
+   removed and re-added. Reproduced at 891, fixed to 2. The gate is now the
+   matching table's cell count — what the work actually costs — and the table is
+   a flat `Int32Array`, so four million cells fit where half a million did. When
+   it does give up, it says so in the output.
+2. **P0 — a file grown past the snapshot cap was reported as deleted.** `empty`
+   and `unreadable` were the same answer, so a real file diffed against an empty
+   string published a deletion nobody made. They are different answers now, and
+   a file whose history has a hole in it leaves the viewer rather than showing a
+   guess across the gap.
+3. **P1 — the viewer's cursor never scrolled.** Every key moved an index while
+   both panes stayed put: `G` on a 300-line diff put the outline 6,000px below
+   the fold. The third failure shape in the house rules, and the unit tests
+   passed throughout because they assert the index. Fixed with a `reveal`
+   action; verified in the harness at 300 lines and 60 files.
+4. **P1 — live follow was never wired.** Decision 14 shipped as an `absorb()`
+   with no caller. It refreshes on `tool-end` now, the same signal the git
+   summary already uses.
+
+Then: `n` skipped a file whose diff starts on line 0 and `N` landed at the top
+of the previous file rather than the start of its last hunk; `esc` always
+returned to NORMAL rather than the READ it was opened from; a path was shortened
+by string prefix, so `/repo-notes/a.ts` became `otes/a.ts`; a row matched the
+wrong file when one path ended the other; and `d` on a fresh column opened a
+modal over a thread that does not exist.
+
+Refuted, and worth recording so they are not re-reported: the diff crossing IPC
+"uncapped" (it is bounded by the snapshot cap), `#open` leaking on an abort
+(the translator closes abandoned calls), `diffLines` running twice per call (it
+did, and was folded into one; the claim that it was on the synchronous event
+path was wrong), and the gutter disagreeing between ledgers in one column (each
+ledger is its own block and they do not share a row).
