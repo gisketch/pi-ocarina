@@ -202,6 +202,13 @@ export class PiDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
+      case 'cancelAgent': {
+        const { agentId } = params as CommandParams<'cancelAgent'>
+        // Deliberately not `cancelTurn`: the turn stays open, the siblings keep
+        // running, and the fleet settles this one child as `cancelled`.
+        return { ok: this.#fleet.cancel(agentId) } as CommandResult<N>
+      }
+
       case 'archiveThread': {
         const { threadId } = params as CommandParams<'archiveThread'>
         this.#threads.close(threadId)

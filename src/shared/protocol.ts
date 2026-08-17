@@ -214,6 +214,9 @@ export interface SessionCommands {
   listApprovalRules: { params: { workspaceId: string }; result: { rules: string[] } }
   revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }
   cancelTurn: { params: { threadId: string }; result: { ok: true } }
+  /** Stops one child agent. Its siblings keep running, and the turn stays open
+   *  — that is the difference between this and `cancelTurn`. */
+  cancelAgent: { params: { threadId: string; agentId: string }; result: { ok: boolean } }
   retryTurn: { params: { threadId: string }; result: { ok: true } }
   restoreCheckpoint: {
     params: { threadId: string; checkpointId: string }

@@ -57,6 +57,10 @@ export class StubDriver implements SessionDriver {
         return { ok: true } as CommandResult<N>
       }
 
+      // The stub runs no children, so there is never one to stop.
+      case 'cancelAgent':
+        return { ok: false } as CommandResult<N>
+
       case 'restoreCheckpoint': {
         const { threadId } = params as CommandParams<'restoreCheckpoint'>
         return { threadId } as CommandResult<N>

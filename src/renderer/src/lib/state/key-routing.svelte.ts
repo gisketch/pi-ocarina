@@ -8,6 +8,10 @@
  *  Returns whether the key was consumed, or null when nothing here wanted it
  *  and the strip's own bindings should run. */
 
+import { agentPeek } from './agent-peek.svelte'
+import { askKeys } from './ask-keys.svelte'
+import { blockMenu } from './block-menu.svelte'
+import { blockNav } from './block-nav.svelte'
 import { changes } from './changes.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
@@ -35,6 +39,58 @@ export function routeToOverlay(event: KeyEventLike): boolean | null {
 
   // A pending question is deliberately *not* here: it arrives on its own,
   // where everything above was put on screen by the reader, so it ranks below
-  // the block menu and the leap hints as well. The shell asks it after those.
+  // the block menu and the leap hints as well. `routeToSurface` asks it after
+  // those.
   return null
 }
+
+/** The surfaces that rank *below* the modals but above ordinary column keys.
+ *
+ *  Split from `routeToOverlay` because the ranking is the same idea and the two
+ *  halves differ only in where the pending question sits. Kept out of the shell
+ *  because that file is the longest in the app and this is not about the strip.
+ *
+ *  Returns true when the key was consumed. */
+export function routeToSurface(event: KeyEventLike, mode: string, threadId: string): boolean {
+  // A menu or a set of hints can outlive what they point at: a column can be
+  // clicked away, a restore can take the block, a compaction can fold it out of
+  // sight. Either would then swallow every key from behind a surface that is no
+  // longer drawn, so both are dropped before anything reads the key.
+  blockNav.dropStaleOverlays()
+
+  // The block menu is a list with a highlight, and it is modal: it ranks below
+  // the questions above and above the hint mode, which is not.
+  if (blockMenu.open) {
+    if (MODIFIER_KEYS.has(event.key)) return false
+    return blockMenu.handleKey(event)
+  }
+
+  // Hints own every key while they are on screen — that is what lets a label be
+  // `j` without colliding with the binding. They rank below the modals above,
+  // which are asked because an answer changes work already in flight, and above
+  // everything below, which is ordinary navigation.
+  if (blockNav.leaping) {
+    const consumed = blockNav.handleLeapKey(event)
+    // A leap can end without landing — `esc`, a pattern that matched nothing, a
+    // key that named no label — and those paths leave READ standing with no
+    // ring. Reconciling here rather than on the next keystroke is what stops
+    // that next keystroke being read as READ.
+    blockNav.reconcileMode()
+    return consumed
+  }
+
+  // A question waiting in this column owns the choice keys — below everything
+  // the reader put on screen, above ordinary column keys. `enter` from NORMAL
+  // takes them back after an `esc` released them.
+  if (event.key === 'Enter' && mode === 'NORMAL' && askKeys.resume()) return true
+  if (askKeys.handleKey(event)) return true
+
+  // The peek, and the keys that reach it. Below the question, which is asked;
+  // above ordinary column keys, which is what lets `l` descend into a child
+  // rather than move to the next column — and only while an agent row is
+  // focused, so `l` is unchanged in front of every other kind of block.
+  return agentPeek.handleKey(event, mode, threadId)
+}
+
+/** A modifier pressed on its own is not an answer to anything. */
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'])

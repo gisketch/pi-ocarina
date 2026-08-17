@@ -10,6 +10,7 @@
   import ConfirmModal from './components/ConfirmModal.svelte'
   import WorktreeAsk from './components/WorktreeAsk.svelte'
   import SweepOverlay from './components/overlays/SweepOverlay.svelte'
+  import AgentPeek from './components/thread/AgentPeek.svelte'
   import ConnectivityBanner from './components/ConnectivityBanner.svelte'
   import Toasts from './components/Toasts.svelte'
   import DiffViewer from './components/overlays/DiffViewer.svelte'
@@ -204,6 +205,9 @@
   <ConfirmModal />
   <WorktreeAsk />
   <SweepOverlay />
+  <!-- Not modal: the peek is somewhere to look from while the fan-out carries
+       on behind it, so it floats rather than covering the strip. -->
+  <AgentPeek />
 
   {#if app.mode === 'LEADER'}
     <LeaderBar />

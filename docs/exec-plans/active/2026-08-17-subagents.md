@@ -143,7 +143,7 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
 > one. And a child running a child of its own read as `working`, because the
 > tool label is all a nested agent row gives; it names the grandchild instead.
 
-## M6 — The peek, and stopping one child — `todo`
+## M6 — The peek, and stopping one child — `done`
 
 > `l` on a child row opens what it is actually doing. `x` stops that one and
 > leaves the others alone.
@@ -163,6 +163,17 @@ Ticket prefix `M`. Decisions referenced as D1–D13 from the spec.
   single-child cancel; a harness pass opening and closing the peek by key and by
   mouse.
 - Blocked by: M5.
+
+> **The peek was unreachable, and the harness is what found it.** Nested rows
+> deliberately do not register as focus targets — pointing at a subagent's third
+> read is not something a reader can ask for — and every agent row is nested
+> under its spawn call. So `l` had nothing to descend from. A nested *agent* row
+> is now a stop of its own, in the DOM and in `navBlocks`; its tool rows still
+> are not. Walked in the harness: `j` to a child, `l` opens it, `h` closes it,
+> and a running child offers `x stop` where a settled one does not.
+>
+> The shell also passed 350 lines, so the surfaces that rank below the modals
+> moved into `key-routing`, which already owned the ranking above them.
 
 ## M7 — Who is asking, and what it cost — `todo`
 

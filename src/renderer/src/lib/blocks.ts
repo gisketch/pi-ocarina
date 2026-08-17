@@ -155,7 +155,14 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
     }
 
     if (block.kind === 'ledger') {
-      for (const row of block.rows) list.push(toolEntry(block.id, row))
+      for (const row of block.rows) {
+        list.push(toolEntry(block.id, row))
+        // A child agent is a stop of its own, and has to be: it is always
+        // nested under its spawn call, and `l` on it is the only way into the
+        // peek. Its *tool* rows are not — pointing at a subagent's third read
+        // is not something the reader can ask for.
+        for (const child of agentsIn(row)) list.push(toolEntry(block.id, child))
+      }
       pending = null
       adjacent = null
       continue
@@ -209,4 +216,14 @@ export function step(list: NavBlock[], current: string | null, delta: number): s
 
   const next = Math.min(list.length - 1, Math.max(0, at + delta))
   return list[next]?.id ?? null
+}
+
+/** Every agent row under this one, at any depth, in the order they are drawn. */
+function agentsIn(row: ToolRow): ToolRow[] {
+  const found: ToolRow[] = []
+  for (const child of row.children ?? []) {
+    if (child.agent) found.push(child)
+    found.push(...agentsIn(child))
+  }
+  return found
 }

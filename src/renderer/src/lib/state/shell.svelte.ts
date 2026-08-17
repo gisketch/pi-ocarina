@@ -4,7 +4,7 @@ import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { askKeys } from './ask-keys.svelte'
 import { createThread } from './new-thread'
-import { routeToOverlay } from './key-routing.svelte'
+import { routeToOverlay, routeToSurface } from './key-routing.svelte'
 import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
 import { threadGit } from './thread-git.svelte'
@@ -12,6 +12,7 @@ import { worktreeAsk } from './worktree-ask.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
+import { agentPeek } from './agent-peek.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
 import { changes } from './changes.svelte'
@@ -161,39 +162,7 @@ class ShellState {
     const answered = routeToOverlay(event)
     if (answered !== null) return answered
 
-    // A menu or a set of hints can outlive what they point at: a column can be
-    // clicked away, a restore can take the block, a compaction can fold it out
-    // of sight. Either would then swallow every key from behind a surface that
-    // is no longer drawn, so both are dropped before anything reads the key.
-    blockNav.dropStaleOverlays()
-
-    // The block menu is a list with a highlight, and it is modal: it ranks
-    // below the two questions above and above the hint mode, which is not.
-    if (blockMenu.open) {
-      if (MODIFIER_KEYS.has(event.key)) return false
-      return blockMenu.handleKey(event)
-    }
-
-    // Hints own every key while they are on screen — that is what lets a label
-    // be `j` without colliding with the binding. They rank below the modals
-    // above, which are asked because an answer changes work already in flight,
-    // and above everything below, which is ordinary navigation.
-    if (blockNav.leaping) {
-      const consumed = blockNav.handleLeapKey(event)
-      // A leap can end without landing — `esc`, a pattern that matched
-      // nothing, a key that named no label — and those paths leave READ
-      // standing with no ring. Reconciling here rather than on the next
-      // keystroke is what stops that next keystroke being read as READ.
-      blockNav.reconcileMode()
-      return consumed
-    }
-
-    // A question waiting in this column owns the choice keys — below the
-    // modals, the block menu and the leap hints, which are all on screen
-    // because the reader put them there, and above ordinary column keys.
-    // `enter` from NORMAL takes them back after an `esc` released them.
-    if (event.key === 'Enter' && app.mode === 'NORMAL' && askKeys.resume()) return true
-    if (askKeys.handleKey(event)) return true
+    if (routeToSurface(event, app.mode, app.thread.id)) return true
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run

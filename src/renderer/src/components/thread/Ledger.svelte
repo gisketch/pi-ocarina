@@ -61,16 +61,20 @@
 </script>
 
 {#snippet entry(row: ToolRow, nested: boolean)}
-  <!-- Nested rows belong to the row that spawned them, so only a top-level row
-       registers: pointing at a subagent's third read is not something the
-       reader can ask for, and a hidden nav id would swallow a `j`. -->
+  <!-- A nested row belongs to the row that spawned it, so it does not register:
+       pointing at a subagent's third read is not something the reader can ask
+       for, and a hidden nav id would swallow a `j`.
+       A nested *agent* row is the exception, and has to be — it is a child, it
+       is always nested under its spawn call, and `l` on it is the only way into
+       the peek. Without this the peek is unreachable. -->
+  {@const points = !nested || row.agent !== undefined}
   <div
     class="entry"
-    class:dim={!nested && dimmed && focusedNav !== navIdOf(row)}
-    class:hosting={!nested && menuOn(navIdOf(row))}
-    use:navTarget={{ threadId, navId: nested ? null : navIdOf(row) }}
+    class:dim={points && dimmed && focusedNav !== navIdOf(row)}
+    class:hosting={points && menuOn(navIdOf(row))}
+    use:navTarget={{ threadId, navId: points ? navIdOf(row) : null }}
   >
-    {#if !nested && menuOn(navIdOf(row))}
+    {#if points && menuOn(navIdOf(row))}
       <BlockMenu />
     {/if}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
