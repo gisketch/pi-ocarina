@@ -108,7 +108,7 @@ surface reflects a file written between the two calls.
 
 ---
 
-## P5 — the app ships a skill that writes skills — `todo`
+## P5 — the app ships a skill that writes skills — `done`
 
 **Delivers.** The reader asks for a new skill and gets a written `SKILL.md`,
 in the project or in the global directory. The global write raises an approve

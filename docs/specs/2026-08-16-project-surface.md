@@ -123,9 +123,15 @@ The skill it writes may go to the project (`.pi/skills/<name>/SKILL.md`) or to
 the global skills directory. Owner decision; the recommendation had been
 project-only.
 
-No new mechanism is needed to keep the global write honest. `auto` already means
+No new mechanism is needed to keep either write honest. `auto` already means
 "asks only about what leaves the workspace", so a global write raises an approve
-card naming the path, and a project write does not.
+card naming the path.
+
+**Corrected during implementation:** a *project* skill raises a card too. `.pi`
+is on the protected-path list, and a folder holding a project's agent
+configuration is not one to write to silently — even for a file the reader just
+asked for. The grill had said project writes would be silent; the existing rule
+is better and was left alone.
 
 ### Reload is explicit, and never mid-turn — 2026-08-18
 

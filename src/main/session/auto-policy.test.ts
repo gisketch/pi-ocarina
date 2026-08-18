@@ -126,3 +126,22 @@ describe('what auto does per tool', () => {
     expect(autoAllows('write', {}, CWD)).toBe(false)
   })
 })
+
+describe('a skill the agent writes', () => {
+  const cwd = '/repo'
+
+  it('lands in the project without a card', () => {
+    expect(autoAllows('write', { path: '/repo/.pi/skills/new/SKILL.md' }, cwd)).toBe(false)
+    // `.pi` is protected, so a project skill *is* asked about — the folder
+    // holding a project's agent configuration is not a folder to write to
+    // silently, even for a file the reader just requested.
+    expect(autoAllows('write', { path: '/repo/docs/notes.md' }, cwd)).toBe(true)
+  })
+
+  it('raises a card when it goes to the global directory', () => {
+    // The whole reason no new permission machinery was needed: `auto` already
+    // means "asks only about what leaves the workspace".
+    expect(autoAllows('write', { path: '/home/me/.pi/skills/new/SKILL.md' }, cwd)).toBe(false)
+    expect(autoAllows('write', { path: '~/.pi/skills/new/SKILL.md' }, cwd)).toBe(false)
+  })
+})

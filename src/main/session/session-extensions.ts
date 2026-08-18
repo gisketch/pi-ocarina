@@ -22,6 +22,7 @@ import {
   type LspExtensionDeps,
   type ResultEvent,
 } from './lsp-extension'
+import { shippedSkillPaths } from './resource-dirs'
 import { spawnAgentsTool, type SpawnDeps } from './spawn-tool'
 import type { Sdk } from './workspaces'
 import type { ThreadHandle } from './session-factory'
@@ -74,6 +75,10 @@ export async function buildResources(
   const loader = new DefaultResourceLoader({
     cwd,
     agentDir: getAgentDir(),
+    // The skills this app ships, loaded from its own folder. Never copied into
+    // pi's configuration directory: a file dropped there would be a skill its
+    // owner did not write and could not trace back to us.
+    additionalSkillPaths: shippedSkillPaths(),
     // Inline text, not a path: pi reads an entry as a file when one exists at
     // that name and takes it as the prompt itself otherwise. A role's
     // instructions are prose, so they arrive as prose.
