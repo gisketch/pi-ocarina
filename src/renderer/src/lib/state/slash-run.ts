@@ -8,6 +8,7 @@
 import type { SlashCommand } from '../slash'
 import type { ThreadId } from '../../../../shared/thread-id'
 import { reloadEverything } from './reload'
+import { following } from './following.svelte'
 import { sweep } from './sweep.svelte'
 import { threads } from './threads.svelte'
 
@@ -35,7 +36,13 @@ export function runSlash(
   // way typed prose does.
   if (command.id === 'project' || command.id === 'skill') {
     void targetThread().then((id) => {
-      if (id) threads.prompt(id, command.prompt ?? command.name)
+      if (!id) return
+      threads.prompt(id, command.prompt ?? command.name)
+      // Sending is asking for the answer, whichever door it went through. The
+      // composer's own send path jumps in `sent()`; this path never did, so a
+      // message that was a command left the reader staring at the middle of
+      // the transcript while the turn ran below the fold.
+      following.jump(id)
     })
   } else if (command.id === 'compact') {
     // Nothing to summarise without a transcript; the menu does not offer it

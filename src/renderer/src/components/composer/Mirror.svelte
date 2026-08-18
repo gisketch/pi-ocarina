@@ -143,18 +143,28 @@
   .lead::before {
     content: '';
     position: absolute;
-    left: 3px;
+    left: 2px;
+    right: 1px;
     top: 50%;
-    width: 11px;
     height: 11px;
     transform: translateY(-50%);
     background-color: currentColor;
-    mask-size: 11px 11px;
-    mask-position: center;
+    /* `contain`, not a fixed 11px: the mark gets whatever its cells allow. A
+       chip that claimed a space and its sigil draws it full size; a chip at
+       the start of the message, with only its sigil, draws it smaller rather
+       than clipped. */
+    mask-size: contain;
+    mask-position: left center;
     mask-repeat: no-repeat;
-    -webkit-mask-size: 11px 11px;
-    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: left center;
     -webkit-mask-repeat: no-repeat;
+  }
+
+  /* No cells claimed, no mark — a file name at position 0. The chip is still a
+     chip; it just starts at its first letter instead of eating it. */
+  .lead:empty::before {
+    content: none;
   }
   .mention > .lead::before,
   .file > .lead::before {

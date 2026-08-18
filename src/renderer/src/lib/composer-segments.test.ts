@@ -16,8 +16,10 @@ describe('segmenting', () => {
 
   it('finds a mention', () => {
     expect(segment('why is @src/app.ts slow')).toEqual([
-      { kind: 'plain', text: 'why is ' },
-      { kind: 'mention', text: '@src/app.ts', lead: 1 },
+      { kind: 'plain', text: 'why is' },
+      // The space travels with the chip: it is the cell the mark stands on,
+      // and the `@` after it becomes the gap before the name.
+      { kind: 'mention', text: ' @src/app.ts', lead: 2 },
       { kind: 'plain', text: ' slow' },
     ])
   })
@@ -96,5 +98,30 @@ describe('what the caret depends on', () => {
 
   it('keeps newlines in the plain runs, so lines still line up', () => {
     expect(rejoin('a\n\nb')).toBe('a\n\nb')
+  })
+})
+
+describe('what a chip may sacrifice to its mark', () => {
+  it('never a letter of a file name — only the space in front, when there is one', () => {
+    // The reported bug: a staged file at position 0 has no space, the default
+    // lead hid its first letter, and `pasted-1.png` read `asted-1.png`.
+    expect(segment('pasted-1.png ok', [], ['pasted-1.png'])[0]).toEqual({
+      kind: 'file',
+      text: 'pasted-1.png',
+      lead: 0,
+    })
+    expect(segment('see pasted-1.png', [], ['pasted-1.png'])[1]).toEqual({
+      kind: 'file',
+      text: ' pasted-1.png',
+      lead: 1,
+    })
+  })
+
+  it('a skill gives its space and its slash, which is what earns the full-size mark', () => {
+    expect(segment('do /humanizer', [], [], ['humanizer'])[1]).toEqual({
+      kind: 'skill',
+      text: ' /humanizer',
+      lead: 2,
+    })
   })
 })

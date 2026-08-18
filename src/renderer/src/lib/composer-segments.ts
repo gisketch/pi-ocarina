@@ -38,16 +38,26 @@ export type Segment =
  *  moment it was sent. One rule, one appearance. */
 const MENTION = /(^|\s)(@[^\s@]*[./][^\s]*)/g
 
-/** Where each fold's token sits in the text. */
-function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = []
+/** One chip's place in the text, and how many characters at its front the
+ *  mark may stand on. Zero is honest: a chip at position 0 with no sigil has
+ *  no cell to spare, and hiding a character of its *name* instead is how
+ *  `pasted-1.png` became `asted-1.png`. */
+interface Span {
+  start: number
+  end: number
+  lead: number
+}
+
+/** Where each fold's token sits in the text. Its `[` is the mark's cell. */
+function foldSpans(text: string, folds: readonly Fold[]): Span[] {
+  const spans: Span[] = []
 
   for (const fold of folds) {
     let from = 0
     for (;;) {
       const at = text.indexOf(fold.token, from)
       if (at === -1) break
-      spans.push({ start: at, end: at + fold.token.length })
+      spans.push({ start: at, end: at + fold.token.length, lead: 1 })
       from = at + fold.token.length
     }
   }
@@ -57,8 +67,8 @@ function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: 
 /** Where each staged file's name sits in the text.
  *
  *  Longest first, so `shot.old.png` is not shadowed by `shot.old`. */
-function fileSpans(text: string, files: readonly string[]): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = []
+function fileSpans(text: string, files: readonly string[]): Span[] {
+  const spans: Span[] = []
 
   for (const name of [...files].sort((a, b) => b.length - a.length)) {
     if (name === '') continue
@@ -67,26 +77,29 @@ function fileSpans(text: string, files: readonly string[]): { start: number; end
       const at = text.indexOf(name, from)
       if (at === -1) break
       // The space in front comes with it. A file name has no sigil of its own
-      // — no `@`, no `[` — so the space is the only character the chip can
-      // give up to its mark, and the mark has to replace a character because
-      // the mirror may not occupy space.
+      // — no `@`, no `[` — so the space is the only cell the chip can give its
+      // mark. At position 0 there is no space, and the honest answer is a chip
+      // with no mark rather than one that eats the first letter of the name.
       const lead = at > 0 && text[at - 1] === ' ' ? 1 : 0
-      spans.push({ start: at - lead, end: at + name.length })
+      spans.push({ start: at - lead, end: at + name.length, lead })
       from = at + name.length
     }
   }
   return spans.sort((a, b) => a.start - b.start)
 }
 
-function mentionSpans(text: string): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = []
+function mentionSpans(text: string): Span[] {
+  const spans: Span[] = []
   MENTION.lastIndex = 0
 
   for (;;) {
     const match = MENTION.exec(text)
     if (!match) break
-    const start = match.index + match[1].length
-    spans.push({ start, end: start + match[2].length })
+    // The whitespace in front comes with the chip, so the mark has a cell of
+    // its own and the `@` becomes the gap before the name. At the very start
+    // there is no whitespace and the `@` alone carries a smaller mark.
+    const start = match.index
+    spans.push({ start, end: start + match[1].length + match[2].length, lead: match[1].length + 1 })
   }
   return spans
 }
@@ -102,13 +115,7 @@ export function segment(
   files: readonly string[] = [],
   skills: readonly string[] = [],
 ): Segment[] {
-  const marks: {
-    start: number
-    end: number
-    kind: 'mention' | 'fold' | 'file' | 'skill'
-    /** How many characters at the front of the chip the mark stands on. */
-    lead?: number
-  }[] = [
+  const marks: (Span & { kind: 'mention' | 'fold' | 'file' | 'skill' })[] = [
     ...foldSpans(text, folds).map((span) => ({ ...span, kind: 'fold' as const })),
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
     ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
@@ -131,11 +138,7 @@ export function segment(
     // is dropped rather than allowed to duplicate the characters.
     if (mark.start < at) continue
     if (mark.start > at) segments.push({ kind: 'plain', text: text.slice(at, mark.start) })
-    segments.push({
-      kind: mark.kind,
-      text: text.slice(mark.start, mark.end),
-      lead: mark.lead ?? 1,
-    })
+    segments.push({ kind: mark.kind, text: text.slice(mark.start, mark.end), lead: mark.lead })
     at = mark.end
   }
 
