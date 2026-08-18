@@ -21,6 +21,11 @@
   --band: color-mix(in srgb, #ffffff 5%, transparent);
   /** The ledger's own indent, which the spine sits inside. */
   --pad-ledger: 20px;
+  /** How far a nested run — a subagent's calls, a group's members — sits
+   *  inside the row above it: its margin, the rule it hangs off, and its
+   *  padding. The 1px is the rule, and leaving it out put every nested band
+   *  one pixel short of the column's edge. */
+  --pad-nest: 29px;
   --bg-raise-2: rgba(255, 255, 255, 0.02);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
@@ -138,6 +143,9 @@
 .ledger .entry.lit {
   background: none;
 }
+/* Every lit row's band reaches both column edges, whatever it is nested in.
+ * The bleed is the sum of the insets between the row and the block, and each
+ * depth states its own: a shared value would be right for one of them. */
 .ledger .entry.lit::before {
   content: '';
   position: absolute;
@@ -184,21 +192,17 @@
  * reasoning row all draw a spine and a node, and three copies would drift the
  * first time an icon changed size.
  *
- * The numbers are related, not arbitrary. The spine sits at 7px inside a 20px
- * padding box; a node is 13px wide and centred on it, which puts its left edge
- * at 1px — inside the padding box, which is what paint containment clips to. A
- * node centred on the old 3.5px spine hung three pixels outside it and came
- * out visibly shaved down one side.
+ * The numbers are related, not arbitrary. The spine sits `--pad-column + 7`
+ * from the column's edge; a node is 13px wide and centred on it, which puts
+ * its left edge one pixel inside the row's own box. A node centred on the
+ * original 3.5px spine hung outside the padding box, which is what paint
+ * containment clips to, and came out visibly shaved down one side.
  *
  * A node paints `--bg-column` and sits above the spine. An icon is mostly
  * empty space, so a line running behind one shows through the glyph and reads
  * as a strike through it. `--bg-column`, not `--bg`: the column's ground is a
  * translucent layer over the app's, and painting the app's colour here is the
  * slightly-darker patch that made every icon look boxed. */
-/* A ledger is a block in its own right, so the column's inline padding lands
- * on it too. Its indent has to compose with that rather than replace it: set
- * to `--pad-ledger` alone, the column's rule simply won and the spine drifted
- * two pixels left of where its nodes were drawn. */
 /* The ledger takes no padding of its own. It is a block, so the column
  * already pads it, and a competing `padding-left` here loses: Svelte scopes
  * the column's `.body > *` rule with a class, which ties on specificity and
@@ -207,9 +211,15 @@
 .ledger {
   position: relative;
 }
-.ledger .entry {
+/* `>` and not a descendant: a subagent's calls and a group's members are
+ * already inset by their own container, and a descendant selector gave them
+ * this indent a second time. */
+.ledger > .entry {
   position: relative;
   padding-left: var(--pad-ledger);
+}
+.ledger .entry {
+  position: relative;
 }
 .ledger::before {
   content: '';
@@ -220,6 +230,22 @@
   width: 1px;
   background: var(--line-mid);
 }
+/* A group's members sit one nesting inset in; a subagent's calls sit inside
+ * their parent row's indent as well. */
+.members > .entry.lit::before {
+  left: calc(-1 * (var(--pad-column) + var(--pad-nest)));
+}
+.children > .entry.lit::before {
+  left: calc(-1 * (var(--pad-column) + var(--pad-ledger) + var(--pad-nest)));
+}
+
+/* The node paints the column's ground so the spine does not strike through
+ * its glyph — which on a lit row punched a hole in the band. It carries the
+ * band as well when the row wears one. */
+.ledger .entry.lit .node {
+  background: color-mix(in srgb, #ffffff 5%, var(--bg-column));
+}
+
 .ledger .node {
   position: absolute;
   /* Centred on the spine: the row's content starts at `--pad-ledger` and the

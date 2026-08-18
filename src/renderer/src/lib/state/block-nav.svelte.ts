@@ -6,7 +6,7 @@
  *  owns what happens inside one column once the key has arrived. */
 
 import { navBlocks } from '../blocks'
-import { withoutThinking } from '../thread-rows'
+import { hasSomething, withoutThinking } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
@@ -36,7 +36,9 @@ class BlockNav {
     const blocks = threads.get(threadId).blocks
     // A hidden thought is not drawn, so it is not somewhere `j` can go: a ring
     // on nothing is a key that appears to do nothing.
-    const visible = reasoningOpen.shown ? blocks : blocks.map(withoutThinking)
+    const visible = reasoningOpen.shown
+      ? blocks
+      : blocks.map(withoutThinking).filter(hasSomething)
 
     return navBlocks(visible, (navId, group) =>
       groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),

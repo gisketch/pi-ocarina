@@ -199,7 +199,6 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: opacity 0.12s ease;
   }
   /* The block carries paint containment from the column; a menu taller than
      its segment would be sliced off without this. */
@@ -207,21 +206,6 @@
     content-visibility: visible;
     contain: none;
     z-index: 5;
-  }
-  /* Muted by colour, the way every other dim in the column works — an overlay
-     painted over the text cannot escape `opacity` or `filter`. */
-  .seg.dim {
-    --fg-bright: var(--fg-dimmer);
-    --fg-body: var(--fg-dimmer);
-    --fg: var(--fg-dimmer);
-    --fg-agent: var(--fg-dimmer);
-    --fg-dim: var(--fg-dimmer);
-    --fg-dimmest: var(--fg-dimmer);
-    --accent: var(--fg-dimmer);
-    --tone-1: var(--fg-dimmer);
-    --tone-2: var(--fg-dimmer);
-    --tone-3: var(--fg-dimmer);
-    color: var(--fg-dimmer);
   }
   .seg + .seg {
     margin-top: 10px;

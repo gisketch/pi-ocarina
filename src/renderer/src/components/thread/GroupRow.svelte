@@ -166,9 +166,10 @@
   /* Members sit under the summary the way a subagent's calls sit under it —
      one indent and a rule, so the run reads as belonging to the row above. */
   .members {
-    margin: 0 0 4px 14px;
+    /* `--pad-nest` is this margin, the rule below it, and the padding. */
+    margin: 0 0 4px calc((var(--pad-nest) - 1px) / 2);
     border-left: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
-    padding-left: 14px;
+    padding-left: calc((var(--pad-nest) - 1px) / 2);
     display: flex;
     flex-direction: column;
     gap: 2px;

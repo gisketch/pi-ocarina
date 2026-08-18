@@ -11,7 +11,7 @@
   import BlockMenu from './BlockMenu.svelte'
   import TurnFooter from './TurnFooter.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
-  import { withoutThinking } from '$lib/thread-rows'
+  import { hasSomething, withoutThinking } from '$lib/thread-rows'
   import { groupShown } from '$lib/ledger-groups'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
@@ -53,7 +53,9 @@
   // row left in place with its contents hidden still holds the space it stood
   // in, and a reader who asked for the thinking to be gone gets a column of
   // gaps where it was.
-  const shown = $derived(reasoningOpen.shown ? drawn : drawn.map(withoutThinking))
+  const shown = $derived(
+    reasoningOpen.shown ? drawn : drawn.map(withoutThinking).filter(hasSomething),
+  )
 
   // Which blocks open a turn's worth of agent work. pi splits one turn across
   // several messages and interleaves tool calls between them, so the name is
@@ -150,7 +152,7 @@
   {:else}
     <div
       class="nav"
-      class:lit={focusedBlock === block.id}
+      class:lit={focused === block.id}
       class:hosting={hosts(block)}
       use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
@@ -220,18 +222,20 @@
   {/if}
 {/each}
 
-{#if turn}
+{#if turn && (turn.endedAt === undefined || shown.at(-1)?.kind !== 'user')}
   <!-- After every block, so anything that arrives lands above it: the footer
        is the end of the turn, and content under it would be work the turn had
-       already reported finishing. -->
+       already reported finishing.
+       A finished footer stands down once a new message is the last thing in
+       the thread: the reader has asked for something else and the old turn's
+       record would be sitting under their new question. -->
   <TurnFooter {turn} />
 {/if}
 
 <style>
-  /* The dim is the whole of the navigation's appearance — one signal for one
+  /* The band is the whole of the navigation's appearance — one signal for one
      state, and no geometry, so the focused block does not shift the text it is
-     marking. Opacity composes on the GPU, so walking a long transcript never
-     asks for a layout pass. */
+     marking. */
   .nav {
     position: relative;
     /* Blocks are independent of one another, so lighting one never

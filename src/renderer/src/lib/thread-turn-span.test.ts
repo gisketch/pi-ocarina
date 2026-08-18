@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { reduceThread } from './thread-reducer'
 import { EMPTY_THREAD, type ThreadRunState, type ThreadViewModel } from './thread'
+import { THOUGHT_PREVIEW, thoughtTarget } from './thread-progress'
 
 const state = (model: ThreadViewModel, one: ThreadRunState): ThreadViewModel =>
   reduceThread(model, { kind: 'thread-state', state: one })
@@ -63,5 +64,30 @@ describe('timing a turn', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('what a thought row says it is about', () => {
+  it('shows the thought, so leap and copy have something to match', () => {
+    // The row said the literal string `reasoning`: it read "thinking
+    // reasoning", and every thought in a thread had the same target.
+    expect(thoughtTarget('The dequeue path takes the lock per item.')).toBe(
+      'The dequeue path takes the lock per item.',
+    )
+  })
+
+  it('flattens the newlines a thought arrives with', () => {
+    expect(thoughtTarget('first line\n\nsecond line')).toBe('first line second line')
+  })
+
+  it('keeps a row a row', () => {
+    const long = thoughtTarget('x'.repeat(300))
+    expect(long.length).toBe(THOUGHT_PREVIEW)
+    expect(long.endsWith('…')).toBe(true)
+  })
+
+  it('says nothing before the thought has said anything', () => {
+    expect(thoughtTarget('')).toBe('')
+    expect(thoughtTarget('   ')).toBe('')
   })
 })

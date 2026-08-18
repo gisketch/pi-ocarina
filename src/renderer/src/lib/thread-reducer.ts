@@ -16,7 +16,7 @@ import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
 import { elapsed } from './elapsed'
-import { thoughtOf, turnFor, updateRowIn } from './thread-progress'
+import { thoughtOf, thoughtTarget, turnFor, updateRowIn } from './thread-progress'
 import {
   decide,
   dropBlock,
@@ -74,7 +74,9 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         kind: 'tool-start',
         id: event.id,
         tool: 'think',
-        target: 'reasoning',
+        // Filled in as the thought arrives: at `start` there is nothing to
+        // show, and a placeholder would be one more word to read past.
+        target: '',
         // Open while it streams: hiding the one visibly-happening part of a
         // turn behind a click is how an app looks stalled. `reasoning-end`
         // puts the default back to closed, and a reader who touched it in
@@ -83,10 +85,10 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'reasoning-delta':
-      return updateRowIn(model, event.id, (row) => ({
-        ...row,
-        body: { type: 'thought', text: thoughtOf(row) + event.text },
-      }))
+      return updateRowIn(model, event.id, (row) => {
+        const text = thoughtOf(row) + event.text
+        return { ...row, target: thoughtTarget(text), body: { type: 'thought', text } }
+      })
 
     case 'reasoning-end':
       return updateRowIn(model, event.id, (row) => ({

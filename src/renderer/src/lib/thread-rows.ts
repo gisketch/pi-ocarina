@@ -105,9 +105,13 @@ export function editLedger(
  *  hidden still holds the space it stood in, and a reader who asked for the
  *  thinking to be gone would get a column of gaps where it was.
  *
- *  A ledger left with no rows is dropped to an empty one rather than removed:
- *  the block ids are what focus and the menu address, and taking a block out
- *  of the list under a ring is how a ring ends up pointing at nothing. */
+ *  A ledger whose rows were *all* thinking is left empty here and dropped by
+ *  `hasSomething`: an empty block still costs the column's gap, which is the
+ *  space `o` was asked to reclaim. */
+export function hasSomething(block: Block): boolean {
+  return block.kind !== 'ledger' || block.rows.length > 0
+}
+
 export function withoutThinking(block: Block): Block {
   if (block.kind !== 'ledger') return block
 

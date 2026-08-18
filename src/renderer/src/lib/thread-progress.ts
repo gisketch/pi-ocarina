@@ -10,6 +10,22 @@ import { elapsed } from './elapsed'
 import { editLedger, updateRow } from './thread-rows'
 import type { ThreadViewModel, ToolRow, TurnSpan } from './thread'
 
+/** How much of a thought the row shows beside `thinking`.
+ *
+ *  Enough to tell two thoughts apart in a leap or a copy, and short enough to
+ *  leave the row a row. */
+export const THOUGHT_PREVIEW = 72
+
+/** The row's own label: the thought's opening words.
+ *
+ *  The row said the literal string `reasoning`, which made it read `thinking
+ *  reasoning` and gave leap and copy nothing to match on — every thought in a
+ *  thread had the same target. */
+export function thoughtTarget(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > THOUGHT_PREVIEW ? `${flat.slice(0, THOUGHT_PREVIEW - 1)}…` : flat
+}
+
 /** What a thought has said so far. A row whose body is anything else has not
  *  been written to yet, which is the state a `reasoning-start` leaves it in. */
 export function thoughtOf(row: ToolRow): string {
