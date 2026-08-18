@@ -16,6 +16,7 @@ import { columnBody, scrollColumn } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { following } from './following.svelte'
+import { reasoningOpen } from './reasoning.svelte'
 
 /** How many `j` presses a half-page press is worth to a column that scrolls by
  *  a step rather than to a block. */
@@ -72,6 +73,7 @@ class BlockNav {
     blockFocus.forget(threadId)
     toolOpen.forget(threadId)
     following.forget(threadId)
+    reasoningOpen.forget(threadId)
     if (blockMenu.threadId === threadId) blockMenu.close()
   }
 

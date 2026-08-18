@@ -9,6 +9,7 @@
   import RawBlock from './RawBlock.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
+  import ReasoningBlock from './ReasoningBlock.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import { leap } from '$lib/state/leap.svelte'
@@ -166,6 +167,14 @@
           blockId={block.id}
           focusedNav={focused}
           dimmed={dimming}
+        />
+      {:else if block.kind === 'reasoning'}
+        <ReasoningBlock
+          id={block.id}
+          text={block.text}
+          streaming={block.streaming}
+          ms={block.ms}
+          {threadId}
         />
       {:else if block.kind === 'ask'}
         <AskCard

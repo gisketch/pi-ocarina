@@ -1,102 +1,15 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
-import type { TerminalLine, ToolBody, ToolKind } from '../../shared/vocabulary'
+import type { ToolKind } from '../../shared/vocabulary'
 import type { CallChange } from './change-log'
 import { ASK_TOOL, askable } from './ask-replay'
 import { toolDetail, toolKind, toolTarget } from './tool-rows'
 import { FETCH_TOOL } from './fetch-tool'
 
 export { toolDetail, toolKind, toolTarget } from './tool-rows'
+export { fetchMeta, joinTextParts, lspMeta, resultText, toolBody } from './pi-results'
+import { fetchMeta, joinTextParts, lspMeta, toolBody } from './pi-results'
 import { diffOf } from './tool-diff'
-
-/** Longest tool body we forward. A tool that prints a megabyte should not cost
- *  a megabyte of IPC; the ledger only ever shows a preview anyway. */
-const MAX_BODY_LINES = 40
-
-/** Pulls readable text out of a tool result of unknown shape. */
-export function resultText(result: unknown): string {
-  if (typeof result === 'string') return result
-  if (typeof result !== 'object' || result === null) return ''
-
-  const content = (result as { content?: unknown }).content
-  if (typeof content === 'string') return content
-  if (Array.isArray(content)) {
-    return content
-      .map((part) =>
-        typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string'
-          ? ((part as { text: string }).text)
-          : '',
-      )
-      .join('')
-  }
-
-  return ''
-}
-
-/** Joins the text parts of a message's content, ignoring thinking and tool
- *  calls. Shared with replay so both paths read a message the same way. */
-export function joinTextParts(parts: readonly unknown[]): string {
-  return parts
-    .map((part) => {
-      const content = part as { type?: string; text?: string }
-      return content.type === 'text' && content.text ? content.text : ''
-    })
-    .join('')
-}
-
-/** Shared with replay so a tool looks the same live and on reopen. */
-export function toolBody(toolName: string, result: unknown): ToolBody | undefined {
-  const text = resultText(result)
-  if (!text.trim()) return undefined
-
-  const lines = text.split('\n').slice(0, MAX_BODY_LINES)
-
-  if (toolName === 'bash') {
-    return { type: 'terminal', lines: lines.map((line): TerminalLine => ({ text: line })) }
-  }
-  if (toolName === 'read') {
-    return { type: 'code', lines: lines.map((line) => ({ text: line })) }
-  }
-  if (toolName === FETCH_TOOL) {
-    // The first line is the status line the model reads; the row's meta
-    // already says all of it, so the panel starts at the page itself.
-    const body = text.split('\n').slice(2).join('\n').trim()
-    return body === '' ? undefined : { type: 'markdown', text: body }
-  }
-  return undefined
-}
-
-/** What a finished fetch adds to its row: the status and the size.
- *
- *  Read from `details`, which the tool sets and which never reaches the model,
- *  so the row states what actually happened rather than parsing the prose the
- *  model was given. */
-export function fetchMeta(result: unknown): string | undefined {
-  const details = (result as { details?: unknown } | null)?.details as
-    | { status?: number; bytes?: number; truncated?: boolean; error?: string }
-    | undefined
-  if (!details) return undefined
-  if (details.error) return 'failed'
-
-  const parts: string[] = []
-  if (typeof details.status === 'number' && details.status > 0) parts.push(String(details.status))
-  if (typeof details.bytes === 'number') parts.push(`${(details.bytes / 1024).toFixed(1)}KB`)
-  if (details.truncated) parts.push('truncated')
-  return parts.length > 0 ? parts.join(' · ') : undefined
-}
-
-/** What a finished language-server call adds to its row.
- *
- *  Read from `details`, which the tool sets and the model never sees, for the
- *  same reason `fetchMeta` does: the tool counted, so the row states its
- *  count rather than parsing it back out of the prose. */
-export function lspMeta(toolName: string, result: unknown): string | undefined {
-  if (toolDetail(toolName) === undefined) return undefined
-  const details = (result as { details?: unknown } | null)?.details as
-    | { summary?: unknown }
-    | undefined
-  return typeof details?.summary === 'string' ? details.summary : undefined
-}
 
 /** Translates one pi session's events into the UI vocabulary.
  *
@@ -106,6 +19,9 @@ export function lspMeta(toolName: string, result: unknown): string | undefined {
 export class PiTranslator {
   #messageId: string | null = null
   #messages = 0
+  /** When the current thought started, for the duration the block shows. Null
+   *  when the model is not thinking. */
+  #thinkingAt: number | null = null
   #compactions = 0
   #outcome: 'ok' | 'failed' | 'aborted' = 'ok'
   /** Calls that started and have not reported an end. pi sends nothing for a
@@ -178,12 +94,42 @@ export class PiTranslator {
 
       case 'message_update': {
         const delta = event.assistantMessageEvent
-        if (delta.type !== 'text_delta' || !this.#messageId) return []
+        if (!this.#messageId) return []
+
+        // Thinking arrives as its own deltas, so the transcript can show where
+        // the model's head is while it is still there rather than a spinner
+        // and then a wall of it.
+        if (delta.type === 'thinking_start') {
+          this.#thinkingAt = Date.now()
+          return [{ kind: 'reasoning-start', id: `${this.#messageId}-think` }]
+        }
+        if (delta.type === 'thinking_delta') {
+          return [
+            { kind: 'reasoning-delta', id: `${this.#messageId}-think`, text: delta.delta },
+          ]
+        }
+        if (delta.type === 'thinking_end') {
+          const ms = this.#thinkingAt === null ? 0 : Date.now() - this.#thinkingAt
+          this.#thinkingAt = null
+          return [{ kind: 'reasoning-end', id: `${this.#messageId}-think`, ms }]
+        }
+
+        if (delta.type !== 'text_delta') return []
         return [{ kind: 'agent-message-delta', id: this.#messageId, text: delta.delta }]
       }
 
       case 'message_end': {
         const events: UiEvent[] = []
+        // A turn cut short mid-thought never sends `thinking_end`. Closing it
+        // here is what stops a reasoning block streaming forever.
+        if (this.#messageId && this.#thinkingAt !== null) {
+          events.push({
+            kind: 'reasoning-end',
+            id: `${this.#messageId}-think`,
+            ms: Date.now() - this.#thinkingAt,
+          })
+          this.#thinkingAt = null
+        }
         if (this.#messageId) {
           events.push({ kind: 'agent-message-end', id: this.#messageId })
           this.#messageId = null

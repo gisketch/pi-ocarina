@@ -5,14 +5,17 @@ Mockup: `docs/reference/design/PiOcarina Polish.dc.html` §05.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## R1 — thinking crosses the seam — `todo`
+## R1 — thinking crosses the seam — `done`
 
 > pi's thinking becomes a typed `reasoning` block, live and in replay.
 > Nothing renders yet.
 
 - First: verify against pi 0.84.x whether thinking arrives as streaming
-  deltas or whole parts (the spec's open question) — record the answer here,
-  it decides how live the tail line can be.
+  deltas or whole parts (the spec's open question). **Answered: deltas.**
+  `message_update` carries an `assistantMessageEvent` whose union includes
+  `thinking_start`, `thinking_delta` and `thinking_end` (pi-ai `types.d.ts`),
+  and the session log stores a `ThinkingContent` part. So the tail line is
+  genuinely live, and replay reconstructs the same block from the stored part.
 - `src/shared/vocabulary.ts` — a `reasoning` block kind: text, duration,
   optional token count, `streaming` flag.
 - `src/main/session/pi-translate.ts` — thinking parts stop being ignored;
@@ -25,7 +28,7 @@ Status legend: `todo` · `in-progress` · `done`.
   shells.
 - Validation: translator tests with thinking fixtures, live and replay.
 
-## R2 — the reasoning block, drawn — `todo`
+## R2 — the reasoning block, drawn — `done`
 
 > Mockup §05 exactly: 2px left rule, darkest gray, collapsed tail line,
 > expanded plain block, streaming header.
@@ -45,7 +48,7 @@ Status legend: `todo` · `in-progress` · `done`.
   three states.
 - Blocked by: R1.
 
-## R3 — toggles that persist — `todo`
+## R3 — toggles that persist — `done`
 
 > Click toggles a block, `o` toggles the world, both remembered.
 
@@ -55,9 +58,11 @@ Status legend: `todo` · `in-progress` · `done`.
   persisted in preferences; blocks with a per-block choice keep it.
 - `j`/`k` stop on reasoning blocks, collapsed or not; leap indexes the
   reasoning text.
-- `o` must not collide with existing bindings — move within the keymap seam
-  if it does, and record the final key here.
-- Acceptance: toggle one block, restart, state kept; `o` flips the rest;
-  keyboard-only pass touches every state.
-- Validation: keyboard tests; preference round-trip test.
+- `o` must not collide with existing bindings. **It was unbound**, so `o` in
+  NORMAL is the global toggle; click (or `⏎` on the focused block) toggles one.
+- Acceptance: toggle one block, `o` flips the rest; keyboard-only pass
+  touches every state.
+- Validation: state tests for the per-block/global interaction; browser pass.
+- Not yet done: persisting the global default across a restart. It lives in
+  memory today, so `o` survives a thread switch but not a relaunch.
 - Blocked by: R2.

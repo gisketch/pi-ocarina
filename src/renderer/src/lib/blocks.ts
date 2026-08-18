@@ -58,6 +58,10 @@ function cardText(block: Block): string {
       return 'compaction'
     case 'steer':
       return block.text
+    // The thought itself, so leap and search match on what a reader can read
+    // rather than on the word REASONING.
+    case 'reasoning':
+      return block.text
     case 'raw':
       return block.rawKind
     default:

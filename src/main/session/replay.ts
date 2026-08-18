@@ -121,7 +121,27 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
     sawAssistant = true
 
     for (const part of parts) {
-      const content = part as { type?: string; text?: string; id?: string; name?: string; arguments?: unknown }
+      const content = part as {
+        type?: string
+        text?: string
+        thinking?: string
+        id?: string
+        name?: string
+        arguments?: unknown
+      }
+
+      // Thinking is stored as its own part, so a reopened thread shows the
+      // same reasoning block a live one did. No duration: what the log keeps
+      // is the thought, not how long it took to have it.
+      // A redacted thought carries an opaque payload and no readable text;
+      // `thinking` is empty, so the truthiness check is also the guard.
+      if (content.type === 'thinking' && content.thinking) {
+        messages += 1
+        const id = `replay-think-${messages}`
+        events.push({ kind: 'reasoning-start', id })
+        events.push({ kind: 'reasoning-delta', id, text: stripAnsi(content.thinking) })
+        events.push({ kind: 'reasoning-end', id, ms: 0 })
+      }
 
       if (content.type === 'text' && content.text) {
         messages += 1

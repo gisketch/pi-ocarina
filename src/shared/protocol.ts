@@ -52,6 +52,15 @@ export type UiEvent =
       text: string
       attachments?: MessageAttachment[]
     }
+  /** The model started thinking. pi streams reasoning as deltas inside
+   *  `message_update`, so a thread can show a live tail rather than waiting
+   *  for the whole thought. Additive: a model that never thinks sends none of
+   *  these and the transcript is what it always was. */
+  | { kind: 'reasoning-start'; id: string }
+  | { kind: 'reasoning-delta'; id: string; text: string }
+  /** `ms` is how long the thinking took, wall-clock between the first delta
+   *  and this. */
+  | { kind: 'reasoning-end'; id: string; ms: number }
   | { kind: 'agent-message-start'; id: string }
   | { kind: 'agent-message-delta'; id: string; text: string }
   | { kind: 'agent-message-end'; id: string }
@@ -219,6 +228,9 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'thread-state',
   'thread-reset',
   'user-message',
+  'reasoning-start',
+  'reasoning-delta',
+  'reasoning-end',
   'agent-message-start',
   'agent-message-delta',
   'agent-message-end',

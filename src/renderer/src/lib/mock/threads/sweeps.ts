@@ -19,6 +19,18 @@ export const GROUPED_SWEEP: MockThread = {
     },
     { kind: 'thread-state', state: 'running' },
 
+    // What the model thought before it answered — the Polish mockup's §05.
+    { kind: 'reasoning-start', id: 'think-1' },
+    {
+      kind: 'reasoning-delta',
+      id: 'think-1',
+      text:
+        'The dequeue path takes the global lock per item — under load that serializes workers. ' +
+        'Two candidate causes: lock contention, or the heap rebalance on every pop. ' +
+        'I should measure lock wait time first before touching the heap.',
+    },
+    { kind: 'reasoning-end', id: 'think-1', ms: 4200 },
+
     { kind: 'tool-start', id: 'g-read-1', tool: 'read', target: 'src/sync/worker.ts' },
     { kind: 'tool-end', id: 'g-read-1', status: 'ok', meta: '142L' },
     { kind: 'tool-start', id: 'g-read-2', tool: 'read', target: 'src/sync/retry.ts' },

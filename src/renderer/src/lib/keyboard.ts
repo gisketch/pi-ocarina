@@ -227,6 +227,8 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     // with nothing left to travel.
     case 'G':
       return result(state, [{ type: 'jumpToLive' }])
+    case 'o':
+      return result(state, [{ type: 'toggleReasoning' }])
     case 'w':
       return toggleOverlay(state, 'switcher')
     case '?':

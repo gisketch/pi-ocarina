@@ -38,6 +38,8 @@ export type Action =
   | { type: 'openTerminal' }
   /** Back to the newest content in the focused thread, and pinned there. */
   | { type: 'jumpToLive' }
+  /** Show or hide what the model thought, everywhere. */
+  | { type: 'toggleReasoning' }
   | { type: 'termEscape' }
   | { type: 'moveColumn'; delta: number }
   | { type: 'pinWorkspace' }

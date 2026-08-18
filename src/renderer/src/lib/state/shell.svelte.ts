@@ -13,6 +13,7 @@ import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
 import { following } from './following.svelte'
+import { reasoningOpen } from './reasoning.svelte'
 import { agentPeek } from './agent-peek.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
@@ -293,6 +294,9 @@ class ShellState {
         break
       case 'jumpToLive':
         following.jump(app.thread.id)
+        break
+      case 'toggleReasoning':
+        reasoningOpen.toggleAll()
         break
       case 'termEscape':
         termMode.escape()
