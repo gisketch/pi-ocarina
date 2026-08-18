@@ -10,7 +10,7 @@
  *  the element. */
 
 import { Follow } from '../follow.svelte'
-import { columnBody, stopScroll } from './columns'
+import { columnBody, smoothScrollAiming } from './columns'
 
 class Followers {
   #per = new Map<string, Follow>()
@@ -27,18 +27,17 @@ class Followers {
   /** Back to the newest content, and pinned there. Called by the pill, by the
    *  key, and by sending a message.
    *
-   *  A direct write, not the smooth scroll. The animation runs on
-   *  `requestAnimationFrame`, and an occluded or busy window suspends that —
-   *  so the state said following while the view never moved, and a reader who
-   *  had just sent a message was left staring at the middle of the transcript.
-   *  A jump is the one scroll that must never be lost; the 130ms of easing is
-   *  not worth it sometimes not happening. */
+   *  Aimed at the bottom rather than at a number: the transcript measures its
+   *  blocks as they scroll past, so the bottom moves while the jump travels,
+   *  and a jump that landed on the old one stopped short of the newest thing —
+   *  which is the only thing a jump is for. The scroll re-aims each frame and
+   *  writes the position straight if no frame arrives, so a busy or occluded
+   *  window cannot lose it. */
   jump(threadId: string): void {
     this.of(threadId).jump()
     const body = columnBody(threadId)
     if (!body) return
-    stopScroll(body)
-    body.scrollTop = body.scrollHeight
+    smoothScrollAiming(body, () => body.scrollHeight - body.clientHeight)
   }
 
   /** Called when a column goes away, the way the other per-thread registries

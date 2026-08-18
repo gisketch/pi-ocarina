@@ -14,7 +14,7 @@ import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { columnBody, scrollColumn, stopScroll } from './columns'
+import { columnBody, scrollColumn } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { drafts } from './drafts.svelte'
@@ -252,25 +252,18 @@ class BlockNav {
   /** `ctrl-d` and `ctrl-u`. Moves the view and nothing else: no ring, no dim,
    *  no mode, in any mode. Skimming is not navigating.
    *
-   *  Half the column, written straight to `scrollTop` — the chord is a wheel,
-   *  so it lands where a wheel would, at once. The 130ms curve every other
-   *  move rides is there to show which way the view went, which a reader
-   *  holding the chord down does not need told twice.
+   *  Half the column, on the same curve every other move rides — a press
+   *  should read as the view travelling, not as it teleporting. Repeated
+   *  presses add to where the scroll is *going*, so holding the chord covers
+   *  a screen per press rather than losing the half still in flight.
    *
    *  A shell's buffer belongs to xterm and is not DOM overflow, so it keeps
    *  its own scroller and a fixed step — there is no height here to halve. */
   scroll(delta: number): void {
     const threadId = app.thread.id
-    const body = columnBody(threadId)
-    if (!body) {
-      scrollColumn(threadId, delta * SCROLL_STEP * PAGE_MULTIPLE)
-      return
-    }
-
-    // Anything already travelling is aimed at a place the reader has just
-    // stopped asking for.
-    stopScroll(body)
-    body.scrollTop += (delta * body.clientHeight) / 2
+    const height = columnBody(threadId)?.clientHeight
+    const distance = height ? height / 2 : SCROLL_STEP * PAGE_MULTIPLE
+    scrollColumn(threadId, delta * distance)
   }
 }
 
