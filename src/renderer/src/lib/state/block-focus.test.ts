@@ -188,44 +188,6 @@ describe('paging', () => {
 
     expect(blockFocus.idOf('p1')).toBeNull()
   })
-
-  it('lands on the first block at or below the new top', () => {
-    // Blocks every 100px, a 400px viewport: half a page is 200px, which is the
-    // third block exactly.
-    const { body, release } = layout('p1', ids, 100, 400)
-
-    blockFocus.page('p1', list, 1)
-    expect(blockFocus.idOf('p1')).toBe('l1:r1')
-    // 200 to bring the block to the top, less the gap kept above it.
-    expect(body.scrollTop).toBe(190)
-    release()
-  })
-
-  it('stops at the last block it drew rather than running off the end', () => {
-    const { release } = layout('p1', ids, 100, 4000)
-
-    blockFocus.page('p1', list, 1)
-    expect(blockFocus.idOf('p1')).toBe('l1:r1')
-    release()
-  })
-
-  it('comes back up, and stops at the first block', () => {
-    const { body, release } = layout('p1', ids, 100, 400)
-
-    blockFocus.page('p1', list, 1)
-    blockFocus.page('p1', list, -1)
-    expect(blockFocus.idOf('p1')).toBe('u1')
-    expect(body.scrollTop).toBe(0)
-    release()
-  })
-
-  it('moves one block when the column has no measurable page', () => {
-    // A terminal column, or one that has not painted: there is no scroll box
-    // registered, so there is no half of anything to take.
-    blockFocus.page('p2', list, 1)
-    expect(blockFocus.idOf('p2')).toBe('u1')
-    blockFocus.clear('p2')
-  })
 })
 
 

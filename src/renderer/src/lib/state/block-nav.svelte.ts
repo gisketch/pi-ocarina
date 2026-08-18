@@ -14,7 +14,7 @@ import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { columnBody, scrollColumn } from './columns'
+import { columnBody, scrollColumn, stopScroll } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { drafts } from './drafts.svelte'
@@ -249,31 +249,28 @@ class BlockNav {
     blockFocus.move(app.thread.id, this.#list(), delta)
   }
 
-  /** `ctrl-d` and `ctrl-u` from READ. The ring pages with the view, so the
-   *  reader keeps the block they were pointing at.
+  /** `ctrl-d` and `ctrl-u`. Moves the view and nothing else: no ring, no dim,
+   *  no mode, in any mode. Skimming is not navigating.
    *
-   *  A shell has no blocks to land on, so it scrolls by the same magnitude
-   *  instead — half a screen either way. */
-  page(delta: number): void {
-    if (app.thread.terminal) {
-      this.scroll(delta)
+   *  Half the column, written straight to `scrollTop` — the chord is a wheel,
+   *  so it lands where a wheel would, at once. The 130ms curve every other
+   *  move rides is there to show which way the view went, which a reader
+   *  holding the chord down does not need told twice.
+   *
+   *  A shell's buffer belongs to xterm and is not DOM overflow, so it keeps
+   *  its own scroller and a fixed step — there is no height here to halve. */
+  scroll(delta: number): void {
+    const threadId = app.thread.id
+    const body = columnBody(threadId)
+    if (!body) {
+      scrollColumn(threadId, delta * SCROLL_STEP * PAGE_MULTIPLE)
       return
     }
 
-    blockFocus.page(app.thread.id, this.#list(), delta)
-  }
-
-  /** `ctrl-d` and `ctrl-u` from anywhere else. Moves the view and nothing
-   *  else: no ring, no dim, no mode. Skimming is not navigating.
-   *
-   *  Half the column, so the chord means the same distance it means in READ.
-   *  A column that has not painted, and a shell — whose buffer belongs to
-   *  xterm and has no height to read — fall back to a fixed step. */
-  scroll(delta: number): void {
-    const threadId = app.thread.id
-    const height = columnBody(threadId)?.clientHeight
-    const distance = height ? height / 2 : SCROLL_STEP * PAGE_MULTIPLE
-    scrollColumn(threadId, delta * distance)
+    // Anything already travelling is aimed at a place the reader has just
+    // stopped asking for.
+    stopScroll(body)
+    body.scrollTop += (delta * body.clientHeight) / 2
   }
 }
 

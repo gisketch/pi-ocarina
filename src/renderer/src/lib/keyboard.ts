@@ -179,14 +179,13 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // It has to be resolved above the bail-out below, which exists so that every
   // other control chord reaches whatever has the caret.
   //
-  // Only a reader already in READ moves the ring with it. From NORMAL the
-  // chord is a scroll and nothing else: a reader skimming a transcript has
-  // not asked to point at anything, and lighting one block — which dims every
-  // other — is a mode change they did not ask for.
+  // It moves the view and nothing else, in every mode — the same thing a wheel
+  // does, by half a column at a time. It used to carry the block ring along in
+  // READ, which made one chord mean two different things depending on a mode
+  // the hand cannot feel.
   if (event.ctrlKey && !event.metaKey && !event.altKey && !occupied(state)) {
-    const paging = state.mode === 'READ' ? 'page' : 'scroll'
-    if (key === 'd') return result(state, [{ type: paging, delta: 1 }])
-    if (key === 'u') return result(state, [{ type: paging, delta: -1 }])
+    if (key === 'd') return result(state, [{ type: 'scroll', delta: 1 }])
+    if (key === 'u') return result(state, [{ type: 'scroll', delta: -1 }])
   }
 
   if (event.altKey || mod) return result(state, [], false)

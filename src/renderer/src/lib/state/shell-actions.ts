@@ -48,9 +48,6 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'moveBlock':
       blockNav.moveBlock(action.delta)
       break
-    case 'page':
-      blockNav.page(action.delta)
-      break
     case 'scroll':
       blockNav.scroll(action.delta)
       break

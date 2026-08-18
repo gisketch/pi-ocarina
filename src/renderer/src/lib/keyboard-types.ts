@@ -29,7 +29,6 @@ export type Action =
   | { type: 'goWorkspace'; index: number }
   | { type: 'moveThread'; delta: number }
   | { type: 'moveBlock'; delta: number }
-  | { type: 'page'; delta: number }
   | { type: 'scroll'; delta: number }
   | { type: 'leap' }
   | { type: 'openChanges' }

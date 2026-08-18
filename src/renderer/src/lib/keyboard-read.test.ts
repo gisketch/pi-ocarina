@@ -71,7 +71,7 @@ describe('READ, the transcript mode', () => {
   it('keeps every binding that is not a direction', () => {
     expect(press(READ, 'a').actions).toEqual([{ type: 'openBlockMenu' }])
     expect(press(READ, 's').actions).toEqual([{ type: 'leap' }])
-    expect(press(READ, { key: 'd', ctrlKey: true }).actions).toEqual([{ type: 'page', delta: 1 }])
+    expect(press(READ, { key: 'd', ctrlKey: true }).actions).toEqual([{ type: 'scroll', delta: 1 }])
     expect(press(READ, 'y').actions).toEqual([{ type: 'yank' }])
     expect(press(READ, '2').actions).toEqual([{ type: 'goWorkspace', index: 1 }])
     expect(press(READ, ' ').state.mode).toBe('LEADER')
