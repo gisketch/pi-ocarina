@@ -216,6 +216,17 @@ export class PiDriver implements SessionDriver {
         return { attachment: await this.#staged.stage(data, mime) } as CommandResult<N>
       }
 
+      case 'workspacePermission': {
+        const { workspaceId } = params as CommandParams<'workspacePermission'>
+        return this.#catalog.describeLevel(workspaceId) as CommandResult<N>
+      }
+
+      case 'setWorkspacePermission': {
+        const { workspaceId, level } = params as CommandParams<'setWorkspacePermission'>
+        this.#catalog.setLevel(workspaceId, level)
+        return { ok: true } as CommandResult<N>
+      }
+
       case 'workspaceLsp':
       case 'setWorkspaceLsp':
         return (await handleLsp(this.#lsp, name, params)) as CommandResult<N>

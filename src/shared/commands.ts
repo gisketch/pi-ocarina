@@ -5,6 +5,7 @@
  *  so nothing that imports them had to move. */
 
 import type { LspServerState } from './lsp'
+import type { PermissionLevel } from './permissions'
 import type {
   AgentRole,
   ApprovalOutcome,
@@ -80,6 +81,19 @@ export interface SessionCommands {
   stageImage: {
     params: { data: string; mime: string }
     result: { attachment: AttachmentRef | null }
+  }
+  /** How much this workspace asks before a tool runs, and where that came
+   *  from. `level` is what is in force; `workspace` and `global` say which of
+   *  them decided it, so the screen can show "inherit" honestly. */
+  workspacePermission: {
+    params: { workspaceId: string }
+    result: { level: PermissionLevel; workspace?: PermissionLevel; global: PermissionLevel }
+  }
+  /** Sets a workspace's own level, or clears it back to the global default.
+   *  Enforcement is main's; this only records the choice. */
+  setWorkspacePermission: {
+    params: { workspaceId: string; level?: PermissionLevel }
+    result: { ok: true }
   }
   /** Switches LSP for a workspace, or one server within it. Takes effect on the
    *  next call the agent makes; a running server it turns off is stopped. */

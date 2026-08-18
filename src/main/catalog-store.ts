@@ -102,6 +102,17 @@ export class CatalogStore {
     return own ?? this.#state.preferences.defaultPermission
   }
 
+  /** The level in force and where it came from, for the screen that shows it. */
+  describeLevel(workspaceId: string): {
+    level: PermissionLevel
+    workspace?: PermissionLevel
+    global: PermissionLevel
+  } {
+    const own = this.#state.workspaces.find((entry) => entry.id === workspaceId)?.permission
+    const global = this.#state.preferences.defaultPermission
+    return { level: own ?? global, global, ...(own !== undefined ? { workspace: own } : {}) }
+  }
+
   /** The workspace's directory — the boundary `auto` measures against. */
   pathFor(workspaceId: string): string | null {
     return this.#state.workspaces.find((entry) => entry.id === workspaceId)?.path ?? null

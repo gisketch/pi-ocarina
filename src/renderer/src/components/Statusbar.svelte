@@ -7,6 +7,8 @@
   import { threadGit } from '$lib/state/thread-git.svelte'
   import { formatUsage } from '$lib/usage-format'
   import { shell } from '$lib/state/shell.svelte'
+  import { permission } from '$lib/state/permission.svelte'
+  import { PERMISSION_LABELS } from '../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
 
   // pi's own accounting for the focused thread. A thread that has not run a
@@ -47,6 +49,14 @@
     void runState
     void workspaceLsp.load(app.workspace.id)
   })
+  // The permission level is never absent from the bar. A level that is
+  // invisible is a level that surprises — and `full` is the one state where
+  // being reminded is the whole point.
+  $effect(() => {
+    void permission.load(app.workspace.id)
+  })
+  const level = $derived(permission.level)
+
   const lsp = $derived(workspaceLsp.chip)
   /** On, with nothing started. The chip says so quietly rather than counting. */
   const lspIdle = $derived(lsp === 'lsp' || lsp === 'lsp !')
@@ -70,6 +80,17 @@
   </div>
 
   <div class="seg">thread {app.threadLabel}</div>
+
+  <button
+    type="button"
+    class="seg perm"
+    class:quiet={level === 'auto'}
+    class:warn={level === 'full'}
+    onclick={() => shell.openOverlay('workspace')}
+    title="permission level — click for workspace settings"
+  >
+    {PERMISSION_LABELS[level]}
+  </button>
 
   {#if lsp}
     <!-- Absent rather than "off": a bar segment that always reads off is a
@@ -136,6 +157,22 @@
   .mode.accented {
     background: var(--accent);
     color: var(--bg);
+  }
+
+  .perm {
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    background: none;
+    font: inherit;
+    color: var(--fg-dim);
+    cursor: pointer;
+  }
+  .perm.quiet {
+    color: var(--fg-dimmest);
+  }
+  .perm.warn {
+    color: var(--warn, var(--accent));
   }
 
   .lsp {

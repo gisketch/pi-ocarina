@@ -9,6 +9,9 @@
   import Backdrop from './Backdrop.svelte'
   import { wrapIndex } from '$lib/fuzzy'
   import { app } from '$lib/state/app.svelte'
+  import { confirm } from '$lib/state/confirm.svelte'
+  import { permission } from '$lib/state/permission.svelte'
+  import { PERMISSION_NOTES } from '../../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
 
   const { onclose }: { onclose: () => void } = $props()
@@ -17,15 +20,42 @@
 
   $effect(() => {
     void workspaceLsp.load(app.workspace.id)
+    void permission.load(app.workspace.id)
   })
 
-  /** The master switch, then one row per server. */
-  const rows = $derived([{ kind: 'master' as const }, ...workspaceLsp.servers.map((server) => ({ kind: 'server' as const, server }))])
+  /** Permissions, then the master switch, then one row per server. */
+  const rows = $derived([
+    { kind: 'permission' as const },
+    { kind: 'master' as const },
+    ...workspaceLsp.servers.map((server) => ({ kind: 'server' as const, server })),
+  ])
+
+  /** Steps the level, asking first on the way into full access.
+   *
+   *  Only on the way in: leaving it needs no ceremony, and a confirmation to
+   *  become *more* careful would teach the reader to dismiss the dialog. */
+  async function cycle(): Promise<void> {
+    const next = permission.pending
+    if (next === 'full') {
+      const ok = await confirm.ask({
+        title: 'full access',
+        message:
+          'This workspace will stop asking before anything — deleting files, pushing branches, writing outside the folder. There is no sandbox here, so the agent can do whatever you can.',
+        confirmLabel: 'allow',
+      })
+      if (!ok) return
+    }
+    await permission.set(next)
+  }
 
   function act(index: number): void {
     const row = rows[index]
     if (!row) return
 
+    if (row.kind === 'permission') {
+      void cycle()
+      return
+    }
     if (row.kind === 'master') {
       void workspaceLsp.set({ on: !workspaceLsp.on })
       return
@@ -38,7 +68,12 @@
     if (row?.kind === 'server' && !row.server.installed) void workspaceLsp.copyInstall(row.server)
   }
 
+  /** The keys belong to the confirmation while it is up. Without this, `j`
+   *  moved the row behind a modal question about full access. */
+  const modal = $derived(confirm.pending)
+
   function onkeydown(event: KeyboardEvent): void {
+    if (modal) return
     switch (event.key) {
       case 'j':
       case 'ArrowDown':
@@ -94,6 +129,24 @@
         }}
         onmouseenter={() => (selected = 0)}
       >
+        <span class="label">permission</span>
+        <span class="sub">{PERMISSION_NOTES[permission.level]}</span>
+        <span class="value" class:on={permission.level === 'auto'} class:warn={permission.level === 'full'}>
+          {permission.row}
+        </span>
+        <span class="hint">⏎</span>
+      </button>
+
+      <button
+        type="button"
+        class="row"
+        class:selected={selected === 1}
+        onclick={() => {
+          selected = 1
+          act(1)
+        }}
+        onmouseenter={() => (selected = 1)}
+      >
         <span class="label">language servers</span>
         <span class="sub">the agent asks the compiler instead of grepping</span>
         <span class="value" class:on={workspaceLsp.on}>{workspaceLsp.on ? 'on' : 'off'}</span>
@@ -109,7 +162,7 @@
       {/if}
 
       {#each workspaceLsp.servers as server, i (server.id)}
-        {@const at = i + 1}
+        {@const at = i + 2}
         <button
           type="button"
           class="row server"
