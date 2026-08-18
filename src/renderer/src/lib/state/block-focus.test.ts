@@ -110,6 +110,49 @@ describe('reveal', () => {
     expect(spy).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' })
     off()
   })
+
+  it('re-aims while it travels, so a block measured late is still what it lands on', () => {
+    // A block below the fold is an estimate until the scroll brings it into
+    // view. Here the fence above it turns out to be 500px taller than the
+    // estimate, one frame in — which is what used to leave the ring pointing at
+    // something a screen off the top of the column.
+    let frames = 0
+    let shift = 0
+    vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
+      frames += 1
+      if (frames > 1) shift = 500
+      step(performance.now() + 1000)
+      return 1
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+
+    const body = {
+      scrollTop: 0,
+      clientHeight: 400,
+      scrollHeight: 4000,
+      getBoundingClientRect: () => ({ top: 0, bottom: 400 }) as DOMRect,
+      addEventListener() {},
+      removeEventListener() {},
+    }
+    const el = {
+      getBoundingClientRect: () =>
+        ({ top: 1000 + shift - body.scrollTop, bottom: 1100 + shift - body.scrollTop }) as DOMRect,
+    }
+    const offs = [
+      registerColumnBody('t4', body as unknown as HTMLElement),
+      registerBlock('t4', 'b1', el as unknown as HTMLElement),
+    ]
+
+    revealBlock('t4', 'b1')
+
+    // The block is shorter than the column, so the reveal brings its foot up:
+    // 1600 once the fence above it is measured, less the 400 of viewport, plus
+    // the breathing room. Aimed once, it would have stopped at 710 — with the
+    // block it was pointing at 500px below the fold.
+    expect(Math.round(body.scrollTop)).toBe(1210)
+    offs.forEach((off) => off())
+    vi.unstubAllGlobals()
+  })
 })
 
 

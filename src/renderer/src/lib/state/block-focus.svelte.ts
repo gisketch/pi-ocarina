@@ -8,7 +8,7 @@
  *  drew, and this module never queries the DOM by class or tag. */
 
 import { type NavBlock, step } from '../blocks'
-import { columnBody, smoothScrollTo } from './columns'
+import { columnBody, smoothScrollAiming } from './columns'
 
 const elements = new Map<string, Map<string, HTMLElement>>()
 
@@ -101,10 +101,22 @@ export function revealBlock(threadId: string, navId: string, place: 'nearest' | 
   const box = body.getBoundingClientRect()
   const top = revealTop(el, body)
   const bottom = el.getBoundingClientRect().bottom
-  const toTop = body.scrollTop + (top - box.top) - REVEAL_PAD
+
+  // Asked again every frame rather than measured once. A block below the fold
+  // is only an estimate until the scroll brings it into view and the browser
+  // measures it, and that measurement moves every block under it — so a target
+  // fixed at the first frame is aimed at a layout that no longer exists by the
+  // second. Which edge to align is decided once, here; where that edge *is* is
+  // asked for continuously.
+  const alignTop = (): number =>
+    body.scrollTop + (revealTop(el, body) - body.getBoundingClientRect().top) - REVEAL_PAD
+  const alignBottom = (): number =>
+    body.scrollTop +
+    (el.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom) +
+    REVEAL_PAD
 
   if (place === 'start' || top < box.top + REVEAL_PAD) {
-    smoothScrollTo(body, toTop)
+    smoothScrollAiming(body, alignTop)
     return
   }
 
@@ -112,7 +124,7 @@ export function revealBlock(threadId: string, navId: string, place: 'nearest' | 
   // block is taller than the column, where that would push its head off the
   // top, and its head is the part being pointed at.
   if (bottom > box.bottom) {
-    smoothScrollTo(body, Math.min(toTop, body.scrollTop + (bottom - box.bottom) + REVEAL_PAD))
+    smoothScrollAiming(body, () => Math.min(alignTop(), alignBottom()))
   }
 }
 

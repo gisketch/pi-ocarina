@@ -25,10 +25,19 @@ const bodies = new Map<string, HTMLElement>()
  *  only, keeps the move readable without making the reader wait through it. */
 const SCROLL_MS = 130
 
+/** How many extra frames a landed scroll is allowed to correct itself.
+ *
+ *  A column virtualizes its blocks, so the height of everything below the fold
+ *  is an estimate until it is measured. Scrolling is what causes that
+ *  measurement, which moves the very thing the scroll was aiming at — under a
+ *  fence or a table, by thousands of pixels. Re-aiming each frame handles the
+ *  travel; these passes handle a block that settles a frame or two late. */
+const SETTLE_PASSES = 3
+
 /** Scrolls in flight, by the element they are moving. `to` is where the scroll
  *  is going, which is what a second keypress must add to — adding to the live
  *  `scrollTop` mid-flight would move less than a press is worth. */
-const inflight = new Map<HTMLElement, { frame: number; to: number }>()
+const inflight = new Map<HTMLElement, { frame: number; timer: ReturnType<typeof setTimeout>; to: number }>()
 
 /** Where `el` will be when everything asked for has happened. */
 export function scrollRest(el: HTMLElement): number {
@@ -39,34 +48,85 @@ export function stopScroll(el: HTMLElement): void {
   const running = inflight.get(el)
   if (!running) return
   cancelAnimationFrame(running.frame)
+  clearTimeout(running.timer)
   inflight.delete(el)
+}
+
+function clampTop(el: HTMLElement, top: number): number {
+  return Math.max(0, Math.min(el.scrollHeight - el.clientHeight, top))
 }
 
 /** Moves `el` to `top` on our own curve rather than the browser's. */
 export function smoothScrollTo(el: HTMLElement, top: number): void {
+  smoothScrollAiming(el, () => top)
+}
+
+/** The same curve, at a target that is asked for again every frame.
+ *
+ *  A fixed target is a promise about a layout that has not happened yet. The
+ *  transcript measures a block the moment it scrolls into view, and everything
+ *  below it moves — so a scroll aimed at a paragraph under a long fence landed
+ *  a screen or more away from it, which is what made `j` and `k` read as
+ *  erratic. Asking again each frame lets the move follow what it is chasing.
+ *
+ *  The timer is the safety net. The curve runs on `requestAnimationFrame`, and
+ *  an occluded or busy window suspends that — a jump to the latest is the one
+ *  scroll that must never be lost, so if no frame has landed it by four
+ *  durations, it is written straight. */
+export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
   stopScroll(el)
 
   const from = el.scrollTop
-  const to = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, top))
-  if (Math.abs(to - from) < 1) {
-    el.scrollTop = to
+  const first = clampTop(el, aim())
+  if (Math.abs(first - from) < 1) {
+    el.scrollTop = first
     return
   }
 
   const start = performance.now()
-  const step = (now: number): void => {
-    const through = Math.min(1, (now - start) / SCROLL_MS)
-    // Ease out only: the move starts at full speed, so the first frame already
-    // shows the direction, and settles rather than stopping dead.
-    el.scrollTop = from + (to - from) * (1 - (1 - through) ** 3)
-    if (through >= 1) {
-      inflight.delete(el)
-      return
-    }
-    inflight.set(el, { frame: requestAnimationFrame(step), to })
+  let settles = 0
+
+  // One record, mutated in place and put in the map before the first frame is
+  // asked for. A frame that finds a different record has been superseded — and
+  // registering after scheduling would lose every frame under a synchronous
+  // `requestAnimationFrame`, which is how the tests drive this.
+  const running = {
+    frame: 0,
+    timer: setTimeout(() => {
+      if (inflight.get(el) !== running) return
+      stopScroll(el)
+      el.scrollTop = clampTop(el, aim())
+    }, SCROLL_MS * 4),
+    to: first,
   }
 
-  inflight.set(el, { frame: requestAnimationFrame(step), to })
+  const step = (now: number): void => {
+    if (inflight.get(el) !== running) return
+
+    const to = clampTop(el, aim())
+    running.to = to
+
+    const through = Math.min(1, (now - start) / SCROLL_MS)
+    if (through < 1) {
+      // Ease out only: the move starts at full speed, so the first frame
+      // already shows the direction, and settles rather than stopping dead.
+      el.scrollTop = from + (to - from) * (1 - (1 - through) ** 3)
+      running.frame = requestAnimationFrame(step)
+      return
+    }
+
+    const landed = Math.abs(el.scrollTop - to) < 1
+    el.scrollTop = to
+    if (landed || settles >= SETTLE_PASSES) {
+      stopScroll(el)
+      return
+    }
+    settles += 1
+    running.frame = requestAnimationFrame(step)
+  }
+
+  inflight.set(el, running)
+  running.frame = requestAnimationFrame(step)
 }
 
 /** Registers a scrollable element, which is how thread columns scroll. */

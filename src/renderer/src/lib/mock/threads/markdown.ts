@@ -35,10 +35,15 @@ export const MARKDOWN_SHOWCASE: MockThread = {
         '',
         '> This is a blockquote.',
         '',
+        // Long on purpose: a fence taller than the column is the shape that
+        // used to send `j` and `k` a screen wide of the block they aimed at,
+        // because a block below the fold is only an estimate until it is
+        // scrolled into view and measured.
         '```ts',
         'export function sync(job: Job): Promise<void> {',
         '  return push(job.changes)',
         '}',
+        ...Array.from({ length: 60 }, (_, at) => `const step${at} = ${at} * 2 // a line of the long fence`),
         '```',
         '',
         '---',
