@@ -1,6 +1,7 @@
 import { app } from './app.svelte'
 import { bridge } from '../bridge'
 import { catalog } from './catalog.svelte'
+import { config } from './config.svelte'
 import { preferences } from './preferences.svelte'
 import { clampThread } from '../strip'
 
@@ -14,6 +15,12 @@ export function startPersistence(): () => void {
 
   let restored = false
   let timer: ReturnType<typeof setTimeout> | null = null
+
+  // The reader's own file, read here rather than by whichever component
+  // happens to draw it. The keymap is applied from this read, and a keyboard
+  // that only worked because a banner was mounted would be a keyboard that
+  // stopped working the day the banner moved.
+  void config.load()
 
   // The real workspace list has to land first. Restoring against the demo
   // catalog would clamp a saved position to the wrong thread counts, and which

@@ -11,10 +11,6 @@
   import { config } from '$lib/state/config.svelte'
 
   let dismissed = $state(false)
-
-  $effect(() => {
-    void config.load()
-  })
 </script>
 
 {#if config.broken && !dismissed}
