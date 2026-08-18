@@ -29,6 +29,10 @@ const TENSES: Record<ToolKind, Tense> = {
   // `asked` spent its width on tense while the pulse node beside it was
   // already saying whether the call was live.
   lsp: { running: 'lsp', done: 'lsp' },
+  // Present tense while it happens, past when it is over — a thought is a
+  // thing the model did, and the row reads as one of the turn's actions
+  // because that is what it is.
+  think: { running: 'thinking', done: 'thought' },
   fetch: { running: 'fetching', done: 'fetched' },
   todo: { running: 'listing', done: 'todo' },
   skill: { running: 'loading', done: 'skill' },

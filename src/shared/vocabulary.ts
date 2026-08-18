@@ -11,6 +11,10 @@ export type ToolKind =
   | 'edit'
   | 'bash'
   | 'lsp'
+  /** What the model thought before it answered. A tool kind because it is one
+   *  more thing the agent did on the way to an answer, and because a row is
+   *  the only shape that puts it on the same spine as the calls around it. */
+  | 'think'
   | 'fetch'
   | 'todo'
   | 'skill'
@@ -113,6 +117,10 @@ export type ToolBody =
    *  a format whose header this app cannot read still draws, it just says
    *  nothing about its size rather than guessing. */
   | { type: 'image'; src: string; alt: string; caption?: string }
+  /** A thought, rendered as markdown but quieter and smaller than an answer.
+   *  Its own type rather than `markdown`, which draws at full strength: a
+   *  thought styled like an answer competes with the answer. */
+  | { type: 'thought'; text: string }
 
 /** One thing the reader can pick.
  *

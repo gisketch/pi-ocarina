@@ -3,6 +3,7 @@
   import Icon from '../Icon.svelte'
   import type { ToolBody } from '$lib/thread'
   import Prose from './md/Prose.svelte'
+  import Thought from './md/Thought.svelte'
   import Picture from './md/Picture.svelte'
 
   const { body }: { body: ToolBody } = $props()
@@ -49,6 +50,8 @@
   <div class="panel picture">
     <Picture src={body.src} alt={body.alt} caption={body.caption ?? ''} note="what pi saw" />
   </div>
+{:else if body.type === 'thought'}
+  <div class="panel thought"><Thought text={body.text} /></div>
 {:else if body.type === 'markdown'}
   <div class="panel prose"><Prose text={body.text} /></div>
 {:else if body.type === 'todo'}

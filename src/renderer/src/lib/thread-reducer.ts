@@ -15,6 +15,8 @@ import type { Block, ThreadViewModel, ToolRow, TurnSpan } from './thread'
 import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
+import { elapsed } from './elapsed'
+import { thoughtOf, turnFor, updateRowIn } from './thread-progress'
 import {
   decide,
   dropBlock,
@@ -63,20 +65,35 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         ...(event.attachments?.length ? { attachments: event.attachments } : {}),
       })
 
+    // A thought is a row of the ledger, not a block beside it. It lands in
+    // whichever ledger the turn is already writing, so a turn that thinks,
+    // calls three tools and thinks again draws one unbroken spine instead of
+    // three fragments that happen to be adjacent.
     case 'reasoning-start':
-      return push(model, { kind: 'reasoning', id: event.id, text: '', streaming: true })
+      return startTool(model, {
+        kind: 'tool-start',
+        id: event.id,
+        tool: 'think',
+        target: 'reasoning',
+        // Open while it streams: hiding the one visibly-happening part of a
+        // turn behind a click is how an app looks stalled. `reasoning-end`
+        // puts the default back to closed, and a reader who touched it in
+        // between keeps whatever they chose.
+        open: true,
+      })
 
     case 'reasoning-delta':
-      return editBlock(model, event.id, 'reasoning', (block) => ({
-        ...block,
-        text: block.text + event.text,
+      return updateRowIn(model, event.id, (row) => ({
+        ...row,
+        body: { type: 'thought', text: thoughtOf(row) + event.text },
       }))
 
     case 'reasoning-end':
-      return editBlock(model, event.id, 'reasoning', (block) => ({
-        ...block,
-        streaming: false,
-        ms: event.ms,
+      return updateRowIn(model, event.id, (row) => ({
+        ...row,
+        status: 'ok',
+        open: false,
+        ...(event.ms >= 100 ? { meta: elapsed(event.ms) } : {}),
       }))
 
     // Starting a message is not evidence the agent said anything. pi splits a
@@ -251,34 +268,6 @@ function isPendingGate(block: Block): boolean {
 
 
 
-/** The turn's clock, advanced by the one event that says a turn changed state.
- *
- *  Started on the way *into* `running` and stopped on the way out, so the
- *  span is the time the reader actually waited. A reopened thread replays its
- *  history and lands on `idle` or `done` without ever passing through
- *  `running`, so it gets no turn and draws no footer — which is honest: the
- *  session log records what was said, not how long it took to say. */
-function turnFor(
-  model: ThreadViewModel,
-  event: UiEvent & { kind: 'thread-state' },
-): TurnSpan | undefined {
-  if (event.state === 'running') {
-    // Already timing this one. `running` arrives again after an approval or an
-    // answered question, and restarting the clock there would report the last
-    // stretch rather than the turn.
-    return model.turn && model.turn.endedAt === undefined ? model.turn : { startedAt: Date.now() }
-  }
-
-  // A gate is the turn waiting on a person, not the turn ending. The clock
-  // keeps running because the reader is still waiting for an answer.
-  if (event.state === 'waiting-input') return model.turn
-  if (!model.turn || model.turn.endedAt !== undefined) return model.turn
-
-  const outcome =
-    event.state === 'failed' ? 'failed' : event.state === 'done' ? 'done' : 'stopped'
-  return { ...model.turn, endedAt: Date.now(), outcome }
-}
-
 /** A delta for a message that never started still carries the agent's words,
  *  so it opens the message rather than being discarded. */
 function startTool(
@@ -291,6 +280,7 @@ function startTool(
     target: event.target,
     status: 'running',
     ...(event.detail ? { detail: event.detail } : {}),
+    ...(event.open ? { open: true } : {}),
     ...(event.agent ? { agent: event.agent } : {}),
   }
 

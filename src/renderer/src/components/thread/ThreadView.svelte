@@ -9,9 +9,9 @@
   import RawBlock from './RawBlock.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
-  import ReasoningBlock from './ReasoningBlock.svelte'
   import TurnFooter from './TurnFooter.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
+  import { withoutThinking } from '$lib/thread-rows'
   import { groupShown } from '$lib/ledger-groups'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
@@ -49,13 +49,11 @@
   const marker = $derived(cut > 0 ? (blocks[cut]?.id ?? null) : null)
   const hidden = $derived(marker !== null && expandedFor !== marker ? cut : 0)
   const drawn = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
-  // `o` takes reasoning out of the transcript, not merely out of view: a block
-  // left in place with its contents hidden still holds the gap it stood in,
-  // and a reader who asked for the thinking to be gone gets a column of empty
-  // space where it was.
-  const shown = $derived(
-    reasoningOpen.shown ? drawn : drawn.filter((block) => block.kind !== 'reasoning'),
-  )
+  // `o` takes the thinking out of the transcript, not merely out of view: a
+  // row left in place with its contents hidden still holds the space it stood
+  // in, and a reader who asked for the thinking to be gone gets a column of
+  // gaps where it was.
+  const shown = $derived(reasoningOpen.shown ? drawn : drawn.map(withoutThinking))
 
   // Which blocks open a turn's worth of agent work. pi splits one turn across
   // several messages and interleaves tool calls between them, so the name is
@@ -142,20 +140,7 @@
          it is always the quiet half of the contrast. -->
     <div class="turn" class:dim={dimming && i !== litLabel}><AgentLabel /></div>
   {/if}
-  {#if block.kind === 'reasoning'}
-    <!-- Its own branch, outside the `.nav` wrapper: it draws its own row on
-         the ledger's spine, and the wrapper's gap around it would push it away
-         from the calls it belongs beside. -->
-    <ReasoningBlock
-      id={block.id}
-      text={block.text}
-      streaming={block.streaming}
-      ms={block.ms}
-      {threadId}
-      focusedNav={focused}
-      dimmed={dimming}
-    />
-  {:else if block.kind === 'ledger'}
+  {#if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
          its own rings, so the wrapper below would only dim the whole spine. -->
     <Ledger

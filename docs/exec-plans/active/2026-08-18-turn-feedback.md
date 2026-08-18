@@ -69,18 +69,27 @@ Status legend: `todo` · `in-progress` · `done`.
   formatter and the clock are unit-tested either side of it.
 - Blocked by: T2.
 
-## T4 — one spine through a turn's work — `todo`
+## T4 — one spine through a turn's work — `done`
 
 > A reasoning row draws on the ledger's spine rather than beside it.
 
 - Today `ReasoningBlock` renders its own `.ledger` wrapper, so a turn that
   thinks, calls tools, then thinks again draws three disconnected fragments.
   The spine belongs to the run, not to the block.
-- Two candidate shapes, and the grill's question 4 decides: a reasoning block
-  joins the neighbouring ledger as a row of it, or the spine is lifted to
-  something that spans a turn's consecutive work blocks.
-- Whichever ships, the reasoning row keeps its own node, its own expansion,
-  and its own nav id — this is about the line behind it.
+- **Decided: a thought is a tool row.** `think` is a `ToolKind`, its text is a
+  `thought` tool body, and `reasoning-*` events land in whichever ledger the
+  turn is already writing. That is truer to what the reader asked for
+  ("reasoning is its own tool call") and it *removes* the parallel path rather
+  than adding to it: the reasoning block kind, its component, its nav branch,
+  its card entry and its second expansion store are all gone, and a thought
+  now gets the ledger's node, expansion, nav id and block menu for free.
+- A thought draws open while it streams and closes when it ends, the way a
+  live group does; a reader who touches it in between keeps their choice.
+- Thoughts never join a group: two thoughts are two things the model worked
+  out, and `think · 2 calls` would summarize away the only part of a turn that
+  is not already a summary.
 - Acceptance: think → 3 calls → think draws one unbroken spine; hiding
   reasoning with `o` leaves the spine unbroken through what remains.
-- Validation: a browser pass on a mock turn with that exact shape, screenshot.
+- Validation: a browser pass on a mock turn with that exact shape — the
+  grouped-sweep fixture now thinks, works, then thinks again, and the
+  transcript draws one ledger where it drew three.

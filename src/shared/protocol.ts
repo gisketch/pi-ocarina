@@ -73,6 +73,10 @@ export type UiEvent =
        *  within its family — an lsp row's `references`, `outline`. Additive:
        *  a backend that never sends it draws the row exactly as before. */
       detail?: string
+      /** Whether the row draws its body without being asked. Only a thought
+       *  uses this today: it streams, and a turn's visible work should not
+       *  need a click. */
+      open?: boolean
       parentId?: string
       /** Present only on an `agent` row: who the child is. The row and the
        *  envelope the model reads carry the same shape, so the two cannot

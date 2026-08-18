@@ -6,6 +6,7 @@
  *  owns what happens inside one column once the key has arrived. */
 
 import { navBlocks } from '../blocks'
+import { withoutThinking } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
@@ -33,11 +34,9 @@ class BlockNav {
    *  blocks a restore has taken away. */
   #list(threadId = app.thread.id): ReturnType<typeof navBlocks> {
     const blocks = threads.get(threadId).blocks
-    // A hidden reasoning block is not drawn, so it is not somewhere `j` can
-    // go: a ring on nothing is a key that appears to do nothing.
-    const visible = reasoningOpen.shown
-      ? blocks
-      : blocks.filter((block) => block.kind !== 'reasoning')
+    // A hidden thought is not drawn, so it is not somewhere `j` can go: a ring
+    // on nothing is a key that appears to do nothing.
+    const visible = reasoningOpen.shown ? blocks : blocks.map(withoutThinking)
 
     return navBlocks(visible, (navId, group) =>
       groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
@@ -97,7 +96,6 @@ class BlockNav {
     blockFocus.forget(threadId)
     toolOpen.forget(threadId)
     following.forget(threadId)
-    reasoningOpen.forget(threadId)
     if (blockMenu.threadId === threadId) blockMenu.close()
   }
 
@@ -136,13 +134,6 @@ class BlockNav {
     const block = this.#list(threadId).find((entry) => entry.id === navId)
     if (!block) return
 
-    // A reasoning block is expandable and is not a tool row, so it has no
-    // `rowId` — without this `l` on the focused thought did nothing at all.
-    if (block.kind === 'reasoning') {
-      reasoningOpen.set(threadId, navId, open)
-      if (open) revealBlock(threadId, navId)
-      return
-    }
     if (block.rowId === undefined) return
 
     toolOpen.set(threadId, navId, open)

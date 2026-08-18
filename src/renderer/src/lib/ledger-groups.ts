@@ -19,6 +19,9 @@ import type { ToolKind, ToolRow } from './thread'
  *  here: two commands in a row are two different things that happened, and a
  *  summary would hide which. */
 const GROUPABLE: ReadonlySet<ToolKind> = new Set<ToolKind>(['read', 'grep', 'lsp', 'edit'])
+// `think` is deliberately absent. Two thoughts are two different things the
+// model worked out, and `think · 2 calls` would summarize away the only part
+// of a turn that is not already summarized.
 
 /** How many targets a summary names before it counts the rest. */
 export const NAMED_TARGETS = 3

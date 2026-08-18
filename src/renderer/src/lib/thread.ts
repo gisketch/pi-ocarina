@@ -70,9 +70,6 @@ export interface ToolRow {
 export type Block =
   | { kind: 'user'; id: string; text: string; attachments?: MessageAttachment[] }
   | { kind: 'agent'; id: string; text: string; streaming?: boolean }
-  /** What the model thought before it answered. Muted, collapsed, and never
-   *  markdown — see the reasoning spec. */
-  | { kind: 'reasoning'; id: string; text: string; streaming?: boolean; ms?: number }
   | { kind: 'ledger'; id: string; rows: ToolRow[] }
   /** A question, or several, and what became of them. `outcome` is undefined
    *  while it is pending, which is what makes it a gate. */

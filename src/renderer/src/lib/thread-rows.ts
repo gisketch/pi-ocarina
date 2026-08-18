@@ -97,3 +97,20 @@ export function editLedger(
 
   return undefined
 }
+
+/** A block with its thinking rows taken out.
+ *
+ *  `o` hides what the model thought. Hiding rather than collapsing, and out of
+ *  the list rather than out of view: a row left in place with its contents
+ *  hidden still holds the space it stood in, and a reader who asked for the
+ *  thinking to be gone would get a column of gaps where it was.
+ *
+ *  A ledger left with no rows is dropped to an empty one rather than removed:
+ *  the block ids are what focus and the menu address, and taking a block out
+ *  of the list under a ring is how a ring ends up pointing at nothing. */
+export function withoutThinking(block: Block): Block {
+  if (block.kind !== 'ledger') return block
+
+  const rows = block.rows.filter((row) => row.kind !== 'think')
+  return rows.length === block.rows.length ? block : { ...block, rows }
+}

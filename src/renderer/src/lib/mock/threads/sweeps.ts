@@ -31,6 +31,8 @@ export const GROUPED_SWEEP: MockThread = {
     },
     { kind: 'reasoning-end', id: 'think-1', ms: 4200 },
 
+
+
     { kind: 'tool-start', id: 'g-read-1', tool: 'read', target: 'src/sync/worker.ts' },
     { kind: 'tool-end', id: 'g-read-1', status: 'ok', meta: '142L' },
     { kind: 'tool-start', id: 'g-read-2', tool: 'read', target: 'src/sync/retry.ts' },
@@ -66,6 +68,16 @@ export const GROUPED_SWEEP: MockThread = {
 
     // A single call never groups: two commands in a row are two things that
     // happened, and this one is only one.
+    // A second thought, after the calls: the spine has to run unbroken through
+    // think → work → think, which is the shape this fixture exists to check.
+    { kind: 'reasoning-start', id: 'think-2' },
+    {
+      kind: 'reasoning-delta',
+      id: 'think-2',
+      text: 'Lock wait is **78%** of the p95. Batching pops 16 at a time should cut it.',
+    },
+    { kind: 'reasoning-end', id: 'think-2', ms: 1900 },
+
     { kind: 'tool-start', id: 'g-bash', tool: 'bash', target: 'pnpm test sync' },
     { kind: 'tool-end', id: 'g-bash', status: 'ok', meta: 'exit 0 · 3.2s' },
 
