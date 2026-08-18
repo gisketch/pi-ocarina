@@ -40,8 +40,10 @@
         <span class="icon"><Icon name="tool-skill" /></span>
         <span class="name">{skill.name}</span>
         <span class="desc">{skill.description}</span>
-        {#if skill.explicitOnly}<span class="tag">explicit only</span>{/if}
-        <span class="from">{skill.source}</span>
+        <span class="meta">
+          {#if skill.explicitOnly}<span class="tag">explicit</span>{/if}
+          <span class="from">{skill.source}</span>
+        </span>
       </div>
     {/each}
   {/if}
@@ -53,7 +55,7 @@
         <span class="icon"><Icon name="tool-todo" /></span>
         <span class="name">/{command.name}</span>
         <span class="desc">{command.description}</span>
-        <span class="from">{command.source}</span>
+        <span class="meta"><span class="from">{command.source}</span></span>
       </div>
     {/each}
   {/if}
@@ -102,7 +104,7 @@
     align-items: baseline;
     font-size: 10px;
     letter-spacing: 0.14em;
-    color: var(--dim);
+    color: var(--fg-dim);
     padding: 0 2px 6px;
   }
 
@@ -114,7 +116,7 @@
     font: inherit;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--dim);
+    color: var(--fg-dim);
     cursor: pointer;
   }
 
@@ -129,27 +131,39 @@
   }
 
   .group {
-    font-size: 11px;
-    color: var(--dim);
-    padding: 8px 2px 4px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--fg-dimmest);
+    padding: 14px 2px 5px;
+    border-bottom: 1px solid var(--line-faint);
+    margin-bottom: 3px;
   }
 
   .group.bad {
-    color: var(--bad);
+    color: var(--err);
   }
 
+  /* A grid, not a row of flexed spans. Forty skills in a monospace font is a
+     wall unless the eye has columns to run down: the name starts in the same
+     place on every line, and so does where it stops. */
   .item {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 13px minmax(0, max-content) minmax(0, 1fr) auto;
+    gap: 0 10px;
     align-items: baseline;
     width: 100%;
-    padding: 4px 2px;
+    padding: 3px 2px;
     font-size: 12px;
+    line-height: 1.45;
     text-align: left;
     background: none;
     border: 0;
     color: inherit;
     font: inherit;
+  }
+
+  .item:hover {
+    background: var(--bg-hover);
   }
 
   .item.open {
@@ -159,31 +173,48 @@
   .icon {
     display: inline-flex;
     width: 13px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .icon.bad {
-    color: var(--bad);
+    color: var(--err);
   }
 
+  /* The name is what a reader scans for, so it is the only thing at full
+     strength. Everything beside it recedes by a step. */
   .name {
-    color: var(--fg);
+    color: var(--fg-bright);
     white-space: nowrap;
   }
 
   .desc {
-    color: var(--dim);
+    color: var(--fg-dimmer);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
   }
 
-  .tag,
-  .from {
-    color: var(--dim);
+  /* One cell, so `explicit` never pushes the source out of its column — the
+     word a reader is checking down the list is where they left it. */
+  .meta {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .tag {
+    color: var(--warn);
     font-size: 10px;
     letter-spacing: 0.08em;
+  }
+
+  .from {
+    color: var(--fg-faint);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    min-width: 46px;
+    text-align: right;
   }
 
   .content {
@@ -193,7 +224,7 @@
     overflow: auto;
     font-size: 11px;
     line-height: 1.5;
-    color: var(--dim);
+    color: var(--fg-dim);
     background: var(--bg-chip);
     border-radius: 4px;
     white-space: pre-wrap;
@@ -202,6 +233,6 @@
   .empty {
     padding: 8px 2px;
     font-size: 12px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 </style>

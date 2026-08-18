@@ -113,12 +113,12 @@
 
 <style>
   .note {
-    color: var(--dim);
+    color: var(--fg-dim);
     font-size: 10px;
   }
 
   .where {
-    color: var(--dim);
+    color: var(--fg-dim);
     font-size: 10px;
   }
 

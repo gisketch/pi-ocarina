@@ -42,8 +42,8 @@
     align-items: center;
     gap: 10px;
     padding: 6px 14px;
-    background: color-mix(in srgb, var(--bad) 12%, var(--bg));
-    border-bottom: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+    background: color-mix(in srgb, var(--err) 12%, var(--bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--err) 35%, transparent);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.06em;
@@ -54,7 +54,7 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--bad);
+    background: var(--err);
     flex: none;
   }
 
@@ -70,7 +70,7 @@
     border: 0;
     font: inherit;
     letter-spacing: inherit;
-    color: var(--dim);
+    color: var(--fg-dim);
     cursor: pointer;
   }
 

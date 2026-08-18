@@ -162,7 +162,7 @@
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.14em;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .rows {
@@ -196,7 +196,7 @@
 
   .what {
     flex: 1;
-    color: var(--dim);
+    color: var(--fg-dim);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -221,7 +221,7 @@
     display: block;
     font-size: 10px;
     letter-spacing: 0.12em;
-    color: var(--dim);
+    color: var(--fg-dim);
     margin-bottom: 4px;
   }
 
@@ -242,7 +242,7 @@
   .foot {
     padding: 10px 20px;
     font-size: 11px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .foot {

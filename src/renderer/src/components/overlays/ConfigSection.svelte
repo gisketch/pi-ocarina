@@ -73,7 +73,7 @@
     align-items: baseline;
     font-size: 10px;
     letter-spacing: 0.14em;
-    color: var(--dim);
+    color: var(--fg-dim);
     padding: 0 2px 6px;
   }
 
@@ -88,12 +88,12 @@
 
   .group {
     font-size: 11px;
-    color: var(--dim);
+    color: var(--fg-dim);
     padding: 8px 2px 4px;
   }
 
   .group.bad {
-    color: var(--bad);
+    color: var(--err);
   }
 
   .item {
@@ -107,11 +107,11 @@
   .icon {
     display: inline-flex;
     width: 13px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .icon.bad {
-    color: var(--bad);
+    color: var(--err);
   }
 
   .effect {
@@ -122,7 +122,7 @@
   }
 
   .effect.deny {
-    color: var(--bad);
+    color: var(--err);
   }
 
   .name {
@@ -132,7 +132,7 @@
 
   .desc {
     flex: 1;
-    color: var(--dim);
+    color: var(--fg-dim);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -140,12 +140,12 @@
 
   .where {
     font-size: 10px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .empty {
     padding: 6px 2px;
     font-size: 12px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 </style>

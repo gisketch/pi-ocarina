@@ -138,7 +138,7 @@
 
   .what {
     flex: 1;
-    color: var(--dim);
+    color: var(--fg-dim);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -146,14 +146,14 @@
 
   .chip {
     font-size: 10px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .empty,
   .foot {
     padding: 10px 14px;
     font-size: 11px;
-    color: var(--dim);
+    color: var(--fg-dim);
   }
 
   .foot {

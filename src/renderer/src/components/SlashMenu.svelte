@@ -41,7 +41,7 @@
   .from {
     font-size: 10px;
     letter-spacing: 0.08em;
-    color: var(--dim);
+    color: var(--fg-dim);
     opacity: 0.75;
   }
 
