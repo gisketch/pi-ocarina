@@ -28,8 +28,6 @@
     threadId?: string
     blockId?: string
     focusedNav?: string | null
-    /** Whether anything in the thread is focused, which is what dims the rest. */
-    dimmed?: boolean
     /** Files sent with this message. Drawn as chips in the sentence that names
      *  them, and after it when it named none. */
     attachments?: MessageAttachment[]
@@ -43,7 +41,6 @@
     threadId,
     blockId,
     focusedNav = null,
-    dimmed = false,
     attachments = [],
   }: Props = $props()
 
@@ -134,7 +131,7 @@
     {#each segments as segment, at (at)}
       <div
         class="seg"
-        class:dim={dimmed && segments.length > 1 && focusedNav !== navIdOf(at)}
+        class:lit={segments.length > 1 && focusedNav === navIdOf(at)}
         class:hosting={menuOn(at)}
         use:navTarget={{ threadId: threadId ?? '', navId: threadId ? navIdOf(at) : null }}
       >

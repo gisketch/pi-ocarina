@@ -11,7 +11,6 @@
   import { permission } from '$lib/state/permission.svelte'
   import { PERMISSION_LABELS } from '../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
-  import { following } from '$lib/state/following.svelte'
 
   // pi's own accounting for the focused thread. A thread that has not run a
   // turn has no usage, and the segment stays blank rather than showing zeros
@@ -63,7 +62,6 @@
   const ownLevel = $derived(permission.thread !== undefined)
 
   const lsp = $derived(workspaceLsp.chip)
-  const paused = $derived(!following.of(app.thread.id).following)
   /** On, with nothing started. The chip says so quietly rather than counting. */
   const lspIdle = $derived(lsp === 'lsp' || lsp === 'lsp !')
 
@@ -84,23 +82,6 @@
     {/if}
     <GitSummary status={isolated ? threadGit.statusOf(app.thread.id) : app.workspace.git} />
   </div>
-
-  <div class="seg">thread {app.threadLabel}</div>
-
-  {#if paused}
-    <!-- Only while paused. Following is the ordinary state, and a bar segment
-         that spends its life reading FOLLOWING teaches nothing; the one that
-         says the reader has stepped away from the stream is the one worth the
-         width. -->
-    <button
-      type="button"
-      class="seg paused"
-      onclick={() => following.jump(app.thread.id)}
-      title="the thread is not following the stream — click, or G, to catch up"
-    >
-      <span class="dot"></span>paused
-    </button>
-  {/if}
 
   <button
     type="button"
@@ -194,22 +175,6 @@
   }
   .perm.warn {
     color: var(--warn, var(--accent));
-  }
-
-  .paused {
-    color: var(--warn);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: none;
-    border: none;
-    font: inherit;
-    cursor: pointer;
-  }
-  .paused .dot {
-    width: 5px;
-    height: 5px;
-    background: var(--warn);
   }
 
   .lsp {

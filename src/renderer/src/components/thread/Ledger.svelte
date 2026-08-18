@@ -27,14 +27,11 @@
     /** The focused nav id anywhere in this thread, or null when the reader has
      *  not started navigating. */
     focusedNav: string | null
-    /** Whether anything in the thread is focused — which is what turns the
-     *  dim on for every row that is not it. */
-    dimmed: boolean
     /** The workspace's hue, which a child agent's sigil borrows. */
     hue: number
   }
 
-  const { rows, threadId, blockId, focusedNav, dimmed, hue }: Props = $props()
+  const { rows, threadId, blockId, focusedNav, hue }: Props = $props()
 
   const navIdOf = (row: ToolRow): string => `${blockId}:${row.id}`
 
@@ -56,7 +53,6 @@
   const gutter = $derived(widestLabel(kindsIn(rows)))
 
   const stops = $derived(pointableRows(rows))
-  const anyFocused = $derived(stops.some((row) => focusedNav === navIdOf(row)))
   const anyHosting = $derived(stops.some((row) => menuOn(navIdOf(row))))
   // Keyed by nav id, not by row id: a tool call id is only unique within its
   // call, which is the same reason the nav id is built from both. Two ledgers
@@ -95,7 +91,6 @@
   {@const points = !nested || row.agent !== undefined}
   <div
     class="entry"
-    class:dim={points && dimmed && focusedNav !== navIdOf(row)}
     class:lit={points && focusedNav === navIdOf(row)}
     class:hosting={points && menuOn(navIdOf(row))}
     use:navTarget={{ threadId, navId: points ? navIdOf(row) : null }}
@@ -162,7 +157,6 @@
      did. Lifting it on the row alone was half a fix. -->
 <div
   class="ledger"
-  class:dim={dimmed && !anyFocused}
   class:hosting={anyHosting}
   style="--gutter: {gutter}ch"
 >
@@ -174,7 +168,6 @@
         {threadId}
         {blockId}
         {focusedNav}
-        {dimmed}
         {entry}
       />
     {:else}
@@ -195,11 +188,6 @@
     flex-direction: column;
     gap: 2px;
   }
-  /* The spine belongs to the group, not to any one row, so it fades with the
-     rows rather than staying lit above them. */
-  .ledger.dim::before {
-    background: var(--fg-ghost);
-  }
   .ledger.hosting {
     content-visibility: visible;
     contain: none;
@@ -212,22 +200,9 @@
        rest of a long ledger to be re-laid-out. */
     contain: layout style;
   }
-  /* The token sets a lit and a dimmed entry carry live in `tokens.css`: they
-     are theme values, not this component's layout, and a second component now
-     draws entries too. */
-  /* The sigil's cells are computed in JS and written as inline backgrounds, so
-     the tokens above cannot reach them: a dimmed agent row kept a full-colour
-     sigil beside a greyed-out name. Desaturated rather than faded, to match how
-     the rest of the row dims — and scoped to a 10px decoration, which is why
-     the filter this file otherwise avoids is safe here.
-
-     `> .row` and not a descendant: an entry contains the entries nested under
-     it, so a descendant selector would grey a focused child's sigil from its
-     dimmed parent — and exempting the focused one in turn would un-grey every
-     dimmed child of a focused parent. A row's own state decides its own row. */
-  .entry.dim > :global(.row) :global(.sigil) {
-    filter: saturate(0) brightness(0.62);
-  }
+  /* The focus band lives in `tokens.css`: more than one component draws an
+     entry, and the band's reach is tied to the column's padding rather than to
+     anything this file owns. */
   /* A row contains its own layout and paint, which would slice the menu off at
      the row's own height. The ledger's spine is drawn by the parent, so
      dropping containment here costs the row nothing. */

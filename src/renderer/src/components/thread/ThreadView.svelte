@@ -62,17 +62,10 @@
   const opensTurn = $derived(marksTurnStart(shown))
 
   // Null until the reader starts navigating. That is what keeps a column
-  // nobody has touched looking exactly as it always did: no ring, no dim.
+  // nobody has touched looking exactly as it always did.
   const focused = $derived(blockFocus.idOf(threadId))
   /** The turn's clock, when this session has timed one. */
   const turn = $derived(threads.get(threadId).turn)
-
-  // A leap mutes the whole column at the column's own level, by colour. The
-  // opacity dim stands down while it does: stacking the two would take the
-  // match paint down with the text, because a highlight cannot escape an
-  // ancestor's opacity.
-  const leaping = $derived(leap.activeFor(threadId))
-  const dimming = $derived(!leaping && focused !== null)
 
   // Which block the ring is on — a tool row reports its ledger, since the name
   // above a turn belongs to the whole turn and not to one row of it.
@@ -83,7 +76,7 @@
   // answer a question nobody is asking while nothing is focused.
   // The same expansion rule the ledger draws with. Built with every group
   // collapsed, this could not find a row inside an open one — so the ring was
-  // lit on the row while the turn's own label dimmed around it.
+  // lit on the row while the block around it was not.
   const focusedBlock = $derived(
     focused === null
       ? null
@@ -138,7 +131,7 @@
   {#if opensTurn[i]}
     <!-- The name is not a block anyone can point at, so while the ring is out
          it is always the quiet half of the contrast. -->
-    <div class="turn" class:dim={dimming && i !== litLabel}><AgentLabel /></div>
+    <div class="turn"><AgentLabel /></div>
   {/if}
   {#if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
@@ -148,7 +141,6 @@
       {threadId}
       blockId={block.id}
       focusedNav={focused}
-      dimmed={dimming}
       {hue}
     />
   {:else if block.kind === 'checkpoint'}
@@ -158,7 +150,7 @@
   {:else}
     <div
       class="nav"
-      class:dim={dimming && focusedBlock !== block.id}
+      class:lit={focusedBlock === block.id}
       class:hosting={hosts(block)}
       use:navTarget={{ threadId, navId: owns(block) ? block.id : null }}
     >
@@ -173,8 +165,7 @@
           {threadId}
           blockId={block.id}
           focusedNav={focused}
-          dimmed={dimming}
-        />
+            />
       {:else if block.kind === 'agent'}
         <Message
           role="agent"
@@ -184,8 +175,7 @@
           {threadId}
           blockId={block.id}
           focusedNav={focused}
-          dimmed={dimming}
-        />
+            />
       {:else if block.kind === 'ask'}
         <AskCard
           askId={block.id}
@@ -244,40 +234,10 @@
      asks for a layout pass. */
   .nav {
     position: relative;
-    transition: opacity 0.12s ease;
-    /* Blocks are independent of one another, so dimming one never re-lays-out
-       the rest of the thread. */
+    /* Blocks are independent of one another, so lighting one never
+       re-lays-out the rest of the thread. */
     contain: layout style;
   }
-  /* Colour is the focused block's alone. Draining it from the rest widens the
-     gap far more than brightness can on its own: a green PI label or a red
-     failed tool row still pulls the eye when it is only faded.
-
-     Done by re-pointing the colour tokens rather than with `opacity` and
-     `filter`, for two reasons. Those two cost real paint — measured at about a
-     third more per frame on a five-thousand-block thread — and they take any
-     overlay down with them, which is how the leap's match paint ended up grey.
-     One mechanism for both, and neither problem. */
-  .nav.dim,
-  .turn.dim {
-    --tone-1: var(--fg-dimmer);
-    --tone-2: var(--fg-dimmer);
-    --tone-3: var(--fg-dimmer);
-    --fg-bright: var(--fg-dimmer);
-    --fg-body: var(--fg-dimmer);
-    --fg: var(--fg-dimmer);
-    --fg-agent: var(--fg-dimmer);
-    --fg-muted: var(--fg-dimmer);
-    --fg-dim: var(--fg-dimmer);
-    --fg-dimmest: var(--fg-dimmer);
-    --accent: var(--fg-dimmer);
-    --ok: var(--fg-dimmer);
-    --ok-text: var(--fg-dimmer);
-    --err: var(--fg-dimmer);
-    --err-text: var(--fg-dimmer);
-    --warn: var(--fg-dimmer);
-  }
-
   /* The column gives every block `content-visibility: auto`, which brings paint
      containment with it — and paint containment clips descendants to the
      padding box. A menu is taller than the one-line message it hangs off, so

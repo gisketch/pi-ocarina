@@ -11,6 +11,9 @@
   import { revealBlock } from '$lib/state/block-focus.svelte'
   import { following } from '$lib/state/following.svelte'
   import { threads } from '$lib/state/threads.svelte'
+  import { followColumn } from '$lib/state/follow-column.svelte'
+  import { preferences } from '$lib/state/preferences.svelte'
+  import { shortModelLabel } from '$lib/model-label'
   import FollowPill from '../thread/FollowPill.svelte'
 
   interface Props {
@@ -40,6 +43,15 @@
             : 'idle',
   )
 
+  // The live model wins as soon as the thread has one, exactly as its status
+  // does. A thread that has not opened yet names the default it will take —
+  // by its id, which is all a preference records, and which is the same string
+  // pi answers under.
+  const chosen = $derived(preferences.defaultModel)
+  const model = $derived(
+    shortModelLabel(threads.get(thread.id).model ?? (chosen ? { name: chosen.id } : undefined)),
+  )
+
   const asking = $derived(askKeys.pendingIn(thread.id) !== null)
   const below = $derived(askNotice.belowIn(thread.id))
 
@@ -47,83 +59,13 @@
 
   const follow = $derived(following.of(thread.id))
 
-  $effect(() => {
-    if (!body) return
-    return registerColumnBody(thread.id, body)
-  })
-
-  // The stream landed something. Read from the model rather than from the DOM:
-  // measuring the scroll height to notice growth would force layout on every
-  // delta, which is what the column's virtualization exists to avoid.
-  //
-  // Not the block count. A long answer is *one* block whose text grows in
-  // place, and a run of tool calls is *one* ledger whose rows grow in place —
-  // so a count never changes mid-turn, and the view froze at the first line of
-  // exactly the turns worth following. This changes on every delta.
-  const arrivals = $derived.by(() => {
-    const blocks = threads.get(thread.id).blocks
-    const last = blocks[blocks.length - 1]
-    const grown =
-      last === undefined
-        ? 0
-        : last.kind === 'ledger'
-          ? last.rows.length
-          : 'text' in last
-            ? last.text.length
-            : 0
-    return { blocks: blocks.length, grown }
-  })
-  /** How many blocks this column had last time it looked. Not reactive: it is
-   *  the effect's own memory, and making it state would re-run the effect that
-   *  writes it. `-1` until the first pass, so opening a thread with a hundred
-   *  blocks does not count them as a hundred arrivals. */
-  let seen = -1
-
-  // Counted in blocks, not in characters: `3 new` means three things arrived,
-  // and a pill reading `1,847 new` after one paragraph would be nonsense.
-  $effect(() => {
-    const now = arrivals.blocks
-    if (seen >= 0 && now > seen) follow.arrived(now - seen)
-    seen = now
-  })
-
-  /** A pin already scheduled for the next frame, so a stream queues one and
-   *  not one per token. */
-  let settling = 0
-
-  // Pinned: keep the newest content in view. `scrollTop` rather than a smooth
-  // scroll — a stream arriving faster than an animation settles would leave
-  // the view permanently chasing itself.
-  $effect(() => {
-    // Both, so the pin follows a block being added *and* one growing.
-    void arrivals.blocks
-    void arrivals.grown
-    if (!body || !follow.following) return
-
-    body.scrollTop = body.scrollHeight
-
-    // And again after the browser has laid the new text out. The line above
-    // reads a `scrollHeight` that does not yet include the token that caused
-    // it, so following always stopped a line or two short of the bottom — the
-    // faster the stream, the further short.
-    if (settling !== 0) return
-    settling = requestAnimationFrame(() => {
-      settling = 0
-      // Checked now rather than when this was scheduled: a reader who scrolled
-      // up in the intervening frame has taken the view, and yanking it back
-      // would be the one thing follow mode promises not to do.
-      if (body && follow.following) body.scrollTop = body.scrollHeight
-    })
-  })
-
-  $effect(() => () => {
-    if (settling !== 0) cancelAnimationFrame(settling)
-  })
-
-  function onscroll(): void {
-    if (!body) return
-    follow.scrolled({ top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight })
-  }
+  // Following is a complete idea — what counts as an arrival, when to pin, and
+  // how to pin without measuring per token — so it lives beside the machine it
+  // drives rather than in the middle of a column's markup.
+  const pin = followColumn(
+    () => thread.id,
+    () => body,
+  )
 
   function reveal(): void {
     const askId = askKeys.pendingIn(thread.id)
@@ -155,6 +97,12 @@
            rather than two labels to compare. -->
       <span class="branch" title="worktree · {thread.branch}"><Icon name="branch" />{thread.branch}</span>
     {/if}
+    <!-- Which model is answering here. The one fact about a thread that
+         changes what its answers are worth, and it lived in the title bar for
+         the focused column only — a strip running three models said so
+         nowhere. It gives way before the title does: the title is what a
+         reader needs, the model is what they scan for. -->
+    <span class="model" title="model · {model}">{model}</span>
     <span class="meta">{thread.meta}</span>
   </header>
 
@@ -162,7 +110,7 @@
     class="body"
     class:leaping={leap.activeFor(thread.id)}
     bind:this={body}
-    {onscroll}
+    onscroll={pin.scrolled}
   >
     {@render children?.()}
     <LeapOverlay threadId={thread.id} />
@@ -279,9 +227,19 @@
     color: var(--fg-bright);
   }
 
-  .meta {
+  /* Truncates rather than wrapping, and loses before the title: `min-width: 0`
+     is what lets a flex item shrink past its content at all. */
+  .model {
     margin-left: auto;
+    color: var(--fg-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .meta {
     color: var(--fg-dimmest);
+    flex: none;
   }
 
   .body {
@@ -289,7 +247,10 @@
     /* The leap overlay is positioned in this box's content coordinates. */
     position: relative;
     overflow-y: auto;
-    padding: 18px;
+    /* The inline padding moved onto the blocks, so a focused block's band can
+       reach both column edges. Padding on this box would have been a strip the
+       band could not cross, and the highlight would have floated in a frame. */
+    padding: var(--pad-column) 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -335,6 +296,7 @@
   .body > :global(*) {
     content-visibility: auto;
     contain-intrinsic-size: auto 120px;
+    padding-inline: var(--pad-column);
   }
 
   /* The last block is exempt: it is the one that streams, and skipping its

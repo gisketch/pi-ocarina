@@ -25,11 +25,10 @@
     threadId: string
     blockId: string
     focusedNav: string | null
-    dimmed: boolean
     entry: import('svelte').Snippet<[ToolRow, boolean]>
   }
 
-  const { group, open, threadId, blockId, focusedNav, dimmed, entry }: Props = $props()
+  const { group, open, threadId, blockId, focusedNav, entry }: Props = $props()
 
   // The group registers as its own stop, so `j` lands on it and `l` opens it.
   // Its own component rather than the ledger's, because the wrapper and what
@@ -49,7 +48,6 @@
 <div
   class="entry group"
   class:live={group.live}
-  class:dim={dimmed && focusedNav !== navId}
   class:lit={focusedNav === navId}
   class:hosting={menuOn}
   use:navTarget={{ threadId, navId }}

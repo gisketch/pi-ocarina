@@ -11,6 +11,16 @@
    *  *on top of* something inside a column — a ledger node covering the spine
    *  — has to paint this, not `--bg`, or it reads as a slightly darker patch. */
   --bg-column: color-mix(in srgb, #ffffff 1.5%, var(--bg));
+  /** How far a column's content sits from its edges. A token because the
+   *  focus band has to reach past it: the band is drawn on the block, and the
+   *  block is inside the padding. */
+  --pad-column: 18px;
+  /** The band behind the block the reader is pointing at. A step up from the
+   *  column's ground rather than a colour of its own — it marks a place, it
+   *  does not mean anything. */
+  --band: color-mix(in srgb, #ffffff 5%, transparent);
+  /** The ledger's own indent, which the spine sits inside. */
+  --pad-ledger: 20px;
   --bg-raise-2: rgba(255, 255, 255, 0.02);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
@@ -105,41 +115,43 @@
   --grain-opacity: 0;
 }
 
-/* A ledger entry the reader is pointing at, and one they are not.
+/* The block the reader is pointing at.
  *
- * Both set tokens only, which is why they live here rather than beside the
- * ledger's layout: tokens cascade, so a focused child inside a dimmed parent
- * needs the lit set to win back what the dim took — and more than one
- * component now draws an entry.
+ * A band behind it, edge to edge, the way a line-wise visual selection reads
+ * in vim. It replaces greying out the rest of the thread — a whole column of
+ * text going unreadable to mark one paragraph, at exactly the moment the
+ * reader is navigating through that text.
  *
- * Muted by colour, never by `opacity` or `filter`: see ThreadView.
+ * `--band` and nothing else: no border, no padding, no font change. The band
+ * must not move a single glyph, or `j` walking a transcript would reflow it
+ * line by line, which is worse than the dim it replaces.
  *
- * Scoped under `.ledger`: `entry` is a general enough word that another
- * surface will use it one day, and these rules would repaint it. */
-.ledger .entry.lit {
-  --tone-1: oklch(0.76 0.14 var(--accent-hue));
-  --tone-2: oklch(0.78 0.11 calc(var(--accent-hue) + 60));
-  --tone-3: oklch(0.8 0.09 calc(var(--accent-hue) + 180));
-  --fg-bright: #efefea;
-  --fg-body: #e8e8e3;
+ * Two cases. A block is a direct child of the column body and already spans
+ * its full width, so a background is enough. A ledger row is nested inside the
+ * block's padding and the ledger's own, so its band is drawn by a
+ * pseudo-element reaching back out to the block's padding box — which is
+ * exactly where `content-visibility` clips, so it reaches the column edge and
+ * no further. */
+.lit {
+  background: var(--band);
 }
-.ledger .entry.dim {
-  --tone-1: var(--fg-dimmer);
-  --tone-2: var(--fg-dimmer);
-  --tone-3: var(--fg-dimmer);
-  --fg-bright: var(--fg-dimmer);
-  --fg-body: var(--fg-dimmer);
-  --fg: var(--fg-dimmer);
-  --fg-agent: var(--fg-dimmer);
-  --fg-muted: var(--fg-dimmer);
-  --fg-dim: var(--fg-dimmer);
-  --fg-dimmest: var(--fg-dimmer);
-  --accent: var(--fg-dimmer);
-  --ok: var(--fg-dimmer);
-  --ok-text: var(--fg-dimmer);
-  --err: var(--fg-dimmer);
-  --err-text: var(--fg-dimmer);
-  --warn: var(--fg-dimmer);
+.ledger .entry.lit {
+  background: none;
+}
+.ledger .entry.lit::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: calc(-1 * var(--pad-column));
+  right: calc(-1 * var(--pad-column));
+  background: var(--band);
+  /* Behind the row's own text, and behind the spine, which is drawn on the
+     ledger rather than on the row. */
+  z-index: 0;
+}
+.ledger .entry.lit > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* A ledger node's colour, by the status its row ended in.
@@ -184,14 +196,26 @@
  * as a strike through it. `--bg-column`, not `--bg`: the column's ground is a
  * translucent layer over the app's, and painting the app's colour here is the
  * slightly-darker patch that made every icon look boxed. */
+/* A ledger is a block in its own right, so the column's inline padding lands
+ * on it too. Its indent has to compose with that rather than replace it: set
+ * to `--pad-ledger` alone, the column's rule simply won and the spine drifted
+ * two pixels left of where its nodes were drawn. */
+/* The ledger takes no padding of its own. It is a block, so the column
+ * already pads it, and a competing `padding-left` here loses: Svelte scopes
+ * the column's `.body > *` rule with a class, which ties on specificity and
+ * wins on order. The indent goes on the rows instead, where nothing else is
+ * asking. */
 .ledger {
   position: relative;
-  padding-left: 20px;
+}
+.ledger .entry {
+  position: relative;
+  padding-left: var(--pad-ledger);
 }
 .ledger::before {
   content: '';
   position: absolute;
-  left: 7px;
+  left: calc(var(--pad-column) + 7px);
   top: 0;
   bottom: 0;
   width: 1px;
@@ -199,7 +223,10 @@
 }
 .ledger .node {
   position: absolute;
-  left: -19px;
+  /* Centred on the spine: the row's content starts at `--pad-ledger` and the
+     spine sits `--pad-column + 7` from the column's edge, so a 13px node's
+     left edge lands one pixel inside the row's own box. */
+  left: 1px;
   top: 6px;
   width: 13px;
   height: 13px;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte'
+  import { modelLabel } from '$lib/model-label'
   import { threads } from '$lib/state/threads.svelte'
   import { windowControls } from '$lib/bridge'
 
@@ -12,18 +13,7 @@
 
   // Whatever pi says this thread is on. "pi default" until it says.
   //
-  // The reasoning level rides with the name, because the two are one choice
-  // and the only place the level could otherwise be read was inside the picker
-  // that changes it. A model that cannot reason says nothing rather than
-  // "off", which would read as a setting the reader turned off.
-  const chosen = $derived(threads.get(app.thread.id).model)
-  const model = $derived(
-    chosen
-      ? chosen.reasoning && chosen.reasoning !== 'off'
-        ? `${chosen.name} · ${chosen.reasoning}`
-        : chosen.name
-      : 'pi default',
-  )
+  const model = $derived(modelLabel(threads.get(app.thread.id).model))
 </script>
 
 <header class="titlebar">
