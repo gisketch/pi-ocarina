@@ -241,11 +241,9 @@
   left: -19px;
 }
 
-/* A group's members sit one nesting inset in; a subagent's calls sit inside
- * their parent row's indent as well. */
-.members > .entry.lit::before {
-  left: calc(-1 * (var(--pad-column) + var(--pad-nest)));
-}
+/* Both nested runs sit at the same depth — one ledger indent and one nesting
+ * inset — so one bleed reaches the column edge for both. */
+.members > .entry.lit::before,
 .children > .entry.lit::before {
   left: calc(-1 * (var(--pad-column) + var(--pad-ledger) + var(--pad-nest)));
 }

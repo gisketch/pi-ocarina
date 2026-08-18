@@ -168,9 +168,14 @@
   .members {
     /* One indent, no rule. The ledger already draws a spine; a second line
        beside a nested run reads as a ledger inside a ledger, and the row's own
-       icon is what says where it belongs. */
+       icon is what says where it belongs.
+
+       `--pad-ledger` as well as `--pad-nest`: a group's members are children
+       of the ledger, not of the group row, so they miss the indent every
+       top-level row has — and sat eight pixels off the spine where a
+       subagent's calls sit twenty-eight. */
     margin: 0 0 4px 0;
-    padding-left: var(--pad-nest);
+    padding-left: calc(var(--pad-ledger) + var(--pad-nest));
     display: flex;
     flex-direction: column;
     gap: 2px;

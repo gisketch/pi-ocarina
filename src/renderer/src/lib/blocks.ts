@@ -93,16 +93,21 @@ export function groupNavId(blockId: string, group: RowGroup): string {
 }
 
 function toolEntry(blockId: string, row: ToolRow): NavBlock {
+  // A thought carries nothing on its row — its words are the body underneath —
+  // so leap and copy read the body. Without this every thought in a thread was
+  // the same empty target, and neither key could tell them apart.
+  const said = row.body?.type === 'thought' ? row.body.text : row.target
+
   return {
     id: `${blockId}:${row.id}`,
     kind: 'tool',
     blockId,
     rowId: row.id,
-    label: short(`${row.kind} ${row.target}`),
+    label: short(`${row.kind} ${said}`),
     ...(row.body?.type === 'diff' ? { diffPath: row.target } : {}),
     // The target, not the whole row: a path or a command is the thing a reader
     // wants in the clipboard, and "read src/a.ts" pastes into nothing.
-    text: row.target,
+    text: said,
   }
 }
 

@@ -220,3 +220,35 @@ describe('a row that changed a file', () => {
     expect(navBlocks(blocks)[0].diffPath).toBeUndefined()
   })
 })
+
+describe('a thought as somewhere to leap', () => {
+  it('reads the thought from the body, since the row carries nothing', () => {
+    const blocks: Block[] = [
+      {
+        kind: 'ledger',
+        id: 'l1',
+        rows: [
+          {
+            id: 't1',
+            kind: 'think',
+            target: '',
+            status: 'ok',
+            body: { type: 'thought', text: 'the dequeue path takes the lock per item' },
+          },
+        ],
+      },
+    ]
+
+    const [entry] = navBlocks(blocks)
+    expect(entry.text).toBe('the dequeue path takes the lock per item')
+    expect(entry.label).toContain('dequeue')
+  })
+
+  it('still reads a plain row from its target', () => {
+    const blocks: Block[] = [
+      { kind: 'ledger', id: 'l1', rows: [{ id: 'r1', kind: 'read', target: 'a.ts', status: 'ok' }] },
+    ]
+
+    expect(navBlocks(blocks)[0].text).toBe('a.ts')
+  })
+})

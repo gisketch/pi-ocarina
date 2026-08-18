@@ -51,7 +51,9 @@
     <Picture src={body.src} alt={body.alt} caption={body.caption ?? ''} note="what pi saw" />
   </div>
 {:else if body.type === 'thought'}
-  <div class="panel thought"><Thought text={body.text} /></div>
+  <!-- No panel: a thought is not output the tool produced, it is the model
+       talking to itself, and a box around it gives it the weight of a result. -->
+  <div class="thought"><Thought text={body.text} /></div>
 {:else if body.type === 'markdown'}
   <div class="panel prose"><Prose text={body.text} /></div>
 {:else if body.type === 'todo'}
@@ -80,6 +82,11 @@
        lines, so it scrolls inside itself instead of stretching the row. */
     max-height: 340px;
     overflow-y: auto;
+  }
+
+  /* Keeps the panel's placement and none of its frame. */
+  .thought {
+    margin: 2px 6px 6px;
   }
 
   .panel {

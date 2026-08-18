@@ -16,7 +16,7 @@ import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
 import { elapsed } from './elapsed'
-import { thoughtOf, thoughtTarget, turnFor, updateRowIn } from './thread-progress'
+import { thoughtOf, turnFor, updateRowIn } from './thread-progress'
 import {
   decide,
   dropBlock,
@@ -85,10 +85,14 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       })
 
     case 'reasoning-delta':
-      return updateRowIn(model, event.id, (row) => {
-        const text = thoughtOf(row) + event.text
-        return { ...row, target: thoughtTarget(text), body: { type: 'thought', text } }
-      })
+      // The row keeps no target. A thought's words belong under it, not
+      // beside it: the gutter already says `thinking`, and a sentence repeated
+      // on the row is the same sentence twice. Leap and copy read the body
+      // instead — see `toolEntry`.
+      return updateRowIn(model, event.id, (row) => ({
+        ...row,
+        body: { type: 'thought', text: thoughtOf(row) + event.text },
+      }))
 
     case 'reasoning-end':
       return updateRowIn(model, event.id, (row) => ({
