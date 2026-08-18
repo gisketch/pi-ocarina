@@ -48,5 +48,8 @@
     width: 100%;
     height: 100%;
     display: block;
+    /* Codicons say this on the element; the brand marks do not, and an SVG
+       with no fill is black. Saying it here covers both packs. */
+    fill: currentColor;
   }
 </style>

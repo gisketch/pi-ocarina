@@ -59,6 +59,25 @@ import book from '@vscode/codicons/src/icons/book.svg?raw'
 import robot from '@vscode/codicons/src/icons/robot.svg?raw'
 import tools from '@vscode/codicons/src/icons/tools.svg?raw'
 import sparkle from '@vscode/codicons/src/icons/sparkle.svg?raw'
+// Language marks, for the rows that name a language server. Codicons has no
+// brand icons and Phosphor has none either, so this is the third pack and the
+// last: `simple-icons` is CC0, ships one SVG per icon, and only the ones named
+// below reach the bundle.
+import typescript from 'simple-icons/icons/typescript.svg?raw'
+import javascript from 'simple-icons/icons/javascript.svg?raw'
+import svelteMark from 'simple-icons/icons/svelte.svg?raw'
+import python from 'simple-icons/icons/python.svg?raw'
+import goMark from 'simple-icons/icons/go.svg?raw'
+import rust from 'simple-icons/icons/rust.svg?raw'
+// C# has no mark of its own here — Microsoft's trademark policy took it out of
+// the set — so a C# row wears .NET's, which is the platform it names.
+import dotnet from 'simple-icons/icons/dotnet.svg?raw'
+import jsonMark from 'simple-icons/icons/json.svg?raw'
+import html5 from 'simple-icons/icons/html5.svg?raw'
+import cssMark from 'simple-icons/icons/css.svg?raw'
+import ruby from 'simple-icons/icons/ruby.svg?raw'
+import php from 'simple-icons/icons/php.svg?raw'
+import markdown from 'simple-icons/icons/markdown.svg?raw'
 // Phosphor, for the gap named at `box` below.
 import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
 import squareFilled from '@phosphor-icons/core/assets/fill/square-fill.svg?raw'
@@ -101,6 +120,22 @@ export const ICONS = {
   'tool-agent': robot,
   'tool-raw': tools,
   'tool-think': sparkle,
+
+  // Named for the language, not for the pack. `langIcon` below maps the
+  // highlighter's language names onto these.
+  'lang-ts': typescript,
+  'lang-js': javascript,
+  'lang-svelte': svelteMark,
+  'lang-python': python,
+  'lang-go': goMark,
+  'lang-rust': rust,
+  'lang-csharp': dotnet,
+  'lang-json': jsonMark,
+  'lang-html': html5,
+  'lang-css': cssMark,
+  'lang-ruby': ruby,
+  'lang-php': php,
+  'lang-markdown': markdown,
 } as const
 
 export type IconName = keyof typeof ICONS
@@ -121,7 +156,35 @@ export function isIcon(name: string): name is IconName {
  *  colour still says the second half, and the shape now says the first without
  *  the reader having to learn it. `raw` is the honest fallback for a tool this
  *  app has no row for — a wrench, rather than a guess at what it did. */
-export function toolIcon(kind: string): IconName {
+export function toolIcon(kind: string, lang = ''): IconName {
+  // A language server's row wears its language's mark: `lsp` on all six was
+  // true and said nothing a reader could not see from the file beside it.
+  if (kind === 'lsp') {
+    const mark = langIcon(lang)
+    if (mark) return mark
+  }
+
   const name = `tool-${kind}`
   return isIcon(name) ? name : 'tool-raw'
+}
+
+/** How a language's name maps onto a mark. Several names share one: `tsx` is
+ *  TypeScript, and `zsh` is a shell. */
+const LANG_ALIAS: Readonly<Record<string, string>> = {
+  tsx: 'ts',
+  jsx: 'js',
+  xml: 'html',
+  yaml: 'markdown',
+  toml: 'markdown',
+}
+
+/** The mark for a language, or none.
+ *
+ *  A row that names a language server says which language it asked. `lsp` on
+ *  every one of them was true and told a reader nothing they could not already
+ *  see from the file beside it. */
+export function langIcon(lang: string): IconName | null {
+  if (lang === '') return null
+  const name = `lang-${LANG_ALIAS[lang] ?? lang}`
+  return isIcon(name) ? name : null
 }

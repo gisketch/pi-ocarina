@@ -99,7 +99,7 @@
       <BlockMenu />
     {/if}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}
-      ><Icon name={toolIcon(row.kind)} /></span
+      ><Icon name={toolIcon(row.kind, row.lang)} /></span
     >
 
     <svelte:element
@@ -130,7 +130,7 @@
     </svelte:element>
 
     {#if row.body && isOpen(row)}
-      <ToolBody body={row.body} />
+      <ToolBody body={row.body} lang={row.lang ?? ''} />
     {/if}
 
     {#if row.children?.length}

@@ -1,6 +1,14 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
-import { joinTextParts, lspMeta, toolBody, toolDetail, toolKind, toolTarget } from './pi-translate'
+import {
+  joinTextParts,
+  lspMeta,
+  toolBody,
+  toolDetail,
+  toolKind,
+  toolLang,
+  toolTarget,
+} from './pi-translate'
 import { answerFromResult, askFromCall, ASK_TOOL, endedUnanswered } from './ask-replay'
 import { agentsFromResult, rowsFromResult, SPAWN_TOOL } from './spawn-replay'
 import { splitAttachments } from './attachments'
@@ -189,6 +197,7 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
           // Without this a reopened lsp row reads `lsp · withRetry` and loses
           // the one word that says what was asked about it.
           ...(toolDetail(content.name ?? '') ? { detail: toolDetail(content.name ?? '') } : {}),
+          ...(toolLang(content.arguments) ? { lang: toolLang(content.arguments) } : {}),
         })
       }
 

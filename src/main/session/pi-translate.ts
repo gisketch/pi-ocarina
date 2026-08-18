@@ -3,10 +3,10 @@ import type { UiEvent } from '../../shared/protocol'
 import type { ToolKind } from '../../shared/vocabulary'
 import type { CallChange } from './change-log'
 import { ASK_TOOL, askable } from './ask-replay'
-import { toolDetail, toolKind, toolTarget } from './tool-rows'
+import { toolDetail, toolKind, toolLang, toolTarget } from './tool-rows'
 import { FETCH_TOOL } from './fetch-tool'
 
-export { toolDetail, toolKind, toolTarget } from './tool-rows'
+export { toolDetail, toolKind, toolLang, toolTarget } from './tool-rows'
 export { fetchMeta, joinTextParts, lspMeta, resultText, toolBody } from './pi-results'
 import { fetchMeta, joinTextParts, lspMeta, toolBody } from './pi-results'
 import { diffOf } from './tool-diff'
@@ -184,6 +184,7 @@ export class PiTranslator {
             tool: toolKind(event.toolName),
             target: toolTarget(event.toolName, event.args),
             ...(toolDetail(event.toolName) ? { detail: toolDetail(event.toolName) } : {}),
+            ...(toolLang(event.args) ? { lang: toolLang(event.args) } : {}),
           },
         ]
 

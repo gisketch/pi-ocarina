@@ -51,6 +51,9 @@ export interface ToolRow {
   /** A muted word drawn after the target: what kind of call this is within
    *  its family. An lsp row's `references`; nothing on most rows. */
   detail?: string
+  /** The language of the file this call acted on. Colours a `read` body and
+   *  names a language server's icon. */
+  lang?: string
   status: ToolStatus
   /** Right-aligned summary, e.g. "142L", "3 matches", "exit 0 · 3.2s". */
   meta?: string

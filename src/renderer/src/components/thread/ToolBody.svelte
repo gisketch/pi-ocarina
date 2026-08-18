@@ -4,9 +4,30 @@
   import type { ToolBody } from '$lib/thread'
   import Prose from './md/Prose.svelte'
   import Thought from './md/Thought.svelte'
+  import { CLEAN, highlightLine, isHighlighted, type LineState, type Token } from '$lib/highlight'
+  import type { CodeLine } from '$lib/thread'
   import Picture from './md/Picture.svelte'
 
-  const { body }: { body: ToolBody } = $props()
+  /** The file the body came from, when it came from one. The row knows its
+   *  path; the body does not, and a language guessed from the text would be a
+   *  guess where the row has the answer. */
+  const { body, lang = '' }: { body: ToolBody; lang?: string } = $props()
+
+  /** Lines tokenised in order, each carrying the state the one above ended in
+   *  — the same walk a fenced block does, so a string that opens on one line
+   *  and closes on the next is one string in both. */
+  function coloured(lines: CodeLine[]): Token[][] {
+    if (!isHighlighted(lang)) {
+      return lines.map((line) => [{ text: line.text, kind: 'plain' as const }])
+    }
+
+    let state: LineState = CLEAN
+    return lines.map((line) => {
+      const { tokens, to } = highlightLine(line.text, lang, state)
+      state = to
+      return tokens
+    })
+  }
 
   // A diff is the one body that can be arbitrarily long, because it is the one
   // a person asked the agent to make. The rest are pi's output and are already
@@ -16,7 +37,15 @@
 </script>
 
 {#if body.type === 'code'}
-  <div class="panel code">{#each body.lines as line, i (i)}<div class="line">{line.text}{#if line.comment}<span class="comment">{line.comment}</span>{/if}</div>{/each}</div>
+  <!-- Coloured with the same grammars a fenced block uses, and by the same
+       function: a file read into the transcript is the same code the answer
+       below it quotes, and two of them coloured differently would read as two
+       different things. -->
+  <div class="panel code">{#each coloured(body.lines) as line, i (i)}<div class="line"
+      >{#each line as token, t (t)}<span class="tok-{token.kind}">{token.text}</span
+        >{/each}{#if body.lines[i].comment}<span class="comment">{body.lines[i].comment}</span
+        >{/if}</div
+    >{/each}</div>
 {:else if body.type === 'matches'}
   <div class="panel matches">
     {#each body.lines as line, i (i)}

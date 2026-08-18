@@ -287,6 +287,7 @@ function startTool(
     status: 'running',
     ...(event.detail ? { detail: event.detail } : {}),
     ...(event.open ? { open: true } : {}),
+    ...(event.lang ? { lang: event.lang } : {}),
     ...(event.agent ? { agent: event.agent } : {}),
   }
 

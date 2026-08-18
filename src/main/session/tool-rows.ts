@@ -6,6 +6,7 @@
  *  a row reads wrong. */
 
 import type { ToolKind } from '../../shared/vocabulary'
+import { langOf } from '../../shared/lang-of'
 
 /** pi's tool names mapped onto the design's row vocabulary.
  *
@@ -53,6 +54,17 @@ const LSP_OPERATIONS: Readonly<Record<string, string>> = {
   lsp_references: 'references',
   lsp_hover: 'type',
   lsp_rename_preview: 'rename',
+}
+
+/** The language of the file a call acted on, or none.
+ *
+ *  From the arguments rather than from the row's target: an lsp row's target
+ *  is a *symbol* on half the tools, and by the time anything downstream sees
+ *  the row the path it came from is gone. */
+export function toolLang(args: unknown): string {
+  const input = (args ?? {}) as Record<string, unknown>
+  const path = input.path ?? input.file_path
+  return typeof path === 'string' ? langOf(path) : ''
 }
 
 /** The muted word a row draws after its target, or none.

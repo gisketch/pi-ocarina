@@ -33,7 +33,7 @@ export const GROUPED_SWEEP: MockThread = {
 
 
 
-    { kind: 'tool-start', id: 'g-read-1', tool: 'read', target: 'src/sync/worker.ts' },
+    { kind: 'tool-start', id: 'g-read-1', tool: 'read', target: 'src/sync/worker.ts', lang: 'ts' },
     { kind: 'tool-end', id: 'g-read-1', status: 'ok', meta: '142L' },
     { kind: 'tool-start', id: 'g-read-2', tool: 'read', target: 'src/sync/retry.ts' },
     { kind: 'tool-end', id: 'g-read-2', status: 'ok', meta: '38L' },
@@ -43,11 +43,11 @@ export const GROUPED_SWEEP: MockThread = {
     { kind: 'tool-end', id: 'g-read-4', status: 'ok', meta: '31L' },
 
     // Asking the compiler, three ways: one group, three operations.
-    { kind: 'tool-start', id: 'g-lsp-1', tool: 'lsp', target: 'worker.ts', detail: 'outline' },
+    { kind: 'tool-start', id: 'g-lsp-1', tool: 'lsp', target: 'worker.ts', detail: 'outline', lang: 'ts' },
     { kind: 'tool-end', id: 'g-lsp-1', status: 'ok', meta: '14 symbols' },
-    { kind: 'tool-start', id: 'g-lsp-2', tool: 'lsp', target: 'withRetry', detail: 'references' },
+    { kind: 'tool-start', id: 'g-lsp-2', tool: 'lsp', target: 'withRetry', detail: 'references', lang: 'csharp' },
     { kind: 'tool-end', id: 'g-lsp-2', status: 'ok', meta: '6 refs · 3 files' },
-    { kind: 'tool-start', id: 'g-lsp-3', tool: 'lsp', target: 'heap.ts', detail: 'diagnostics' },
+    { kind: 'tool-start', id: 'g-lsp-3', tool: 'lsp', target: 'heap.ts', detail: 'diagnostics', lang: 'python' },
     { kind: 'tool-end', id: 'g-lsp-3', status: 'ok', meta: '2 errors 5 warns' },
 
     { kind: 'tool-start', id: 'g-edit-1', tool: 'edit', target: 'src/sync/worker.ts' },

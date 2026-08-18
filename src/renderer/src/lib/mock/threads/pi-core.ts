@@ -23,7 +23,7 @@ export const RETRY_BACKOFF: MockThread = {
     // timed from that transition — has nothing to report.
     { kind: 'thread-state', state: 'running' },
 
-    { kind: 'tool-start', id: 'r-read', tool: 'read', target: 'src/sync/worker.ts' },
+    { kind: 'tool-start', id: 'r-read', tool: 'read', target: 'src/sync/worker.ts', lang: 'ts' },
     {
       kind: 'tool-body',
       id: 'r-read',

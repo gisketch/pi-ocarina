@@ -77,6 +77,11 @@ export type UiEvent =
        *  uses this today: it streams, and a turn's visible work should not
        *  need a click. */
       open?: boolean
+      /** The language of the file this call acted on, when it acted on one.
+       *  What colours a `read` body and what picks a language server's icon —
+       *  the row's own target is a symbol on half the lsp rows, so the
+       *  language cannot be recovered from it downstream. */
+      lang?: string
       parentId?: string
       /** Present only on an `agent` row: who the child is. The row and the
        *  envelope the model reads carry the same shape, so the two cannot
