@@ -2,6 +2,7 @@ import type { Block, ToolRow } from '../../thread'
 import { replayThread } from '../../thread-reducer'
 import { FLAKY_E2E, QUEUE_REFACTOR, RETRY_BACKOFF } from './pi-core'
 import { ICON_AUDIT, PALETTE_FLICKER } from './ocarina-ui'
+import { MARKDOWN_SHOWCASE } from './markdown'
 import { FAN_OUT } from './subagents'
 import { GROUPED_SWEEP } from './sweeps'
 import type { MockThread } from './types'
@@ -18,6 +19,7 @@ export const MOCK_THREADS: Record<string, MockThread> = {
   'icon-audit': ICON_AUDIT,
   'fan-out': FAN_OUT,
   'grouped-sweep': GROUPED_SWEEP,
+  'markdown-showcase': MARKDOWN_SHOWCASE,
 }
 
 /** Projects a mock thread the same way a live one is projected. */

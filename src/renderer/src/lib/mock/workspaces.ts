@@ -53,6 +53,11 @@ export const WORKSPACES: Workspace[] = [
       { id: 'icon-audit', title: 'icon set audit', status: 'idle', meta: 'idle' },
       { id: 'fan-out', title: 'fan out', status: 'running', meta: 'running…' },
       { id: 'grouped-sweep', title: 'grouped sweep', status: 'running', meta: 'running…' },
+      // Not from the reference mockups: prose is the one thing they never
+      // covered, and a heading, a table, a quote and a fence had no way to be
+      // looked at. docs-site cannot hold it — its single thread is what the
+      // thread-clamp test switches into.
+      { id: 'markdown-showcase', title: 'markdown shapes', status: 'idle', meta: 'idle' },
     ],
   },
   {

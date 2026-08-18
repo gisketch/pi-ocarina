@@ -90,8 +90,9 @@ with a background —
 ## Acceptance
 
 - `grep -rn "border" src/renderer/src --include="*.svelte" --include="*.css"`
-  returns only the spine rules, `border: none` / `outline: none` resets, and
-  `border-radius`.
+  returns only the spine rules, `border: none` / `outline: none` resets,
+  `border-radius`, and `border-collapse` — which draws nothing and only tells
+  a table to stop spacing its cells apart.
 - No new solid hex background outside `--bg-float`, `--bg-rail`, `--bg-panel`
   and `--bg-deep`.
 - Focus and selection stay legible with the borders gone: column focus, fzf

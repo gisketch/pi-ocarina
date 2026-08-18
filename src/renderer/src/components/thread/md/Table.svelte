@@ -28,23 +28,42 @@
     scrollbar-color: var(--fg-ghost) transparent;
   }
   table {
+    /* One grid rather than a set of boxes. Without this the cells sit two
+       pixels apart, which broke the head into one chip per column and cut a
+       stripe at every column edge. */
+    border-collapse: collapse;
+    width: 100%;
     font-size: 12px;
   }
-  th {
+  th,
+  td {
     text-align: left;
+    padding: 6px 16px 6px 0;
+  }
+  /* Flush left, so a table's first column starts where the prose above it
+     does and the eye keeps one margin down the whole message. */
+  th:first-child,
+  td:first-child {
+    padding-left: 0;
+  }
+  th {
     font-weight: 400;
     font-size: 10px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--fg-dimmest);
-    padding: 5px 18px 5px 0;
     white-space: nowrap;
-    background: rgba(255, 255, 255, 0.035);
+    background: rgba(255, 255, 255, 0.05);
   }
   td {
-    padding: 6px 18px 6px 0;
     color: var(--fg-agent);
     vertical-align: top;
+  }
+  /* Every other row carries a step of ground. It is what tells one row from
+     the next now that no rule is drawn between them, and it reads across the
+     whole width rather than per cell. */
+  tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.022);
   }
   /* The first column is the key in nearly every table an agent writes — a
      method, a flag, a file. It gets the accent so the eye can run down it. */
