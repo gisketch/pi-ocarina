@@ -25,6 +25,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, { mode: KeyBinding['mode']; k
   'changes.open': { mode: 'NORMAL', key: 'd' },
   'workspace.settings': { mode: 'NORMAL', key: '<' },
   'reasoning.toggle': { mode: 'NORMAL', key: 'o' },
+  'mode.pick': { mode: 'NORMAL', key: 'M' },
   'leader.model': { mode: 'LEADER', key: 'm' },
   'leader.mode': { mode: 'LEADER', key: 'M' },
   'leader.settings': { mode: 'LEADER', key: 's' },

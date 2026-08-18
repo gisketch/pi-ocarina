@@ -179,3 +179,46 @@ describe('search', () => {
     expect(press(NORMAL, '/', 'Escape').state.overlay).toBe(null)
   })
 })
+
+describe('the voice picker', () => {
+  it('opens on ⇧M from NORMAL, with no chord in front of it', () => {
+    // The model a thread answers with and the voice it answers in are the same
+    // kind of choice, so they sit on the same key.
+    expect(press(NORMAL, 'M').state.overlay).toBe('mode')
+  })
+
+  it('keeps the key once open, because the picker filters as you type', () => {
+    // Unlike the settings screen, which has no field: a second `⇧M` there
+    // closes it. The voice picker owns every letter while it is up, so `esc`
+    // is the way out — the same bargain the model picker and the switcher make.
+    const open = press(NORMAL, 'M').state
+    expect(press(open, 'M').actions).toEqual([])
+    expect(press(open, 'M').last.preventDefault).toBe(false)
+    expect(press(open, 'Escape').state.overlay).toBeNull()
+  })
+
+  it('is still reachable through the leader chord', () => {
+    expect(press(NORMAL, ' ', 'M').state.overlay).toBe('mode')
+  })
+})
+
+describe('reaching for a capital inside a chord', () => {
+  it('does not end the chord on the shift key itself', () => {
+    // A capital is two keydowns. Read as a chord key, the first one cancelled
+    // the chord and the letter then ran as a plain NORMAL binding — `␣S` and
+    // `␣M` could not be typed at all.
+    const held = press(NORMAL, ' ', 'Shift')
+    expect(held.state.mode).toBe('LEADER')
+    expect(held.actions).toEqual([])
+    expect(held.last.timer).toBeNull()
+
+    expect(press(held.state, 'S').state.overlay).toBe('workspace')
+  })
+
+  it('ignores every modifier, not only shift', () => {
+    for (const key of ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']) {
+      const held = press(NORMAL, ' ', key)
+      expect(held.state.mode, `${key} ended the chord`).toBe('LEADER')
+    }
+  })
+})

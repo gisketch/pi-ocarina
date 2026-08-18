@@ -80,6 +80,9 @@ const OVERLAY_KEYS: ReadonlyMap<string, Overlay> = new Map<string, Overlay>([
   // them.
   ['<', 'workspace'],
   ['m', 'model'],
+  // The shifted sibling of `m`: the model a thread answers with and the voice
+  // it answers in are the same kind of choice.
+  ['M', 'mode'],
   // Search, by the convention every editor and pager already taught.
   ['/', 'search'],
 ])
@@ -290,6 +293,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
 
 /** Leader chords: one key, then the chord always ends. */
 function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult {
+  // Shift on its own is not a key a chord can mean anything by. Read as one, it
+  // cancelled the chord before the capital arrived: `␣S` and `␣M` were untypable.
+  if (MODIFIER_KEYS.has(key)) return result(state, [], false)
+
   const done: KeyState = { ...state, mode: 'NORMAL' }
 
   const index = digitFor(key, ctx.workspaceCount)
