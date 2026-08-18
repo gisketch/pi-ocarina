@@ -122,13 +122,11 @@
     <FollowPill unseen={follow.unseen} onjump={() => following.jump(thread.id)} />
   {/if}
 
-  <!-- The column's own foot. Drawn for the focused column only: one composer
-       exists at a time, it is inside the box it writes into, and it travels
-       with the focus rather than sitting under the strip in a band of its
-       own. -->
-  {#if focused}
-    <Composer columnId={thread.id} {onmodel} {oncommit} />
-  {/if}
+  <!-- The column's own foot, drawn whether or not this column has the
+       keyboard: a field that appeared and vanished as focus moved read as the
+       app losing it, and a column with a draft in it should say so from
+       across the strip. -->
+  <Composer columnId={thread.id} {focused} {onmodel} {oncommit} />
 
   {#if below}
     <!-- The reader is reading history and a question is waiting past the fold.

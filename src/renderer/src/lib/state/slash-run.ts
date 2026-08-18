@@ -30,7 +30,10 @@ export function runSlash(
 ): void {
   // A project command is a prompt template. pi expands it, so the app sends the
   // text it was named by and invents no argument syntax of its own.
-  if (command.id === 'project') {
+  // A skill and a project command are the same act: text pi expands before the
+  // model reads it. Both create the thread first when the column has none, the
+  // way typed prose does.
+  if (command.id === 'project' || command.id === 'skill') {
     void targetThread().then((id) => {
       if (id) threads.prompt(id, command.prompt ?? command.name)
     })

@@ -136,3 +136,39 @@ describe('a column with no thread behind it', () => {
     expect(resolveSlash('/compact', PROJECT)?.id).toBe('compact')
   })
 })
+
+const SKILLS = [
+  { name: 'reviewer', description: 'review a change', source: 'project' as const, path: '.pi/skills/reviewer/SKILL.md', explicitOnly: false },
+  { name: 'handoff', description: 'compact the conversation', source: 'global' as const, path: '~/.pi/skills/handoff/SKILL.md', explicitOnly: true },
+]
+
+describe('the workspace’s skills', () => {
+  it('offers each one under the name pi expands', () => {
+    // `/skill:name` is pi's own syntax — `prompt()` reads the file and wraps it
+    // in a `<skill>` block before the model sees anything. The app sends the
+    // name it shows and invents nothing.
+    const skills = allSlash([], { skills: SKILLS })
+    expect(skills.map((one) => one.name)).toContain('/skill:reviewer')
+    expect(skills.find((one) => one.name === '/skill:handoff')?.prompt).toBe('/skill:handoff')
+  })
+
+  it('offers the ones the model cannot load itself, and says so', () => {
+    const only = allSlash([], { skills: SKILLS }).find((one) => one.name === '/skill:handoff')
+    expect(only?.explicitOnly).toBe(true)
+  })
+
+  it('sorts them after the built-ins and the project’s own commands', () => {
+    const ids = allSlash(PROJECT, { skills: SKILLS }).map((one) => one.id)
+    expect(ids.lastIndexOf('project')).toBeLessThan(ids.indexOf('skill'))
+  })
+
+  it('finds one by the part of its name a reader remembers', () => {
+    expect(filterSlash('review', [], { skills: SKILLS }).map((one) => one.name)).toContain(
+      '/skill:reviewer',
+    )
+  })
+
+  it('is absent when the workspace loaded none', () => {
+    expect(allSlash(PROJECT).some((one) => one.id === 'skill')).toBe(false)
+  })
+})

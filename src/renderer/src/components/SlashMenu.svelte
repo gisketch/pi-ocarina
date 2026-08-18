@@ -31,6 +31,9 @@
     >
       <span class="name">{command.name}</span>
       <span class="description">{command.description}</span>
+      <!-- The model will not load this one on its own, so this menu is the
+           only door it has. Worth a word where the reader is choosing. -->
+      {#if command.explicitOnly}<span class="only">explicit</span>{/if}
       {#if command.source !== 'built-in'}<span class="from">{command.source}</span>{/if}
       {#if i === active}<span class="kbd">⏎</span>{/if}
     </button>
@@ -38,6 +41,12 @@
 </div>
 
 <style>
+  .only {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--warn);
+  }
+
   .from {
     font-size: 10px;
     letter-spacing: 0.08em;

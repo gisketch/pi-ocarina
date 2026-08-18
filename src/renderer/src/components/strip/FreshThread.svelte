@@ -34,9 +34,7 @@
 
   <!-- The column with no thread behind it is the one most likely to receive a
        first message, so it gets a field like every other. -->
-  {#if focused}
-    <Composer {columnId} {onmodel} {oncommit} />
-  {/if}
+  <Composer {columnId} {focused} {onmodel} {oncommit} />
 </div>
 
 <style>

@@ -21,21 +21,27 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import { createThread } from '$lib/state/new-thread'
   import { runSlash } from '$lib/state/slash-run'
+  import { completions } from '$lib/state/completions.svelte'
   import { drafts } from '$lib/state/drafts.svelte'
   import { projectSurface } from '$lib/state/project-surface.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
-    /** The column this composer is the foot of. One exists at a time — the
-     *  focused column's — so the draft has to outlive the component. */
+    /** The column this composer is the foot of. Every thread column draws one,
+     *  so the draft outlives no component — but it does have to stay with its
+     *  own column rather than following the caret. */
     columnId: string
+    /** Whether this column has the keyboard. Only the focused one takes the
+     *  caret, reads the project's commands or opens a completion menu: the
+     *  others are showing their own draft, not being typed into. */
+    focused: boolean
     /** Opens the model spotlight — `/model` has nowhere to go without it. */
     onmodel?: () => void
     oncommit?: () => void
   }
 
-  const { columnId, onmodel, oncommit }: Props = $props()
+  const { columnId, focused, onmodel, oncommit }: Props = $props()
 
   let input = $state<HTMLTextAreaElement | null>(null)
   // Read once, deliberately: only the focused column draws a composer, so a
@@ -51,77 +57,35 @@
   // The keyboard layer hands the caret to whatever is registered here — and
   // there is exactly one composer at a time, so it is always the right one.
   $effect(() => {
+    if (!focused) return
     shell.targets.composer = input
     return () => {
       if (shell.targets.composer === input) shell.targets.composer = null
     }
   })
 
-  const insert = $derived(app.mode === 'INSERT')
+  const insert = $derived(focused && app.mode === 'INSERT')
 
-  const query = $derived(slashQuery(text))
-  // The project's commands come from the surface main already read for the
-  // workspace screen. A workspace that defines none leaves the list as it was.
-  //
-  // Read once per focused thread rather than per keystroke: the loader answers
-  // from memory, but the command crosses a process boundary, and `/` is typed
-  // often enough for that to matter.
-  // The workspace, and the thread only when this column is one: a fresh column
-  // sits in a folder that has commands, and it is the column most likely to
-  // receive the first message.
-  $effect(() => void projectSurface.load(app.workspace.id, app.threadId))
-  const projectCommands = $derived(projectSurface.surface.commands)
-  const hasThread = $derived(app.threadId !== null)
-  const slash = $derived(query === null ? [] : filterSlash(query, projectCommands, { hasThread }))
-
-  // Where the caret is, so `@` knows which word it is inside.
-  let caret = $state(0)
-  /** Where a mention the user dismissed started, so Escape sticks. Cleared as
-   *  soon as they type a different one — otherwise Escape would silently
-   *  disable the picker for the rest of the message. */
-  let dismissed = $state<number | null>(null)
-  const found = $derived(mentionAt(text, caret))
-  const mention = $derived(found && found.start === dismissed ? null : found)
-  const paths = $derived(
-    mention === null
-      ? []
-      : fuzzyFilter(files.files(app.workspace.id), mention.query, (path) => path).slice(0, 8),
-  )
-
-  // One menu at a time. A slash only ever opens at position 0 and a mention
-  // never starts there, so the two cannot both be open.
-  const menu = $derived(slash.length > 0 ? 'slash' : paths.length > 0 ? 'mention' : null)
-  const options = $derived(menu === 'slash' ? slash.length : paths.length)
-  let picked = $state(0)
-  const active = $derived(menu === null ? -1 : wrapIndex(picked, options))
-
-  $effect(() => {
-    files.ensure(app.workspace.id)
+  const menus = completions({
+    text: () => text,
+    setText: (next) => (text = next),
+    field: () => input,
+    focused: () => focused,
   })
-
-  function insertMention(path: string): void {
-    if (!mention) return
-    const next = applyMention(text, mention, path)
-    text = next.text
-    picked = 0
-    // Restored after Svelte writes the new value, or the caret jumps to the end.
-    queueMicrotask(() => {
-      input?.setSelectionRange(next.caret, next.caret)
-      caret = next.caret
-    })
-  }
+  const slash = $derived(menus.slash)
+  const paths = $derived(menus.paths)
+  const menu = $derived(menus.menu)
+  const active = $derived(menus.active)
 
   function choose(index: number): void {
     if (menu === 'slash') run(slash[index])
-    else if (menu === 'mention') insertMention(paths[index])
+    else if (menu === 'mention') menus.insertMention(paths[index])
   }
 
-  function trackCaret(): void {
-    caret = input?.selectionStart ?? 0
-  }
+  const trackCaret = (): void => menus.trackCaret()
 
   // A caret inside a fold's token is the reader asking what is in it.
-  const peeked = $derived(pasting.at(text, caret))
+  const peeked = $derived(pasting.at(text, menus.caret))
 
   const thread = $derived(app.thread)
   const runState = $derived(threads.get(thread.id).runState)
@@ -129,7 +93,7 @@
 
   function run(command: SlashCommand): void {
     text = ''
-    picked = 0
+    menus.reset()
     runSlash(command, { threadId: app.threadId, targetThread, onmodel, oncommit })
   }
 
@@ -144,7 +108,7 @@
   async function send(): Promise<void> {
     // A message naming a real command runs it. Anything else starting with `/`
     // is just text someone typed, and is sent as written.
-    const command = resolveSlash(text, projectCommands, { hasThread })
+    const command = menus.resolve(text)
     if (command) {
       run(command)
       return
@@ -224,17 +188,17 @@
       }
     }
 
-    const wanted = menu === null ? null : menuKey(event, menu, active, options)
+    const wanted = menu === null ? null : menuKey(event, menu, active, menus.options)
     if (wanted) {
       event.preventDefault()
-      if (wanted.kind === 'move') picked = wanted.to
+      if (wanted.kind === 'move') menus.highlight(wanted.to)
       else if (wanted.kind === 'choose') choose(wanted.index)
       else {
         // A slash menu clears the word that opened it; a mention keeps what
         // was typed. Escape must not reach the shell and leave INSERT.
         event.stopPropagation()
         if (menu === 'slash') text = ''
-        else dismissed = mention?.start ?? null
+        else menus.dismiss()
       }
       return
     }
@@ -248,12 +212,6 @@
     void text
     if (input) resizeField(input)
   })
-
-  $effect(() => {
-    void query
-    void mention?.query
-    picked = 0
-  })
 </script>
 
 <div class="dock">
@@ -262,14 +220,14 @@
       commands={slash}
       {active}
       onpick={run}
-      onhover={(index) => (picked = index)}
+      onhover={(index) => menus.highlight(index)}
     />
   {:else if menu === 'mention'}
     <MentionMenu
       {paths}
       {active}
-      onpick={insertMention}
-      onhover={(index) => (picked = index)}
+      onpick={(path) => menus.insertMention(path)}
+      onhover={(index) => menus.highlight(index)}
     />
   {/if}
 

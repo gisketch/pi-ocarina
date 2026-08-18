@@ -1,7 +1,14 @@
 import { fuzzyFilter } from './fuzzy'
-import type { ProjectCommand, SurfaceSource } from '../../../shared/project-surface'
+import type { ProjectCommand, ProjectSkill, SurfaceSource } from '../../../shared/project-surface'
 
-export type SlashId = 'commit' | 'compact' | 'model' | 'worktrees' | 'reload' | 'project'
+export type SlashId =
+  | 'commit'
+  | 'compact'
+  | 'model'
+  | 'worktrees'
+  | 'reload'
+  | 'project'
+  | 'skill'
 
 /** Where an entry came from. A reader picking a command should know whether it
  *  is the app's, the repository's, or one they installed on this machine. */
@@ -12,10 +19,13 @@ export interface SlashCommand {
   name: string
   description: string
   source: SlashSource
-  /** For a project command: the text sent to pi, which expands the template
-   *  itself. The app invents no argument syntax — `expandPromptTemplate` has
-   *  one already, and a second would disagree with it. */
+  /** For a project command or a skill: the text sent to pi, which expands it
+   *  itself. The app invents no argument syntax — `expandPromptTemplate` and
+   *  `_expandSkillCommand` have one already, and a second would disagree. */
   prompt?: string
+  /** A skill the model will not load on its own. Worth saying in the menu:
+   *  this entry is the only way it runs. */
+  explicitOnly?: boolean
 }
 
 /** What `/` offers.
@@ -72,13 +82,36 @@ export function projectEntries(commands: readonly ProjectCommand[]): SlashComman
  *  about the folder, and stays. */
 const NEEDS_THREAD: ReadonlySet<string> = new Set(['compact', 'reload'])
 
+/** The workspace's skills, as menu entries.
+ *
+ *  `/skill:name` is pi's own syntax, not one this app invented: `prompt()`
+ *  expands it before the model sees anything, reading the file and wrapping it
+ *  in a `<skill>` block. So the entry sends the name it shows, exactly as a
+ *  project command does, and the app stays out of the way.
+ *
+ *  Every skill is offered, including the ones the model may not load itself —
+ *  those especially. An `explicit only` skill is one whose *only* door is this
+ *  menu, and it was the one door that did not exist. */
+export function skillEntries(skills: readonly ProjectSkill[]): SlashCommand[] {
+  return skills.map((skill) => ({
+    id: 'skill' as const,
+    name: `/skill:${skill.name}`,
+    description: skill.description,
+    source: skill.source,
+    prompt: `/skill:${skill.name}`,
+    explicitOnly: skill.explicitOnly,
+  }))
+}
+
 /** Built-ins first, then the project's, in one list. */
 export function allSlash(
   project: readonly ProjectCommand[] = [],
-  { hasThread = true }: { hasThread?: boolean } = {},
+  { hasThread = true, skills = [] }: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
 ): SlashCommand[] {
   const built = hasThread ? SLASH_COMMANDS : SLASH_COMMANDS.filter((one) => !NEEDS_THREAD.has(one.id))
-  return [...built, ...projectEntries(project)]
+  // Skills last: they are the longest list by far, and a reader typing `/` is
+  // most often reaching for one of the five built-ins.
+  return [...built, ...projectEntries(project), ...skillEntries(skills)]
 }
 
 /** The menu is open only while the text is one `/`-word at the very start.
@@ -99,7 +132,7 @@ export function slashQuery(text: string): string | null {
 export function filterSlash(
   query: string,
   project: readonly ProjectCommand[] = [],
-  options: { hasThread?: boolean } = {},
+  options: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
 ): SlashCommand[] {
   return fuzzyFilter(allSlash(project, options), query, (command) => command.name)
 }
@@ -111,7 +144,7 @@ export function filterSlash(
 export function resolveSlash(
   text: string,
   project: readonly ProjectCommand[] = [],
-  options: { hasThread?: boolean } = {},
+  options: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
 ): SlashCommand | null {
   const query = slashQuery(text.trim())
   if (query === null) return null
