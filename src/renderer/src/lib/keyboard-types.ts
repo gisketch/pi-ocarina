@@ -36,6 +36,8 @@ export type Action =
   | { type: 'newThread' }
   | { type: 'closeThread' }
   | { type: 'openTerminal' }
+  /** Back to the newest content in the focused thread, and pinned there. */
+  | { type: 'jumpToLive' }
   | { type: 'termEscape' }
   | { type: 'moveColumn'; delta: number }
   | { type: 'pinWorkspace' }

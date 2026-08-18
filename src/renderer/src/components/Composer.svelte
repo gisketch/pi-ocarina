@@ -10,6 +10,7 @@
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
   import { pasting } from '$lib/state/pasting.svelte'
+  import { following } from '$lib/state/following.svelte'
   import StagedChips from './composer/StagedChips.svelte'
   import Field from './composer/Field.svelte'
   import FoldPeek from './composer/FoldPeek.svelte'
@@ -126,6 +127,10 @@
         sent: () => {
           attachments.clear()
           pasting.clear()
+          // Sending is asking for the answer, so the view goes where the
+          // answer will be. Whatever the reader was reading, they are done
+          // reading it — they just typed.
+          following.jump(thread.id)
         },
       })
       if (went) text = ''

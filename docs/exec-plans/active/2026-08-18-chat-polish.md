@@ -20,7 +20,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Acceptance: the rule table above as tests, including the suppress case.
 - Validation: `follow.test.ts`.
 
-## C2 — the thread follows, the pill returns — `todo`
+## C2 — the thread follows, the pill returns — `done`
 
 > Wire the machine into the thread column; draw the pill and the status dot.
 
@@ -29,7 +29,9 @@ Status legend: `todo` · `in-progress` · `done`.
 - The pill, per mockup §03: centered over the bottom, `↓ N new · jump to
   latest · G`; rendered only when paused *and* `unseen > 0`; click or `G`
   jumps. `G` still means end-of-thread when already following — one key, one
-  destination.
+  destination. **Shipped**: `G` was unbound, so it is the jump in NORMAL.
+- The status bar shows `paused` only while paused, and clicking it jumps.
+  A segment that spends its life reading FOLLOWING teaches nothing.
 - Statusline: `FOLLOWING` with a pulsing dot / `PAUSED` static — wired to the
   focused column's machine.
 - Sending a message always jumps.

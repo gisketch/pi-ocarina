@@ -8,6 +8,9 @@
   import { askKeys } from '$lib/state/ask-keys.svelte'
   import { askNotice } from '$lib/state/ask-notice.svelte'
   import { revealBlock } from '$lib/state/block-focus.svelte'
+  import { following } from '$lib/state/following.svelte'
+  import { threads } from '$lib/state/threads.svelte'
+  import FollowPill from '../thread/FollowPill.svelte'
 
   interface Props {
     thread: Thread
@@ -41,10 +44,42 @@
 
   let body = $state<HTMLElement | null>(null)
 
+  const follow = $derived(following.of(thread.id))
+
   $effect(() => {
     if (!body) return
     return registerColumnBody(thread.id, body)
   })
+
+  // The stream landed something. Read from the model rather than from the DOM:
+  // a block count is a fact the column already has, and measuring the scroll
+  // height to notice growth would force layout on every delta.
+  const arrivals = $derived(threads.get(thread.id).blocks.length)
+  /** How many blocks this column had last time it looked. Not reactive: it is
+   *  the effect's own memory, and making it state would re-run the effect that
+   *  writes it. `-1` until the first pass, so opening a thread with a hundred
+   *  blocks does not count them as a hundred arrivals. */
+  let seen = -1
+
+  $effect(() => {
+    const now = arrivals
+    if (seen >= 0 && now > seen) follow.arrived(now - seen)
+    seen = now
+  })
+
+  // Pinned: keep the newest content in view. `scrollTop` rather than a smooth
+  // scroll — a stream arriving faster than an animation settles would leave
+  // the view permanently chasing itself.
+  $effect(() => {
+    void arrivals
+    if (!body || !follow.following) return
+    body.scrollTop = body.scrollHeight
+  })
+
+  function onscroll(): void {
+    if (!body) return
+    follow.scrolled({ top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight })
+  }
 
   function reveal(): void {
     const askId = askKeys.pendingIn(thread.id)
@@ -79,10 +114,19 @@
     <span class="meta">{thread.meta}</span>
   </header>
 
-  <div class="body" class:leaping={leap.activeFor(thread.id)} bind:this={body}>
+  <div
+    class="body"
+    class:leaping={leap.activeFor(thread.id)}
+    bind:this={body}
+    {onscroll}
+  >
     {@render children?.()}
     <LeapOverlay threadId={thread.id} />
   </div>
+
+  {#if follow.showJump}
+    <FollowPill unseen={follow.unseen} onjump={() => following.jump(thread.id)} />
+  {/if}
 
   {#if below}
     <!-- The reader is reading history and a question is waiting past the fold.

@@ -222,6 +222,11 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return enterRead(state, ctx, [{ type: 'moveBlock', delta: -1 }])
     case 't':
       return result(state, [{ type: 'openTerminal' }])
+    // The end of the thread, and the follow that keeps it there. One key for
+    // one destination: pressed while already following it is the same journey
+    // with nothing left to travel.
+    case 'G':
+      return result(state, [{ type: 'jumpToLive' }])
     case 'w':
       return toggleOverlay(state, 'switcher')
     case '?':

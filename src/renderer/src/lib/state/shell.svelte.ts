@@ -12,6 +12,7 @@ import { worktreeAsk } from './worktree-ask.svelte'
 import { workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
+import { following } from './following.svelte'
 import { agentPeek } from './agent-peek.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
@@ -289,6 +290,9 @@ class ShellState {
         break
       case 'openTerminal':
         termMode.open()
+        break
+      case 'jumpToLive':
+        following.jump(app.thread.id)
         break
       case 'termEscape':
         termMode.escape()
