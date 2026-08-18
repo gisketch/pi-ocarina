@@ -26,7 +26,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: `tool-rows` and translator tests updated; a browser pass over a
   replayed lsp-heavy turn.
 
-## G2 — the grouping projection — `todo`
+## G2 — the grouping projection — `done`
 
 > A pure function from a ledger's rows to display items: runs of two or more
 > consecutive clean same-kind calls (read, grep, lsp, edit) become one group.
