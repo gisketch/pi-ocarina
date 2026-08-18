@@ -34,7 +34,7 @@ section, a valid section with one bad entry, and a file that is entirely valid.
 
 ---
 
-## K2 — keys come from the file — `todo`
+## K2 — keys come from the file — `done`
 
 **Delivers.** The reader rebinds `j`, restarts, and the new key moves the band.
 `Escape` cannot be rebound. A collision is reported and both bindings drop.

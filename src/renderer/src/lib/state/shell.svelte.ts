@@ -1,4 +1,5 @@
 import { app } from './app.svelte'
+import { effectiveKey, EMPTY_KEYMAP, type Keymap } from '../keymap'
 import { runAction } from './shell-actions'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
@@ -46,6 +47,10 @@ export interface FocusTargets {
 /** Bridges the pure key machine to app state, DOM focus and the leader timeout. */
 class ShellState {
   overlay = $state<KeyState['overlay']>(initialKeyState.overlay)
+  /** The reader's bindings, translated once when the file is read. Empty until
+   *  then, and empty forever for a reader who never wrote one — which is the
+   *  case where this must cost nothing. */
+  keymap = $state.raw<Keymap>(EMPTY_KEYMAP)
 
   /** The thread waiting on a "close this running turn?" answer, if any. */
   pendingClose = $state<string | null>(null)
@@ -205,10 +210,18 @@ class ShellState {
     // with no way back.
     if (event.key === 'Escape' && before.overlay === null) blockNav.release()
 
-    const { state, actions, preventDefault, timer } = reduceKey(before, event, {
-      workspaceCount: app.workspaces.length,
-      terminalColumn: app.thread.terminal === true,
-    })
+    // The reader's own bindings are applied here, before the reducer sees the
+    // key. Binding `x` to what `l` already does means the reducer is handed
+    // `l`, so the two can never disagree about what `l` means.
+    const remapped = effectiveKey(this.keymap, before.mode, event.key)
+    const { state, actions, preventDefault, timer } = reduceKey(
+      before,
+      remapped === event.key ? event : { ...event, key: remapped },
+      {
+        workspaceCount: app.workspaces.length,
+        terminalColumn: app.thread.terminal === true,
+      },
+    )
 
     app.mode = state.mode
     this.overlay = state.overlay

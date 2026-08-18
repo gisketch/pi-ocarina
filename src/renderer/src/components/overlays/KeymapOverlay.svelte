@@ -1,7 +1,14 @@
 <script lang="ts">
   import Backdrop from './Backdrop.svelte'
+  import { isAction } from '$lib/keymap'
+  import { config } from '$lib/state/config.svelte'
 
   const { onclose }: { onclose: () => void } = $props()
+
+  // The reader's own bindings, when there are any. The groups below are what
+  // the app ships; a screen that showed only those would be wrong for exactly
+  // the reader who changed something.
+  const mine = $derived(config.config.keys.filter((one) => isAction(one.action)))
 
   const groups: { title: string; rows: [string, string][] }[] = [
     {
@@ -82,11 +89,28 @@
           {/each}
         </div>
       {/each}
+
+      {#if mine.length > 0}
+        <div class="group">
+          <div class="group-title">YOURS</div>
+          {#each mine as binding (`${binding.mode} ${binding.key}`)}
+            <div class="row">
+              <span>{binding.action} <span class="where">{binding.mode.toLowerCase()}</span></span>
+              <span class="key">{binding.key === ' ' ? '␣' : binding.key}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 </Backdrop>
 
 <style>
+  .where {
+    color: var(--dim);
+    font-size: 10px;
+  }
+
   .keymap {
     width: var(--column-w);
     border: 1px solid rgba(255, 255, 255, 0.055);
