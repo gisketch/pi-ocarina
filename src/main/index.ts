@@ -221,6 +221,7 @@ void app.whenReady().then(async () => {
   // Read once at launch and handed over, not read per turn: the file is the
   // reader's and the app does not watch it. `/reload` is how a change lands.
   piDriver?.useHooks(() => config.config.hooks)
+  piDriver?.useRules(() => config.config.rules)
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),

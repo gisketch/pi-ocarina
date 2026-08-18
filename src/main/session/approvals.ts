@@ -1,6 +1,8 @@
 import type { PermissionLevel } from '../../shared/permissions'
 import type { ApprovalOutcome } from '../../shared/vocabulary'
 import { autoAllows } from './auto-policy'
+import { ruleVerdict } from './rule-policy'
+import type { RuleEntry } from '../../shared/config-file'
 import type { UiEvent } from '../../shared/protocol'
 import { FETCH_TOOL } from './fetch-tool'
 import { isWriteMethod, parseUrl } from '../web/fetch-page'
@@ -156,6 +158,9 @@ export class ApprovalGate {
   readonly #emit: (threadId: string, event: UiEvent) => void
   readonly #rules: ApprovalRules
   readonly #policy: ApprovalPolicy
+  /** The reader's written rules. Supplied after construction: main reads their
+   *  file once at launch, and a gate built before it simply has none. */
+  #written: () => readonly RuleEntry[] = () => []
 
   /** Overrides set for one thread, for as long as the app is open.
    *
@@ -172,6 +177,12 @@ export class ApprovalGate {
     this.#emit = emit
     this.#rules = rules
     this.#policy = policy
+  }
+
+  /** Hands the gate the reader's rules. Called once, after main has read
+   *  their configuration file. */
+  useRules(written: () => readonly RuleEntry[]): void {
+    this.#written = written
   }
 
   /** The level a thread runs at, and where it came from. */
@@ -211,7 +222,12 @@ export class ApprovalGate {
     // decision in here the reader made themselves about this exact call.
     if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
 
-    if (level === 'auto') {
+    // Then the reader's written rules. A deny here beats everything below it,
+    // including `auto` — someone who wrote a deny wants the question asked.
+    const written = ruleVerdict(this.#written(), toolName, input, this.#policy.pathFor(workspaceId))
+    if (written === 'allow') return { blocked: false }
+
+    if (level === 'auto' && written !== 'deny') {
       const cwd = this.#policy.pathFor(workspaceId)
       if (cwd !== null && autoAllows(toolName, input, cwd)) return { blocked: false }
     }

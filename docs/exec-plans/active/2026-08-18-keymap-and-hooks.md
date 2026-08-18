@@ -99,7 +99,7 @@ finishes either way. A hook that fails does not fail the turn.
 
 ---
 
-## K5 — a rule stops the prompt — `todo`
+## K5 — a rule stops the prompt — `done`
 
 **Delivers.** The reader writes a rule allowing `pnpm test`, and the twentieth
 run does not ask. The ledger still records that it ran.

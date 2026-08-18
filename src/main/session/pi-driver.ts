@@ -23,7 +23,7 @@ import { ModeControl } from './mode-commands'
 import { handleStored, ownsStored, type StoredDeps } from './stored-commands'
 import { openingDeps, storedDeps, type DriverParts } from './driver-deps'
 import { applyThreadDefaults } from './thread-defaults'
-import type { HookEntry } from '../../shared/config-file'
+import type { HookEntry, RuleEntry } from '../../shared/config-file'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
@@ -106,6 +106,11 @@ export class PiDriver implements SessionDriver {
    *  a test has and what most readers have. */
   useHooks(hooks: () => readonly HookEntry[]): void {
     this.#hooks = hooks
+  }
+
+  /** Hands the approval gate the reader's written rules. */
+  useRules(rules: () => readonly RuleEntry[]): void {
+    this.#approvals.useRules(rules)
   }
 
   async execute<N extends CommandName>(
