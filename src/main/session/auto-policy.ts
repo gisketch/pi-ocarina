@@ -46,7 +46,7 @@ export function insideWorkspace(path: string, cwd: string): string | null {
 }
 
 /** Anything that expands to something unknowable before it runs. */
-const SUBSTITUTION = /\$\(|`|<\(|\$\{/
+export const SUBSTITUTION = /\$\(|`|<\(|\$\{/
 
 /** Splits a command into the parts that each have to pass on their own. A
  *  compound command is as dangerous as its worst segment. */
@@ -89,7 +89,7 @@ const STOP: readonly RegExp[] = [
  *  treating every word as one would ask about `pnpm test`. A redirect target is
  *  always checked, because that is the one argument whose whole job is to be
  *  written to. */
-function staysInside(segment: string, cwd: string): boolean {
+export function staysInside(segment: string, cwd: string): boolean {
   const redirects = segment.matchAll(/>>?\s*(\S+)/g)
   for (const [, target] of redirects) {
     if (target !== '/dev/null' && !insideWorkspace(target, cwd)) return false

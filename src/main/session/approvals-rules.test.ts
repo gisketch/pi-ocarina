@@ -9,10 +9,10 @@ import { ApprovalGate, type ApprovalRules } from './approvals'
 
 const CWD = '/w/repo'
 
-function harness(level: PermissionLevel, written: RuleEntry[]) {
+function harness(level: PermissionLevel, written: RuleEntry[], approved: string[] = []) {
   const events: { threadId: string; event: UiEvent }[] = []
   const remembered: ApprovalRules = {
-    hasApproval: () => false,
+    hasApproval: (_workspaceId, key) => approved.includes(key),
     addApproval: () => {},
     removeApproval: () => {},
     listApprovals: () => [],
@@ -81,5 +81,17 @@ describe('a gate nobody gave rules to', () => {
   it('behaves exactly as it did before rules existed', async () => {
     const { gate } = harness('ask', [])
     expect(await ranQuietly(gate, 'bash', { command: 'pnpm test' })).toBe(false)
+  })
+})
+
+describe('a written deny against a remembered yes', () => {
+  it('wins, so a click from months ago cannot defeat a sentence written on purpose', async () => {
+    const remembered = harness('ask', [], ['bash:git'])
+    expect(await ranQuietly(remembered.gate, 'bash', { command: 'git push' })).toBe(true)
+
+    const { gate } = harness('ask', [{ effect: 'deny', tool: 'bash', match: 'git push' }], [
+      'bash:git',
+    ])
+    expect(await ranQuietly(gate, 'bash', { command: 'git push' })).toBe(false)
   })
 })

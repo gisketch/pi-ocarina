@@ -218,18 +218,24 @@ export class ApprovalGate {
     const level = this.levelFor(threadId, workspaceId)
     if (level === 'full') return { blocked: false }
 
-    // A remembered yes comes before the level's own rule, because it is the one
-    // decision in here the reader made themselves about this exact call.
-    if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
-
-    // Then the reader's written rules. A deny here beats everything below it,
-    // including `auto` — someone who wrote a deny wants the question asked.
+    // The reader's written rules come first, because a deny is the strongest
+    // thing they can say and it has to beat everything below it — including a
+    // remembered "always" they clicked months ago and have since thought
+    // better of. That click is a coarse key (`bash:git`); the deny is a
+    // sentence they wrote on purpose.
     const written = ruleVerdict(this.#written(), toolName, input, this.#policy.pathFor(workspaceId))
-    if (written === 'allow') return { blocked: false }
 
-    if (level === 'auto' && written !== 'deny') {
-      const cwd = this.#policy.pathFor(workspaceId)
-      if (cwd !== null && autoAllows(toolName, input, cwd)) return { blocked: false }
+    if (written !== 'deny') {
+      // A remembered yes is the one decision in here the reader made
+      // themselves about this exact call — but a deny outranks it, so it is
+      // only consulted when none applies.
+      if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
+      if (written === 'allow') return { blocked: false }
+
+      if (level === 'auto') {
+        const cwd = this.#policy.pathFor(workspaceId)
+        if (cwd !== null && autoAllows(toolName, input, cwd)) return { blocked: false }
+      }
     }
 
     this.#counter += 1
