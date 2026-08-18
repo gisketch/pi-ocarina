@@ -50,6 +50,7 @@ describe('parseCatalog', () => {
       modes: [],
       namePool: [],
       seeded: false,
+      seededModes: false,
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -71,6 +72,7 @@ describe('parseCatalog', () => {
       modes: [],
       namePool: [],
       seeded: false,
+      seededModes: false,
       preferences: DEFAULT_PREFERENCES,
     })
   })
@@ -191,6 +193,7 @@ describe('writeCatalog', () => {
       modes: [{ id: 'terse', name: 'terse', instructions: 'be brief' }],
       namePool: ['zeus'],
       seeded: true,
+      seededModes: true,
       preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask', showReasoning: true },
     }
 

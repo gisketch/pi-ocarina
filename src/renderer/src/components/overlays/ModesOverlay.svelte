@@ -7,6 +7,7 @@
    *  backs out one level at a time. */
   import Backdrop from './Backdrop.svelte'
   import { wrapIndex } from '$lib/fuzzy'
+  import { app } from '$lib/state/app.svelte'
   import { modes } from '$lib/state/modes.svelte'
   import type { ChatMode } from '../../../../shared/chat-modes'
 
@@ -17,8 +18,12 @@
    *  list must not change under the reader while they are typing into it. */
   let editing = $state.raw<ChatMode | null>(null)
 
+  // Loaded against the focused thread, not against no thread at all. This
+  // store answers the status bar too, and reading it with an empty thread id
+  // would clear the chip's `current` until something else happened to reload
+  // it — which, keyed on the thread, would be never.
   $effect(() => {
-    void modes.load('')
+    if (app.thread.id !== '') void modes.load(app.thread.id)
   })
 
   function isTyping(target: EventTarget | null): boolean {

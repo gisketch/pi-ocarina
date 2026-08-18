@@ -67,6 +67,13 @@ export interface CatalogState {
    *  marker an empty list is indistinguishable from a cleared one, and every
    *  launch would put the defaults back. */
   seeded: boolean
+  /** Whether the shipped modes have ever been written.
+   *
+   *  A marker of its own rather than reusing `seeded`. Every catalog that
+   *  predates modes is already seeded for roles, so a shared flag would mean
+   *  no existing install ever saw the shipped voice — the one case seeding
+   *  exists for. */
+  seededModes: boolean
   preferences: Preferences
 }
 
@@ -89,6 +96,7 @@ export function defaultCatalog(): CatalogState {
     modes: [],
     namePool: [],
     seeded: false,
+    seededModes: false,
     preferences: { ...DEFAULT_PREFERENCES },
   }
 }
@@ -237,6 +245,7 @@ export function parseCatalog(raw: string): CatalogLoad {
       modes: parseModes(record.modes),
       namePool: parseNamePool(record.namePool),
       seeded: record.seeded === true,
+      seededModes: record.seededModes === true,
       preferences: parsePreferences(record.preferences),
     },
   }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../shared/agent-roles'
-import { SHIPPED_MODES, type ChatMode } from '../shared/chat-modes'
+import type { ChatMode } from '../shared/chat-modes'
+import { seedDefaults } from './catalog-seed'
 import { deleteMode, modeFor, saveMode, setDefaultMode } from './catalog-modes'
 import type { WorkspaceLsp } from '../shared/lsp'
 import { isPermissionLevel, type PermissionLevel } from '../shared/permissions'
@@ -166,13 +166,7 @@ export class CatalogStore {
    *  roles existed reads as unseeded, so it gets them on its next launch and
    *  never again. */
   seedOnce(): void {
-    if (this.#state.seeded) return
-
-    this.#state.roles = DEFAULT_ROLES.map((role) => ({ ...role, tools: [...role.tools] }))
-    this.#state.modes = SHIPPED_MODES.map((mode) => ({ ...mode }))
-    this.#state.namePool = [...DEFAULT_NAME_POOL]
-    this.#state.seeded = true
-    this.#persist()
+    if (seedDefaults(this.#state)) this.#persist()
   }
 
   modes(): ChatMode[] {

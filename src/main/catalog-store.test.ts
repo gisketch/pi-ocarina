@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { readCatalog } from './catalog'
+import { defaultCatalog, readCatalog } from './catalog'
 import { CatalogStore } from './catalog-store'
 
 async function store(): Promise<{ store: CatalogStore; file: string }> {
@@ -290,5 +290,33 @@ describe('two roles cannot share a name', () => {
     const scout = catalog.role('scout')!
     expect(catalog.saveRole({ ...scout, instructions: 'changed' }).ok).toBe(true)
     expect(catalog.role('scout')?.instructions).toBe('changed')
+  })
+})
+
+describe('seeding the shipped voice', () => {
+  it('reaches a catalog that was already seeded for roles', async () => {
+    // Every install that predates modes has `seeded: true`. A shared flag would
+    // mean none of them ever saw the shipped voice, which is the one case
+    // seeding exists for.
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-store-'))
+    const file = join(dir, 'catalog.json')
+    await writeFile(file, JSON.stringify({ ...defaultCatalog(), seeded: true }), 'utf8')
+
+    const catalog = new CatalogStore(file)
+    await catalog.load()
+    catalog.seedOnce()
+
+    expect(catalog.modes().map((one) => one.id)).toEqual(['terse'])
+    // Roles stay as the reader left them: they were seeded once already.
+    expect(catalog.roles()).toEqual([])
+  })
+
+  it('does not put a deleted voice back', async () => {
+    const { store: catalog } = await store()
+    catalog.seedOnce()
+    catalog.deleteMode('terse')
+    catalog.seedOnce()
+
+    expect(catalog.modes()).toEqual([])
   })
 })
