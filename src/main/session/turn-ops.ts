@@ -30,7 +30,23 @@ export async function startTurn(
 
   thread.lastPrompt = text
   thread.prompts += 1
-  emit(threadId, { kind: 'user-message', id: `user-${thread.prompts}`, text: prompt })
+  // The reader's own words, with the files beside them rather than described
+  // in a paragraph underneath. pi still gets the whole prompt: it cannot see a
+  // chip, and the names are how it refers to what it was given.
+  emit(threadId, {
+    kind: 'user-message',
+    id: `user-${thread.prompts}`,
+    text,
+    ...(attachments.length > 0
+      ? {
+          attachments: attachments.map((one) => ({
+            name: one.name,
+            path: one.path,
+            ...(one.mime ? { mime: one.mime } : {}),
+          })),
+        }
+      : {}),
+  })
 
   // Deliberately not awaited: a turn runs for minutes and the caller's IPC reply
   // must not wait for it. Progress and failure both arrive as events.

@@ -19,6 +19,7 @@ export type {
   CodeLine,
   DiffLine,
   MatchLine,
+  MessageAttachment,
   TerminalLine,
   ThreadRunState,
   TodoItem,
@@ -33,6 +34,7 @@ import type {
   AskAnswer,
   AskOutcome,
   AskQuestion,
+  MessageAttachment,
   ReasoningLevel,
   ThreadRunState,
   ToolBody,
@@ -66,7 +68,7 @@ export interface ToolRow {
 }
 
 export type Block =
-  | { kind: 'user'; id: string; text: string }
+  | { kind: 'user'; id: string; text: string; attachments?: MessageAttachment[] }
   | { kind: 'agent'; id: string; text: string; streaming?: boolean }
   | { kind: 'ledger'; id: string; rows: ToolRow[] }
   /** A question, or several, and what became of them. `outcome` is undefined

@@ -62,3 +62,34 @@ export function describeAttachments(attachments: readonly AttachmentRef[]): stri
 
   return `\n\n${parts.join('\n\n')}`
 }
+
+/** The reader's own words, and the files the prompt named after them.
+ *
+ *  The inverse of `describeAttachments`, and it has to exist: pi stores the
+ *  whole prompt, so a replayed thread would otherwise draw the description as
+ *  a paragraph the reader never typed — the separate row this spec exists to
+ *  remove. Live and replay split it the same way, so a message reads the same
+ *  both times.
+ *
+ *  Paths are not recovered as paths. A replayed chip names the file; whether
+ *  that file is still there is not something a session log can promise. */
+export function splitAttachments(prompt: string): { text: string; names: string[] } {
+  const at = prompt.search(/\n\n(Images attached: |Attached files \(read them if relevant\):\n)/)
+  if (at === -1) return { text: prompt, names: [] }
+
+  const names: string[] = []
+  for (const part of prompt.slice(at).trim().split('\n\n')) {
+    if (part.startsWith('Images attached: ')) {
+      names.push(...part.slice('Images attached: '.length).split(', '))
+      continue
+    }
+    if (part.startsWith('Attached files (read them if relevant):\n')) {
+      for (const line of part.split('\n').slice(1)) {
+        const name = line.slice(line.lastIndexOf('/') + 1)
+        if (name !== '') names.push(name)
+      }
+    }
+  }
+
+  return { text: prompt.slice(0, at), names: names.filter((name) => name !== '') }
+}

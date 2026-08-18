@@ -12,6 +12,7 @@ import type {
   AskQuestion,
   AttachmentRef,
   DiffLine,
+  MessageAttachment,
   ReasoningLevel,
   ThreadRunState,
   ToolBody,
@@ -42,7 +43,15 @@ export type UiEvent =
    *  Emitted after a checkpoint restore, where the conversation genuinely
    *  changed shape and appending would duplicate it. */
   | { kind: 'thread-reset' }
-  | { kind: 'user-message'; id: string; text: string }
+  /** `text` is what the reader typed. Files they attached travel beside it,
+   *  never appended to it: a description in the prose is the separate row the
+   *  chips replace. Additive — a backend that sends none draws as before. */
+  | {
+      kind: 'user-message'
+      id: string
+      text: string
+      attachments?: MessageAttachment[]
+    }
   | { kind: 'agent-message-start'; id: string }
   | { kind: 'agent-message-delta'; id: string; text: string }
   | { kind: 'agent-message-end'; id: string }

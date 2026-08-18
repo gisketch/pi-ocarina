@@ -25,6 +25,12 @@ export interface InlineSegment {
    *  so a mention looks the same before and after it is sent, which is what
    *  makes it recognisable as the same thing. */
   mention?: boolean
+  /** A file attached to this message, named in its text.
+   *
+   *  Drawn as the same chip a mention gets, because it is the same thing to a
+   *  reader: a file this message is about. What differs is only how it got
+   *  there — typed with an `@`, or dropped in. */
+  attachment?: string
 }
 
 /** Schemes a link may use. An allow-list: the renderer hands these to the

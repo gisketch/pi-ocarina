@@ -9,6 +9,10 @@
   import Table from './md/Table.svelte'
 
   import { segmentsOf } from '$lib/markdown-segments'
+  import { markNodes, unnamedIn } from '$lib/attachment-chips'
+  import AttachmentCard from './AttachmentCard.svelte'
+  import UnnamedChips from './UnnamedChips.svelte'
+  import type { MessageAttachment } from '$lib/thread'
   import { navTarget } from '$lib/state/block-focus.svelte'
 
   interface Props {
@@ -25,6 +29,9 @@
     focusedNav?: string | null
     /** Whether anything in the thread is focused, which is what dims the rest. */
     dimmed?: boolean
+    /** Files sent with this message. Drawn as chips in the sentence that names
+     *  them, and after it when it named none. */
+    attachments?: MessageAttachment[]
   }
 
   const {
@@ -36,9 +43,22 @@
     blockId,
     focusedNav = null,
     dimmed = false,
+    attachments = [],
   }: Props = $props()
 
-  const nodes = $derived(parseMarkdown(text))
+  const nodes = $derived(markNodes(parseMarkdown(text), attachments))
+  /** Files the message never named. They travelled with it, so they are drawn
+   *  — as chips after the text, never as a paragraph describing them. */
+  const trailing = $derived(unnamedIn(text, attachments))
+
+  /** Which chip is expanded. One at a time: two open cards under one sentence
+   *  is a gallery, and the reader asked about a file. */
+  let opened = $state<string | null>(null)
+  const shown = $derived(attachments.find((one) => one.name === opened) ?? null)
+
+  const openChip = (name: string): void => {
+    opened = opened === name ? null : name
+  }
   const segments = $derived(segmentsOf(nodes))
 
   /** A message with one segment keeps the block's own id, so nothing about the
@@ -76,7 +96,8 @@
 
 {#snippet render(node: MarkdownNode, caret: boolean)}
   {#if node.type === 'paragraph'}
-    <p><Inline parts={node.segments} />{#if caret}<span class="caret"></span>{/if}</p>
+    <p><Inline parts={node.segments} onattachment={openChip} />{#if caret}<span class="caret"
+        ></span>{/if}</p>
   {:else if node.type === 'heading'}
     <div class="h h{node.level}"><span><Inline parts={node.segments} /></span></div>
   {:else if node.type === 'rule'}
@@ -122,6 +143,14 @@
         {/each}
       </div>
     {/each}
+
+    <!-- Named nowhere in the text, so they are drawn after it. A sent message
+         never hides what went with it. -->
+    <UnnamedChips attachments={trailing} onopen={openChip} />
+
+    {#if shown}
+      <AttachmentCard attachment={shown} />
+    {/if}
 
     {#if streaming && !endsInParagraph}
       <span class="caret"></span>

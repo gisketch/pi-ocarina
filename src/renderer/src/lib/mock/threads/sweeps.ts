@@ -11,7 +11,11 @@ export const GROUPED_SWEEP: MockThread = {
     {
       kind: 'user-message',
       id: 'u9',
-      text: 'The sync queue drains slowly under load — find it and fix it.',
+      text: 'The sync queue drains slowly under load — see before.png and find it.',
+      attachments: [
+        { name: 'before.png', path: '/tmp/before.png', mime: 'image/png' },
+        { name: 'trace.log', path: '/tmp/trace.log' },
+      ],
     },
     { kind: 'thread-state', state: 'running' },
 

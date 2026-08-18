@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { AttachmentRef } from '../../shared/vocabulary'
-import { describeAttachments, readImages } from './attachments'
+import { describeAttachments, readImages, splitAttachments } from './attachments'
 
 async function imageFile(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'piocarina-att-'))
@@ -80,5 +80,36 @@ describe('describeAttachments', () => {
     const text = describeAttachments([log, { name: 'p.patch', path: '/p.patch' }])
     expect(text).toContain('/tmp/trace.log')
     expect(text).toContain('/p.patch')
+  })
+})
+
+describe('splitting a prompt back into words and files', () => {
+  it('is the inverse of describing them', () => {
+    const files: AttachmentRef[] = [
+      { name: 'shot.png', path: '/tmp/shot.png', mime: 'image/png' },
+      { name: 'trace.log', path: '/w/trace.log' },
+    ]
+    const prompt = 'why is this clipped?' + describeAttachments(files)
+
+    expect(splitAttachments(prompt)).toEqual({
+      text: 'why is this clipped?',
+      names: ['shot.png', 'trace.log'],
+    })
+  })
+
+  it('leaves a message that carried nothing exactly as it was', () => {
+    expect(splitAttachments('just words')).toEqual({ text: 'just words', names: [] })
+  })
+
+  it('does not mistake a reader who wrote the words themselves', () => {
+    // The marker is ours and starts a paragraph of its own. A sentence that
+    // merely contains the phrase is still the reader's own text.
+    const prompt = 'the log says Images attached: nothing'
+    expect(splitAttachments(prompt).names).toEqual([])
+  })
+
+  it('recovers names from paths, which is all a chip needs', () => {
+    const prompt = 'look' + describeAttachments([{ name: 'a.patch', path: '/deep/a.patch' }])
+    expect(splitAttachments(prompt).names).toEqual(['a.patch'])
   })
 })

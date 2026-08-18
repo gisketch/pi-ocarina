@@ -3,6 +3,7 @@ import type { UiEvent } from '../../shared/protocol'
 import { joinTextParts, toolBody, toolKind, toolTarget } from './pi-translate'
 import { answerFromResult, askFromCall, ASK_TOOL, endedUnanswered } from './ask-replay'
 import { agentsFromResult, rowsFromResult, SPAWN_TOOL } from './spawn-replay'
+import { splitAttachments } from './attachments'
 
 // Colour codes reach the transcript when something formats for a terminal.
 // They are noise in a GUI, and they would make replay differ from live text.
@@ -60,8 +61,12 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
     if (typeof message.role === 'string') lastRole = message.role
 
     if (message.role === 'user') {
-      const text = stripAnsi(joinTextParts(parts))
-      if (!text) continue
+      // pi stores the prompt as it was sent, description of attachments and
+      // all. Split back apart so a reopened thread reads the way it did live:
+      // the reader's words, and chips for what they attached.
+      const { text: said, names } = splitAttachments(stripAnsi(joinTextParts(parts)))
+      const text = said.trim()
+      if (!text && names.length === 0) continue
 
       // Every user message is a point the conversation can be rewound to: it is
       // where a branch of the session tree begins, and pi can navigate back to
@@ -72,7 +77,14 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
       // blocks that call themselves the same thing are not two blocks — the
       // list rendering them keys on the id and cannot tell them apart.
       events.push({ kind: 'checkpoint', id: entry.id, label: text.slice(0, 60) })
-      events.push({ kind: 'user-message', id: `user:${entry.id}`, text })
+      events.push({
+        kind: 'user-message',
+        id: `user:${entry.id}`,
+        text,
+        // Names only: a session log cannot promise the file is still there,
+        // and a chip that offers to open something gone is a broken promise.
+        ...(names.length > 0 ? { attachments: names.map((name) => ({ name })) } : {}),
+      })
       continue
     }
 

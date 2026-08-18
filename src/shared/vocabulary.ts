@@ -186,6 +186,20 @@ export interface AttachmentRef {
   mime?: string
 }
 
+/** An attachment as a *sent message* carries it.
+ *
+ *  Not an `AttachmentRef`: a replayed session knows the names its prompt
+ *  recorded but not the paths, because a pasted screenshot lives in a
+ *  temporary directory that may be gone by the time the thread is reopened.
+ *  The name is what draws the chip, and is the part that always survives. */
+export interface MessageAttachment {
+  name: string
+  /** Present when the file is still where the message left it — which is what
+   *  makes the chip expandable and openable. */
+  path?: string
+  mime?: string
+}
+
 /** Whether pi can actually take this file with a prompt.
  *
  *  pi 0.84's `prompt()` accepts text and images. An image travels as bytes; a

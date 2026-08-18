@@ -150,6 +150,7 @@
         <Message
           role="user"
           text={block.text}
+          attachments={block.attachments}
           {threadId}
           blockId={block.id}
           focusedNav={focused}

@@ -42,7 +42,7 @@ Status legend: `todo` · `in-progress` · `done`.
   states; virtualization unaffected (no per-block layout reads).
 - Blocked by: C1.
 
-## C3 — chips inside the sentence — `todo`
+## C3 — chips inside the sentence — `done`
 
 > A sent message renders its attachments as chips in the text flow; a chip
 > expands to a card below the message.

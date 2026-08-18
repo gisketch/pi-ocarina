@@ -49,7 +49,12 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return { ...model, runState: event.state, reason: event.reason }
 
     case 'user-message':
-      return push(model, { kind: 'user', id: event.id, text: event.text })
+      return push(model, {
+        kind: 'user',
+        id: event.id,
+        text: event.text,
+        ...(event.attachments?.length ? { attachments: event.attachments } : {}),
+      })
 
     // Starting a message is not evidence the agent said anything. pi splits a
     // tool-calling turn into a chain of assistant messages that carry no text
