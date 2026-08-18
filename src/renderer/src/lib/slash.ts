@@ -186,7 +186,12 @@ export function applySlash(
   // The name, not pi's syntax. A chip should read as the thing it names, and
   // the mirror can only draw what the field holds — so `skill:` is not written
   // rather than hidden, and `skillsSaid` puts it back on the way out.
-  const inserted = `${command.name} `
+  //
+  // Padded: a leading space at the very start so the chip's mark has its two
+  // cells there too, and two trailing so whatever is inserted next has cells
+  // of its own. `planSend` trims the message, so none of it survives the send.
+  const pad = token.start === 0 ? ' ' : ''
+  const inserted = `${pad}${command.name}  `
   return {
     text: text.slice(0, token.start) + inserted + text.slice(token.end),
     caret: token.start + inserted.length,

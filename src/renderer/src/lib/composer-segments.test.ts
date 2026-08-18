@@ -125,3 +125,17 @@ describe('what a chip may sacrifice to its mark', () => {
     })
   })
 })
+
+describe('the standard insert flow, end to end', () => {
+  it('a skill chip then a pasted file: both marks full size, one plain gap between', () => {
+    // What `applySlash` and `nameAt` together produce: the skill pads two
+    // trailing spaces, the paste adds two of its own. The file claims two for
+    // its mark and the rest stay plain — the visible gap the chips sit apart by.
+    const text = ' /skill-creator    pasted-1.png  '
+    const parts = segment(text, [], ['pasted-1.png'], ['skill-creator'])
+
+    expect(parts[0]).toEqual({ kind: 'skill', text: ' /skill-creator', lead: 2 })
+    expect(parts[1]).toEqual({ kind: 'plain', text: '  ' })
+    expect(parts[2]).toEqual({ kind: 'file', text: '  pasted-1.png', lead: 2 })
+  })
+})

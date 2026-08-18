@@ -76,11 +76,18 @@ function fileSpans(text: string, files: readonly string[]): Span[] {
     for (;;) {
       const at = text.indexOf(name, from)
       if (at === -1) break
-      // The space in front comes with it. A file name has no sigil of its own
-      // — no `@`, no `[` — so the space is the only cell the chip can give its
-      // mark. At position 0 there is no space, and the honest answer is a chip
-      // with no mark rather than one that eats the first letter of the name.
-      const lead = at > 0 && text[at - 1] === ' ' ? 1 : 0
+      // The spaces in front come with it — a file name has no sigil of its
+      // own, so spaces are the only cells its mark can stand on. Up to two,
+      // for a full-size mark; and when the run of spaces borders something
+      // else, one is always left unclaimed, because that plain cell is the
+      // visible gap between this chip and whatever sits before it. At
+      // position 0 with no spaces the honest answer is a chip with no mark,
+      // never one that eats the first letter of the name.
+      let spaces = 0
+      while (spaces < 3 && at - 1 - spaces >= 0 && text[at - 1 - spaces] === ' ') spaces += 1
+      const fromStart = at - spaces === 0
+      const lead =
+        spaces === 0 ? 0 : spaces === 1 ? 1 : fromStart ? Math.min(2, spaces) : Math.min(2, spaces - 1)
       spans.push({ start: at - lead, end: at + name.length, lead })
       from = at + name.length
     }

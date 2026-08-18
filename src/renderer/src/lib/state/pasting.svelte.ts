@@ -172,13 +172,17 @@ export function nameAt(
 
   const before = text.slice(0, at)
   const after = text.slice(end)
-  const said = names.join(' ')
-  const lead = before === '' || /\s$/.test(before) ? '' : ' '
-  // Always one trailing space: the caret lands after it, so the reader keeps
-  // typing their sentence rather than running into the name they just
-  // inserted. When what follows is already whitespace this would be two, so
-  // it is only added when it is not.
-  const trail = /^\s/.test(after) ? '' : ' '
+  // Two spaces in front of every name, and three between names. The chip's
+  // mark has to stand on characters — the mirror may not occupy space — so
+  // the insertion provisions them: two cells for a full-size mark, and the
+  // third between names stays plain, which is the visible gap between chips.
+  // In the sent text they are just spaces, which cost the model nothing.
+  const said = names.join('   ')
+  const lead = '  '
+  // Trailing spaces so a chip inserted right after has cells of its own: the
+  // caret lands past them, and the reader keeps typing their sentence rather
+  // than running into the name they just inserted.
+  const trail = /^\s/.test(after) ? '' : '  '
 
   const inserted = `${lead}${said}${trail}`
   return { text: before + inserted + after, caret: at + inserted.length }

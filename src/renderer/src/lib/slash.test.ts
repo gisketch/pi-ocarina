@@ -70,8 +70,10 @@ describe('writing a skill into a sentence', () => {
     const next = applySlash(text, token, SKILL)
 
     // The name, not pi's syntax: a chip should read as the thing it names.
-    expect(next.text).toBe('this is /humanizer  and more')
-    expect(next.text.slice(0, next.caret)).toBe('this is /humanizer ')
+    // Two trailing spaces on purpose — cells for whatever chip is inserted
+    // next; `planSend` trims them from the sent message.
+    expect(next.text).toBe('this is /humanizer   and more')
+    expect(next.text.slice(0, next.caret)).toBe('this is /humanizer  ')
   })
 })
 
