@@ -97,6 +97,7 @@
   .mention,
   .fold,
   .skill {
+    --chip-ink: oklch(0.84 0.12 85);
     position: relative;
     border-radius: 3px;
   }
@@ -105,12 +106,14 @@
      a file this message is about. */
   .file,
   .mention {
+    --chip-ink: oklch(0.76 0.14 var(--accent-hue));
     color: var(--accent);
     background: oklch(0.76 0.14 var(--accent-hue) / 0.13);
     outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.3);
     outline-offset: -1px;
   }
   .fold {
+    --chip-ink: var(--fg-dim);
     color: var(--fg-dim);
     background: var(--bg-hover);
     outline: 1px solid var(--line-strong);
@@ -148,7 +151,10 @@
     top: 50%;
     height: 11px;
     transform: translateY(-50%);
-    background-color: currentColor;
+    /* Not `currentColor`: the cell it stands on is `color: transparent`, which
+       is how the character under it gives up its ink — so the mark painted
+       itself invisible. Each kind names its own. */
+    background-color: var(--chip-ink);
     /* `contain`, not a fixed 11px: the mark gets whatever its cells allow. A
        chip that claimed a space and its sigil draws it full size; a chip at
        the start of the message, with only its sigil, draws it smaller rather

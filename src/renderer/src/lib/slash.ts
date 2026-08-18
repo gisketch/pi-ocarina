@@ -187,11 +187,13 @@ export function applySlash(
   // the mirror can only draw what the field holds — so `skill:` is not written
   // rather than hidden, and `skillsSaid` puts it back on the way out.
   //
-  // Padded: a leading space at the very start so the chip's mark has its two
-  // cells there too, and two trailing so whatever is inserted next has cells
-  // of its own. `planSend` trims the message, so none of it survives the send.
+  // One leading space at the very start, so the chip's mark has a cell there
+  // too — `planSend` trims it off the sent message. One trailing space and no
+  // more: it is functional, not padding. Without it the next character typed
+  // lands inside the name, the name stops matching a skill, and the chip the
+  // reader just inserted disappears.
   const pad = token.start === 0 ? ' ' : ''
-  const inserted = `${pad}${command.name}  `
+  const inserted = `${pad}${command.name} `
   return {
     text: text.slice(0, token.start) + inserted + text.slice(token.end),
     caret: token.start + inserted.length,
