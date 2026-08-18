@@ -11,7 +11,20 @@
    *  place for the rest of the message. The metrics live in one class shared
    *  with the textarea, so they cannot drift apart. */
   import { segment } from '$lib/composer-segments'
+  import { iconSvg, type IconName } from '$lib/icons'
   import type { Fold } from '$lib/paste'
+
+  /** An icon as a CSS mask. The chip's mark is painted with `background-color:
+   *  currentColor` through this, so it takes the chip's own colour and needs
+   *  no second copy per theme. */
+  const mask = (name: IconName): string =>
+    `url("data:image/svg+xml,${encodeURIComponent(iconSvg(name))}")`
+
+  const MARKS = {
+    '--mark-file': mask('file'),
+    '--mark-skill': mask('tool-skill'),
+    '--mark-fold': mask('tool-write'),
+  }
 
   const {
     text,
@@ -45,8 +58,17 @@
 
 <!-- `aria-hidden`: the textarea above is the real control, and a screen reader
      meeting the same words twice would read the message twice. -->
-<div bind:this={box} class="mirror field-metrics" aria-hidden="true">{#each parts as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<span
-        class={part.kind}>{part.text}</span
+<div
+  bind:this={box}
+  class="mirror field-metrics"
+  aria-hidden="true"
+  style:--mark-file={MARKS['--mark-file']}
+  style:--mark-skill={MARKS['--mark-skill']}
+  style:--mark-fold={MARKS['--mark-fold']}
+>{#each parts as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<span
+        class={part.kind}><span class="lead">{part.text.slice(0, 1)}</span>{part.text.slice(
+          1,
+        )}</span
       >{/if}{/each}</div>
 
 <style>
@@ -60,23 +82,90 @@
     overflow: hidden;
   }
 
-  /* Colour and an outline only. Both paint outside the layout box, so the
-     glyphs stay exactly where the textarea put them. */
-  /* A staged file. Same chip as a mention, because it is the same thing to a
-     reader: a file this message is about. No icon here, and this is the one
-     place it is left off — the mirror may not occupy space, and a 10px glyph
-     in front of the name would shift every character after it and put the
-     caret in the wrong place for the rest of the message. The sent message,
-     which has no mirror to keep aligned, draws the icon. */
+  /* Every chip is one class, and none of it occupies space.
+     `box-shadow` with a spread paints *outside* the layout box, so the pill
+     has breathing room on both sides while every glyph stays exactly where
+     the textarea put it — which is the whole contract this file rests on.
+     Padding would have moved them, and the caret with them. */
+  .file,
+  .mention,
+  .fold,
+  .skill {
+    position: relative;
+    border-radius: 3px;
+  }
+
+  /* A staged file, and a path the reader named. The same thing to a reader:
+     a file this message is about. */
   .file,
   .mention {
     color: var(--accent);
     background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
-    outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.32);
+    box-shadow:
+      0 0 0 3px oklch(0.76 0.14 var(--accent-hue) / 0.1),
+      0 0 0 4px oklch(0.76 0.14 var(--accent-hue) / 0.3);
   }
   .fold {
     color: var(--fg-dim);
     background: var(--bg-hover);
-    outline: 1px solid var(--line-strong);
+    box-shadow:
+      0 0 0 3px var(--bg-hover),
+      0 0 0 4px var(--line-strong);
+  }
+
+  /* A skill. Its own colour rather than the accent, because it is a different
+     kind of thing: a file is what the message is *about*, a skill is how the
+     agent should go about it. */
+  .skill {
+    color: var(--warn);
+    background: var(--warn-soft);
+    box-shadow:
+      0 0 0 3px var(--warn-soft),
+      0 0 0 4px oklch(0.84 0.12 85 / 0.3);
+  }
+
+  /* The mark, painted over the token's own leading punctuation.
+     Absolutely positioned, so it takes no space at all — and it covers a
+     character that was already standing for "this is a reference", so nothing
+     a reader needs to read is hidden. Sized to one monospace cell. */
+  .file::before,
+  .mention::before,
+  .skill::before,
+  .fold::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 1ch;
+    height: 11px;
+    transform: translateY(-50%);
+    background-color: currentColor;
+    mask-size: 11px 11px;
+    mask-position: center;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 11px 11px;
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+  }
+  .mention::before,
+  .file::before {
+    mask-image: var(--mark-file);
+    -webkit-mask-image: var(--mark-file);
+  }
+  .skill::before {
+    mask-image: var(--mark-skill);
+    -webkit-mask-image: var(--mark-skill);
+  }
+
+  .fold::before {
+    mask-image: var(--mark-fold);
+    -webkit-mask-image: var(--mark-fold);
+  }
+
+  /* The character the mark stands on goes invisible rather than away: it is
+     still in the flow, still one cell wide, still exactly where the textarea
+     put it. Only its ink is gone. */
+  .lead {
+    color: transparent;
   }
 </style>

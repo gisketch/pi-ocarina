@@ -9,6 +9,7 @@ import type { EmitEvent } from '../../shared/protocol'
 import type { AttachmentRef } from '../../shared/vocabulary'
 import { describeAttachments, readImages } from './attachments'
 import { replayInto } from './session-report'
+import { expandSkillRefs } from './skill-refs'
 import type { SteerQueue } from './steering'
 import type { Thread } from './thread-registry'
 
@@ -50,7 +51,11 @@ export async function startTurn(
 
   // Deliberately not awaited: a turn runs for minutes and the caller's IPC reply
   // must not wait for it. Progress and failure both arrive as events.
-  void session.prompt(prompt, images.length > 0 ? { images } : undefined).catch((error: unknown) => {
+  // Skills the reader named inside the sentence. pi expands one, at position
+  // zero; the composer lets them name several, anywhere.
+  const said = expandSkillRefs(session, prompt)
+
+  void session.prompt(said, images.length > 0 ? { images } : undefined).catch((error: unknown) => {
     emit(threadId, {
       kind: 'thread-state',
       state: 'failed',
@@ -75,8 +80,11 @@ export async function steerTurn(
     return ''
   }
 
+  // The same expansion the prompt path does, and for a sharper reason:
+  // `steer()` turns pi's own expansion *off* by default, so a skill named in a
+  // queued message would reach the model as the literal `/skill:name`.
   const steerId = steers.add(threadId, text)
-  await session.steer(text)
+  await session.steer(expandSkillRefs(session, text))
   return steerId
 }
 

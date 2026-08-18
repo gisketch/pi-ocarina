@@ -10,7 +10,7 @@
  *  column, and each belongs to that column's own field. */
 
 import { applyMention, mentionAt } from '../mention'
-import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '../slash'
+import { applySlash, filterSlash, resolveSlash, slashAt, type SlashCommand } from '../slash'
 import { fuzzyFilter, wrapIndex } from '../fuzzy'
 import { app } from './app.svelte'
 import { files } from './files.svelte'
@@ -28,7 +28,10 @@ export interface CompletionDeps {
 export type MenuName = 'slash' | 'mention' | null
 
 export function completions(deps: CompletionDeps) {
-  const query = $derived(slashQuery(deps.text()))
+  /** Where the caret is, so `@` and `/` know which word it is inside. */
+  let caret = $state(0)
+
+  const token = $derived(slashAt(deps.text(), caret))
 
   // The project's commands and skills come from the surface main already read
   // for the workspace screen. Read per focused column rather than per
@@ -46,16 +49,18 @@ export function completions(deps: CompletionDeps) {
   })
 
   const slash = $derived(
-    query === null || !deps.focused()
+    token === null || !deps.focused()
       ? []
-      : filterSlash(query, projectSurface.surface.commands, {
+      : // Mid-sentence, only skills: `/commit` inside a sentence would throw
+        // the sentence away, and a menu offering it there is a menu offering a
+        // mistake. A skill is text, so it belongs anywhere text does.
+        filterSlash(token.query, token.leading ? projectSurface.surface.commands : [], {
           hasThread: app.threadId !== null,
           skills: projectSurface.surface.skills,
+          builtIn: token.leading,
         }),
   )
 
-  /** Where the caret is, so `@` knows which word it is inside. */
-  let caret = $state(0)
   /** Where a mention the reader dismissed started, so Escape sticks. Cleared
    *  as soon as they type a different one — otherwise Escape would silently
    *  disable the picker for the rest of the message. */
@@ -84,22 +89,36 @@ export function completions(deps: CompletionDeps) {
   // A new query starts at the top of its own list, so the highlight never
   // points at an entry the last query happened to leave it on.
   $effect(() => {
-    void query
+    void token?.query
     void mention?.query
     picked = 0
   })
 
-  function insertMention(path: string): void {
-    if (!mention) return
-
-    const next = applyMention(deps.text(), mention, path)
+  /** Writes the chosen thing where the token was, and puts the caret after it.
+   *
+   *  Restored in a microtask, after Svelte has written the new value — set
+   *  before that and the caret jumps to the end of the field. */
+  function write(next: { text: string; caret: number }): void {
     deps.setText(next.text)
     picked = 0
-    // Restored after Svelte writes the new value, or the caret jumps to the end.
     queueMicrotask(() => {
       deps.field()?.setSelectionRange(next.caret, next.caret)
       caret = next.caret
     })
+  }
+
+  function insertMention(path: string): void {
+    if (!mention) return
+    write(applyMention(deps.text(), mention, path))
+  }
+
+  /** Writes a skill into the sentence rather than running it. `/skill:name` is
+   *  what pi expands, so that is what goes in the text; the mirror draws it as
+   *  a chip and the reader sees the name they picked. */
+  function insertSlash(command: SlashCommand): boolean {
+    if (token === null || command.id !== 'skill') return false
+    write(applySlash(deps.text(), token, command))
+    return true
   }
 
   return {
@@ -143,5 +162,11 @@ export function completions(deps: CompletionDeps) {
       caret = deps.field()?.selectionStart ?? 0
     },
     insertMention,
+    insertSlash,
+    /** Whether picking runs the entry or writes it. Mid-sentence there is
+     *  nothing to run: the sentence around it is the message. */
+    get runnable(): boolean {
+      return token?.leading === true
+    },
   }
 }

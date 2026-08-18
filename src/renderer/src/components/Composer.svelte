@@ -9,7 +9,7 @@
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
   import { menuKey } from '$lib/composer-menu'
-  import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
+  import type { SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
   import { nameAt, pasting } from '$lib/state/pasting.svelte'
   import { following } from '$lib/state/following.svelte'
@@ -77,9 +77,21 @@
   const menu = $derived(menus.menu)
   const active = $derived(menus.active)
 
+  /** Enter. Runs a command; writes a skill named inside a sentence, because
+   *  there is nothing to run there — the sentence is the message. */
   function choose(index: number): void {
-    if (menu === 'slash') run(slash[index])
-    else if (menu === 'mention') menus.insertMention(paths[index])
+    if (menu === 'mention') menus.insertMention(paths[index])
+    else if (menu === 'slash') {
+      const command = slash[index]
+      if (menus.runnable && command.id !== 'skill') run(command)
+      else if (!menus.insertSlash(command)) run(command)
+    }
+  }
+
+  /** Tab. Always writes into the sentence, never runs. */
+  function writeIn(index: number): void {
+    if (menu === 'mention') menus.insertMention(paths[index])
+    else if (menu === 'slash' && !menus.insertSlash(slash[index])) run(slash[index])
   }
 
   const trackCaret = (): void => menus.trackCaret()
@@ -193,6 +205,7 @@
       event.preventDefault()
       if (wanted.kind === 'move') menus.highlight(wanted.to)
       else if (wanted.kind === 'choose') choose(wanted.index)
+      else if (wanted.kind === 'insert') writeIn(wanted.index)
       else {
         // A slash menu clears the word that opened it; a mention keeps what
         // was typed. Escape must not reach the shell and leave INSERT.

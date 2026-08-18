@@ -121,33 +121,79 @@ export function skillEntries(skills: readonly ProjectSkill[]): SlashCommand[] {
 /** Built-ins first, then the project's, in one list. */
 export function allSlash(
   project: readonly ProjectCommand[] = [],
-  { hasThread = true, skills = [] }: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
+  {
+    hasThread = true,
+    skills = [],
+    /** False mid-sentence, where nothing that *runs* belongs. */
+    builtIn = true,
+  }: { hasThread?: boolean; skills?: readonly ProjectSkill[]; builtIn?: boolean } = {},
 ): SlashCommand[] {
-  const built = hasThread ? SLASH_COMMANDS : SLASH_COMMANDS.filter((one) => !NEEDS_THREAD.has(one.id))
+  const offered = builtIn ? SLASH_COMMANDS : []
+  const built = hasThread ? offered : offered.filter((one) => !NEEDS_THREAD.has(one.id))
   // Skills last: they are the longest list by far, and a reader typing `/` is
   // most often reaching for one of the five built-ins.
   return [...built, ...projectEntries(project), ...skillEntries(skills)]
 }
 
-/** The menu is open only while the text is one `/`-word at the very start.
+/** The `/` token the caret is inside, if any. */
+export interface SlashToken {
+  /** Index of the `/` in the text. */
+  start: number
+  /** Index just past the token — the caret. */
+  end: number
+  /** What has been typed after the `/`. */
+  query: string
+  /** Whether this is the whole message so far, rather than a word inside a
+   *  sentence. Only a leading `/` can *run* something: a command mid-sentence
+   *  would throw away the sentence around it. */
+  leading: boolean
+}
+
+/** Finds the `/` token under the caret.
  *
- *  Position 0 on purpose: a message may legitimately contain a path like
- *  `src/lib`, and popping a command menu in the middle of a sentence would
- *  fight the person typing it. A space ends the menu — by then they are writing
- *  prose, not choosing a command. */
-export function slashQuery(text: string): string | null {
-  if (!text.startsWith('/')) return null
+ *  The same rule the `@` picker uses: a `/` at the very start or after
+ *  whitespace. That is what keeps `src/lib` from opening a menu — its slash
+ *  follows a letter — while letting a reader name a skill in the middle of a
+ *  sentence, which is the whole point of naming one inline.
+ *
+ *  A space ends it: by then they are writing prose, not choosing. */
+export function slashAt(text: string, caret: number): SlashToken | null {
+  const before = text.slice(0, caret)
+  const at = before.lastIndexOf('/')
+  if (at === -1) return null
 
-  const rest = text.slice(1)
-  if (/\s/.test(rest)) return null
+  const preceding = at === 0 ? '' : text[at - 1]
+  if (preceding !== '' && !/\s/.test(preceding)) return null
 
-  return rest
+  const query = before.slice(at + 1)
+  if (/\s/.test(query)) return null
+
+  // Leading only when nothing but this token has been typed. `ok /foo` is a
+  // sentence with a skill in it, not a command.
+  return { start: at, end: caret, query, leading: text.slice(0, at).trim() === '' }
+}
+
+/** Writes a skill into the sentence, leaving the caret after it.
+ *
+ *  A trailing space for the reason `applyMention` has one: the next thing
+ *  typed is prose, and without it the picker would reopen on what was just
+ *  inserted. */
+export function applySlash(
+  text: string,
+  token: SlashToken,
+  command: SlashCommand,
+): { text: string; caret: number } {
+  const inserted = `${command.prompt ?? command.name} `
+  return {
+    text: text.slice(0, token.start) + inserted + text.slice(token.end),
+    caret: token.start + inserted.length,
+  }
 }
 
 export function filterSlash(
   query: string,
   project: readonly ProjectCommand[] = [],
-  options: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
+  options: { hasThread?: boolean; skills?: readonly ProjectSkill[]; builtIn?: boolean } = {},
 ): SlashCommand[] {
   return fuzzyFilter(allSlash(project, options), query, (command) => command.name)
 }
@@ -161,8 +207,12 @@ export function resolveSlash(
   project: readonly ProjectCommand[] = [],
   options: { hasThread?: boolean; skills?: readonly ProjectSkill[] } = {},
 ): SlashCommand | null {
-  const query = slashQuery(text.trim())
-  if (query === null) return null
+  const trimmed = text.trim()
+  const token = slashAt(trimmed, trimmed.length)
+  // Only a message that is *nothing but* the command runs it. A sentence with
+  // a skill named in it is a sentence.
+  if (token === null || !token.leading) return null
+  const { query } = token
 
   // `find` over built-ins first is the same rule the menu's order states: a
   // typed `/commit` is the app's, whatever the repository ships.

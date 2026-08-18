@@ -1,32 +1,72 @@
 import { describe, expect, it } from 'vitest'
-import { allSlash, filterSlash, resolveSlash, SLASH_COMMANDS, slashQuery } from './slash'
+import { allSlash, applySlash, filterSlash, resolveSlash, SLASH_COMMANDS, slashAt } from './slash'
 import type { ProjectCommand } from '../../../shared/project-surface'
 
-describe('slashQuery', () => {
-  it('opens on a bare slash', () => {
-    expect(slashQuery('/')).toBe('')
+describe('the `/` token under the caret', () => {
+  const at = (text: string) => slashAt(text, text.length)
+
+  it('opens on a bare slash, and carries what follows it', () => {
+    expect(at('/')?.query).toBe('')
+    expect(at('/com')?.query).toBe('com')
   })
 
-  it('reads the word being typed', () => {
-    expect(slashQuery('/com')).toBe('com')
+  it('says nothing when there is no slash', () => {
+    expect(at('hello')).toBeNull()
   })
 
-  it('stays closed for text that does not start with a slash', () => {
-    expect(slashQuery('hello')).toBeNull()
+  it('ignores a slash inside a word, so a path is not a menu', () => {
+    expect(at('look at src/lib')).toBeNull()
   })
 
-  it('does not open on a path in the middle of a sentence', () => {
-    // Popping a command menu while someone writes `src/lib` would fight them.
-    expect(slashQuery('look at src/lib')).toBeNull()
+  it('ends at a space, because by then they are writing prose', () => {
+    expect(at('/compact the thread')).toBeNull()
+    expect(at('/ ')).toBeNull()
+    expect(at('/compact\nmore')).toBeNull()
   })
 
-  it('closes once a space is typed, because that is prose now', () => {
-    expect(slashQuery('/compact the thread')).toBeNull()
-    expect(slashQuery('/ ')).toBeNull()
+  it('opens mid-sentence, after whitespace', () => {
+    // The whole point: naming a skill inside a sentence rather than instead
+    // of one.
+    const token = at('this is /human')
+    expect(token?.query).toBe('human')
+    expect(token?.start).toBe(8)
+    expect(token?.leading).toBe(false)
   })
 
-  it('closes on a newline too', () => {
-    expect(slashQuery('/compact\nmore')).toBeNull()
+  it('is leading only when nothing else has been typed', () => {
+    expect(at('/com')?.leading).toBe(true)
+    expect(at('  /com')?.leading).toBe(true)
+    expect(at('and /com')?.leading).toBe(false)
+  })
+
+  it('reads the token the caret is in, not the last one in the text', () => {
+    const text = 'one /alpha two /beta'
+    expect(slashAt(text, 9)?.query).toBe('alph')
+  })
+})
+
+describe('writing a skill into a sentence', () => {
+  const SKILL = {
+    id: 'skill' as const,
+    name: '/humanizer',
+    label: 'humanizer',
+    description: '',
+    source: 'global' as const,
+    prompt: '/skill:humanizer',
+  }
+
+  it('replaces the token and leaves the caret past it', () => {
+    const text = 'this is /human and more'
+    const token = slashAt(text, 14)!
+    const next = applySlash(text, token, SKILL)
+
+    expect(next.text).toBe('this is /skill:humanizer  and more')
+    expect(next.text.slice(0, next.caret)).toBe('this is /skill:humanizer ')
+  })
+
+  it('sends what pi expands, not what the menu drew', () => {
+    const next = applySlash('/hum', slashAt('/hum', 4)!, SKILL)
+    expect(next.text.trim()).toBe('/skill:humanizer')
   })
 })
 

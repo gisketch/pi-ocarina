@@ -21,6 +21,10 @@ export type Segment =
    *  chips above the composer is a second place to look and a second thing to
    *  keep in sync with what was typed. */
   | { kind: 'file'; text: string }
+  /** A skill the reader named. `/skill:name` is what main expands before the
+   *  model sees it; the chip is so the sentence reads as the reader meant it
+   *  rather than as pi's syntax. */
+  | { kind: 'skill'; text: string }
 
 /** A mention: an `@` at the start or after whitespace, whose text has the
  *  shape of a path.
@@ -29,6 +33,24 @@ export type Segment =
  *  after an `@`, so `@alice` was a chip while it was typed and plain text the
  *  moment it was sent. One rule, one appearance. */
 const MENTION = /(^|\s)(@[^\s@]*[./][^\s]*)/g
+
+/** A skill reference: `/skill:name` at the start or after whitespace, which is
+ *  the rule the picker opens on and the rule main expands on. All three agree
+ *  by sharing the shape. */
+const SKILL = /(^|\s)(\/skill:[A-Za-z0-9._-]+)/g
+
+function skillSpans(text: string): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = []
+  SKILL.lastIndex = 0
+
+  for (;;) {
+    const match = SKILL.exec(text)
+    if (!match) break
+    const start = match.index + match[1].length
+    spans.push({ start, end: start + match[2].length })
+  }
+  return spans
+}
 
 /** Where each fold's token sits in the text. */
 function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: number }[] {
@@ -58,7 +80,12 @@ function fileSpans(text: string, files: readonly string[]): { start: number; end
     for (;;) {
       const at = text.indexOf(name, from)
       if (at === -1) break
-      spans.push({ start: at, end: at + name.length })
+      // The space in front comes with it. A file name has no sigil of its own
+      // — no `@`, no `[` — so the space is the only character the chip can
+      // give up to its mark, and the mark has to replace a character because
+      // the mirror may not occupy space.
+      const lead = at > 0 && text[at - 1] === ' ' ? 1 : 0
+      spans.push({ start: at - lead, end: at + name.length })
       from = at + name.length
     }
   }
@@ -88,10 +115,11 @@ export function segment(
   folds: readonly Fold[] = [],
   files: readonly string[] = [],
 ): Segment[] {
-  const marks: { start: number; end: number; kind: 'mention' | 'fold' | 'file' }[] = [
+  const marks: { start: number; end: number; kind: 'mention' | 'fold' | 'file' | 'skill' }[] = [
     ...foldSpans(text, folds).map((span) => ({ ...span, kind: 'fold' as const })),
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
     ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
+    ...skillSpans(text).map((span) => ({ ...span, kind: 'skill' as const })),
   ].sort((a, b) => a.start - b.start)
 
   const segments: Segment[] = []
