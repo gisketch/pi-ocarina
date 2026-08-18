@@ -3,9 +3,11 @@
   import { groupNavId } from '$lib/blocks'
   import { toolIcon } from '$lib/icons'
   import { navTarget } from '$lib/state/block-focus.svelte'
+  import { blockMenu } from '$lib/state/block-menu.svelte'
+  import BlockMenu from './BlockMenu.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import Icon from '../Icon.svelte'
-  import type { RowGroup } from '$lib/ledger-groups'
+  import { countedAs, type RowGroup } from '$lib/ledger-groups'
   import type { ToolRow } from '$lib/thread'
 
   /** A run of similar calls, as one row.
@@ -34,6 +36,10 @@
   // goes in it are one thing.
   const navId = $derived(groupNavId(blockId, group))
 
+  const menuOn = $derived(
+    blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navId,
+  )
+
   // A live group draws open whatever the reader last chose: while a sweep is
   // running, the call in flight is the one thing they cannot be asked to
   // expand for. It collapses to its summary when the run ends.
@@ -45,15 +51,21 @@
   class:live={group.live}
   class:dim={dimmed && focusedNav !== navId}
   class:lit={focusedNav === navId}
+  class:hosting={menuOn}
   use:navTarget={{ threadId, navId }}
 >
+  {#if menuOn}
+    <!-- A group is a stop, so `a` opens the menu on it — and without this the
+         menu was open with nothing on screen to show for it. -->
+    <BlockMenu />
+  {/if}
   <span class="node" class:pulse={group.live}><Icon name={toolIcon(group.tool)} /></span>
   <button class="row" onclick={() => toolOpen.toggle(threadId, navId, false)}>
     <!-- The bare kind, never a tense. A group is a category of call, not one
          call that happened: `edited 2 calls` claims a single edit and reads as
          a grammatical mistake beside `read 4 calls`. -->
     <span class="kind">{group.tool}</span>
-    <span class="count">{group.rows.length} {group.rows.length === 1 ? 'call' : 'calls'}</span>
+    <span class="count">{countedAs(group.tool, group.rows.length)}</span>
     <span class="preview">{group.preview}</span>
     <span class="meta">
       {#each metaSegments(group.meta) as segment, i (i)}<span class={segment.tone ?? ''}
@@ -75,6 +87,11 @@
   .group {
     position: relative;
     contain: layout style;
+  }
+  /* Containment would slice the menu off at the row's own height. */
+  .group.hosting {
+    contain: none;
+    z-index: 5;
   }
   /* Centred on the ledger's spine, the same way a row's node is. */
   .node {

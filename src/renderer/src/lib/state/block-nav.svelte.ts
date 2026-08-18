@@ -117,7 +117,16 @@ class BlockNav {
     if (navId === null) return
 
     const block = this.#list(threadId).find((entry) => entry.id === navId)
-    if (!block || block.rowId === undefined) return
+    if (!block) return
+
+    // A reasoning block is expandable and is not a tool row, so it has no
+    // `rowId` — without this `l` on the focused thought did nothing at all.
+    if (block.kind === 'reasoning') {
+      reasoningOpen.set(threadId, navId, open)
+      if (open) revealBlock(threadId, navId)
+      return
+    }
+    if (block.rowId === undefined) return
 
     toolOpen.set(threadId, navId, open)
     // Opening a body makes the block taller, and the ring should not be pushed

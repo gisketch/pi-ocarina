@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte'
+
   interface Props {
     text: string
     /** Absent until C3 wires cancellation. */
@@ -15,7 +17,7 @@
     sends after step
     {#if oncancel}
       · <button type="button" class="cancel" onclick={oncancel} aria-label="cancel queued message"
-        >✕</button
+         ><Icon name="close" /></button
       >
     {/if}
   </span>

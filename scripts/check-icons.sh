@@ -16,9 +16,12 @@ cd "$(dirname "$0")/.."
 
 # Alternation, not a bracket class: a character class of multibyte glyphs
 # matches byte-wise under some locales and flagged every em dash in the repo.
-BANNED='▸|▾|▤|⑂|↗|▣|□|✗|✓'
+# Arrows are not here on purpose: `42% → 18%` is a sentence about two numbers,
+# and `↑1` in a git summary is a notation the status bar renders as text.
+BANNED='▸|▾|▤|⑂|↗|▣|□|✗|✓|✕|✔|●|○|▪'
 
-hits=$(grep -rnE "$BANNED" src/renderer/src/components --include='*.svelte' 2>/dev/null \
+# Every component, at any depth — a glyph is a glyph wherever it is written.
+hits=$(grep -rnE "$BANNED" src/renderer/src --include='*.svelte' 2>/dev/null \
   | grep -vE '^\s*[^:]+:[0-9]+: *(\*|//|/\*)' \
   || true)
 

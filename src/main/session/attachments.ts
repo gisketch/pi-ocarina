@@ -74,22 +74,38 @@ export function describeAttachments(attachments: readonly AttachmentRef[]): stri
  *  Paths are not recovered as paths. A replayed chip names the file; whether
  *  that file is still there is not something a session log can promise. */
 export function splitAttachments(prompt: string): { text: string; names: string[] } {
-  const at = prompt.search(/\n\n(Images attached: |Attached files \(read them if relevant\):\n)/)
-  if (at === -1) return { text: prompt, names: [] }
+  const IMAGES = 'Images attached: '
+  const FILES = 'Attached files (read them if relevant):\n'
+
+  const parts = prompt.split('\n\n')
+  // Walk back from the end while the paragraphs are ours. The description is
+  // always the *tail* of the prompt and may be two paragraphs long, so neither
+  // the first match nor the last one is the boundary — the start of the run
+  // is. A reader who writes "Images attached:" in the middle of their own
+  // message keeps it, because their sentence is not at the end.
+  let from = parts.length
+  while (from > 0) {
+    const part = parts[from - 1]
+    if (!part.startsWith(IMAGES) && !part.startsWith(FILES)) break
+    from -= 1
+  }
+  if (from === parts.length) return { text: prompt, names: [] }
 
   const names: string[] = []
-  for (const part of prompt.slice(at).trim().split('\n\n')) {
-    if (part.startsWith('Images attached: ')) {
-      names.push(...part.slice('Images attached: '.length).split(', '))
+  for (const part of parts.slice(from)) {
+    if (part.startsWith(IMAGES)) {
+      names.push(...part.slice(IMAGES.length).split(', '))
       continue
     }
-    if (part.startsWith('Attached files (read them if relevant):\n')) {
-      for (const line of part.split('\n').slice(1)) {
-        const name = line.slice(line.lastIndexOf('/') + 1)
-        if (name !== '') names.push(name)
-      }
+    for (const line of part.split('\n').slice(1)) {
+      const name = line.slice(line.lastIndexOf('/') + 1)
+      if (name !== '') names.push(name)
     }
   }
 
-  return { text: prompt.slice(0, at), names: names.filter((name) => name !== '') }
+  return {
+    text: parts.slice(0, from).join('\n\n'),
+    names: names.map((name) => name.trim()).filter((name) => name !== ''),
+  }
 }
+

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Titlebar from './components/Titlebar.svelte'
+  import Icon from './components/Icon.svelte'
   import Statusbar from './components/Statusbar.svelte'
   import Rail from './components/Rail.svelte'
   import Strip from './components/strip/Strip.svelte'
@@ -182,7 +183,9 @@
   </div>
 
   {#if attachments.dragging}
-    <div class="dropzone">▤ drop files to attach — images go to the model, others are named for it</div>
+    <div class="dropzone">
+      <Icon name="file" /> drop files to attach — images go to the model, others are named for it
+    </div>
   {/if}
 
   <Toasts onview={(jump) => void jumpTo(jump.workspaceId, jump.threadId, jump.title)} />

@@ -24,6 +24,8 @@ class PreferencesState {
    *  reader can pick rather than a gap. */
   defaultModel = $state<ModelChoice | undefined>(undefined)
   defaultReasoning = $state<ReasoningLevel | undefined>(undefined)
+  /** Whether the transcript draws what the model thought. `o` flips it. */
+  showReasoning = $state(DEFAULT_PREFERENCES.showReasoning)
 
   /** The stored shape, for writing back. */
   get stored(): Preferences {
@@ -32,6 +34,7 @@ class PreferencesState {
       motion: this.motion,
       leaderTimeoutMs: this.leaderTimeoutMs,
       defaultPermission: this.defaultPermission,
+      showReasoning: this.showReasoning,
       ...(this.defaultModel ? { defaultModel: this.defaultModel } : {}),
       ...(this.defaultReasoning ? { defaultReasoning: this.defaultReasoning } : {}),
     }
@@ -44,6 +47,7 @@ class PreferencesState {
     this.defaultPermission = preferences.defaultPermission
     this.defaultModel = preferences.defaultModel
     this.defaultReasoning = preferences.defaultReasoning
+    this.showReasoning = preferences.showReasoning
   }
 
   /** The label the settings row shows for the default model. */

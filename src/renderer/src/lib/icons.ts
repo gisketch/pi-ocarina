@@ -42,7 +42,6 @@ import fileMedia from '@vscode/codicons/src/icons/file-media.svg?raw'
 import gitBranch from '@vscode/codicons/src/icons/git-branch.svg?raw'
 import linkExternal from '@vscode/codicons/src/icons/link-external.svg?raw'
 import arrowDown from '@vscode/codicons/src/icons/arrow-down.svg?raw'
-import circleFilled from '@vscode/codicons/src/icons/circle-filled.svg?raw'
 import warning from '@vscode/codicons/src/icons/warning.svg?raw'
 import info from '@vscode/codicons/src/icons/info.svg?raw'
 // One per tool kind: a row's node says what kind of thing happened, which a
@@ -60,7 +59,6 @@ import tools from '@vscode/codicons/src/icons/tools.svg?raw'
 import sparkle from '@vscode/codicons/src/icons/sparkle.svg?raw'
 // Phosphor, for the gap named at `box` below.
 import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
-import squareChecked from '@phosphor-icons/core/assets/fill/check-square-fill.svg?raw'
 import squareFilled from '@phosphor-icons/core/assets/fill/square-fill.svg?raw'
 
 /** Named for what it means here, not for what the pack calls it. A rename in
@@ -85,8 +83,6 @@ export const ICONS = {
    *  weight than a Codicon circle did anyway. */
   box: square,
   'box-done': squareFilled,
-  'box-checked': squareChecked,
-  dot: circleFilled,
 
   // The tool kinds. Named `tool-*` so a glance at a component says which
   // vocabulary an icon came from, and so the map below cannot silently pick

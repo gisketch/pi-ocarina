@@ -192,9 +192,13 @@ export function lspTools(deps: LspToolDeps) {
       async ({ path, symbol }: Static<typeof AT>) =>
         at(deps, path, symbol, async (client, position, file) => {
           const found = await client.definition(file, position)
+          // The *place*, not a count of places. "1 definition" is a fact the
+          // reader already assumed; `worker.ts:12` is the answer they asked
+          // for, and the mockup puts it in the row.
+          const at = found.length === 1 ? where(found[0], deps.cwd) : null
           return said(
             listLocations(found, deps.cwd, 'definitions'),
-            countPlaces(found, deps.cwd, 'definition'),
+            at ?? countPlaces(found, deps.cwd, 'definition'),
           )
         }) as Promise<Said>,
     ),

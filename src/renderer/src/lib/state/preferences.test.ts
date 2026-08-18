@@ -54,11 +54,18 @@ describe('what gets stored', () => {
       motion: true,
       leaderTimeoutMs: DEFAULT_PREFERENCES.leaderTimeoutMs,
       defaultPermission: DEFAULT_PREFERENCES.defaultPermission,
+      showReasoning: true,
     })
   })
 
   it('round-trips through apply', () => {
-    const saved = { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask' as const }
+    const saved = {
+      grain: false,
+      motion: false,
+      leaderTimeoutMs: 1800,
+      defaultPermission: 'ask' as const,
+      showReasoning: false,
+    }
     preferences.apply(saved)
 
     expect(preferences.stored).toEqual(saved)

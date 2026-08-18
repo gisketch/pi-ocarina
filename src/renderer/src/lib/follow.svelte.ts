@@ -16,6 +16,11 @@
  *  break the pin for no reason a reader could see. */
 export const BOTTOM_SLACK = 48
 
+/** How many intermediate positions a jump may pass through before this stops
+ *  treating them as its own. Generous — a smooth scroll is a handful of frames
+ *  — and finite, which is the point. */
+export const SETTLING_FRAMES = 30
+
 export interface ScrollPosition {
   /** How far down the reader has scrolled. */
   top: number
@@ -42,11 +47,22 @@ export class Follow {
    *  here and there; without this the first frame of a jump reads as a scroll
    *  up and pauses the follow the jump was asking for. */
   #settling = false
+  /** Positions seen since the jump began, so a jump that never lands gives up
+   *  rather than swallowing the reader's scroll for the rest of the session. */
+  #crossed = 0
 
   /** The reader moved the view. */
   scrolled(at: ScrollPosition): void {
-    if (this.#settling && !atBottom(at)) return
+    if (this.#settling && !atBottom(at)) {
+      // A jump that never lands — the reader grabbed the scrollbar, or new
+      // content grew the column mid-animation — would otherwise leave this set
+      // forever, and every scroll after it would be ignored. A few frames is
+      // all a jump is allowed.
+      this.#crossed += 1
+      if (this.#crossed <= SETTLING_FRAMES) return
+    }
     this.#settling = false
+    this.#crossed = 0
 
     if (atBottom(at)) {
       // Back at the bottom under their own power: re-arm silently. Making them
@@ -70,6 +86,7 @@ export class Follow {
     this.following = true
     this.unseen = 0
     this.#settling = true
+    this.#crossed = 0
   }
 
   /** Whether the affordance is drawn.

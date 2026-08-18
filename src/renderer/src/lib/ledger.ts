@@ -27,6 +27,11 @@ export function labelTone(row: ToolRow): Tone {
   if (row.status === 'running') return 'accent'
   if (row.status === 'fail' || row.status === 'denied') return 'err'
   if (row.status === 'ok' && (row.kind === 'write' || row.kind === 'edit')) return 'accent'
+  // A diagnostics call that found errors *succeeded* — the tool did its job —
+  // so its status says nothing about what it found. The mockup colours the
+  // gutter word, which is the one part of the row that is not already
+  // carrying the count.
+  if (row.kind === 'lsp' && /\d+ errors?\b/.test(row.meta ?? '')) return 'err'
   return 'muted'
 }
 

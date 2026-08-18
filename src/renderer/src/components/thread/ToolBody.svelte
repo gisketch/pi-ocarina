@@ -47,7 +47,7 @@
   <div class="panel terminal" class:error={body.tone === 'error'}>{#each body.lines as line, i (i)}<div class={line.tone ?? ''}>{line.text}</div>{/each}</div>
 {:else if body.type === 'image'}
   <div class="panel picture">
-    <Picture src={body.src} alt={body.alt} caption={body.caption ?? ''} />
+    <Picture src={body.src} alt={body.alt} caption={body.caption ?? ''} note="what pi saw" />
   </div>
 {:else if body.type === 'markdown'}
   <div class="panel prose"><Prose text={body.text} /></div>

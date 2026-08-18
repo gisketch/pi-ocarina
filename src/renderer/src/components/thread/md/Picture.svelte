@@ -12,7 +12,11 @@
     src,
     alt = '',
     caption = '',
-  }: { src: string; alt?: string; caption?: string } = $props()
+    /** What this picture *is* to the reader, when that is worth saying. The
+     *  ledger's read rows pass "what pi saw", because a picture under a tool
+     *  call is otherwise just a picture. */
+    note = '',
+  }: { src: string; alt?: string; caption?: string; note?: string } = $props()
 
   let failed = $state(false)
 </script>
@@ -27,7 +31,7 @@
     {#if caption}
       <!-- What pi saw, and how big it was. Under the picture rather than in
            the row: the row is a line and this is about the picture. -->
-      <figcaption>{caption}</figcaption>
+      <figcaption>{caption}{note ? ` · ${note}` : ''}</figcaption>
     {/if}
   </figure>
 {/if}

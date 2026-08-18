@@ -67,12 +67,22 @@ function jpeg(bytes: Buffer): Size | null {
   let at = 2
   while (at + 9 < bytes.length) {
     if (bytes[at] !== 0xff) return null
-    const marker = bytes[at + 1]
+    // A marker may be padded with any number of 0xff fill bytes before its
+    // code. Real encoders emit them, and refusing meant giving up on files
+    // that are perfectly valid.
+    let code = at + 1
+    while (code < bytes.length && bytes[code] === 0xff) code += 1
+    if (code + 3 >= bytes.length) return null
+    at = code - 1
+    const marker = bytes[code]
     // Standalone markers carry no length.
     if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
       at += 2
       continue
     }
+    // 0xff00 is a stuffed byte inside entropy-coded data, not a marker; if the
+    // walk reaches one the chain is not what this thinks it is.
+    if (marker === 0x00) return null
     const length = bytes.readUInt16BE(at + 2)
     // SOF0–SOF15, minus the two that are not frame headers.
     if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {

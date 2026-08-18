@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte'
+
   /** The way back to the live end of a thread.
    *
    *  Drawn only while the reader is paused *and* something has landed below
@@ -14,7 +16,7 @@
 </script>
 
 <button type="button" class="pill" onclick={onjump}>
-  <span class="count">↓ {unseen} new</span>
+  <span class="count"><Icon name="down" />{unseen} new</span>
   jump to latest
   <span class="key">G</span>
 </button>
@@ -44,6 +46,9 @@
     border-color: var(--accent);
   }
   .count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     color: var(--accent);
   }
   .key {

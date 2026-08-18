@@ -188,7 +188,7 @@ describe('writeCatalog', () => {
       roles: [{ id: 'r1', name: 'scout', instructions: 'look', tools: ['read'] }],
       namePool: ['zeus'],
       seeded: true,
-      preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask' },
+      preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask', showReasoning: true },
     }
 
     await writeCatalog(file, state)
@@ -224,13 +224,13 @@ describe('parsePreferences', () => {
         grain: false,
         motion: false,
         leaderTimeoutMs: 1200,
-        defaultPermission: 'ask',
+        defaultPermission: 'ask', showReasoning: true,
       }),
     ).toEqual({
       grain: false,
       motion: false,
       leaderTimeoutMs: 1200,
-      defaultPermission: 'ask',
+      defaultPermission: 'ask', showReasoning: true,
     })
   })
 

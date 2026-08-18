@@ -23,6 +23,24 @@ const GROUPABLE: ReadonlySet<ToolKind> = new Set<ToolKind>(['read', 'grep', 'lsp
 /** How many targets a summary names before it counts the rest. */
 export const NAMED_TARGETS = 3
 
+/** What a kind's calls are *of*, so a summary reads as English.
+ *
+ *  The mockup says `read · 4 files`, not `4 calls`: a reader knows what four
+ *  reads act on, and the word that says it costs nothing. Anything not named
+ *  here counts calls, which is always true if never as good. */
+const COUNTED: Readonly<Record<string, string>> = {
+  read: 'file',
+  edit: 'file',
+  write: 'file',
+  grep: 'search',
+  lsp: 'lookup',
+}
+
+export function countedAs(kind: string, n: number): string {
+  const noun = COUNTED[kind] ?? 'call'
+  return `${n} ${noun}${n === 1 ? '' : 's'}`
+}
+
 export interface RowGroup {
   kind: 'group'
   /** Stable across a run's growth: the first member's id. Expansion state is
@@ -50,6 +68,10 @@ export type LedgerItem = { kind: 'row'; row: ToolRow } | RowGroup
 function joinable(row: ToolRow): boolean {
   if (!GROUPABLE.has(row.kind)) return false
   if (row.status !== 'ok' && row.status !== 'running') return false
+  // A call the reader had to approve is already separated: the approve card is
+  // its own block, and a block boundary ends the ledger the run was in. There
+  // is no `approved` flag on a row to check here, and inventing one to
+  // re-separate what is already separate would be protocol for nothing.
   // A subagent's own rows nest under it; a group of nested rows would have to
   // own that nesting too, and the agent row above already summarizes them.
   return (row.children ?? []).length === 0
@@ -106,10 +128,11 @@ function groupOf(rows: ToolRow[]): RowGroup {
     rows,
     preview: previewOf(rows),
     meta: metaOf(rows),
-    // A run whose last member is still running has not finished, so the group
-    // is live and draws open — the reader can always see what is happening
-    // now without expanding anything.
-    live: rows[rows.length - 1].status === 'running',
+    // *Any* member still running, not merely the newest. Tools run in
+    // parallel — pi's lsp tools are declared `parallel` — so a run can settle
+    // its last call while an earlier one is still in flight, and a group that
+    // collapsed then would hide the only call still happening.
+    live: rows.some((row) => row.status === 'running'),
   }
 }
 

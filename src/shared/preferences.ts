@@ -26,6 +26,10 @@ export interface Preferences {
   defaultModel?: ModelChoice
   /** How hard a new thread thinks. Absent means the model's own default. */
   defaultReasoning?: ReasoningLevel
+  /** Whether the transcript draws what the model thought. `o` flips it, and
+   *  it is remembered: a reader who does not want to watch the model think
+   *  does not want to say so again every time the app starts. */
+  showReasoning: boolean
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
@@ -33,6 +37,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   motion: true,
   leaderTimeoutMs: 2600,
   defaultPermission: DEFAULT_PERMISSION,
+  showReasoning: true,
 }
 
 function parseModel(value: unknown): ModelChoice | undefined {
@@ -68,6 +73,7 @@ export function parsePreferences(value: unknown): Preferences {
     grain: flag('grain', DEFAULT_PREFERENCES.grain),
     motion: flag('motion', DEFAULT_PREFERENCES.motion),
     leaderTimeoutMs: timeout,
+    showReasoning: flag('showReasoning', DEFAULT_PREFERENCES.showReasoning),
     // A level we cannot read is the default, never the most trusting one: a
     // corrupt file must not be a way to reach `full`.
     defaultPermission: isPermissionLevel(record.defaultPermission)

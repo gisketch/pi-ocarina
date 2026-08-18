@@ -37,6 +37,30 @@ export function imageMime(path: string): string | null {
 const kb = (bytes: number): string =>
   bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)}MB` : `${Math.round(bytes / 1024)}KB`
 
+/** A file as a data URI, when it is an image small enough to draw.
+ *
+ *  The renderer cannot show `file://` — the app's CSP is `img-src 'self'
+ *  data:`, which is what keeps a message from reaching the disk by writing an
+ *  `<img>` tag — so a picture the reader staged has to arrive as bytes like
+ *  every other one.
+ *
+ *  No containment check here: the caller decides whose path this is. A tool
+ *  result's path is the model's and is checked against the workspace; an
+ *  attachment's path is one this app staged or the reader chose in a dialog. */
+export async function readImageUri(path: string): Promise<string | null> {
+  const mime = imageMime(path)
+  if (!mime) return null
+
+  try {
+    const info = await stat(path)
+    if (!info.isFile() || info.size > MAX_DRAWN_BYTES) return null
+    const bytes = await readFile(path)
+    return `data:${mime};base64,${bytes.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 /** The body for a `read` of an image, or null when it was not one. */
 export async function imageBody(
   toolName: string,

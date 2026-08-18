@@ -8,9 +8,9 @@
  *  — it is a preference about how the reader likes to read, and having it
  *  differ per thread would mean answering it again in every column. */
 
+import { preferences } from './preferences.svelte'
+
 class ReasoningOpen {
-  /** Whether reasoning rows are drawn at all. `o` flips this. */
-  shown = $state(true)
   /** What a block does when nobody has said otherwise. */
   byDefault = $state(false)
   #chosen = $state<Record<string, Record<string, boolean>>>({})
@@ -19,10 +19,23 @@ class ReasoningOpen {
     return this.#chosen[threadId]?.[id] ?? this.byDefault
   }
 
-  toggle(threadId: string, id: string): void {
+  set(threadId: string, id: string, open: boolean): void {
     const forThread = this.#chosen[threadId] ?? {}
-    const next = !this.isOpen(threadId, id)
-    this.#chosen = { ...this.#chosen, [threadId]: { ...forThread, [id]: next } }
+    if (forThread[id] === open) return
+    this.#chosen = { ...this.#chosen, [threadId]: { ...forThread, [id]: open } }
+  }
+
+  toggle(threadId: string, id: string): void {
+    this.set(threadId, id, !this.isOpen(threadId, id))
+  }
+
+  /** Whether reasoning rows are drawn at all.
+   *
+   *  Kept in preferences rather than here, because it is remembered: a reader
+   *  who does not want to watch the model think should not have to say so
+   *  again every time the app starts. */
+  get shown(): boolean {
+    return preferences.showReasoning
   }
 
   /** `o`. Shows or hides every reasoning row in the app.
@@ -31,7 +44,7 @@ class ReasoningOpen {
    *  thought does not want a row per thought either, and a key that only
    *  collapsed them would leave the transcript exactly as cluttered. */
   toggleAll(): void {
-    this.shown = !this.shown
+    preferences.showReasoning = !preferences.showReasoning
   }
 
   forget(threadId: string): void {

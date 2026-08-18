@@ -14,7 +14,10 @@
 
 {#if attachments.length > 0}
   <div class="row">
-    {#each attachments as attachment (attachment.name)}
+    <!-- Keyed by position: two files can share a name — one from each of two
+         folders — and a duplicate key throws, which takes every update queued
+         behind it with it. -->
+    {#each attachments as attachment, i (`${i}:${attachment.name}`)}
       <button type="button" class="chip" onclick={() => onopen(attachment.name)}>
         <Icon name={(attachment.mime ?? '').startsWith('image/') ? 'image' : 'file'} />
         {attachment.name}

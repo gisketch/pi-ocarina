@@ -1,6 +1,6 @@
 import type { SessionEntry } from '@earendil-works/pi-coding-agent'
 import type { UiEvent } from '../../shared/protocol'
-import { joinTextParts, toolBody, toolKind, toolTarget } from './pi-translate'
+import { joinTextParts, lspMeta, toolBody, toolDetail, toolKind, toolTarget } from './pi-translate'
 import { answerFromResult, askFromCall, ASK_TOOL, endedUnanswered } from './ask-replay'
 import { agentsFromResult, rowsFromResult, SPAWN_TOOL } from './spawn-replay'
 import { splitAttachments } from './attachments'
@@ -113,7 +113,17 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
 
       const body = spawned.has(id) ? undefined : toolBody(message.toolName ?? '', message)
       if (body) events.push({ kind: 'tool-body', id, body })
-      events.push({ kind: 'tool-end', id, status: message.isError ? 'fail' : 'ok' })
+      events.push({
+        kind: 'tool-end',
+        id,
+        status: message.isError ? 'fail' : 'ok',
+        // The counts a language-server call put in `details` survive in the
+        // log, so a reopened row says `6 refs · 3 files` the way the live one
+        // did rather than falling silent.
+        ...(lspMeta(message.toolName ?? '', message)
+          ? { meta: lspMeta(message.toolName ?? '', message) }
+          : {}),
+      })
       continue
     }
 
@@ -132,9 +142,9 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
 
       // Thinking is stored as its own part, so a reopened thread shows the
       // same reasoning block a live one did. No duration: what the log keeps
-      // is the thought, not how long it took to have it.
-      // A redacted thought carries an opaque payload and no readable text;
-      // `thinking` is empty, so the truthiness check is also the guard.
+      // is the thought, not how long it took to have it. A redacted thought
+      // carries an opaque payload and no readable text — `thinking` is empty,
+      // so the truthiness check is also the guard.
       if (content.type === 'thinking' && content.thinking) {
         messages += 1
         const id = `replay-think-${messages}`
@@ -176,10 +186,12 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
           id: content.id,
           tool: toolKind(content.name ?? ''),
           target: toolTarget(content.name ?? '', content.arguments),
+          // Without this a reopened lsp row reads `lsp · withRetry` and loses
+          // the one word that says what was asked about it.
+          ...(toolDetail(content.name ?? '') ? { detail: toolDetail(content.name ?? '') } : {}),
         })
       }
 
-      // Thinking is dropped, exactly as it is live.
     }
   }
 

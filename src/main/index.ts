@@ -7,6 +7,7 @@ import { registerGit } from './git'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
 import { PiDriver } from './session/pi-driver'
 import { registerSession } from './session'
+import { readImageUri } from './session/tool-image'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -117,6 +118,11 @@ function registerDialogs(): void {
    *  Only a real path, and never a URL: this exists so the reader can look at a
    *  screenshot they pasted, not so anything on screen can make the app open
    *  something. */
+  ipcMain.handle('files:image', async (_event, path: unknown) => {
+    if (typeof path !== 'string' || path === '') return null
+    return readImageUri(path)
+  })
+
   ipcMain.handle('files:open', async (_event, path: unknown) => {
     if (typeof path !== 'string' || path === '') return
     await shell.openPath(path)

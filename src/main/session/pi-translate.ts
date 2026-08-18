@@ -22,6 +22,12 @@ export class PiTranslator {
   /** When the current thought started, for the duration the block shows. Null
    *  when the model is not thinking. */
   #thinkingAt: number | null = null
+  /** The block the current thought is filling, or null between thoughts. */
+  #thinking: string | null = null
+
+  #thinkId(contentIndex: number): string {
+    return `${this.#messageId}-think-${contentIndex}`
+  }
   #compactions = 0
   #outcome: 'ok' | 'failed' | 'aborted' = 'ok'
   /** Calls that started and have not reported an end. pi sends nothing for a
@@ -99,19 +105,26 @@ export class PiTranslator {
         // Thinking arrives as its own deltas, so the transcript can show where
         // the model's head is while it is still there rather than a spinner
         // and then a wall of it.
+        // Keyed on the *content index*, not on the message. A model can think
+        // twice in one assistant message — think, call a tool, think again —
+        // and one id for both meant two blocks with the same key, which is a
+        // list Svelte cannot tell apart and a second thought appended to the
+        // first.
         if (delta.type === 'thinking_start') {
           this.#thinkingAt = Date.now()
-          return [{ kind: 'reasoning-start', id: `${this.#messageId}-think` }]
+          this.#thinking = this.#thinkId(delta.contentIndex)
+          return [{ kind: 'reasoning-start', id: this.#thinking }]
         }
         if (delta.type === 'thinking_delta') {
-          return [
-            { kind: 'reasoning-delta', id: `${this.#messageId}-think`, text: delta.delta },
-          ]
+          const id = this.#thinking ?? this.#thinkId(delta.contentIndex)
+          return [{ kind: 'reasoning-delta', id, text: delta.delta }]
         }
         if (delta.type === 'thinking_end') {
           const ms = this.#thinkingAt === null ? 0 : Date.now() - this.#thinkingAt
+          const id = this.#thinking ?? this.#thinkId(delta.contentIndex)
           this.#thinkingAt = null
-          return [{ kind: 'reasoning-end', id: `${this.#messageId}-think`, ms }]
+          this.#thinking = null
+          return [{ kind: 'reasoning-end', id, ms }]
         }
 
         if (delta.type !== 'text_delta') return []
@@ -122,13 +135,14 @@ export class PiTranslator {
         const events: UiEvent[] = []
         // A turn cut short mid-thought never sends `thinking_end`. Closing it
         // here is what stops a reasoning block streaming forever.
-        if (this.#messageId && this.#thinkingAt !== null) {
+        if (this.#thinking !== null && this.#thinkingAt !== null) {
           events.push({
             kind: 'reasoning-end',
-            id: `${this.#messageId}-think`,
+            id: this.#thinking,
             ms: Date.now() - this.#thinkingAt,
           })
           this.#thinkingAt = null
+          this.#thinking = null
         }
         if (this.#messageId) {
           events.push({ kind: 'agent-message-end', id: this.#messageId })

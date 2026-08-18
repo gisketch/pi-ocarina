@@ -38,6 +38,11 @@ const api = {
      *  reads it; main does, and only for a path the app wrote or the reader
      *  chose. */
     open: (path: string): Promise<void> => ipcRenderer.invoke('files:open', path),
+    /** An image as a data URI, or null when it is not one, is too large, or is
+     *  gone. The renderer still opens nothing: it asks for a picture and main
+     *  decides whether there is one to give. Needed because the app's CSP
+     *  forbids `file://` in an `<img>`, deliberately. */
+    image: (path: string): Promise<string | null> => ipcRenderer.invoke('files:image', path),
   },
   dialog: {
     /** Native folder picker; null when the user cancels. The renderer never
