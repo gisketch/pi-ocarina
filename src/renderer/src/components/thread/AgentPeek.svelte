@@ -92,7 +92,6 @@
     gap: 6px;
     padding: 10px 12px;
     background: var(--bg-panel);
-    border: 1px solid var(--line-strong);
     font-size: 11.5px;
     color: var(--fg-body);
   }
@@ -142,9 +141,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    border-top: 1px solid var(--line-mid);
-    border-bottom: 1px solid var(--line-mid);
-    padding: 6px 0;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 8px;
+    margin: 2px 0;
   }
   .call {
     display: flex;

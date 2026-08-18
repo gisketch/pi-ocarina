@@ -128,8 +128,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    padding: 5px 7px;
-    border: 1px solid transparent;
+    padding: 6px 8px;
     background: transparent;
     font: inherit;
     font-size: 11.5px;
@@ -141,16 +140,14 @@
     background: var(--bg-hover);
   }
   /* Where the cursor is, and what has been picked, are two different facts and
-     read as two different marks. The cursor gets a tint as well as an outline:
-     a 1px line the same colour as the card's own rules was easy to lose, and
-     the row a reader is standing on is the one thing on this card they must
-     never have to hunt for. */
+     read as two different marks. The cursor is the accent-tinted row — the one
+     thing on this card the reader must never have to hunt for; what was picked
+     is said by its own mark and by brighter text. */
   .option.on {
-    border-color: oklch(0.76 0.14 var(--accent-hue) / 0.34);
-    background: var(--accent-soft);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.2);
   }
   .option.on:hover {
-    background: var(--accent-soft);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.2);
   }
   .option.picked {
     color: var(--fg-bright);
@@ -183,21 +180,22 @@
     display: block;
     width: 100%;
     margin-top: 8px;
-    padding: 6px 9px;
-    border: 1px solid var(--line-strong);
-    background: transparent;
+    padding: 7px 10px;
+    border: none;
+    background: rgba(255, 255, 255, 0.05);
     font: inherit;
     font-size: 11.5px;
     color: var(--fg-bright);
   }
   .field:focus {
     outline: none;
-    border-color: var(--accent-soft);
+    background: var(--accent-soft);
   }
   .field.inline {
     margin-top: 2px;
     padding: 2px 0;
     border: none;
+    background: none;
     font-size: 10.5px;
     color: var(--fg-dimmer);
   }

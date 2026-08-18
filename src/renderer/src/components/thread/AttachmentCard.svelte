@@ -64,8 +64,7 @@
 
 <style>
   .card {
-    border: 1px solid var(--line-soft, rgb(255 255 255 / 0.06));
-    background: var(--bg-sunk, #0a0a0c);
+    background: var(--bg-deep);
     margin: 6px 0;
     max-width: 520px;
   }
@@ -81,7 +80,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-top: 1px solid var(--line-soft, rgb(255 255 255 / 0.04));
+    background: rgba(255, 255, 255, 0.03);
     font-family: var(--font-chrome);
     font-size: 10px;
     color: var(--fg-dimmest);

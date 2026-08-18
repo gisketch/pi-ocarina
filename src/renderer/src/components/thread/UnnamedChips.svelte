@@ -39,13 +39,12 @@
     gap: 5px;
     font: inherit;
     font-size: 11.5px;
-    padding: 1px 7px;
-    border: 1px solid var(--line-mid);
-    background: var(--bg-chip);
+    padding: 2px 8px;
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
     color: var(--accent);
     cursor: pointer;
   }
   .chip:hover {
-    border-color: var(--accent-soft);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.24);
   }
 </style>

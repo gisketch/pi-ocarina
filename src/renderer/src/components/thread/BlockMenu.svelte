@@ -93,7 +93,6 @@
        hiding anything, which for a menu means the text underneath reads
        straight through it. */
     background: var(--bg-float);
-    border: 1px solid var(--line-strong);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     display: flex;
     flex-direction: column;
@@ -109,7 +108,7 @@
 
   .head {
     padding: 6px 10px;
-    border-bottom: 1px solid var(--line-faint);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 9.5px;
     color: var(--fg-dimmest);
@@ -146,8 +145,7 @@
   }
 
   .confirm {
-    border-top: 1px solid rgba(233, 196, 106, 0.28);
-    background: var(--warn-soft);
+    background: rgba(233, 196, 106, 0.07);
     padding: 8px 10px;
     display: flex;
     flex-direction: column;

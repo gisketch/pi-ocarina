@@ -29,13 +29,14 @@
     gap: 10px;
     width: 100%;
     padding: 6px 12px;
-    border-bottom: 1px solid var(--line);
+    margin-bottom: 1px;
+    background: rgba(255, 255, 255, 0.025);
     font-size: 11px;
     color: var(--fg-dimmer);
     text-align: left;
   }
   .done:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
   .value {
     margin-left: auto;

@@ -66,8 +66,7 @@
 
 <style>
   .approve {
-    border: 1px solid rgba(233, 196, 106, 0.28);
-    background: var(--warn-soft);
+    background: rgba(233, 196, 106, 0.07);
   }
 
   .head {
@@ -118,8 +117,8 @@
     cursor: pointer;
     font-size: 10.5px;
     font-family: var(--font-chrome);
-    border: 1px solid transparent;
-    transition: all 0.15s;
+    border: none;
+    transition: background 0.15s;
   }
   .primary {
     background: var(--warn);
@@ -129,19 +128,17 @@
     background: #f2d488;
   }
   .secondary {
-    border-color: rgba(233, 196, 106, 0.4);
     color: var(--warn);
-    background: none;
+    background: rgba(233, 196, 106, 0.15);
   }
   .secondary:hover {
-    background: rgba(233, 196, 106, 0.08);
+    background: rgba(233, 196, 106, 0.24);
   }
   .ghost {
-    border-color: var(--line-strong);
     color: var(--fg-dim);
-    background: none;
+    background: rgba(255, 255, 255, 0.06);
   }
   .ghost:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    background: var(--bg-chip);
   }
 </style>

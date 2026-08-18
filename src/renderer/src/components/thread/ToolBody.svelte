@@ -122,7 +122,6 @@
     margin: 2px 6px 6px;
     font-size: 11.5px;
     background: var(--bg-deep);
-    border: 1px solid var(--bg-hover);
   }
 
   .code {
@@ -189,7 +188,7 @@
     font-size: 10.5px;
     padding: 6px 12px;
     font-family: var(--font-chrome);
-    border-top: 1px solid var(--bg-hover);
+    background: rgba(255, 255, 255, 0.03);
   }
   /* Not a line of the file. It says the file continues, so it is drawn as an
      aside rather than as content. */
@@ -205,12 +204,10 @@
     line-height: 1.7;
     white-space: pre;
     font-family: var(--font-body);
-    border-color: var(--line);
     color: var(--fg-dim);
   }
   .terminal.error {
-    background: rgba(224, 122, 107, 0.06);
-    border-color: rgba(224, 122, 107, 0.25);
+    background: rgba(224, 122, 107, 0.09);
   }
   .terminal :global(.prompt) {
     color: var(--fg-dimmest);

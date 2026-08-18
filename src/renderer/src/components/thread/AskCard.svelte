@@ -126,13 +126,13 @@
 
 <style>
   .ask {
-    border: 1px solid var(--line);
     background: var(--bg-raise-2);
+    transition: background 0.15s;
   }
-  /* The card that has the keys says so with its edge, quietly — the reader is
-     reading a question, not looking for a highlight. */
+  /* The card that has the keys says so by being the lighter card, quietly —
+     the reader is reading a question, not looking for a highlight. */
   .ask.focused {
-    border-color: var(--accent-soft);
+    background: var(--bg-hover-2);
   }
 
   .head {
@@ -140,7 +140,7 @@
     align-items: center;
     gap: 9px;
     padding: 8px 12px;
-    border-bottom: 1px solid var(--line);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.1em;
@@ -155,7 +155,7 @@
 
   .said {
     padding: 8px 12px;
-    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
     font-size: 11.5px;
     color: var(--fg-dim);
     font-style: italic;
@@ -168,8 +168,10 @@
     width: 100%;
     padding: 6px 12px;
     border: none;
-    border-bottom: 1px solid var(--line);
-    background: transparent;
+    /* One answered question from the next by a step of ground and a hairline
+       of the card showing between them — no rule is drawn. */
+    margin-bottom: 1px;
+    background: rgba(255, 255, 255, 0.025);
     font: inherit;
     font-size: 11px;
     color: var(--fg-dimmer);
@@ -218,16 +220,16 @@
   }
   .send {
     margin-left: auto;
-    padding: 3px 10px;
-    border: 1px solid var(--accent-soft);
-    background: transparent;
+    padding: 4px 11px;
+    border: none;
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
     font: inherit;
     font-size: 10.5px;
     color: var(--fg-bright);
     cursor: pointer;
   }
   .send:disabled {
-    border-color: var(--line);
+    background: rgba(255, 255, 255, 0.04);
     color: var(--fg-ghost);
     cursor: default;
   }

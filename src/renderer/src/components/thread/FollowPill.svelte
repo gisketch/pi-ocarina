@@ -30,9 +30,10 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 6px 13px;
-    border: 1px solid var(--accent-soft);
-    background: var(--bg-float, var(--bg-panel));
+    padding: 7px 14px;
+    /* It floats over the transcript and has to hide it, so the accent is mixed
+       into the float colour rather than laid over it. */
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-float));
     font: inherit;
     font-size: 10.5px;
     color: var(--fg-body);
@@ -43,7 +44,7 @@
     box-shadow: 0 8px 30px rgb(0 0 0 / 0.5);
   }
   .pill:hover {
-    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 22%, var(--bg-float));
   }
   .count {
     display: inline-flex;
@@ -55,7 +56,7 @@
     font-family: var(--font-chrome);
     font-size: 9.5px;
     color: var(--fg-dimmest);
-    border: 1px solid var(--line-mid);
-    padding: 0 4px;
+    background: var(--bg-chip);
+    padding: 1px 5px;
   }
 </style>

@@ -268,13 +268,13 @@
     text-align: center;
     margin-right: 8px;
     vertical-align: -1px;
-    border: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.09);
     color: transparent;
     font-size: 10px;
   }
   .box.on {
     color: var(--tone-1);
-    border-color: var(--tone-1);
+    background: color-mix(in srgb, var(--tone-1) 22%, transparent);
   }
 
   .text :global(li > ul),

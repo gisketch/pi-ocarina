@@ -25,7 +25,7 @@
 
 <style>
   .queued {
-    border: 1px dashed var(--line-strong);
+    background: rgba(255, 255, 255, 0.05);
     padding: 9px 12px;
     display: flex;
     align-items: baseline;

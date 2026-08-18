@@ -26,7 +26,7 @@
     align-items: baseline;
     gap: 9px;
     padding: 6px 10px;
-    border: 1px dashed var(--line-mid);
+    background: rgba(255, 255, 255, 0.05);
     font-size: 11px;
     font-family: var(--font-body);
     color: var(--fg-dim);

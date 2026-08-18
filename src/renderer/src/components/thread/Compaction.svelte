@@ -108,8 +108,7 @@
   }
 
   .card {
-    border: 1px solid var(--line-faint);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.035);
     padding: 10px 13px;
     display: flex;
     flex-direction: column;

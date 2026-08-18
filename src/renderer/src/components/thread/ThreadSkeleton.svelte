@@ -54,9 +54,11 @@
     background-size: 120px 100%;
   }
 
+  /* The spine the real ledger draws, waiting. Drawn as a band rather than an
+     edge, for the same reason the ledger's own is a pseudo-element. */
   .ledger {
     margin-top: 6px;
-    border-left: 1px solid var(--line-mid);
+    background: linear-gradient(to right, var(--line-mid) 0 1px, transparent 1px);
     margin-left: 3px;
     padding-left: 16px;
     display: flex;

@@ -34,14 +34,12 @@
     align-items: baseline;
     gap: 10px;
     padding: 9px 12px;
-    border: 1px solid rgba(224, 122, 107, 0.28);
-    background: var(--err-soft);
+    background: rgba(224, 122, 107, 0.09);
     font-family: var(--font-body);
     font-size: 12px;
   }
   .error.interrupted {
-    border-color: rgba(233, 196, 106, 0.28);
-    background: var(--warn-soft);
+    background: rgba(233, 196, 106, 0.07);
   }
 
   .tag {
@@ -65,15 +63,15 @@
     cursor: pointer;
     font-size: 10.5px;
     font-family: var(--font-chrome);
-    border: 1px solid var(--line-strong);
-    background: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
     color: var(--fg-dim);
     transition:
-      border-color 0.15s,
+      background 0.15s,
       color 0.15s;
   }
   button:hover {
-    border-color: var(--accent);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
     color: var(--accent);
   }
 </style>
