@@ -18,6 +18,7 @@ import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
+import { handlePermission } from './permission-commands'
 import { handleLsp, LspService } from '../lsp/service'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
@@ -216,35 +217,11 @@ export class PiDriver implements SessionDriver {
         return { attachment: await this.#staged.stage(data, mime) } as CommandResult<N>
       }
 
-      case 'threadPermission': {
-        const { threadId, workspaceId } = params as CommandParams<'threadPermission'>
-        return {
-          level: this.#approvals.levelFor(threadId, workspaceId),
-          ...(this.#approvals.threadLevel(threadId) !== undefined
-            ? { thread: this.#approvals.threadLevel(threadId) }
-            : {}),
-        } as CommandResult<N>
-      }
-
-      case 'setThreadPermission': {
-        const { threadId, workspaceId, level } = params as CommandParams<'setThreadPermission'>
-        this.#approvals.setThreadLevel(threadId, level)
-        return {
-          level: this.#approvals.levelFor(threadId, workspaceId),
-          ...(level !== undefined ? { thread: level } : {}),
-        } as CommandResult<N>
-      }
-
-      case 'workspacePermission': {
-        const { workspaceId } = params as CommandParams<'workspacePermission'>
-        return this.#catalog.describeLevel(workspaceId) as CommandResult<N>
-      }
-
-      case 'setWorkspacePermission': {
-        const { workspaceId, level } = params as CommandParams<'setWorkspacePermission'>
-        this.#catalog.setLevel(workspaceId, level)
-        return { ok: true } as CommandResult<N>
-      }
+      case 'workspacePermission':
+      case 'setWorkspacePermission':
+      case 'threadPermission':
+      case 'setThreadPermission':
+        return handlePermission(this.#catalog, this.#approvals, name, params) as CommandResult<N>
 
       case 'workspaceLsp':
       case 'setWorkspaceLsp':

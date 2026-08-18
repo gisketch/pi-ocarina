@@ -89,7 +89,7 @@
     class="seg perm"
     class:quiet={level === 'auto'}
     class:warn={level === 'full'}
-    onclick={() => void shell.cyclePermission()}
+    onclick={() => void permission.cycleThread()}
     title="permission level — click to change it for this thread (␣p)"
   >
     {PERMISSION_LABELS[level]}{ownLevel ? '*' : ''}

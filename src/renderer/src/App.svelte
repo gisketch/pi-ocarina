@@ -41,6 +41,7 @@
     watchPinnedGit,
   } from '$lib/state/wiring.svelte'
   import type { CommandId } from '$lib/commands'
+  import { permission } from '$lib/state/permission.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
 
   // The demo columns belong to the browser harness alone — it has no backend
@@ -138,7 +139,7 @@
         shell.newThread()
         break
       case 'cycle-permission':
-        void shell.cyclePermission()
+        void permission.cycleThread()
         break
       case 'switch-branch':
       case 'compact-thread':

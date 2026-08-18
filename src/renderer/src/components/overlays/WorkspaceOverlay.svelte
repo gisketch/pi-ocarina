@@ -30,30 +30,12 @@
     ...workspaceLsp.servers.map((server) => ({ kind: 'server' as const, server })),
   ])
 
-  /** Steps the level, asking first on the way into full access.
-   *
-   *  Only on the way in: leaving it needs no ceremony, and a confirmation to
-   *  become *more* careful would teach the reader to dismiss the dialog. */
-  async function cycle(): Promise<void> {
-    const next = permission.pending
-    if (next === 'full') {
-      const ok = await confirm.ask({
-        title: 'full access',
-        message:
-          'This workspace will stop asking before anything — deleting files, pushing branches, writing outside the folder. There is no sandbox here, so the agent can do whatever you can.',
-        confirmLabel: 'allow',
-      })
-      if (!ok) return
-    }
-    await permission.set(next)
-  }
-
   function act(index: number): void {
     const row = rows[index]
     if (!row) return
 
     if (row.kind === 'permission') {
-      void cycle()
+      void permission.cycleWorkspace()
       return
     }
     if (row.kind === 'master') {

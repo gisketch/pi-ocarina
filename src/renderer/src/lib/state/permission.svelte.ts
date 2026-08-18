@@ -13,6 +13,7 @@ import {
   PERMISSION_LABELS,
   type PermissionLevel,
 } from '../../../../shared/permissions'
+import { confirm } from './confirm.svelte'
 import { session } from '../session'
 
 class PermissionState {
@@ -100,6 +101,40 @@ class PermissionState {
   /** What the thread's level would become next. */
   get pendingThread(): PermissionLevel | undefined {
     return nextLevel(this.thread)
+  }
+
+  /** Steps this thread's level, asking first on the way into full access.
+   *
+   *  Only on the way in: a confirmation for becoming *more* careful is a dialog
+   *  that teaches the reader to dismiss dialogs. Nothing is announced after —
+   *  the status bar already names the level, and a toast for something already
+   *  on screen trains the reader to ignore the corner. */
+  async cycleThread(): Promise<void> {
+    const next = this.pendingThread
+    if (next === 'full' && !(await this.#allowFull('thread'))) return
+    await this.setThread(next)
+  }
+
+  /** Steps the workspace's level, with the same question on the same step. */
+  async cycleWorkspace(): Promise<void> {
+    const next = this.pending
+    if (next === 'full' && !(await this.#allowFull('workspace'))) return
+    await this.set(next)
+  }
+
+  #allowFull(scope: 'thread' | 'workspace'): Promise<boolean> {
+    const returns =
+      scope === 'thread'
+        ? ' It returns to the workspace level when the app closes.'
+        : ''
+    return confirm.ask({
+      title: 'full access',
+      message:
+        `This ${scope} will stop asking before anything — deleting files, pushing branches, ` +
+        'writing outside the folder. There is no sandbox here, so the agent can do whatever ' +
+        `you can.${returns}`,
+      confirmLabel: 'allow',
+    })
   }
 }
 
