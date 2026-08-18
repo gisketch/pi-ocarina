@@ -34,8 +34,12 @@ describe('which voice is in force', () => {
     expect(resolveMode(undefined, 'deleted', MODES)).toBeUndefined()
   })
 
-  it('treats an empty name as no opinion rather than as a lookup', () => {
-    expect(resolveMode('', undefined, MODES)).toBeUndefined()
+  it('treats an empty thread name as "no voice here", not as "inherit"', () => {
+    // The picker needs both. `undefined` hands the thread back to the default;
+    // `''` says this thread is silent even when the default is not. One value
+    // meaning both would leave a reader who wanted silence with the default.
+    expect(resolveMode('', 'terse', MODES)).toBeUndefined()
+    expect(resolveMode(undefined, 'terse', MODES)?.id).toBe('terse')
   })
 })
 

@@ -28,7 +28,10 @@
   })
 
   /** "Normal" is the absence of a mode, so it is a row rather than an entry in
-   *  the list: choosing it clears the thread's voice. */
+   *  the list. It is not the same as inheriting: `''` says this thread has no
+   *  voice even when the default has one, and `undefined` hands the thread back
+   *  to the default. A single row meaning both would leave a reader who wanted
+   *  silence with whatever the default said. */
   const rows = $derived(fuzzyFilter(modes.all, query, (mode) => `${mode.name} ${mode.instructions}`))
 
   function pick(modeId: string | undefined): void {
@@ -62,10 +65,17 @@
 >
   <div class="panel">
     <div class="rows">
-      <button type="button" class="row" class:current={modes.current === undefined} onclick={() => pick(undefined)}>
+      <button type="button" class="row" class:current={modes.current === undefined} onclick={() => pick('')}>
         <span class="name">normal</span>
         <span class="what">pi writes as it ships — nothing is added to its instructions</span>
       </button>
+
+      {#if modes.overridden}
+        <button type="button" class="row" onclick={() => pick(undefined)}>
+          <span class="name">use the default</span>
+          <span class="what">this thread stops choosing for itself</span>
+        </button>
+      {/if}
 
       {#each rows as mode, i (mode.id)}
         <button

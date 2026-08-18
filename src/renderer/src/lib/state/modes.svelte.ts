@@ -35,7 +35,9 @@ class ModeState {
 
     if (!session.wired) {
       this.all = [...SHIPPED_MODES]
-      this.current = this.#demoThread.get(threadId) ?? this.#demoDefault
+      const own = this.#demoThread.get(threadId)
+      const resolved = own ?? this.#demoDefault
+      this.current = resolved === '' ? undefined : resolved
       this.overridden = this.#demoThread.has(threadId)
       return
     }

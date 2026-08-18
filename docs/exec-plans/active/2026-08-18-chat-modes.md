@@ -61,7 +61,7 @@ later, and after a compaction.
 
 ---
 
-## M3 — one thread runs a different voice — `todo`
+## M3 — one thread runs a different voice — `done`
 
 **Delivers.** A thread overrides the global default. Its neighbour is
 unaffected. The bar marks the thread that has its own.

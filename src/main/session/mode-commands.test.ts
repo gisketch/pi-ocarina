@@ -63,6 +63,16 @@ describe('what a thread’s system prompt carries', () => {
     expect(control.promptFor('t1')).toEqual(['be brief', MODE_BOUNDARY])
   })
 
+  it('lets a thread be silent while the default speaks', () => {
+    const { catalog } = fakeCatalog('terse')
+    const control = new ModeControl(catalog)
+    control.set('t1', '')
+
+    expect(control.promptFor('t1')).toEqual([])
+    expect(control.overridden('t1')).toBe(true)
+    expect(control.promptFor('t2')).toEqual(['be brief', MODE_BOUNDARY])
+  })
+
   it('forgets a closed thread, so a reused id inherits nothing', () => {
     const { catalog } = fakeCatalog(undefined)
     const control = new ModeControl(catalog)
