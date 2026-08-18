@@ -2,6 +2,7 @@ import { readFile, rename, writeFile } from 'node:fs/promises'
 import { parseNamePool, parseRoles } from '../shared/agent-roles'
 import type { WorkspaceLsp } from '../shared/lsp'
 import { DEFAULT_PREFERENCES, parsePreferences, type Preferences } from '../shared/preferences'
+import { isPermissionLevel, type PermissionLevel } from '../shared/permissions'
 import type { AgentRole } from '../shared/vocabulary'
 
 export { DEFAULT_PREFERENCES, LEADER_TIMEOUT_RANGE, parsePreferences } from '../shared/preferences'
@@ -18,6 +19,9 @@ export interface WorkspaceEntry {
   /** Language servers, per workspace. Absent means off, which is the default:
    *  a repository with no typed code gains nothing from a background daemon. */
   lsp?: WorkspaceLsp
+  /** How much this workspace asks before a tool runs. Absent means it follows
+   *  the global default, which is what most workspaces should do. */
+  permission?: PermissionLevel
 }
 
 /** What the shell restores on launch: which folders are pinned, where the user
@@ -25,7 +29,7 @@ export interface WorkspaceEntry {
  *  session store is the truth about what threads exist, so it cannot drift out
  *  of sync here. */
 export interface CatalogState {
-  version: 7
+  version: 8
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
@@ -68,7 +72,7 @@ export interface CatalogState {
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
   return {
-    version: 7,
+    version: 8,
     workspaces: [],
     workspaceIndex: 0,
     focus: [],
@@ -130,6 +134,7 @@ function parseWorkspaces(value: unknown): WorkspaceEntry[] {
       note: text(record.note) ?? '',
       hue: typeof record.hue === 'number' ? record.hue : 0,
       ...(parseLsp(record.lsp) ? { lsp: parseLsp(record.lsp)! } : {}),
+      ...(isPermissionLevel(record.permission) ? { permission: record.permission } : {}),
     })
   }
   return entries
@@ -197,11 +202,14 @@ export function parseCatalog(raw: string): CatalogLoad {
   }
 
   // Each older version simply lacked a field: 2 had no preferences, 3 no
-  // archived list, 4 no column order, 5 no retired worktrees, 6 no roles. They
+  // archived list, 4 no column order, 5 no retired worktrees, 6 no roles, 7 no
+  // permission levels — a catalog from before them reads as `auto`, the new
+  // default, rather than keeping the old ask-about-everything behaviour it
+  // never chose. They
   // upgrade by taking the defaults for what they never stored; nothing the user
   // pinned or approved is lost. A catalog that predates roles reads as unseeded,
   // so the shipped roles arrive on its next launch.
-  if (![2, 3, 4, 5, 6, 7].includes(record.version as number)) {
+  if (![2, 3, 4, 5, 6, 7, 8].includes(record.version as number)) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -210,7 +218,7 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 7,
+      version: 8,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,

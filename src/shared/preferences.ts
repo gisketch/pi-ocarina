@@ -5,17 +5,22 @@
  *  have pulled `node:fs` into the renderer bundle the moment the settings
  *  overlay imported a default. */
 
+import { DEFAULT_PERMISSION, isPermissionLevel, type PermissionLevel } from './permissions'
+
 export interface Preferences {
   grain: boolean
   motion: boolean
   /** How long the leader chord waits, in milliseconds. */
   leaderTimeoutMs: number
+  /** What a workspace with no permission level of its own runs at. */
+  defaultPermission: PermissionLevel
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   grain: true,
   motion: true,
   leaderTimeoutMs: 2600,
+  defaultPermission: DEFAULT_PERMISSION,
 }
 
 /** Guard rails for the leader timeout, so a corrupt file cannot leave the chord
@@ -41,5 +46,10 @@ export function parsePreferences(value: unknown): Preferences {
     grain: flag('grain', DEFAULT_PREFERENCES.grain),
     motion: flag('motion', DEFAULT_PREFERENCES.motion),
     leaderTimeoutMs: timeout,
+    // A level we cannot read is the default, never the most trusting one: a
+    // corrupt file must not be a way to reach `full`.
+    defaultPermission: isPermissionLevel(record.defaultPermission)
+      ? record.defaultPermission
+      : DEFAULT_PREFERENCES.defaultPermission,
   }
 }

@@ -65,7 +65,7 @@ export class PiDriver implements SessionDriver {
     this.#emit = emit
     this.#catalog = catalog
     this.#lsp = new LspService(catalog)
-    this.#approvals = new ApprovalGate(emit, catalog)
+    this.#approvals = new ApprovalGate(emit, catalog, catalog)
     this.#asks = new AskGate(emit)
     this.#steers = new SteerQueue(emit)
     this.#sessions = new SessionFactory(this.#approvals, this.#asks, model)

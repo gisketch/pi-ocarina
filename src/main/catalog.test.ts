@@ -38,7 +38,7 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 7,
+      version: 8,
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
@@ -58,7 +58,7 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 7,
+      version: 8,
       workspaces: [],
       workspaceIndex: 2,
       focus: [1, 0],
@@ -177,7 +177,7 @@ describe('writeCatalog', () => {
   it('round-trips state', async () => {
     const file = await tempFile()
     const state: CatalogState = {
-      version: 7,
+      version: 8,
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
@@ -188,7 +188,7 @@ describe('writeCatalog', () => {
       roles: [{ id: 'r1', name: 'scout', instructions: 'look', tools: ['read'] }],
       namePool: ['zeus'],
       seeded: true,
-      preferences: { grain: false, motion: false, leaderTimeoutMs: 1800 },
+      preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask' },
     }
 
     await writeCatalog(file, state)
@@ -219,10 +219,18 @@ describe('parsePreferences', () => {
   })
 
   it('reads what the user set', () => {
-    expect(parsePreferences({ grain: false, motion: false, leaderTimeoutMs: 1200 })).toEqual({
+    expect(
+      parsePreferences({
+        grain: false,
+        motion: false,
+        leaderTimeoutMs: 1200,
+        defaultPermission: 'ask',
+      }),
+    ).toEqual({
       grain: false,
       motion: false,
       leaderTimeoutMs: 1200,
+      defaultPermission: 'ask',
     })
   })
 

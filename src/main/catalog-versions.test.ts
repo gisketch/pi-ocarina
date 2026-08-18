@@ -41,7 +41,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(7)
+    expect(state.version).toBe(8)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences).toEqual(DEFAULT_PREFERENCES)
@@ -60,7 +60,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(7)
+    expect(state.version).toBe(8)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.preferences.leaderTimeoutMs).toBe(1200)
@@ -93,7 +93,7 @@ describe('catalog versions', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(7)
+    expect(state.version).toBe(8)
     expect(state.workspaces).toEqual([workspace])
     expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
     expect(state.archived).toEqual({ w1: ['s-old'] })
@@ -133,8 +133,45 @@ describe('retired worktrees', () => {
     )
 
     expect(warning).toBeUndefined()
-    expect(state.version).toBe(7)
+    expect(state.version).toBe(8)
     expect(state.archived).toEqual({ w1: ['s-old'] })
     expect(state.retired).toEqual({})
+  })
+})
+
+describe('permission levels', () => {
+  it('upgrades a version 7 catalog, which never stored one', () => {
+    const { state, warning } = parseCatalog(
+      JSON.stringify({ version: 7, workspaces: [workspace], approvals: { w1: ['bash:pnpm'] } }),
+    )
+
+    expect(warning).toBeUndefined()
+    expect(state.version).toBe(8)
+    // Everything the reader had approved survives, and every workspace reads as
+    // the new default rather than keeping a strictness it never chose.
+    expect(state.approvals).toEqual({ w1: ['bash:pnpm'] })
+    expect(state.workspaces[0].permission).toBeUndefined()
+    expect(state.preferences.defaultPermission).toBe('auto')
+  })
+
+  it('keeps a workspace that set its own', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({ version: 8, workspaces: [{ ...workspace, permission: 'ask' }] }),
+    )
+
+    expect(state.workspaces[0].permission).toBe('ask')
+  })
+
+  it('drops a level it cannot read rather than trusting it', () => {
+    const { state } = parseCatalog(
+      JSON.stringify({
+        version: 8,
+        workspaces: [{ ...workspace, permission: 'bypass' }],
+        preferences: { defaultPermission: 'BYPASS' },
+      }),
+    )
+
+    expect(state.workspaces[0].permission).toBeUndefined()
+    expect(state.preferences.defaultPermission).toBe('auto')
   })
 })

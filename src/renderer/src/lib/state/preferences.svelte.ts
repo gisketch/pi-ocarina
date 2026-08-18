@@ -1,3 +1,4 @@
+import type { PermissionLevel } from '../../../../shared/permissions'
 import {
   DEFAULT_PREFERENCES,
   LEADER_TIMEOUT_RANGE,
@@ -13,16 +14,25 @@ class PreferencesState {
   grain = $state(DEFAULT_PREFERENCES.grain)
   motion = $state(DEFAULT_PREFERENCES.motion)
   leaderTimeoutMs = $state(DEFAULT_PREFERENCES.leaderTimeoutMs)
+  /** What a workspace with no level of its own runs at. Held here because the
+   *  settings screen sets it; main is still the only thing that enforces it. */
+  defaultPermission = $state<PermissionLevel>(DEFAULT_PREFERENCES.defaultPermission)
 
   /** The stored shape, for writing back. */
   get stored(): Preferences {
-    return { grain: this.grain, motion: this.motion, leaderTimeoutMs: this.leaderTimeoutMs }
+    return {
+      grain: this.grain,
+      motion: this.motion,
+      leaderTimeoutMs: this.leaderTimeoutMs,
+      defaultPermission: this.defaultPermission,
+    }
   }
 
   apply(preferences: Preferences): void {
     this.grain = preferences.grain
     this.motion = preferences.motion
     this.leaderTimeoutMs = preferences.leaderTimeoutMs
+    this.defaultPermission = preferences.defaultPermission
   }
 
   toggleGrain(): void {

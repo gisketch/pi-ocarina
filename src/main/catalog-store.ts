@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../shared/agent-roles'
 import type { WorkspaceLsp } from '../shared/lsp'
+import { isPermissionLevel, type PermissionLevel } from '../shared/permissions'
 import type { AgentRole } from '../shared/vocabulary'
 import { nameFor, voiceFor } from '../shared/workspace-identity'
 import {
@@ -93,6 +94,29 @@ export class CatalogStore {
 
   listRetired(workspaceId: string): string[] {
     return [...(this.#state.retired[workspaceId] ?? [])]
+  }
+
+  /** The level a workspace runs at: its own, or the global default. */
+  levelFor(workspaceId: string): PermissionLevel {
+    const own = this.#state.workspaces.find((entry) => entry.id === workspaceId)?.permission
+    return own ?? this.#state.preferences.defaultPermission
+  }
+
+  /** The workspace's directory — the boundary `auto` measures against. */
+  pathFor(workspaceId: string): string | null {
+    return this.#state.workspaces.find((entry) => entry.id === workspaceId)?.path ?? null
+  }
+
+  /** Sets or clears a workspace's own level. Clearing returns it to the global
+   *  default, which is where most workspaces should be. */
+  setLevel(workspaceId: string, level: PermissionLevel | undefined): void {
+    const entry = this.#state.workspaces.find((candidate) => candidate.id === workspaceId)
+    if (!entry) return
+    if (level !== undefined && !isPermissionLevel(level)) return
+
+    if (level === undefined) delete entry.permission
+    else entry.permission = level
+    this.#persist()
   }
 
   hasApproval(workspaceId: string, key: string): boolean {

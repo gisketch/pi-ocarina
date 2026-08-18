@@ -45,18 +45,19 @@ describe('leader timeout', () => {
 
 
 describe('what gets stored', () => {
-  it('carries exactly the three settings the catalog keeps', () => {
+  it('carries exactly the settings the catalog keeps', () => {
     preferences.toggleGrain()
 
     expect(preferences.stored).toEqual({
       grain: false,
       motion: true,
       leaderTimeoutMs: DEFAULT_PREFERENCES.leaderTimeoutMs,
+      defaultPermission: DEFAULT_PREFERENCES.defaultPermission,
     })
   })
 
   it('round-trips through apply', () => {
-    const saved = { grain: false, motion: false, leaderTimeoutMs: 1800 }
+    const saved = { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask' as const }
     preferences.apply(saved)
 
     expect(preferences.stored).toEqual(saved)

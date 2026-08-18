@@ -1,4 +1,6 @@
+import type { PermissionLevel } from '../../shared/permissions'
 import type { ApprovalOutcome } from '../../shared/vocabulary'
+import { autoAllows } from './auto-policy'
 import type { UiEvent } from '../../shared/protocol'
 import { FETCH_TOOL } from './fetch-tool'
 import { isWriteMethod, parseUrl } from '../web/fetch-page'
@@ -80,6 +82,21 @@ export function describeCall(toolName: string, input: unknown): string {
   return path ? `${toolName} ${path}` : toolName
 }
 
+/** Where the level in force comes from, and what counts as the workspace.
+ *
+ *  Separate from the rules because they answer different questions and one of
+ *  them is new: rules widen a level, the policy chooses it. Optional at the
+ *  gate, defaulting to `ask` — a test that says nothing about levels is a test
+ *  about the behaviour this app had before them, and should keep passing. */
+export interface ApprovalPolicy {
+  /** The level this workspace runs at, its own or the global default. */
+  levelFor(workspaceId: string): PermissionLevel
+  /** The workspace's directory, which is the boundary `auto` measures against.
+   *  Null when it is unknown — and an unknown boundary means `auto` cannot
+   *  judge anything, so everything gated is asked about. */
+  pathFor(workspaceId: string): string | null
+}
+
 /** Per-workspace "always allow" rules. Backed by the catalog. */
 export interface ApprovalRules {
   hasApproval(workspaceId: string, key: string): boolean
@@ -103,6 +120,13 @@ export interface ApprovalRequest {
    *  are running: the reader has to know which of them wants it before they can
    *  decide. */
   agent?: { name: string; role: string }
+}
+
+/** What the gate does when nobody told it about levels: what it did before they
+ *  existed. */
+const ASK_ALWAYS: ApprovalPolicy = {
+  levelFor: () => 'ask',
+  pathFor: () => null,
 }
 
 export interface ApprovalVerdict {
@@ -131,10 +155,43 @@ export class ApprovalGate {
 
   readonly #emit: (threadId: string, event: UiEvent) => void
   readonly #rules: ApprovalRules
+  readonly #policy: ApprovalPolicy
 
-  constructor(emit: (threadId: string, event: UiEvent) => void, rules: ApprovalRules) {
+  /** Overrides set for one thread, for as long as the app is open.
+   *
+   *  Deliberately not stored. A window reopening days later at `full` because
+   *  of a decision made once for one command is exactly the surprise the levels
+   *  are meant to remove. */
+  #threads = new Map<string, PermissionLevel>()
+
+  constructor(
+    emit: (threadId: string, event: UiEvent) => void,
+    rules: ApprovalRules,
+    policy: ApprovalPolicy = ASK_ALWAYS,
+  ) {
     this.#emit = emit
     this.#rules = rules
+    this.#policy = policy
+  }
+
+  /** The level a thread runs at, and where it came from. */
+  levelFor(threadId: string, workspaceId: string): PermissionLevel {
+    return this.#threads.get(threadId) ?? this.#policy.levelFor(workspaceId)
+  }
+
+  threadLevel(threadId: string): PermissionLevel | undefined {
+    return this.#threads.get(threadId)
+  }
+
+  /** Sets or clears one thread's override. Clearing returns it to its
+   *  workspace's level. */
+  setThreadLevel(threadId: string, level: PermissionLevel | undefined): void {
+    if (level === undefined) this.#threads.delete(threadId)
+    else this.#threads.set(threadId, level)
+  }
+
+  forgetThread(threadId: string): void {
+    this.#threads.delete(threadId)
   }
 
   async request({
@@ -146,7 +203,18 @@ export class ApprovalGate {
     agent,
   }: ApprovalRequest): Promise<ApprovalVerdict> {
     if (!needsApproval(toolName, input)) return { blocked: false }
+
+    const level = this.levelFor(threadId, workspaceId)
+    if (level === 'full') return { blocked: false }
+
+    // A remembered yes comes before the level's own rule, because it is the one
+    // decision in here the reader made themselves about this exact call.
     if (this.#rules.hasApproval(workspaceId, ruleKey(toolName, input))) return { blocked: false }
+
+    if (level === 'auto') {
+      const cwd = this.#policy.pathFor(workspaceId)
+      if (cwd !== null && autoAllows(toolName, input, cwd)) return { blocked: false }
+    }
 
     this.#counter += 1
     const id = `approve-${this.#counter}`
