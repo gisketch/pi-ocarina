@@ -1,4 +1,5 @@
 import { app } from './app.svelte'
+import { runAction } from './shell-actions'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
@@ -215,104 +216,21 @@ class ShellState {
     if (timer === 'clear') this.clearLeaderTimer()
     if (timer === 'start') this.startLeaderTimer()
 
-    for (const action of actions) this.run(action)
+    for (const action of actions) runAction(this, action)
     blockNav.reconcileMode()
 
-    return preventDefault
-  }
+    // Tab moves the browser's focus, and this app moves its own. Nothing above
+    // claimed this one — the composer's completion, the role form and the diff
+    // viewer all answer Tab before it reaches here — so it is a keystroke that
+    // would walk a ring through buttons the reader navigates with `j` and `k`
+    // instead. Swallowed rather than styled away: an element the ring is
+    // hidden on is still somewhere the reader can end up and not see.
+    //
+    // The terminal never reaches this line. It answers in `routeToSurface`,
+    // where a Tab belongs to the shell running inside it.
+    if (event.key === 'Tab') return true
 
-  private run(action: Action): void {
-    switch (action.type) {
-      case 'goWorkspace':
-        app.goWorkspace(action.index)
-        break
-      case 'moveThread':
-        app.moveThread(action.delta)
-        break
-      case 'moveBlock':
-        blockNav.moveBlock(action.delta)
-        break
-      case 'page':
-        blockNav.page(action.delta)
-        break
-      case 'scroll':
-        blockNav.scroll(action.delta)
-        break
-      case 'leap':
-        blockNav.leap()
-        break
-      case 'openChanges':
-        // A shell has no files to change, and a thread nobody has prompted has
-        // not changed any. Both would open a modal viewer over nothing, and a
-        // modal owns every key — so the mode goes straight back instead.
-        if (app.thread.terminal || app.thread.fresh) app.mode = 'NORMAL'
-        else void changes.show(app.thread.id)
-        break
-      case 'openBlockMenu':
-        blockNav.openBlockMenu()
-        break
-      case 'expandBlock':
-        blockNav.expandBlock(action.open)
-        break
-      case 'focusComposer':
-        // `i` means "start typing at the focused column". For a shell that is
-        // TERM, not the composer — which is not even on screen.
-        if (app.thread.terminal) termMode.enter()
-        else {
-          // A half-dimmed transcript behind a live caret reads as broken. The
-          // reader has stopped navigating; give the column its plain look back.
-          blockNav.release()
-          this.focusComposer()
-        }
-        break
-      case 'blurComposer':
-        this.targets.composer?.blur()
-        break
-      case 'focusPalette':
-        queueMicrotask(() => this.targets.palette?.focus())
-        break
-      case 'focusSwitcher':
-        queueMicrotask(() => this.targets.switcher?.focus())
-        break
-      case 'compact':
-        threads.compact(app.thread.id)
-        break
-      case 'cyclePermission':
-        void permission.cycleThread()
-        break
-      case 'yank':
-        void yankNewestCodeBlock()
-        break
-      case 'newThread':
-        this.newThread()
-        break
-      case 'closeThread':
-        this.requestClose()
-        break
-      case 'openTerminal':
-        termMode.open()
-        break
-      case 'jumpToLive':
-        following.jump(app.thread.id)
-        break
-      case 'toggleReasoning':
-        reasoningOpen.toggleAll()
-        // The ring may have been standing on a thought that is now gone. Left
-        // there it points at nothing, and the next `j` starts over from the
-        // top of the thread.
-        blockNav.settleFocus()
-        break
-      case 'termEscape':
-        termMode.escape()
-        break
-      case 'moveColumn':
-        this.moveColumn(action.delta)
-        break
-      case 'pinWorkspace':
-        // Failure lands on `catalog.error`, which the welcome screen renders.
-        void catalog.pin()
-        break
-    }
+    return preventDefault
   }
 
   private startLeaderTimer(): void {
@@ -328,15 +246,6 @@ class ShellState {
     clearTimeout(this.leaderTimer)
     this.leaderTimer = null
   }
-}
-
-/** Copies the focused thread's newest fenced block. A thread with no code is
- *  not an error — `y` simply has nothing to take, and says nothing. */
-async function yankNewestCodeBlock(): Promise<void> {
-  const code = newestCodeBlock(threads.get(app.thread.id).blocks)
-  if (code === null) return
-
-  await copyText(code)
 }
 
 export const shell = new ShellState()

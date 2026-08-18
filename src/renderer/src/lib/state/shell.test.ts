@@ -172,3 +172,25 @@ describe('leader n', () => {
     expect(app.mode).toBe('NORMAL')
   })
 })
+
+describe('Tab', () => {
+  it('never reaches the browser, whatever mode the app is in', () => {
+    // This app moves its own focus with `j` and `k`. A Tab that got through
+    // would walk the browser's ring over buttons the reader never navigates
+    // with, and two indicators disagreeing about where they are is worse than
+    // either alone.
+    for (const mode of ['NORMAL', 'READ', 'INSERT'] as const) {
+      app.mode = mode
+      // Shift+Tab is the same key here: the app's key vocabulary carries the
+      // modifiers it binds, and shift is not one of them.
+      expect(shell.handleKey({ key: 'Tab' })).toBe(true)
+    }
+  })
+
+  it('leaves the keys the app does answer alone', () => {
+    app.mode = 'NORMAL'
+    // A sanity check that swallowing Tab did not swallow the rest: `q` is
+    // bound to nothing, and an unbound key still reports itself unhandled.
+    expect(shell.handleKey({ key: 'q' })).toBe(false)
+  })
+})
