@@ -192,7 +192,7 @@ export function replayEntries(entries: readonly SessionEntry[]): UiEvent[] {
         events.push({
           kind: 'tool-start',
           id: content.id,
-          tool: toolKind(content.name ?? ''),
+          tool: toolKind(content.name ?? '', content.arguments),
           target: toolTarget(content.name ?? '', content.arguments),
           // Without this a reopened lsp row reads `lsp · withRetry` and loses
           // the one word that says what was asked about it.

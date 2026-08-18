@@ -62,7 +62,7 @@ nothing.
 
 ---
 
-## P3 — a skill load reads as a skill — `todo`
+## P3 — a skill load reads as a skill — `done`
 
 **Delivers.** The agent reads a skill and the ledger says `skill` and names it,
 with its own icon. It is never swallowed into a collapsed run of reads.

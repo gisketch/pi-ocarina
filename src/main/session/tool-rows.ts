@@ -86,13 +86,49 @@ function baseName(path: string): string {
   return at === -1 ? path : path.slice(at + 1)
 }
 
-export function toolKind(name: string): ToolKind {
+/** Whether a call is the agent loading a skill.
+ *
+ *  pi has no skill tool. `formatSkillsForPrompt` puts every skill's name and
+ *  description in the system prompt — and only when `read` exists — so the model
+ *  loads one by reading its `SKILL.md`. pi's own interface classifies that read
+ *  by exactly this rule, and the label it shows is the folder's name, because
+ *  the file is called `SKILL.md` in every skill there has ever been. */
+function isSkillRead(name: string, args: unknown): boolean {
+  if (name !== 'read') return false
+  const input = (args ?? {}) as Record<string, unknown>
+  const path = input.path ?? input.file_path
+  return typeof path === 'string' && baseName(path) === 'SKILL.md'
+}
+
+/** The folder a `SKILL.md` sits in — the skill's name. */
+function skillName(args: unknown): string {
+  const input = (args ?? {}) as Record<string, unknown>
+  const path = input.path ?? input.file_path
+  if (typeof path !== 'string') return 'skill'
+  const at = path.lastIndexOf('/')
+  if (at === -1) return 'skill'
+  return baseName(path.slice(0, at)) || 'skill'
+}
+
+/** Which row a call gets.
+ *
+ *  Takes the arguments as well as the name because one tool can mean two
+ *  things: a `read` of a `SKILL.md` is the agent picking up a new set of
+ *  instructions, which is not the same event as opening a file. */
+export function toolKind(name: string, args?: unknown): ToolKind {
+  if (isSkillRead(name, args)) return 'skill'
   return TOOL_KINDS[name] ?? 'raw'
 }
 
 /** The row's primary label: the thing the tool acted on. */
 export function toolTarget(name: string, args: unknown): string {
   const input = (args ?? {}) as Record<string, unknown>
+
+  // A skill's row says which skill, not which file. Every skill's file has the
+  // same name, so the path's last segment is the one word that identifies
+  // nothing.
+  if (isSkillRead(name, args)) return skillName(args)
+
   const pick = (key: string): string | undefined =>
     typeof input[key] === 'string' ? (input[key] as string) : undefined
 

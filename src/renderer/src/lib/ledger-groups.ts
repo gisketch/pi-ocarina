@@ -22,6 +22,11 @@ const GROUPABLE: ReadonlySet<ToolKind> = new Set<ToolKind>(['read', 'grep', 'lsp
 // `think` is deliberately absent. Two thoughts are two different things the
 // model worked out, and `think · 2 calls` would summarize away the only part
 // of a turn that is not already summarized.
+//
+// `skill` is absent for a sharper reason. A skill load *is* a read, so it would
+// join a run of reads and vanish into `4 reads` — and a skill changes how the
+// agent behaves for the rest of the turn. It is the one read that must never be
+// summarized away.
 
 /** How many targets a summary names before it counts the rest. */
 export const NAMED_TARGETS = 3

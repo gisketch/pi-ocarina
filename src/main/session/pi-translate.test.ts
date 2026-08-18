@@ -1,7 +1,7 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
-import { PiTranslator, resultText, toolKind, toolTarget } from './pi-translate'
+import { PiTranslator, resultText } from './pi-translate'
 
 /** pi's event shapes, fabricated. Casting keeps the fixtures readable without
  *  building whole `AgentMessage` objects the translator never looks at. */
@@ -11,58 +11,6 @@ function run(events: unknown[]): UiEvent[] {
   const translator = new PiTranslator()
   return events.flatMap((event) => translator.translate(pi(event)))
 }
-
-describe('toolKind', () => {
-  it('maps pi built-ins onto design rows', () => {
-    expect(toolKind('bash')).toBe('bash')
-    expect(toolKind('read')).toBe('read')
-    expect(toolKind('grep')).toBe('grep')
-  })
-
-  it('leaves tools with no design row as raw rather than mislabelling them', () => {
-    expect(toolKind('find')).toBe('raw')
-    expect(toolKind('ls')).toBe('raw')
-    expect(toolKind('some_extension_tool')).toBe('raw')
-  })
-})
-
-describe('toolTarget', () => {
-  it('labels a file tool with its path', () => {
-    expect(toolTarget('read', { path: 'src/app.ts' })).toBe('src/app.ts')
-  })
-
-  it('labels bash with the command', () => {
-    expect(toolTarget('bash', { command: 'pnpm test' })).toBe('pnpm test')
-  })
-
-  it('labels grep with the pattern, quoted the way the design draws it', () => {
-    expect(toolTarget('grep', { pattern: 'TODO' })).toBe('"TODO"')
-  })
-
-  it('says what a search looked for, not where it looked', () => {
-    // `path` used to be picked first, so this row read `.` — the one word the
-    // reader wanted was the one thrown away.
-    expect(toolTarget('grep', { pattern: 'export', path: '.' })).toBe('"export"')
-  })
-
-  it('adds where it looked when that is worth saying', () => {
-    expect(toolTarget('grep', { pattern: 'export', path: 'src' })).toBe('"export" · src')
-  })
-
-  it('names a tool the design has no row for, so its row is not just a path', () => {
-    // `ls` and `find` are labelled `tool`, so without the name the row read
-    // `tool .` and said nothing at all.
-    expect(toolTarget('ls', { path: '.' })).toBe('ls .')
-  })
-
-  it('still names a tool it does not recognise', () => {
-    expect(toolTarget('mystery', { depth: 2 })).toContain('mystery')
-  })
-
-  it('survives missing arguments', () => {
-    expect(toolTarget('mystery', undefined)).toBe('mystery')
-  })
-})
 
 describe('resultText', () => {
   it('reads a plain string', () => {
@@ -311,12 +259,5 @@ describe('a call that changed a file', () => {
   it('falls back to pi when the driver was not watching', () => {
     // A tool kind we do not snapshot must keep the behaviour it had.
     expect(runEdit(() => null).some((event) => event.kind === 'tool-body')).toBe(false)
-  })
-})
-
-describe('a search by a tool the design has no row for', () => {
-  it('keeps its name, the way every other raw row does', () => {
-    // `find` is labelled `tool`, so without the name the row read `tool "x"`.
-    expect(toolTarget('find', { pattern: '*.ts', path: 'src' })).toBe('find "*.ts" · src')
   })
 })

@@ -181,7 +181,7 @@ export class PiTranslator {
           {
             kind: 'tool-start',
             id: event.toolCallId,
-            tool: toolKind(event.toolName),
+            tool: toolKind(event.toolName, event.args),
             target: toolTarget(event.toolName, event.args),
             ...(toolDetail(event.toolName) ? { detail: toolDetail(event.toolName) } : {}),
             ...(toolLang(event.args) ? { lang: toolLang(event.args) } : {}),

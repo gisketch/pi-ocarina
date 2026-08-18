@@ -56,6 +56,32 @@ describe('what groups', () => {
   })
 })
 
+describe('a skill load inside a sweep', () => {
+  it('breaks the run rather than joining it', () => {
+    const items = groupRows([
+      row('read', 'src/a.ts'),
+      row('read', 'src/b.ts'),
+      row('skill', 'reviewer'),
+      row('read', 'src/c.ts'),
+      row('read', 'src/d.ts'),
+    ])
+
+    // Not `read×4` with the skill hidden inside, and not `read×2 skill read×2`
+    // collapsed back together afterwards: the skill is a wall.
+    expect(shape(items)).toEqual(['read×2', 'skill', 'read×2'])
+  })
+
+  it('never becomes a group of its own', () => {
+    const items = groupRows([
+      row('skill', 'reviewer'),
+      row('skill', 'scout'),
+      row('skill', 'planner'),
+    ])
+
+    expect(shape(items)).toEqual(['skill', 'skill', 'skill'])
+  })
+})
+
 describe('what a failure does to a run', () => {
   it('stays a full row rather than joining a summary', () => {
     const items = groupRows([
