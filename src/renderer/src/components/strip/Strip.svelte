@@ -8,6 +8,10 @@
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
 
+  /** The two overlays a composer's `/` commands open. They belong to the app
+   *  shell, so they are handed down rather than reached for. */
+  const { onmodel, oncommit }: { onmodel: () => void; oncommit: () => void } = $props()
+
   const workspace = $derived(app.workspace)
   // The strip is pinned at left:50% and slid so the focused column sits centred;
   // one composited transform moves the whole rail of columns.
@@ -33,7 +37,7 @@
              have no session to speak to. -->
         {@const live = threadOf(thread)}
         {#if thread.fresh}
-          <FreshThread {workspace} />
+          <FreshThread {workspace} columnId={thread.id} focused={i === app.threadIndex} {onmodel} {oncommit} />
         {:else if thread.terminal}
           <TerminalColumn
             workspaceId={workspace.id}
@@ -42,7 +46,13 @@
             onfocus={() => focusColumn(i)}
           />
         {:else if live}
-          <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => focusColumn(i)}>
+          <ThreadColumn
+            {thread}
+            focused={i === app.threadIndex}
+            onfocus={() => focusColumn(i)}
+            {onmodel}
+            {oncommit}
+          >
             <LiveThread threadId={live} />
           </ThreadColumn>
         {/if}

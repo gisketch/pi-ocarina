@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import type { ThreadId } from '../../../shared/thread-id'
   import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
@@ -8,6 +8,7 @@
   import { wrapIndex } from '$lib/fuzzy'
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
+  import { menuKey } from '$lib/composer-menu'
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
   import { nameAt, pasting } from '$lib/state/pasting.svelte'
@@ -20,20 +21,41 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import { createThread } from '$lib/state/new-thread'
   import { runSlash } from '$lib/state/slash-run'
+  import { drafts } from '$lib/state/drafts.svelte'
   import { projectSurface } from '$lib/state/project-surface.svelte'
+  import { shell } from '$lib/state/shell.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
-    input?: HTMLTextAreaElement | null
+    /** The column this composer is the foot of. One exists at a time — the
+     *  focused column's — so the draft has to outlive the component. */
+    columnId: string
     /** Opens the model spotlight — `/model` has nowhere to go without it. */
     onmodel?: () => void
     oncommit?: () => void
   }
 
-  let { input = $bindable(null), onmodel, oncommit }: Props = $props()
+  const { columnId, onmodel, oncommit }: Props = $props()
 
-  let text = $state('')
+  let input = $state<HTMLTextAreaElement | null>(null)
+  // Read once, deliberately: only the focused column draws a composer, so a
+  // different column is a different instance and this id never changes.
+  let text = $state(untrack(() => drafts.get(columnId)))
   let sending = $state(false)
+
+  // The draft belongs to the column, not to this component: moving one column
+  // over destroys it, and a half-typed message must still be there on the way
+  // back.
+  $effect(() => drafts.set(columnId, text))
+
+  // The keyboard layer hands the caret to whatever is registered here — and
+  // there is exactly one composer at a time, so it is always the right one.
+  $effect(() => {
+    shell.targets.composer = input
+    return () => {
+      if (shell.targets.composer === input) shell.targets.composer = null
+    }
+  })
 
   const insert = $derived(app.mode === 'INSERT')
 
@@ -202,38 +224,19 @@
       }
     }
 
-    if (menu !== null) {
-      switch (event.key) {
-        case 'ArrowDown':
-          event.preventDefault()
-          picked = wrapIndex(active + 1, options)
-          return
-        case 'ArrowUp':
-          event.preventDefault()
-          picked = wrapIndex(active - 1, options)
-          return
-        case 'Tab':
-          // Tab completes a path, which is what a file picker trains fingers to
-          // expect. It has no meaning for the command list.
-          if (menu !== 'mention') break
-          event.preventDefault()
-          choose(active)
-          return
-        case 'Enter':
-          if (event.shiftKey) break
-          event.preventDefault()
-          choose(active)
-          return
-        case 'Escape':
-          // Dismisses the menu without leaving INSERT: the person is still
-          // writing, they simply do not want the list. A slash menu clears the
-          // word that opened it; a mention keeps what was typed.
-          event.preventDefault()
-          event.stopPropagation()
-          if (menu === 'slash') text = ''
-          else dismissed = mention?.start ?? null
-          return
+    const wanted = menu === null ? null : menuKey(event, menu, active, options)
+    if (wanted) {
+      event.preventDefault()
+      if (wanted.kind === 'move') picked = wanted.to
+      else if (wanted.kind === 'choose') choose(wanted.index)
+      else {
+        // A slash menu clears the word that opened it; a mention keeps what
+        // was typed. Escape must not reach the shell and leave INSERT.
+        event.stopPropagation()
+        if (menu === 'slash') text = ''
+        else dismissed = mention?.start ?? null
       }
+      return
     }
 
     if (!isSendKey(event)) return
@@ -304,30 +307,27 @@
 </div>
 
 <style>
+  /* Inside the column, so it needs no width or centring of its own — the
+     column is already that wide, and the foot is simply its last row. */
   .dock {
     flex: none;
-    padding: 0 28px;
-    /* Up by one border, so the composer's top edge lands on the column's
-       bottom one: two 1px lines touching read as a seam, one reads as a foot. */
-    margin-top: -1px;
+    position: relative;
   }
 
   .composer {
-    max-width: var(--column-w);
-    margin: 0 auto;
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    border: 1px solid var(--bg-chip);
+    border-top: 1px solid var(--line-mid);
     background: var(--bg-raise-3);
-    padding: 11px 14px;
+    padding: 10px 13px;
     transition:
       border-color 0.2s,
-      box-shadow 0.2s;
+      background-color 0.2s;
   }
   .composer.insert {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-top-color: var(--accent);
+    background: var(--bg-raise-2);
   }
 
   .caret {

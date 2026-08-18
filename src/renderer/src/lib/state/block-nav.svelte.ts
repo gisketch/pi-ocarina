@@ -17,6 +17,7 @@ import { changes } from './changes.svelte'
 import { columnBody, scrollColumn } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
+import { drafts } from './drafts.svelte'
 import { following } from './following.svelte'
 import { reasoningOpen } from './reasoning.svelte'
 
@@ -96,6 +97,7 @@ class BlockNav {
       app.mode = 'NORMAL'
     }
     blockFocus.forget(threadId)
+    drafts.forget(threadId)
     toolOpen.forget(threadId)
     following.forget(threadId)
     if (blockMenu.threadId === threadId) blockMenu.close()

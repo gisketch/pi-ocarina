@@ -7,7 +7,6 @@
   import Rail from './components/Rail.svelte'
   import Strip from './components/strip/Strip.svelte'
   import Welcome from './components/Welcome.svelte'
-  import Composer from './components/Composer.svelte'
   import LeaderBar from './components/LeaderBar.svelte'
   import CloseConfirm from './components/CloseConfirm.svelte'
   import ConfirmModal from './components/ConfirmModal.svelte'
@@ -66,12 +65,8 @@
   $effect(() => loadModels())
   $effect(() => applyTheme())
 
-  let composerInput = $state<HTMLTextAreaElement | null>(null)
   let paletteInput = $state<HTMLInputElement | null>(null)
   let switcherInput = $state<HTMLInputElement | null>(null)
-  $effect(() => {
-    shell.targets.composer = composerInput
-  })
   $effect(() => {
     shell.targets.palette = paletteInput
   })
@@ -155,16 +150,10 @@
       {#if catalog.source === 'empty'}
         <Welcome />
       {:else}
-        <Strip />
-        <!-- A focused shell is its own input. Leaving the composer under it
-             would offer to message pi in a column pi has nothing to do with. -->
-        {#if !app.thread.terminal}
-          <Composer
-            bind:input={composerInput}
-            onmodel={() => shell.openOverlay('model')}
-            oncommit={() => void commit.load()}
-          />
-        {/if}
+        <!-- The composer lives inside the column it writes into, so it moves
+             with the focus and a shell — which is its own input — simply has
+             none. -->
+        <Strip onmodel={() => shell.openOverlay('model')} oncommit={() => void commit.load()} />
       {/if}
     </div>
   </div>
@@ -311,11 +300,10 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    /* The one gap at the foot of the app, held here rather than under the
-       columns. Below it lives whatever is last — the composer, or a column
-       that has none, which is a shell or an unfocused neighbour. Held by the
-       strip instead, it opened a band between a column and its own composer
-       and still let a shell run into the status bar. */
+    /* The gap at the foot of the app. Every column now carries its own
+       composer inside its box, so this is the only space below them and every
+       column ends on the same line — a shell no longer runs into the status
+       bar, and no column is left with a band of empty chrome under it. */
     padding-bottom: 14px;
   }
 

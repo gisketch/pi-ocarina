@@ -14,15 +14,18 @@
   import { preferences } from '$lib/state/preferences.svelte'
   import { shortModelLabel } from '$lib/model-label'
   import FollowPill from '../thread/FollowPill.svelte'
+  import Composer from '../Composer.svelte'
 
   interface Props {
     thread: Thread
     focused: boolean
     onfocus: () => void
+    onmodel: () => void
+    oncommit: () => void
     children?: Snippet
   }
 
-  const { thread, focused, onfocus, children }: Props = $props()
+  const { thread, focused, onfocus, onmodel, oncommit, children }: Props = $props()
 
   // The live model outranks the catalog's listing once the thread has spoken.
   const status = $derived(app.statusOf(thread))
@@ -117,6 +120,14 @@
 
   {#if follow.showJump}
     <FollowPill unseen={follow.unseen} onjump={() => following.jump(thread.id)} />
+  {/if}
+
+  <!-- The column's own foot. Drawn for the focused column only: one composer
+       exists at a time, it is inside the box it writes into, and it travels
+       with the focus rather than sitting under the strip in a band of its
+       own. -->
+  {#if focused}
+    <Composer columnId={thread.id} {onmodel} {oncommit} />
   {/if}
 
   {#if below}
