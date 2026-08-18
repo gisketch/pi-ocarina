@@ -55,6 +55,11 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   // Without this, typing a role called "scout" moved thread focus, opened the
   // terminal and closed a column. Found in review.
   'roles',
+  // The voice picker filters as you type, and the voices screen has a name
+  // field and a page of instructions. Same failure as the roles form, found
+  // the same way.
+  'mode',
+  'modes',
   // `y` copies an install line, and `j`/`k` walk the rows: every key it uses
   // is its own while it is open.
   'workspace',

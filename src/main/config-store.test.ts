@@ -59,3 +59,16 @@ describe('where the file lives', () => {
     expect(configPath('/home/me')).toBe('/home/me/.piocarina/config.json')
   })
 })
+
+describe('a file that exists and cannot be read', () => {
+  it('says so, rather than looking like no file at all', async () => {
+    // A directory where a file should be. Silence here left a reader whose
+    // bindings had stopped working with nothing to go on.
+    const dir = await mkdtemp(join(tmpdir(), 'piocarina-config-'))
+    const store = new ConfigStore(dir)
+    await store.load()
+
+    expect(store.problems).toHaveLength(1)
+    expect(store.problems[0].where).toBe('file')
+  })
+})

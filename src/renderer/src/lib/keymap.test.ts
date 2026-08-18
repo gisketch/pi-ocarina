@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KeyBinding } from '../../../shared/config-file'
-import { buildKeymap, effectiveKey, EMPTY_KEYMAP, isAction, SHIPPED_KEYS, unknownActions } from './keymap'
+import { buildKeymap, effectiveKey, EMPTY_KEYMAP, isAction, keymapProblems, SHIPPED_KEYS } from './keymap'
 
 const bind = (mode: KeyBinding['mode'], key: string, action: string): KeyBinding => ({
   mode,
@@ -52,7 +52,19 @@ describe('a rebound key', () => {
 describe('an action the app does not have', () => {
   it('is reported rather than silently doing nothing', () => {
     const bindings = [bind('NORMAL', 'x', 'thread.nxet'), bind('NORMAL', 'y', 'thread.next')]
-    expect(unknownActions(bindings).map((one) => one.key)).toEqual(['x'])
+    expect(keymapProblems(bindings).map((one) => one.binding.key)).toEqual(['x'])
+  })
+
+  it('reports a binding written in the wrong mode, rather than dropping it', () => {
+    // The parser accepts DIFF, and no action lives there — so every DIFF
+    // binding was being dropped without a word.
+    const problems = keymapProblems([bind('DIFF', 'x', 'block.down')])
+    expect(problems).toHaveLength(1)
+    expect(problems[0].message).toContain('lives in READ')
+  })
+
+  it('says nothing about a binding it will honour', () => {
+    expect(keymapProblems([bind('NORMAL', 'x', 'thread.next')])).toEqual([])
   })
 
   it('binds nothing', () => {

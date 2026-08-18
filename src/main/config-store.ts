@@ -41,14 +41,23 @@ export class ConfigStore {
   }
 
   /** Reads the file. An absent file is not a problem — most readers never write
-   *  one, and reporting its absence would be reporting the default. */
+   *  one, and reporting its absence would be reporting the default.
+   *
+   *  Anything else is. A file that exists and cannot be read — the wrong
+   *  permissions, a directory where a file should be — looked exactly like no
+   *  file at all, so a reader whose bindings had silently stopped working had
+   *  nothing to go on. */
   async load(): Promise<void> {
     let text: string
     try {
       text = await readFile(this.#file, 'utf8')
-    } catch {
+    } catch (cause) {
+      const code = (cause as NodeJS.ErrnoException).code
       this.#config = EMPTY_CONFIG
-      this.#problems = []
+      this.#problems =
+        code === 'ENOENT'
+          ? []
+          : [{ where: 'file', message: `could not be read — ${code ?? String(cause)}` }]
       return
     }
 

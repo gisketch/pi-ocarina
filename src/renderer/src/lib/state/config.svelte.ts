@@ -8,7 +8,7 @@
  *  is what most readers have. */
 
 import { bridge } from '../bridge'
-import { buildKeymap, unknownActions } from '../keymap'
+import { buildKeymap, keymapProblems } from '../keymap'
 import { shell } from './shell.svelte'
 import { EMPTY_CONFIG, type AppConfig, type ConfigProblem } from '../../../../shared/config-file'
 
@@ -42,14 +42,15 @@ class ConfigState {
     // the keyboard from re-deriving them on every keystroke.
     shell.keymap = buildKeymap(answer.config.keys)
 
-    for (const binding of unknownActions(answer.config.keys)) {
-      // A typo in an action name is a key that silently does nothing, which is
-      // the failure this file exists to prevent.
-      this.problems = [
-        ...this.problems,
-        { where: `keys ${binding.mode} ${binding.key}`, message: `no such action: ${binding.action}` },
-      ]
-    }
+    // A binding the keymap will not honour is a key that silently does
+    // nothing, which is the failure this file exists to prevent.
+    this.problems = [
+      ...this.problems,
+      ...keymapProblems(answer.config.keys).map(({ binding, message }) => ({
+        where: `keys ${binding.mode} ${binding.key}`,
+        message,
+      })),
+    ]
   }
 }
 

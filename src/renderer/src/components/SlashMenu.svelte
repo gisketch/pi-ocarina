@@ -12,7 +12,9 @@
 </script>
 
 <div class="menu" role="listbox" aria-label="Slash commands">
-  {#each commands as command, i (command.id)}
+  <!-- Keyed on the name, not the id: every project command carries the id
+       `project`, so keying on it collides the moment a workspace defines two. -->
+  {#each commands as command, i (command.name + command.source)}
     <button
       type="button"
       class="row"

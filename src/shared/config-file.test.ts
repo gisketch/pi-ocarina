@@ -45,6 +45,15 @@ describe('keys', () => {
     expect(problems[0].where).toBe('keys[1]')
   })
 
+  it('protects the keys that actually enter a mode', () => {
+    // Checked against the reducer, not guessed: an earlier list protected `:`
+    // and `v`, which nothing reads, and left the leader's own space bar free
+    // to be taken.
+    for (const key of [' ', 'd', 'j', 'k', 't', 'i', 'Escape']) {
+      expect(FIXED_KEYS.has(key)).toBe(true)
+    }
+  })
+
   it('refuses to rebind a key that leaves a mode', () => {
     // Recoverability: an app you cannot leave is fixed by editing a file you
     // cannot reach, because the app is holding the keyboard.

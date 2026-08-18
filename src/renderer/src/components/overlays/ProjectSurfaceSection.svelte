@@ -35,7 +35,7 @@
 
   {#if surface.skills.length > 0}
     <div class="group">{countOf('skill', surface.skills.length)}</div>
-    {#each surface.skills as skill (skill.path)}
+    {#each surface.skills as skill, i (`${skill.path}-${i}`)}
       <div class="item">
         <span class="icon"><Icon name="tool-skill" /></span>
         <span class="name">{skill.name}</span>
@@ -48,7 +48,7 @@
 
   {#if surface.commands.length > 0}
     <div class="group">{countOf('command', surface.commands.length)}</div>
-    {#each surface.commands as command (command.path)}
+    {#each surface.commands as command, i (`${command.path}-${i}`)}
       <div class="item">
         <span class="icon"><Icon name="tool-todo" /></span>
         <span class="name">/{command.name}</span>
@@ -60,7 +60,7 @@
 
   {#if surface.instructionFiles.length > 0}
     <div class="group">{countOf('file', surface.instructionFiles.length)} the agent was told to read</div>
-    {#each surface.instructionFiles as file (file.path)}
+    {#each surface.instructionFiles as file, i (`${file.path}-${i}`)}
       <button type="button" class="item open" onclick={() => projectSurface.toggle(file.path)}>
         <span class="icon"><Icon name="tool-read" /></span>
         <span class="name">{file.path}</span>
@@ -79,7 +79,7 @@
 
   {#if surface.problems.length > 0}
     <div class="group bad">{countOf('problem', surface.problems.length)}</div>
-    {#each surface.problems as problem (problem.path)}
+    {#each surface.problems as problem, i (`${problem.path}-${i}`)}
       <div class="item">
         <span class="icon bad"><Icon name="error" /></span>
         <span class="name">{problem.path}</span>

@@ -78,8 +78,16 @@ const MODES = new Set(['NORMAL', 'READ', 'DIFF', 'LEADER'])
  *
  *  Recoverability, not taste. A reader who rebinds `j` has a worse day. A reader
  *  who rebinds `Escape` has an app they cannot leave, and the fix is editing a
- *  file they cannot open because the app is holding the keyboard. */
-export const FIXED_KEYS = new Set(['Escape', 'i', ':', 'v'])
+ *  file they cannot open because the app is holding the keyboard.
+ *
+ *  The list is the keys that *enter or leave a mode*, checked against the
+ *  reducer rather than guessed: `Escape` leaves every mode, `i` enters INSERT,
+ *  `d` enters DIFF, `j`/`k` enter READ, `t` opens a terminal column and `␣`
+ *  starts the leader chord. Take any of those and a whole mode becomes
+ *  unreachable — and the app has no other door to it. Earlier versions of this
+ *  list protected `:` and `v`, which nothing reads, while leaving every key
+ *  above rebindable. */
+export const FIXED_KEYS = new Set(['Escape', 'i', 'd', 'j', 'k', 't', ' '])
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''

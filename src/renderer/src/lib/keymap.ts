@@ -43,10 +43,28 @@ export function isAction(name: string): boolean {
   return Object.hasOwn(SHIPPED_KEYS, name)
 }
 
-/** A binding whose action the app does not have. Reported rather than ignored:
- *  a typo in an action name is a key that silently does nothing. */
-export function unknownActions(bindings: readonly KeyBinding[]): KeyBinding[] {
-  return bindings.filter((one) => !isAction(one.action))
+/** Every binding the keymap will not honour, and why.
+ *
+ *  Reported rather than ignored. A typo in an action name is a key that
+ *  silently does nothing, and so is a binding written in the wrong mode — the
+ *  parser accepts `DIFF`, but no action lives there, so every `DIFF` binding
+ *  was being dropped without a word. */
+export function keymapProblems(
+  bindings: readonly KeyBinding[],
+): { binding: KeyBinding; message: string }[] {
+  return bindings.flatMap((binding) => {
+    const shipped = SHIPPED_KEYS[binding.action]
+    if (!shipped) return [{ binding, message: `no such action: ${binding.action}` }]
+    if (shipped.mode !== binding.mode) {
+      return [
+        {
+          binding,
+          message: `${binding.action} lives in ${shipped.mode}, not ${binding.mode}`,
+        },
+      ]
+    }
+    return []
+  })
 }
 
 export interface Keymap {

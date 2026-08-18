@@ -213,10 +213,22 @@ class ShellState {
     // The reader's own bindings are applied here, before the reducer sees the
     // key. Binding `x` to what `l` already does means the reducer is handed
     // `l`, so the two can never disagree about what `l` means.
+    // Rebuilt field by field, never spread. `event` is a live `KeyboardEvent`,
+    // whose `metaKey`/`ctrlKey`/`altKey` are prototype accessors — a spread
+    // copies none of them, so a remapped `⌥j` would arrive at the reducer
+    // looking like a bare `j` and walk straight past the guard that ignores
+    // modifier chords.
     const remapped = effectiveKey(this.keymap, before.mode, event.key)
     const { state, actions, preventDefault, timer } = reduceKey(
       before,
-      remapped === event.key ? event : { ...event, key: remapped },
+      remapped === event.key
+        ? event
+        : {
+            key: remapped,
+            metaKey: event.metaKey,
+            ctrlKey: event.ctrlKey,
+            altKey: event.altKey,
+          },
       {
         workspaceCount: app.workspaces.length,
         terminalColumn: app.thread.terminal === true,
