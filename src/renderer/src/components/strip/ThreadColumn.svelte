@@ -53,17 +53,36 @@
   })
 
   // The stream landed something. Read from the model rather than from the DOM:
-  // a block count is a fact the column already has, and measuring the scroll
-  // height to notice growth would force layout on every delta.
-  const arrivals = $derived(threads.get(thread.id).blocks.length)
+  // measuring the scroll height to notice growth would force layout on every
+  // delta, which is what the column's virtualization exists to avoid.
+  //
+  // Not the block count. A long answer is *one* block whose text grows in
+  // place, and a run of tool calls is *one* ledger whose rows grow in place —
+  // so a count never changes mid-turn, and the view froze at the first line of
+  // exactly the turns worth following. This changes on every delta.
+  const arrivals = $derived.by(() => {
+    const blocks = threads.get(thread.id).blocks
+    const last = blocks[blocks.length - 1]
+    const grown =
+      last === undefined
+        ? 0
+        : last.kind === 'ledger'
+          ? last.rows.length
+          : 'text' in last
+            ? last.text.length
+            : 0
+    return { blocks: blocks.length, grown }
+  })
   /** How many blocks this column had last time it looked. Not reactive: it is
    *  the effect's own memory, and making it state would re-run the effect that
    *  writes it. `-1` until the first pass, so opening a thread with a hundred
    *  blocks does not count them as a hundred arrivals. */
   let seen = -1
 
+  // Counted in blocks, not in characters: `3 new` means three things arrived,
+  // and a pill reading `1,847 new` after one paragraph would be nonsense.
   $effect(() => {
-    const now = arrivals
+    const now = arrivals.blocks
     if (seen >= 0 && now > seen) follow.arrived(now - seen)
     seen = now
   })
@@ -72,7 +91,9 @@
   // scroll — a stream arriving faster than an animation settles would leave
   // the view permanently chasing itself.
   $effect(() => {
-    void arrivals
+    // Both, so the pin follows a block being added *and* one growing.
+    void arrivals.blocks
+    void arrivals.grown
     if (!body || !follow.following) return
     body.scrollTop = body.scrollHeight
   })

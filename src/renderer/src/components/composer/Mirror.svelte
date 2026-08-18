@@ -16,6 +16,10 @@
   const {
     text,
     folds,
+    /** Names of files staged for this message. Each occurrence in the text is
+     *  drawn as a chip — the file *is* where the reader typed it, so it does
+     *  not need a row of its own above the composer. */
+    files = [],
     /** How far the real field has scrolled.
      *
      *  The mirror has to follow it exactly. A composer taller than its box
@@ -23,9 +27,14 @@
      *  attached to whatever words happened to be at that height. Measured in
      *  the harness before this existed: the field at 200, the mirror at 0. */
     scrollTop = 0,
-  }: { text: string; folds: readonly Fold[]; scrollTop?: number } = $props()
+  }: {
+    text: string
+    folds: readonly Fold[]
+    files?: readonly string[]
+    scrollTop?: number
+  } = $props()
 
-  const parts = $derived(segment(text, folds))
+  const parts = $derived(segment(text, folds, files))
 
   let box = $state<HTMLDivElement | null>(null)
 
@@ -53,6 +62,13 @@
 
   /* Colour and an outline only. Both paint outside the layout box, so the
      glyphs stay exactly where the textarea put them. */
+  /* A staged file. Same chip as a mention, because it is the same thing to a
+     reader: a file this message is about. No icon here, and this is the one
+     place it is left off — the mirror may not occupy space, and a 10px glyph
+     in front of the name would shift every character after it and put the
+     caret in the wrong place for the rest of the message. The sent message,
+     which has no mirror to keep aligned, draws the icon. */
+  .file,
   .mention {
     color: var(--accent);
     background: oklch(0.76 0.14 var(--accent-hue) / 0.1);

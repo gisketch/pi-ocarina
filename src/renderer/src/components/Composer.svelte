@@ -9,9 +9,8 @@
   import { applyMention, mentionAt } from '$lib/mention'
   import { filterSlash, resolveSlash, slashQuery, type SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
-  import { pasting } from '$lib/state/pasting.svelte'
+  import { nameAt, pasting } from '$lib/state/pasting.svelte'
   import { following } from '$lib/state/following.svelte'
-  import StagedChips from './composer/StagedChips.svelte'
   import Field from './composer/Field.svelte'
   import FoldPeek from './composer/FoldPeek.svelte'
   import { files } from '$lib/state/files.svelte'
@@ -153,6 +152,14 @@
   const onpaste = async (event: ClipboardEvent): Promise<void> =>
     applyToField(await pasting.fromEvent(event, text, input))
 
+  // A file dropped on the window is staged by the shell, which has no caret to
+  // insert at. It leaves the names here and the composer writes them into the
+  // sentence, so a drop and a paste land in the same place.
+  $effect(() => {
+    if (attachments.pending.length === 0) return
+    void applyToField(nameAt(text, input, attachments.takePending()))
+  })
+
   function onkeydown(event: KeyboardEvent): void {
     // A chip is one thing. Taking a character out of the middle of a token
     // dropped the paste and left its characters behind as literal text.
@@ -253,7 +260,6 @@
   {/if}
 
   {#if peeked}<FoldPeek fold={peeked} />{/if}
-  <StagedChips />
 
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
@@ -261,15 +267,17 @@
       bind:value={text}
       bind:element={input}
       folds={pasting.folds}
+      files={attachments.names}
       placeholder="Message pi in {app.workspace.name}…  (i to focus)"
       {onkeydown}
       {onpaste}
       onmove={trackCaret}
       oninput={() => {
         trackCaret()
-        // Deleting a chip is how a reader drops a paste, so the held text has
-        // to follow the token rather than outlive it.
+        // Deleting a chip is how a reader drops a paste or a file, so what is
+        // held has to follow the text rather than outlive it.
         pasting.prune(text)
+        attachments.prune(text)
       }}
       onfocus={() => blockNav.startTyping()}
       onblur={() => {

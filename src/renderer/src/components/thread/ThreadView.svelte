@@ -10,6 +10,7 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import ReasoningBlock from './ReasoningBlock.svelte'
+  import { reasoningOpen } from '$lib/state/reasoning.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import { leap } from '$lib/state/leap.svelte'
@@ -169,13 +170,17 @@
           dimmed={dimming}
         />
       {:else if block.kind === 'reasoning'}
-        <ReasoningBlock
-          id={block.id}
-          text={block.text}
-          streaming={block.streaming}
-          ms={block.ms}
-          {threadId}
-        />
+        <!-- `o` hides them all: a reader who does not want to watch the model
+             think does not want a row per thought either. -->
+        {#if reasoningOpen.shown}
+          <ReasoningBlock
+            id={block.id}
+            text={block.text}
+            streaming={block.streaming}
+            ms={block.ms}
+            {threadId}
+          />
+        {/if}
       {:else if block.kind === 'ask'}
         <AskCard
           askId={block.id}

@@ -13,11 +13,10 @@
  *  here are in the bundle.
  *
  *  **Phosphor (light) is the sanctioned fallback**, for concepts Codicons has
- *  no icon for. Nothing has needed it yet, so the dependency is not installed:
- *  an unused package is a liability, and the rule matters more than shipping
- *  it early. When a gap appears, add `phosphor-svelte`, put the entry here,
- *  and name the gap in a comment beside it — the registry is where the
- *  Codicons-before-Phosphor rule is kept honest and visible.
+ *  no icon for. Every entry that reaches for it names the gap in a comment
+ *  beside it — this registry is where the Codicons-before-Phosphor rule is
+ *  kept honest and visible. `@phosphor-icons/core` ships the same raw SVGs,
+ *  so both packs arrive the same way and neither has a runtime.
  *
  *  ## What stays unicode
  *
@@ -44,11 +43,12 @@ import gitBranch from '@vscode/codicons/src/icons/git-branch.svg?raw'
 import linkExternal from '@vscode/codicons/src/icons/link-external.svg?raw'
 import arrowDown from '@vscode/codicons/src/icons/arrow-down.svg?raw'
 import circleFilled from '@vscode/codicons/src/icons/circle-filled.svg?raw'
-import circleLarge from '@vscode/codicons/src/icons/circle-large.svg?raw'
 import warning from '@vscode/codicons/src/icons/warning.svg?raw'
 import info from '@vscode/codicons/src/icons/info.svg?raw'
-import pass from '@vscode/codicons/src/icons/pass.svg?raw'
-import passFilled from '@vscode/codicons/src/icons/pass-filled.svg?raw'
+// Phosphor, for the gap named at `box` below.
+import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
+import squareChecked from '@phosphor-icons/core/assets/fill/check-square-fill.svg?raw'
+import squareFilled from '@phosphor-icons/core/assets/fill/square-fill.svg?raw'
 
 /** Named for what it means here, not for what the pack calls it. A rename in
  *  the pack is then one line, and a reader of a component sees the intent. */
@@ -65,13 +65,14 @@ export const ICONS = {
   branch: gitBranch,
   down: arrowDown,
   info,
-  /** A checkbox, drawn as the circle Codicons uses for one. The design's
-   *  squares (`□`/`■`) had no Codicon at any weight — the closest is
-   *  `primitive-square`, which is not in this release — and one shape used
-   *  consistently reads better than two that nearly match. */
-  box: circleLarge,
-  'box-done': passFilled,
-  'box-checked': pass,
+  /** A checkbox. **The Codicons gap**: this release ships no square outline —
+   *  `primitive-square` is gone and every checkbox it has is a circle — and
+   *  the design draws squares (`□`/`■`) everywhere. Phosphor at light weight
+   *  is the fallback, and its 1.5px stroke sits closer to this app's line
+   *  weight than a Codicon circle did anyway. */
+  box: square,
+  'box-done': squareFilled,
+  'box-checked': squareChecked,
   dot: circleFilled,
 } as const
 

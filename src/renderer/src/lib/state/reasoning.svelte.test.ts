@@ -4,7 +4,7 @@ import { reasoningOpen } from './reasoning.svelte'
 beforeEach(() => {
   reasoningOpen.forget('t1')
   reasoningOpen.forget('t2')
-  if (reasoningOpen.byDefault) reasoningOpen.toggleAll()
+  if (!reasoningOpen.shown) reasoningOpen.toggleAll()
 })
 
 describe('which thoughts are open', () => {
@@ -32,31 +32,24 @@ describe('which thoughts are open', () => {
   })
 })
 
-describe('the key that means show me all of this', () => {
-  it('opens every block, including ones closed by hand', () => {
-    reasoningOpen.toggle('t1', 'r1')
-    reasoningOpen.toggle('t1', 'r1')
-    expect(reasoningOpen.isOpen('t1', 'r1')).toBe(false)
+describe('the key that hides the thinking', () => {
+  it('takes every reasoning row off the screen, and brings them back', () => {
+    expect(reasoningOpen.shown).toBe(true)
 
     reasoningOpen.toggleAll()
-    // Otherwise the block they shut earlier stays shut and the key looks
-    // broken on the one block they were looking at.
+    expect(reasoningOpen.shown).toBe(false)
+
+    reasoningOpen.toggleAll()
+    expect(reasoningOpen.shown).toBe(true)
+  })
+
+  it('leaves the expansions a reader chose alone', () => {
+    // Hiding is not collapsing: what they had open is still open when the
+    // rows come back.
+    reasoningOpen.toggle('t1', 'r1')
+    reasoningOpen.toggleAll()
+    reasoningOpen.toggleAll()
+
     expect(reasoningOpen.isOpen('t1', 'r1')).toBe(true)
-    expect(reasoningOpen.isOpen('t2', 'anything')).toBe(true)
-  })
-
-  it('closes them again', () => {
-    reasoningOpen.toggleAll()
-    reasoningOpen.toggleAll()
-
-    expect(reasoningOpen.isOpen('t1', 'r1')).toBe(false)
-  })
-
-  it('still lets one block disagree with the default afterwards', () => {
-    reasoningOpen.toggleAll()
-    reasoningOpen.toggle('t1', 'r1')
-
-    expect(reasoningOpen.isOpen('t1', 'r1')).toBe(false)
-    expect(reasoningOpen.isOpen('t1', 'r2')).toBe(true)
   })
 })

@@ -16,6 +16,11 @@ export type Segment =
   | { kind: 'plain'; text: string }
   | { kind: 'mention'; text: string }
   | { kind: 'fold'; text: string }
+  /** A file staged for this message, named in the text. Drawn as a chip in
+   *  the flow of the sentence, which is where the reader put it — a row of
+   *  chips above the composer is a second place to look and a second thing to
+   *  keep in sync with what was typed. */
+  | { kind: 'file'; text: string }
 
 /** A mention: an `@` at the start or after whitespace, whose text has the
  *  shape of a path.
@@ -41,6 +46,25 @@ function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: 
   return spans.sort((a, b) => a.start - b.start)
 }
 
+/** Where each staged file's name sits in the text.
+ *
+ *  Longest first, so `shot.old.png` is not shadowed by `shot.old`. */
+function fileSpans(text: string, files: readonly string[]): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = []
+
+  for (const name of [...files].sort((a, b) => b.length - a.length)) {
+    if (name === '') continue
+    let from = 0
+    for (;;) {
+      const at = text.indexOf(name, from)
+      if (at === -1) break
+      spans.push({ start: at, end: at + name.length })
+      from = at + name.length
+    }
+  }
+  return spans.sort((a, b) => a.start - b.start)
+}
+
 function mentionSpans(text: string): { start: number; end: number }[] {
   const spans: { start: number; end: number }[] = []
   MENTION.lastIndex = 0
@@ -59,10 +83,15 @@ function mentionSpans(text: string): { start: number; end: number }[] {
  *  Every character of the input appears in exactly one segment, in order —
  *  that property is what the mirror's alignment rests on, and what the tests
  *  check first. */
-export function segment(text: string, folds: readonly Fold[] = []): Segment[] {
-  const marks: { start: number; end: number; kind: 'mention' | 'fold' }[] = [
+export function segment(
+  text: string,
+  folds: readonly Fold[] = [],
+  files: readonly string[] = [],
+): Segment[] {
+  const marks: { start: number; end: number; kind: 'mention' | 'fold' | 'file' }[] = [
     ...foldSpans(text, folds).map((span) => ({ ...span, kind: 'fold' as const })),
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
+    ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
   ].sort((a, b) => a.start - b.start)
 
   const segments: Segment[] = []

@@ -12,6 +12,8 @@
   interface Props {
     value: string
     folds: readonly Fold[]
+    /** Names of files staged for this message, drawn as chips. */
+    files?: readonly string[]
     element?: HTMLTextAreaElement | null
     placeholder: string
     onkeydown: (event: KeyboardEvent) => void
@@ -26,6 +28,7 @@
   let {
     value = $bindable(),
     folds,
+    files = [],
     element = $bindable(null),
     placeholder,
     onkeydown,
@@ -42,7 +45,7 @@
 </script>
 
 <div class="field">
-  <Mirror text={value} {folds} scrollTop={scrolled} />
+  <Mirror text={value} {folds} {files} scrollTop={scrolled} />
   <textarea
     bind:this={element}
     bind:value

@@ -1,13 +1,18 @@
 <script lang="ts">
-  /** What the model thought, drawn as margin notes.
+  /** What the model thought, drawn as the tool call it effectively is.
    *
-   *  Always visible, never loud: a rule down the left and the dimmest text in
-   *  the palette. It reads as something written in the margin of the answer,
-   *  which is what it is. Collapsed it shows the *latest* line — a glance says
-   *  where the model's head is while it is still there — and expanded it shows
-   *  the whole thought, plain. No markdown: reasoning styled like an answer
-   *  competes with the answer. */
+   *  Same grammar as every other row in the transcript — node, gutter word,
+   *  target, meta, chevron — because thinking is another thing the agent did
+   *  on the way to an answer, and a reader should not have to learn a second
+   *  shape to skim past it. Collapsed it shows the latest line; expanded it
+   *  shows the whole thought.
+   *
+   *  Muted a step below a tool row, and markdown-rendered but smaller: a model
+   *  writes `**this**` and backticks in its reasoning, and showing the
+   *  asterisks is showing it raw. */
   import Icon from '../Icon.svelte'
+  import Inline from './md/Inline.svelte'
+  import { parseInline } from '$lib/markdown-inline'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
 
   interface Props {
@@ -29,95 +34,121 @@
   const took = $derived(ms === undefined || ms < 100 ? '' : `${(ms / 1000).toFixed(1)}s`)
 </script>
 
-<div class="reasoning" class:open>
-  <button type="button" class="head" onclick={() => reasoningOpen.toggle(threadId, id)}>
-    {#if streaming}
-      <span class="mark"></span>
-    {:else}
-      <span class="chev"><Icon name={open ? 'chevron-down' : 'chevron-right'} /></span>
-    {/if}
-    <span class="word">REASONING</span>
-    {#if streaming}
-      <span class="took">streaming…</span>
-    {:else if took}
-      <span class="took">{took}</span>
-    {/if}
-    <span class="key">o</span>
-  </button>
+<div class="ledger">
+  <div class="entry">
+    <span class="node" class:pulse={streaming}></span>
+    <button class="row" onclick={() => reasoningOpen.toggle(threadId, id)}>
+      <span class="kind">think</span>
+      <span class="target">{streaming ? 'thinking…' : 'reasoning'}</span>
+      <span class="meta">
+        {took}<span class="chev"
+          ><Icon name={open ? 'chevron-down' : 'chevron-right'} /></span
+        >
+      </span>
+    </button>
 
-  {#if open}
-    <p class="full">{text}</p>
-  {:else if tail}
-    <p class="tail">{tail}</p>
-  {/if}
+    {#if open}
+      <div class="body"><Inline parts={parseInline(text)} /></div>
+    {:else if tail}
+      <div class="body one"><Inline parts={parseInline(tail)} /></div>
+    {/if}
+  </div>
 </div>
 
 <style>
-  .reasoning {
-    border-left: 2px solid var(--line-mid);
-    padding: 2px 0 2px 12px;
-    margin: 4px 0;
+  /* The ledger's own spine, so a reasoning row lines up with the tool rows
+     above and below it rather than sitting in its own margin. */
+  .ledger {
+    position: relative;
+    padding-left: 20px;
   }
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    width: 100%;
-    padding: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    color: var(--fg-dimmest);
-    text-align: left;
+  .ledger::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-mid);
   }
-  .word {
-    color: var(--fg-dimmer);
-  }
-  .chev {
-    color: var(--fg-dimmer);
-    width: 7px;
-  }
-  /* A square that breathes rather than a spinner: the transcript's other live
-     marks are squares, and one vocabulary is easier to read than two. */
-  .mark {
-    width: 6px;
-    height: 6px;
-    background: var(--fg-dimmer);
-    animation: blinkpx 0.9s steps(2) infinite;
-  }
-  @keyframes blinkpx {
-    0%,
-    100% {
-      opacity: 0.12;
-    }
-    50% {
-      opacity: 0.45;
-    }
-  }
-  .key {
-    margin-left: auto;
-    border: 1px solid var(--line-mid);
-    padding: 0 4px;
-    font-size: 9.5px;
+  .entry {
+    position: relative;
+    contain: layout style;
   }
 
-  p {
-    margin: 6px 0 0;
-    font-size: 11.5px;
+  .node {
+    position: absolute;
+    left: -20px;
+    top: 9px;
+    width: 7px;
+    height: 7px;
+    background: var(--fg-dimmer);
+  }
+  .node.pulse {
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 6px;
+    font-size: 12px;
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    font-family: var(--font-body);
+    color: inherit;
+    cursor: pointer;
+  }
+  .row:hover {
+    background: var(--bg-hover);
+  }
+  .kind {
+    font-family: var(--font-chrome);
+    font-size: 10px;
+    width: max(36px, var(--gutter, 4ch));
+    flex: none;
+    color: var(--fg-dimmer);
+  }
+  /* A step below a tool row's target: this is the thinking, not the doing. */
+  .target {
+    color: var(--fg-dim);
+  }
+  .meta {
+    margin-left: auto;
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--fg-dimmest);
+  }
+  .chev {
+    margin-left: 4px;
+  }
+
+  /* Indented under the row the way a tool body is, and smaller — the answer
+     stays the loudest thing on the screen. */
+  .body {
+    margin: 0 0 4px 14px;
+    border-left: 1px solid var(--line-soft, rgb(255 255 255 / 0.06));
+    padding: 2px 0 2px 14px;
+    font-size: 11px;
     line-height: 1.7;
     color: var(--fg-dimmest);
     white-space: pre-wrap;
   }
-  /* One line, ellipsized: a collapsed block has a fixed height, which is what
-     keeps the transcript's estimates honest while a thread streams. */
-  .tail {
+  .body.one {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .full {
-    color: var(--fg-dimmer);
+  /* Markdown, but quieter: a model writes `**this**` in its reasoning and the
+     asterisks are not what it meant. Bold lifts one step, never to full
+     strength. */
+  .body :global(.b) {
+    color: var(--fg-dim);
+  }
+  .body :global(code) {
+    font-size: 10.5px;
   }
 </style>

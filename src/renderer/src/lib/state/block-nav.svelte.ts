@@ -31,7 +31,9 @@ class BlockNav {
    *  cached: a keypress is not a hot path, and a stale list would point at
    *  blocks a restore has taken away. */
   #list(threadId = app.thread.id): ReturnType<typeof navBlocks> {
-    return navBlocks(threads.get(threadId).blocks)
+    return navBlocks(threads.get(threadId).blocks, (navId) =>
+      toolOpen.isOpen(threadId, navId, false),
+    )
   }
 
   /** `esc` out of READ. The ring goes; the dim goes with it. */

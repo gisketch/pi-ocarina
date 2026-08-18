@@ -73,12 +73,13 @@
   // still address the rows they always did.
   const items = $derived(groupRows(rows))
 
+  // Only when the reader asked. A group that opened because `j` walked past it
+  // would undo the thing it is for — a busy turn stays four lines until
+  // somebody wants the forty. `l` on the group is how they ask, and while it
+  // is shut its members are not stops at all (see `navBlocks`), so nothing can
+  // focus a row the transcript is not drawing.
   const groupOpen = (group: RowGroup): boolean =>
-    // A group whose member the reader is pointing at opens around it: leap can
-    // land inside a collapsed run, and a ring on something not drawn is a key
-    // that appears to do nothing.
-    toolOpen.isOpen(threadId, groupNavId(blockId, group), false) ||
-    group.rows.some((row) => focusedNav === navIdOf(row))
+    toolOpen.isOpen(threadId, groupNavId(blockId, group), false)
 </script>
 
 {#snippet entry(row: ToolRow, nested: boolean)}

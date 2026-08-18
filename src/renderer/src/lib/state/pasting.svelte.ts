@@ -33,12 +33,16 @@ class Pasting {
   }
 
   /** Stages clipboard images. Main writes the bytes; the renderer only carries
-   *  them from the event it was handed, so it still opens no files. */
-  async images(files: readonly File[]): Promise<number> {
+   *  them from the event it was handed, so it still opens no files.
+   *
+   *  Returns the names it staged, so the composer can put them in the text
+   *  where the reader pasted. A chip belongs in the sentence, not in a row
+   *  above it. */
+  async images(files: readonly File[]): Promise<string[]> {
     const pictures = files.filter((file) => file.type.startsWith('image/'))
-    if (pictures.length === 0 || !session.wired) return 0
+    if (pictures.length === 0 || !session.wired) return []
 
-    let staged = 0
+    const staged: string[] = []
     for (const picture of pictures) {
       try {
         const bytes = new Uint8Array(await picture.arrayBuffer())
@@ -48,7 +52,7 @@ class Pasting {
         })
         if (attachment) {
           attachments.push(attachment)
-          staged += 1
+          staged.push(attachment.name)
         }
       } catch {
         // An image that will not stage is dropped rather than failing the
@@ -77,8 +81,11 @@ class Pasting {
     const files = [...data.files]
     if (files.some((file) => file.type.startsWith('image/'))) {
       event.preventDefault()
-      await this.images(files)
-      return null
+      const names = await this.images(files)
+      // The names land at the caret, so the picture is a chip in the sentence
+      // the reader is writing — and the sent message can draw it in the same
+      // place, because the name is really there in the text.
+      return names.length === 0 ? null : nameAt(text, field, names)
     }
 
     const pasted = data.getData('text/plain')
@@ -151,6 +158,26 @@ class Pasting {
   clear(): void {
     this.folds = []
   }
+}
+
+/** Puts staged names into the text at the caret, spaced so they read as
+ *  words rather than running into what is already there. */
+export function nameAt(
+  text: string,
+  field: HTMLTextAreaElement | null,
+  names: readonly string[],
+): { text: string; caret: number } {
+  const at = field?.selectionStart ?? text.length
+  const end = field?.selectionEnd ?? at
+
+  const before = text.slice(0, at)
+  const after = text.slice(end)
+  const said = names.join(' ')
+  const lead = before === '' || /\s$/.test(before) ? '' : ' '
+  const trail = after === '' || /^\s/.test(after) ? ' ' : ' '
+
+  const inserted = `${lead}${said}${trail}`
+  return { text: before + inserted + after, caret: at + inserted.length }
 }
 
 /** `btoa` wants a binary string, and a big screenshot would blow the argument

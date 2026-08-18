@@ -1,14 +1,16 @@
-/** Which reasoning blocks are open.
+/** Whether reasoning is shown at all, and which blocks are expanded.
  *
- *  Two settings in one: a global default that `o` flips, and the blocks a
- *  reader opened or closed by hand. The per-block choice wins, because it is
- *  the more recent and the more specific thing they said.
+ *  Two different questions. `o` answers the first: it hides every reasoning
+ *  row in the app, for a reader who does not want to see the model think.
+ *  Clicking a row answers the second, for the rows that are shown.
  *
- *  Per thread, like every other reading state: opening one thread's reasoning
- *  is not a statement about another's. The global default is not per thread —
- *  it is a preference about how the reader likes to read. */
+ *  Expansion is per thread, like every other reading state. Visibility is not
+ *  — it is a preference about how the reader likes to read, and having it
+ *  differ per thread would mean answering it again in every column. */
 
 class ReasoningOpen {
+  /** Whether reasoning rows are drawn at all. `o` flips this. */
+  shown = $state(true)
   /** What a block does when nobody has said otherwise. */
   byDefault = $state(false)
   #chosen = $state<Record<string, Record<string, boolean>>>({})
@@ -23,12 +25,13 @@ class ReasoningOpen {
     this.#chosen = { ...this.#chosen, [threadId]: { ...forThread, [id]: next } }
   }
 
-  /** `o`. Flips the default and drops the per-block choices with it — one key
-   *  that means "show me all of this" has to actually show all of it, or the
-   *  blocks the reader closed earlier stay shut and the key looks broken. */
+  /** `o`. Shows or hides every reasoning row in the app.
+   *
+   *  Hiding rather than collapsing: a reader who does not care what the model
+   *  thought does not want a row per thought either, and a key that only
+   *  collapsed them would leave the transcript exactly as cluttered. */
   toggleAll(): void {
-    this.byDefault = !this.byDefault
-    this.#chosen = {}
+    this.shown = !this.shown
   }
 
   forget(threadId: string): void {

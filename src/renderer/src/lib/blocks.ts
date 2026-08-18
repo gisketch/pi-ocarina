@@ -163,7 +163,15 @@ function messageEntries(kind: 'user' | 'agent', blockId: string, text: string): 
  *  a checkpoint from reaching past a message that produced no blocks and
  *  labelling the next one with an entry that rewinds further back than the
  *  reader is pointing. A checkpoint with no neighbouring message is dropped. */
-export function navBlocks(blocks: Block[]): NavBlock[] {
+export function navBlocks(
+  blocks: Block[],
+  /** Whether a group is expanded. A collapsed group's members are not drawn,
+   *  so they are not stops: `j` landing on a row nobody can see is a key that
+   *  appears to do nothing, and a ring on it is a ring on nothing. Absent
+   *  (the demo catalog, tests) treats every group as collapsed, which is the
+   *  default a group is born in. */
+  groupOpen: (navId: string) => boolean = () => false,
+): NavBlock[] {
   const list: NavBlock[] = []
   /** A checkpoint waiting for the message that comes after it. */
   let pending: string | null = null
@@ -187,16 +195,22 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
       // for it directly: a group is a stop of its own — `l` on it expands the
       // run — and its members stay stops, which is what lets leap land on one
       // and the ledger open the group around it.
+      // In drawn order, so `j` walks the ledger the way it reads. A group is
+      // one stop; its members are stops only while it is open.
       for (const item of groupRows(block.rows)) {
-        if (item.kind === 'group') list.push(groupEntry(block.id, item))
-      }
-      for (const row of block.rows) {
-        list.push(toolEntry(block.id, row))
-        // A child agent is a stop of its own, and has to be: it is always
-        // nested under its spawn call, and `l` on it is the only way into the
-        // peek. Its *tool* rows are not — pointing at a subagent's third read
-        // is not something the reader can ask for.
-        for (const child of agentsIn(row)) list.push(toolEntry(block.id, child))
+        const rows = item.kind === 'group' ? item.rows : [item.row]
+        if (item.kind === 'group') {
+          list.push(groupEntry(block.id, item))
+          if (!groupOpen(groupNavId(block.id, item))) continue
+        }
+        for (const row of rows) {
+          list.push(toolEntry(block.id, row))
+          // A child agent is a stop of its own, and has to be: it is always
+          // nested under its spawn call, and `l` on it is the only way into
+          // the peek. Its *tool* rows are not — pointing at a subagent's third
+          // read is not something the reader can ask for.
+          for (const child of agentsIn(row)) list.push(toolEntry(block.id, child))
+        }
       }
       pending = null
       adjacent = null
