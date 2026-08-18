@@ -94,3 +94,29 @@ opening the picker.
 **Acceptance.** Spec acceptance 9, second half.
 
 **Blocked by.** B2.
+
+---
+
+## Done — 2026-08-18
+
+All six slices landed, one commit each.
+
+Verified in the browser harness, not only in tests: the status bar names the
+level and turns amber at full access; `<` opens Workspace Settings; the row
+cycles inherit → ask → auto → full and stops at the confirmation until it is
+answered; leader `p` sets the thread's own level and the bar marks it with a
+star.
+
+Two things the harness taught, both already known and both re-learnt:
+
+- **Stale HMR lies.** The confirmation appeared not to fire until a hard
+  navigation; the code had been right the whole time.
+- **An open overlay owns the keys.** A run of `␣p` presses were being read by
+  Workspace Settings, where `␣` acts on the selected row — so the workspace's
+  level moved and the thread's did not. The keys reach the shell only once the
+  screen is closed, which is the intended behaviour and not a defect.
+
+Two files crossed 350 lines during the work and were split at real seams:
+`pi-driver.ts` (the permission commands left, as the LSP and role ones already
+had) and `shell.svelte.ts` (the level cycling left for the permission state,
+which is where the question about full access belongs).

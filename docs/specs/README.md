@@ -61,7 +61,8 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
 - [2026-08-18-permissions-and-defaults.md](2026-08-18-permissions-and-defaults.md)
   — three permission levels with `auto` the default, global defaults for a new
   workspace and a new thread, and a workspace screen with its own key.
-  **Approved 2026-08-18.**
+  **Approved 2026-08-18.** Tickets in
+  [2026-08-18-permissions-and-defaults.md](../exec-plans/active/2026-08-18-permissions-and-defaults.md).
 
 ## Need grilling
 
