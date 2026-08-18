@@ -282,8 +282,9 @@
     flex-direction: column;
   }
   /* Centred on the children's own rule the same way, and a size smaller. */
+  /* A size smaller than a top-level node; where it sits is in `tokens.css`,
+     with the rest of the nesting geometry. */
   .children .node {
-    left: -19px;
     top: 5px;
     width: 11px;
     height: 11px;
