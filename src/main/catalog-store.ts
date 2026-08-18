@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_NAME_POOL, DEFAULT_ROLES } from '../shared/agent-roles'
+import { SHIPPED_MODES, type ChatMode } from '../shared/chat-modes'
+import { deleteMode, modeFor, saveMode, setDefaultMode } from './catalog-modes'
 import type { WorkspaceLsp } from '../shared/lsp'
 import { isPermissionLevel, type PermissionLevel } from '../shared/permissions'
 import type { AgentRole } from '../shared/vocabulary'
@@ -167,8 +169,35 @@ export class CatalogStore {
     if (this.#state.seeded) return
 
     this.#state.roles = DEFAULT_ROLES.map((role) => ({ ...role, tools: [...role.tools] }))
+    this.#state.modes = SHIPPED_MODES.map((mode) => ({ ...mode }))
     this.#state.namePool = [...DEFAULT_NAME_POOL]
     this.#state.seeded = true
+    this.#persist()
+  }
+
+  modes(): ChatMode[] {
+    return structuredClone(this.#state.modes)
+  }
+
+  /** The voice this thread writes in, from the thread's own choice and the
+   *  reader's default. Undefined is "normal": nothing is appended. */
+  modeFor(threadMode?: string): ChatMode | undefined {
+    return modeFor(this.#state, threadMode)
+  }
+
+  saveMode(mode: ChatMode): { mode: ChatMode } {
+    saveMode(this.#state, mode)
+    this.#persist()
+    return { mode }
+  }
+
+  deleteMode(modeId: string): void {
+    deleteMode(this.#state, modeId)
+    this.#persist()
+  }
+
+  setDefaultMode(modeId: string | undefined): void {
+    setDefaultMode(this.#state, modeId)
     this.#persist()
   }
 

@@ -9,7 +9,7 @@ green.
 
 ---
 
-## M1 — a mode reaches the model — `todo`
+## M1 — a mode reaches the model — `done`
 
 **Delivers.** The reader presses leader `M`, picks `terse`, asks a question, and
 the answer comes back in that voice. It is still in that voice twenty turns

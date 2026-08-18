@@ -26,6 +26,9 @@ export interface Preferences {
   defaultModel?: ModelChoice
   /** How hard a new thread thinks. Absent means the model's own default. */
   defaultReasoning?: ReasoningLevel
+  /** The voice every thread writes in, by mode id. Absent is "normal": the app
+   *  appends nothing and pi behaves as it ships. */
+  defaultMode?: string
   /** Whether the transcript draws what the model thought. `o` flips it, and
    *  it is remembered: a reader who does not want to watch the model think
    *  does not want to say so again every time the app starts. */
@@ -82,6 +85,12 @@ export function parsePreferences(value: unknown): Preferences {
     ...(parseModel(record.defaultModel) ? { defaultModel: parseModel(record.defaultModel) } : {}),
     ...(REASONING_ORDER.includes(record.defaultReasoning as ReasoningLevel)
       ? { defaultReasoning: record.defaultReasoning as ReasoningLevel }
+      : {}),
+    // A mode id is checked against the stored modes when it is used, not here:
+    // this file cannot see them, and a pointer at a mode the reader deleted
+    // resolves to no voice rather than to an error.
+    ...(typeof record.defaultMode === 'string' && record.defaultMode !== ''
+      ? { defaultMode: record.defaultMode }
       : {}),
   }
 }

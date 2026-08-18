@@ -38,7 +38,7 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 8,
+      version: 9,
       workspaces: [workspace],
       workspaceIndex: 2,
       focus: [1, 0, 0],
@@ -47,6 +47,7 @@ describe('parseCatalog', () => {
       retired: {},
       order: {},
       roles: [],
+      modes: [],
       namePool: [],
       seeded: false,
       preferences: DEFAULT_PREFERENCES,
@@ -58,7 +59,7 @@ describe('parseCatalog', () => {
 
     expect(warning).toBeUndefined()
     expect(state).toEqual({
-      version: 8,
+      version: 9,
       workspaces: [],
       workspaceIndex: 2,
       focus: [1, 0],
@@ -67,6 +68,7 @@ describe('parseCatalog', () => {
       retired: {},
       order: {},
       roles: [],
+      modes: [],
       namePool: [],
       seeded: false,
       preferences: DEFAULT_PREFERENCES,
@@ -86,7 +88,7 @@ describe('parseCatalog', () => {
   })
 
   it('rejects an unknown version rather than guessing', () => {
-    expect(parseCatalog('{"version":9}').warning).toMatch(/unsupported catalog version/)
+    expect(parseCatalog('{"version":10}').warning).toMatch(/unsupported catalog version/)
   })
 
   it('drops nonsense fields instead of failing', () => {
@@ -177,7 +179,7 @@ describe('writeCatalog', () => {
   it('round-trips state', async () => {
     const file = await tempFile()
     const state: CatalogState = {
-      version: 8,
+      version: 9,
       workspaces: [workspace],
       workspaceIndex: 1,
       focus: [2, 1, 0],
@@ -186,6 +188,7 @@ describe('writeCatalog', () => {
       retired: { w1: ['fix/gone'] },
       order: { w1: ['s1', 's-old'] },
       roles: [{ id: 'r1', name: 'scout', instructions: 'look', tools: ['read'] }],
+      modes: [{ id: 'terse', name: 'terse', instructions: 'be brief' }],
       namePool: ['zeus'],
       seeded: true,
       preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask', showReasoning: true },

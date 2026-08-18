@@ -13,6 +13,7 @@ export type Overlay =
   | 'keymap'
   | 'settings'
   | 'model'
+  | 'mode'
   | 'search'
   | 'roles'
   | 'workspace'

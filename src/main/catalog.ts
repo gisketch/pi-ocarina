@@ -1,5 +1,6 @@
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { parseNamePool, parseRoles } from '../shared/agent-roles'
+import { parseModes, type ChatMode } from '../shared/chat-modes'
 import type { WorkspaceLsp } from '../shared/lsp'
 import { DEFAULT_PREFERENCES, parsePreferences, type Preferences } from '../shared/preferences'
 import { isPermissionLevel, type PermissionLevel } from '../shared/permissions'
@@ -29,7 +30,7 @@ export interface WorkspaceEntry {
  *  session store is the truth about what threads exist, so it cannot drift out
  *  of sync here. */
 export interface CatalogState {
-  version: 8
+  version: 9
   workspaces: WorkspaceEntry[]
   workspaceIndex: number
   focus: number[]
@@ -53,6 +54,10 @@ export interface CatalogState {
   order: Record<string, string[]>
   /** The roles a child agent can be spawned as. */
   roles: AgentRole[]
+  /** The voices the agent can be asked to write in. Not roles: a role says what
+   *  a child agent is and which tools it may touch, and a mode says how the
+   *  thread the reader is reading writes back to them. */
+  modes: ChatMode[]
   /** The names children are drawn from, one spawn at a time. */
   namePool: string[]
   /** Whether the shipped roles and names have ever been written.
@@ -72,7 +77,7 @@ export interface CatalogState {
  *  `workspaces` array. */
 export function defaultCatalog(): CatalogState {
   return {
-    version: 8,
+    version: 9,
     workspaces: [],
     workspaceIndex: 0,
     focus: [],
@@ -81,6 +86,7 @@ export function defaultCatalog(): CatalogState {
     retired: {},
     order: {},
     roles: [],
+    modes: [],
     namePool: [],
     seeded: false,
     preferences: { ...DEFAULT_PREFERENCES },
@@ -205,11 +211,12 @@ export function parseCatalog(raw: string): CatalogLoad {
   // archived list, 4 no column order, 5 no retired worktrees, 6 no roles, 7 no
   // permission levels — a catalog from before them reads as `auto`, the new
   // default, rather than keeping the old ask-about-everything behaviour it
-  // never chose. They
+  // never chose. 8 had no chat modes, and a catalog from before them opens with
+  // no voice set, which is what "normal" is. They
   // upgrade by taking the defaults for what they never stored; nothing the user
   // pinned or approved is lost. A catalog that predates roles reads as unseeded,
   // so the shipped roles arrive on its next launch.
-  if (![2, 3, 4, 5, 6, 7, 8].includes(record.version as number)) {
+  if (![2, 3, 4, 5, 6, 7, 8, 9].includes(record.version as number)) {
     return {
       state: defaultCatalog(),
       warning: `unsupported catalog version: ${String(record.version)}`,
@@ -218,7 +225,7 @@ export function parseCatalog(raw: string): CatalogLoad {
 
   return {
     state: {
-      version: 8,
+      version: 9,
       workspaces: parseWorkspaces(record.workspaces),
       workspaceIndex,
       focus,
@@ -227,6 +234,7 @@ export function parseCatalog(raw: string): CatalogLoad {
       retired: parseIdLists(record.retired),
       order: parseIdLists(record.order),
       roles: parseRoles(record.roles),
+      modes: parseModes(record.modes),
       namePool: parseNamePool(record.namePool),
       seeded: record.seeded === true,
       preferences: parsePreferences(record.preferences),

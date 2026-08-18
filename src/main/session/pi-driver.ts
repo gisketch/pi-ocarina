@@ -17,10 +17,10 @@ import { changedFiles } from './changed-files'
 import { ModelControl } from './model-control'
 import { WorkspaceQueries } from './queries'
 import { fleetFor, type AgentFleet } from './agent-fleet'
-import { handleArchive, handleRoles } from './role-commands'
-import { handlePermission } from './permission-commands'
-import { handleLsp, LspService } from '../lsp/service'
-import { handleProject } from './project-commands'
+import { handleArchive } from './role-commands'
+import { LspService } from '../lsp/service'
+import { ModeControl } from './mode-commands'
+import { handleStored, ownsStored } from './stored-commands'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
@@ -58,6 +58,7 @@ export class PiDriver implements SessionDriver {
   readonly #steers: SteerQueue
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
+  readonly #modes: ModeControl
   readonly #changes = new ChangeLog()
   readonly #staged = new StagedImages()
   readonly #asks: AskGate
@@ -75,6 +76,8 @@ export class PiDriver implements SessionDriver {
       this.#approvals.takeBlocked(toolCallId),
     )
     this.#sessions.enableLsp((workspaceId, cwd) => this.#lsp.sessionDeps(workspaceId, cwd))
+    this.#modes = new ModeControl(this.#catalog)
+    this.#sessions.enableModes((threadId) => this.#modes.promptFor(threadId))
     this.#models = new ModelControl(this.#sessions)
     this.#workspaces = new WorkspaceService(catalog, () => this.#sessions.load())
     this.#queries = new WorkspaceQueries(this.#workspaces, this.#catalog, this.#models, onUnpin)
@@ -86,6 +89,7 @@ export class PiDriver implements SessionDriver {
       this.#fleet.cancelThread(threadId)
       this.#fleet.forget(threadId)
       this.#steers.forget(threadId)
+      this.#modes.forget(threadId)
       this.#changes.forget(threadId)
     })
   }
@@ -97,6 +101,26 @@ export class PiDriver implements SessionDriver {
     // Workspace-scoped commands touch no thread, so they answer first.
     const answered = await this.#queries.handle(name, params)
     if (answered) return answered.result as CommandResult<N>
+
+    // Then everything that reads or writes stored state rather than running a
+    // turn. What is left below is the agent itself.
+    if (ownsStored(name)) {
+      return (await handleStored(
+        {
+          catalog: this.#catalog,
+          approvals: this.#approvals,
+          lsp: this.#lsp,
+          modes: this.#modes,
+          project: {
+            session: (threadId) => this.#threads.get(threadId).session,
+            cwdOf: (threadId) => this.#workspaces.cwdOf(threadId),
+            sdk: () => this.#sessions.load(),
+          },
+        },
+        name,
+        params,
+      )) as CommandResult<N>
+    }
 
     switch (name) {
       case 'createThread': {
@@ -110,18 +134,6 @@ export class PiDriver implements SessionDriver {
         await this.#applyDefaults(threadId)
         return { threadId } as CommandResult<N>
       }
-
-      case 'projectSurface':
-      case 'reloadProject':
-        return (await handleProject(
-          {
-            session: (threadId) => this.#threads.get(threadId).session,
-            cwdOf: (threadId) => this.#workspaces.cwdOf(threadId),
-            sdk: () => this.#sessions.load(),
-          },
-          name,
-          params,
-        )) as CommandResult<N>
 
       case 'openThread': {
         const { threadId } = params as CommandParams<'openThread'>
@@ -219,26 +231,10 @@ export class PiDriver implements SessionDriver {
         return { ok: this.#fleet.cancel(agentId) } as CommandResult<N>
       }
 
-      case 'listRoles':
-      case 'saveRole':
-      case 'deleteRole':
-      case 'setNamePool':
-        return handleRoles(this.#catalog, name, params) as CommandResult<N>
-
       case 'stageImage': {
         const { data, mime } = params as CommandParams<'stageImage'>
         return { attachment: await this.#staged.stage(data, mime) } as CommandResult<N>
       }
-
-      case 'workspacePermission':
-      case 'setWorkspacePermission':
-      case 'threadPermission':
-      case 'setThreadPermission':
-        return handlePermission(this.#catalog, this.#approvals, name, params) as CommandResult<N>
-
-      case 'workspaceLsp':
-      case 'setWorkspaceLsp':
-        return (await handleLsp(this.#lsp, name, params)) as CommandResult<N>
 
       case 'archiveThread': {
         // Closing first: a thread with no column has nobody watching whatever

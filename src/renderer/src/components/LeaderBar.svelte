@@ -8,6 +8,7 @@
     ['f', 'find thread'],
     ['d', 'changes'],
     ['m', 'model'],
+    ['M', 'voice'],
     ['s', 'settings'],
     ['k', 'keymap'],
   ]

@@ -22,6 +22,7 @@
   import RolesOverlay from './components/overlays/RolesOverlay.svelte'
   import WorkspaceOverlay from './components/overlays/WorkspaceOverlay.svelte'
   import CommitCard from './components/overlays/CommitCard.svelte'
+  import ModeOverlay from './components/overlays/ModeOverlay.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
@@ -131,6 +132,9 @@
         return
       case 'open-keymap':
         shell.openOverlay('keymap')
+        return
+      case 'chat-mode':
+        shell.openOverlay('mode')
         return
       case 'next-thread':
         app.moveThread(1)
@@ -254,6 +258,8 @@
         shell.closeOverlay()
       }}
     />
+  {:else if shell.overlay === 'mode'}
+    <ModeOverlay onclose={() => shell.closeOverlay()} threadLabel={app.threadLabel} />
   {:else if shell.overlay === 'search'}
     <SearchOverlay
       onclose={() => shell.closeOverlay()}

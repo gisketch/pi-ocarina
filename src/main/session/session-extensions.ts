@@ -52,6 +52,10 @@ export interface Deps {
   /** Null when this workspace has no language servers switched on, which is
    *  the default and the case every session without them takes. */
   lsp?: (workspaceId: string, cwd: string) => LspExtensionDeps | null
+  /** The reader's voice for this thread, as prompt lines. Read on every load
+   *  rather than captured once, so a reload picks up a mode the reader changed.
+   *  A child never gets one. */
+  mode?: (threadId: string) => string[]
 }
 
 /** Loads pi's usual resources plus this app's own extensions.
@@ -71,6 +75,7 @@ export async function buildResources(
   const { approvals: gate, asks, spawn, where } = deps
   const lsp = deps.lsp?.(workspaceId, cwd) ?? null
   const languages = lsp ? promptLine(await lsp.labels()) : ''
+  const mode = () => deps.mode?.(handle.threadId) ?? []
 
   const loader = new DefaultResourceLoader({
     cwd,
@@ -92,6 +97,21 @@ export async function buildResources(
           ],
         }
       : {}),
+    // The reader's voice, last, after the project's own instructions: later
+    // text in a system prompt wins weakly, and the mode is the more recent and
+    // more specific instruction.
+    //
+    // An override rather than another `appendSystemPrompt` entry, because pi
+    // calls this on every load — so `/reload` picks up a mode changed since the
+    // session started, and a captured string would not.
+    //
+    // A child never gets one. Its final message is read by the parent, not by a
+    // person, and a voice that trades completeness for reading speed helps
+    // nobody there. It would also contradict `CHILD_PREAMBLE`, which tells a
+    // child to put everything in that message.
+    ...(child || !deps.mode
+      ? {}
+      : { appendSystemPromptOverride: (base: string[]) => [...base, ...mode()] }),
     extensionFactories: [
       ...(child?.ask === false
         ? []

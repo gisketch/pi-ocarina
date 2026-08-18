@@ -58,6 +58,9 @@ export class SessionFactory {
   /** Supplied after construction, like spawning. Absent means no session in
    *  this app has language servers, which is what the tests without one get. */
   #lsp: ((workspaceId: string, cwd: string) => LspExtensionDeps | null) | undefined
+  /** The reader's voice for a thread, as prompt lines. Absent means no session
+   *  carries one, which is what "normal" is. */
+  #mode: ((threadId: string) => string[]) | undefined
 
   constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
     this.#approvals = approvals
@@ -74,6 +77,11 @@ export class SessionFactory {
   /** Lets sessions reach their workspace's language servers. Called once. */
   enableLsp(lsp: (workspaceId: string, cwd: string) => LspExtensionDeps | null): void {
     this.#lsp = lsp
+  }
+
+  /** Lets sessions carry the reader's voice. Called once. */
+  enableModes(mode: (threadId: string) => string[]): void {
+    this.#mode = mode
   }
 
   /** Whether this workspace's sessions get the language-server treatment. */
@@ -234,6 +242,7 @@ export class SessionFactory {
         spawn: this.#spawn,
         where: this.#where,
         lsp: this.#lsp,
+        mode: this.#mode,
       },
       cwd,
       workspaceId,

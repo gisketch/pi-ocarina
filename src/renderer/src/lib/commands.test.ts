@@ -10,6 +10,7 @@ describe('command palette contents', () => {
       'switch-branch',
       'compact-thread',
       'cycle-permission',
+      'chat-mode',
       'open-keymap',
     ])
   })

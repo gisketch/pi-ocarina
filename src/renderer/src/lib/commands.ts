@@ -7,6 +7,7 @@ export type CommandId =
   | 'switch-branch'
   | 'compact-thread'
   | 'cycle-permission'
+  | 'chat-mode'
   | 'open-keymap'
 
 export interface Command {
@@ -24,6 +25,7 @@ export const COMMANDS: readonly Command[] = [
   { id: 'switch-branch', icon: '⎇', label: 'Switch branch', kbd: '⌘B' },
   { id: 'compact-thread', icon: '⌫', label: 'Compact thread (summarize context)', kbd: '␣ c' },
   { id: 'cycle-permission', icon: '⛨', label: 'Permission for this thread', kbd: '␣ p' },
+  { id: 'chat-mode', icon: '"', label: 'Voice for this thread…', kbd: '␣ M' },
   { id: 'open-keymap', icon: '?', label: 'Open keymap', kbd: '␣ k' },
 ]
 

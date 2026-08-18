@@ -280,6 +280,11 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'workspace' }, [], true, 'clear')
     case 'm':
       return result({ ...done, overlay: 'model' }, [], true, 'clear')
+    case 'M':
+      // A picker, not a cycle. `p` cycles the permission level because a level
+      // has four fixed values in an order a reader learns; the voices are a
+      // list the reader writes, and cycling nine of them is nine presses.
+      return result({ ...done, overlay: 'mode' }, [], true, 'clear')
     case 'f':
       return result({ ...done, overlay: 'search' }, focusFor('search'), true, 'clear')
     case 'n':
