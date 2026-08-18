@@ -269,10 +269,24 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
     font-family: var(--font-body);
     font-size: 12.5px;
+  }
+  /* The transcript keeps no scrollbar.
+   *
+   *  Its blocks are virtualized with `content-visibility`, so the column's
+   *  height is an estimate that gets corrected as blocks are measured for the
+   *  first time. A thumb sized from that estimate changes length while the
+   *  reader scrolls — it reports the guess, not the thread. Removing it is the
+   *  only way to stop that: the length cannot be stabilised without measuring
+   *  every block up front, which is the cost virtualization exists to avoid.
+   *
+   *  Nothing is lost that the column does not already say. `PAUSED` in the bar
+   *  and the follow pill both name the one position that matters — whether the
+   *  reader is at the live end. */
+  .body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   /* A leaping column goes quiet by re-pointing its colour tokens at one muted
