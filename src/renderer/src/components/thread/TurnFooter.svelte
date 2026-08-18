@@ -46,7 +46,11 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    padding: 2px 0 6px;
+    /* `padding-block` and not the `padding` shorthand: the column pads every
+       block inline, and a shorthand here set that back to zero — the footer
+       sat flush against the column's edge while everything above it was
+       indented. */
+    padding-block: 2px 6px;
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.08em;

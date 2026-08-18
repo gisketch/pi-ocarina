@@ -22,10 +22,9 @@
   /** The ledger's own indent, which the spine sits inside. */
   --pad-ledger: 20px;
   /** How far a nested run — a subagent's calls, a group's members — sits
-   *  inside the row above it: its margin, the rule it hangs off, and its
-   *  padding. The 1px is the rule, and leaving it out put every nested band
-   *  one pixel short of the column's edge. */
-  --pad-nest: 29px;
+   *  inside the row above it. One indent and no rule: a second line beside a
+   *  nested run reads as a ledger inside a ledger. */
+  --pad-nest: 28px;
   --bg-raise-2: rgba(255, 255, 255, 0.02);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
@@ -230,16 +229,16 @@
   width: 1px;
   background: var(--line-mid);
 }
-/* A nested run draws its own rule, and its rows' nodes centre on that rather
- * than on the ledger's spine. Without this they kept the top-level offset,
- * which is measured from an indent a nested row does not have — so the icon
- * landed on top of the row's own label and cut the word in half.
+/* A nested row reads as `{icon} read …`: the icon sits just before its own
+ * words rather than in the column the parent's icon is in, which is what makes
+ * the nesting legible now that there is no rule drawing it.
  *
- * Half of `--pad-nest` is the padding between the rule and the row; half a
- * node is 6.5px; the rule's own pixel is the last half. */
+ * Its own width plus a gap. Without this it kept the top-level offset — which
+ * is measured from an indent a nested row does not have — and landed on top of
+ * the label it belongs to. */
 .members > .entry .node,
 .children > .entry .node {
-  left: calc(-1 * ((var(--pad-nest) - 1px) / 2 + 7px));
+  left: -19px;
 }
 
 /* A group's members sit one nesting inset in; a subagent's calls sit inside

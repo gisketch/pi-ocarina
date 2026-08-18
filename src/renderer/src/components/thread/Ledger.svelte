@@ -273,15 +273,15 @@
   }
 
   .children {
-    /* `--pad-nest` is this margin, the rule below it, and the padding. */
-    margin: 0 0 4px calc((var(--pad-nest) - 1px) / 2);
+    /* One indent, no rule. The ledger already draws a spine; a second line
+       beside a nested run reads as a ledger inside a ledger, and the row's own
+       icon is what says where it belongs. */
+    margin: 0 0 4px 0;
     position: relative;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    padding-left: calc((var(--pad-nest) - 1px) / 2);
+    padding-left: var(--pad-nest);
     display: flex;
     flex-direction: column;
   }
-  /* Centred on the children's own rule the same way, and a size smaller. */
   /* A size smaller than a top-level node; where it sits is in `tokens.css`,
      with the rest of the nesting geometry. */
   .children .node {

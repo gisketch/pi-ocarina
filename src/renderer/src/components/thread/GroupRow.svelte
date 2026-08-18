@@ -166,10 +166,11 @@
   /* Members sit under the summary the way a subagent's calls sit under it —
      one indent and a rule, so the run reads as belonging to the row above. */
   .members {
-    /* `--pad-nest` is this margin, the rule below it, and the padding. */
-    margin: 0 0 4px calc((var(--pad-nest) - 1px) / 2);
-    border-left: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
-    padding-left: calc((var(--pad-nest) - 1px) / 2);
+    /* One indent, no rule. The ledger already draws a spine; a second line
+       beside a nested run reads as a ledger inside a ledger, and the row's own
+       icon is what says where it belongs. */
+    margin: 0 0 4px 0;
+    padding-left: var(--pad-nest);
     display: flex;
     flex-direction: column;
     gap: 2px;
