@@ -6,7 +6,7 @@
  *  per token — and because the column was over its line budget with it inline.
  */
 
-import { registerColumnBody } from './columns'
+import { registerColumnBody, stopScroll } from './columns'
 import { following } from './following.svelte'
 import { threads } from './threads.svelte'
 
@@ -79,6 +79,13 @@ export function followColumn(
 
     const box = element()
     if (!box || !following.of(threadId()).following) return
+    // A programmatic scroll still travelling is aimed at a bottom that has
+    // moved: the jump that re-follows on send is a 130ms curve toward the
+    // height the column had before the message landed. Left running, its next
+    // frame overwrites this line and drags the view back up — the reader sends
+    // and watches the transcript refuse to arrive. Following is the live
+    // authority over this element, so it takes it.
+    stopScroll(box)
     box.scrollTop = box.scrollHeight
 
     // And again after the browser has laid the new text out. The line above
@@ -92,7 +99,9 @@ export function followColumn(
       // up in the intervening frame has taken the view, and yanking it back
       // would be the one thing follow mode promises not to do.
       const now = element()
-      if (now && following.of(threadId()).following) now.scrollTop = now.scrollHeight
+      if (!now || !following.of(threadId()).following) return
+      stopScroll(now)
+      now.scrollTop = now.scrollHeight
     })
   })
 

@@ -12,6 +12,7 @@
   import { PERMISSION_LABELS } from '../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
   import { modes } from '$lib/state/modes.svelte'
+  import { following } from '$lib/state/following.svelte'
 
   // pi's own accounting for the focused thread. A thread that has not run a
   // turn has no usage, and the segment stays blank rather than showing zeros
@@ -72,6 +73,12 @@
   /** On, with nothing started. The chip says so quietly rather than counting. */
   const lspIdle = $derived(lsp === 'lsp' || lsp === 'lsp !')
 
+  // Whether this column has stopped following its stream. Named only when it
+  // has: a segment that spends its life reading FOLLOWING teaches nothing,
+  // and paused is the state that needs a word — the transcript has stopped
+  // moving and the pill only appears once something has landed below.
+  const paused = $derived(app.thread.id !== '' && !following.of(app.thread.id).following)
+
   const ctxPercent = $derived(Math.round(model.usage?.contextPercent ?? 0))
   const usage = $derived(formatUsage(model.usage))
 </script>
@@ -130,6 +137,17 @@
     </button>
   {/if}
 
+  {#if paused}
+    <button
+      type="button"
+      class="seg paused"
+      onclick={() => following.jump(app.thread.id)}
+      title="this column is not following its stream — click to jump to the latest (G)"
+    >
+      PAUSED
+    </button>
+  {/if}
+
   <div class="seg right ctx">
     ctx<span class="meter"><span class="fill" style:width="{ctxPercent}%"></span></span>{ctxPercent}%
   </div>
@@ -183,7 +201,8 @@
   }
 
   .perm,
-  .voice {
+  .voice,
+  .paused {
     border-top: none;
     border-bottom: none;
     border-left: none;
@@ -197,6 +216,10 @@
   }
   .perm.warn {
     color: var(--warn, var(--accent));
+  }
+  .paused {
+    color: var(--warn, var(--accent));
+    letter-spacing: 0.08em;
   }
 
   .lsp {

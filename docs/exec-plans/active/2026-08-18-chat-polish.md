@@ -42,6 +42,26 @@ Status legend: `todo` · `in-progress` · `done`.
   states; virtualization unaffected (no per-block layout reads).
 - Blocked by: C1.
 
+### Reported 2026-08-18, after C2 shipped
+
+Two halves of "sending always jumps" were missing.
+
+1. **The pin did not own the element.** `following.jump` scrolls on a 130ms
+   curve toward the height the column had *before* the message landed. The pin
+   writes `scrollTop` directly and never cancelled that curve, so its next
+   frame overwrote the pin and dragged the view back up: the reader sent and
+   watched the transcript refuse to arrive. The pin now stops any programmatic
+   scroll first — while following, it is the live authority over that element.
+2. **The jump named the wrong thread.** `sent()` re-followed the column the
+   composer was drawn over. Sending from a fresh column creates the thread, so
+   the placeholder's id was the one re-followed and the real transcript stayed
+   where it was. `sendMessage` now hands `sent` the thread it actually used.
+
+The statusline half of this ticket had also never shipped: the bar said nothing
+about follow state. It now carries `PAUSED` while the focused column is not
+following, and clicking it jumps — "shows `paused` only while paused", as the
+ticket settled.
+
 ## C3 — chips inside the sentence — `done`
 
 > A sent message renders its attachments as chips in the text flow; a chip

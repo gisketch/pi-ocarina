@@ -134,13 +134,13 @@
         attachments: () => attachments.list,
         prompt: (threadId, said, files) => threads.prompt(threadId, said, files),
         steer: (threadId, said) => threads.steer(threadId, said),
-        sent: () => {
+        sent: (threadId) => {
           attachments.clear()
           pasting.clear()
           // Sending is asking for the answer, so the view goes where the
-          // answer will be. Whatever the reader was reading, they are done
-          // reading it — they just typed.
-          following.jump(thread.id)
+          // answer will be — and to the thread it went to, which for a fresh
+          // column is not the placeholder this composer was drawn over.
+          following.jump(threadId)
         },
       })
       if (went) text = ''
