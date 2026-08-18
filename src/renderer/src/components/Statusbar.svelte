@@ -149,7 +149,11 @@
     ctx<span class="meter"><span class="fill" style:width="{ctxPercent}%"></span></span>{ctxPercent}%
   </div>
 
-  <div class="seg left-line">{usage}</div>
+  <!-- Absent until a turn has actually spent something. A field is a band of
+       its own now, and an empty one is a lit rectangle saying nothing. -->
+  {#if usage}
+    <div class="seg tokens">{usage}</div>
+  {/if}
 
   <!-- Only while a question holds the keys. The standing hints — h/l, the
        leader, ⌘K — are the three bindings a reader learns first and then reads
@@ -157,7 +161,7 @@
        width. This says the one thing they cannot deduce: that `j` and `k` have
        stopped being the transcript's and belong to the card. -->
   {#if asking}
-    <div class="seg left-line hints">
+    <div class="seg hints">
       <span><span class="key">j/k</span> choices</span>
       <span><span class="key">l</span> next</span>
       <span><span class="key">esc</span> release</span>
@@ -228,24 +232,24 @@
   }
 
   /* One field from the next by how light it is, the way an NVChad statusline
-     reads. The segments alternate loud, quiet, plain along the bar, and the
-     right-hand side mirrors it inwards — there is no rule between any two. */
+     reads. There is no rule between any two.
+     
+     Alternating by position and not by name: the voice, the language servers
+     and the paused flag each come and go, so a colour tied to a field put two
+     of the same next to each other the moment one of them was absent — which
+     is what made the permission level and the language servers read as one
+     block. Counting children fixes the order whatever is on the bar. */
   .seg {
     display: flex;
     align-items: center;
     padding: 0 12px;
-    background: none;
     color: var(--fg-dim);
   }
-  .branch {
+  .seg:nth-child(odd) {
     background: var(--seg-strong);
   }
-  .perm,
-  .lsp {
+  .seg:nth-child(even) {
     background: var(--seg);
-  }
-  .paused {
-    background: var(--seg-strong);
   }
 
   .worktree {
@@ -261,12 +265,7 @@
     margin-left: auto;
   }
 
-  .left-line {
-    background: var(--seg);
-  }
-  .hints {
-    background: var(--seg-strong);
-  }
+
 
   .ctx {
     gap: 6px;
