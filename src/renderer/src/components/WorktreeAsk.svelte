@@ -80,7 +80,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    border: 1px solid var(--line-strong);
     background: var(--bg-panel);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
@@ -112,16 +111,15 @@
     display: flex;
     align-items: center;
     gap: 1px;
-    padding: 7px 10px;
-    border: 1px solid var(--line-strong);
-    background: var(--bg-inset, rgba(255, 255, 255, 0.03));
+    padding: 8px 11px;
+    background: rgba(255, 255, 255, 0.05);
     font-family: var(--font-body);
     font-size: 12.5px;
     color: var(--fg-bright);
     min-height: 32px;
   }
   .field.bad {
-    border-color: var(--err);
+    background: rgba(224, 122, 107, 0.12);
   }
   .caret {
     width: 6px;
@@ -146,9 +144,9 @@
     display: inline-flex;
     align-items: baseline;
     gap: 7px;
-    padding: 6px 12px;
-    border: 1px solid var(--line-strong);
-    background: transparent;
+    padding: 7px 13px;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
     font-family: inherit;
     font-size: 11.5px;
     color: var(--fg-body);
@@ -160,7 +158,7 @@
   }
   .go {
     color: var(--fg-bright);
-    border-color: var(--accent-soft);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
   }
   .key {
     font-family: var(--font-chrome);

@@ -37,11 +37,11 @@
     gap: 12px;
     padding: 10px 16px;
     font-size: 11.5px;
-    border: 1px solid var(--warn);
     /* Opaque, not one of the raise washes: this sits over the composer, and a
        question you can read the composer through is a question you might
-       answer without reading. */
-    background: var(--bg-panel);
+       answer without reading. The warning is mixed into that colour rather
+       than drawn around it. */
+    background: color-mix(in srgb, var(--warn) 16%, var(--bg-panel));
     white-space: nowrap;
   }
 

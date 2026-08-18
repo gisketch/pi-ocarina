@@ -317,8 +317,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px dashed oklch(0.76 0.14 var(--accent-hue) / 0.5);
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.05);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.12);
     color: var(--accent);
     font-size: 10.5px;
     font-family: var(--font-chrome);

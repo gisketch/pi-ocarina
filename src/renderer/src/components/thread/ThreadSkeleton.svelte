@@ -58,7 +58,7 @@
      edge, for the same reason the ledger's own is a pseudo-element. */
   .ledger {
     margin-top: 6px;
-    background: linear-gradient(to right, var(--line-mid) 0 1px, transparent 1px);
+    background: linear-gradient(to right, var(--spine) 0 1px, transparent 1px);
     margin-left: 3px;
     padding-left: 16px;
     display: flex;

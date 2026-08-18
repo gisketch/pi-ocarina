@@ -48,8 +48,7 @@
     font-family: var(--font-chrome);
     font-size: 10px;
     color: var(--warn);
-    border-bottom: 1px solid rgba(233, 196, 106, 0.28);
-    background: rgba(233, 196, 106, 0.05);
+    background: rgba(233, 196, 106, 0.09);
   }
 
   .pip {

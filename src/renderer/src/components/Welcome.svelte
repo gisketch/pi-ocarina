@@ -52,8 +52,7 @@
     align-items: center;
     gap: 18px;
     padding: 40px 52px;
-    border: 1px solid var(--line-faint);
-    background: var(--bg-raise);
+    background: var(--bg-raise-3);
   }
 
   .wordmark {
@@ -75,20 +74,19 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 9px 16px;
-    border: 1px solid var(--line-mid);
-    background: var(--bg-hover);
+    padding: 10px 17px;
+    background: var(--bg-chip);
     color: var(--fg-dim);
     font: inherit;
     font-size: 11.5px;
     cursor: pointer;
     transition:
       color 0.15s,
-      border-color 0.15s;
+      background 0.15s;
   }
   .action:not(:disabled):hover {
     color: var(--fg-bright);
-    border-color: var(--accent);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
   }
   .action:disabled {
     cursor: default;

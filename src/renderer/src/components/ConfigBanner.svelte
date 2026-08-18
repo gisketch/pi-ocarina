@@ -42,8 +42,7 @@
     align-items: center;
     gap: 10px;
     padding: 6px 14px;
-    background: color-mix(in srgb, var(--err) 12%, var(--bg));
-    border-bottom: 1px solid color-mix(in srgb, var(--err) 35%, transparent);
+    background: color-mix(in srgb, var(--err) 16%, var(--bg));
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.06em;

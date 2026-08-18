@@ -30,7 +30,6 @@
     bottom: var(--statusbar-h);
     z-index: 40;
     background: var(--bg-panel);
-    border-top: 1px solid var(--line-strong);
     padding: 10px 18px;
     display: flex;
     align-items: center;
@@ -51,8 +50,8 @@
   }
 
   .kbd {
-    border: 1px solid rgba(255, 255, 255, 0.11);
-    padding: 1px 6px;
+    background: var(--bg-chip);
+    padding: 2px 7px;
     color: var(--fg-bright);
     margin-right: 6px;
   }
@@ -62,7 +61,7 @@
     color: var(--fg-dimmest);
   }
   .kbd.plain {
-    border-color: rgba(255, 255, 255, 0.09);
+    background: var(--bg-raise-3);
     color: inherit;
     margin-right: 0;
   }

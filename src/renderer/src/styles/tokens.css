@@ -66,11 +66,12 @@
   --fg-faint: #4a4a52;
   --fg-ghost: #3a3a40;
 
-  /* lines */
-  --line-faint: rgba(255, 255, 255, 0.035);
-  --line: rgba(255, 255, 255, 0.05);
-  --line-mid: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.1);
+  /* The one line left in the app. Nothing is separated by a rule any more —
+     surfaces at different lightness do that — but the ledger's spine is not a
+     separator: it is the thread a run of tool calls hangs from, and the nodes
+     are drawn sitting on it. Named for what it is, so the next border has no
+     token to reach for. */
+  --spine: rgba(255, 255, 255, 0.08);
 
   /* semantic */
   --ok: #7fd7a4;
@@ -246,7 +247,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--line-mid);
+  background: var(--spine);
 }
 /* A nested row reads as `{icon} read …`: the icon sits just before its own
  * words rather than in the column the parent's icon is in, which is what makes

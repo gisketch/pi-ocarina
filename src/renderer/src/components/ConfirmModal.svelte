@@ -40,7 +40,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    border: 1px solid var(--line-strong);
     background: var(--bg-panel);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
@@ -80,8 +79,8 @@
     color: var(--bg-deep);
   }
   .cancel {
-    border: 1px solid var(--line-strong);
-    background: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
     color: var(--fg-dim);
   }
 

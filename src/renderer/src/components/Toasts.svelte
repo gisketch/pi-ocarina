@@ -29,9 +29,10 @@
 
 <style>
   /* A question, in the accent rather than the error red: it is a request, not
-     a failure, and it keeps the long lifetime for reading rather than alarm. */
+     a failure, and it keeps the long lifetime for reading rather than alarm.
+     A toast says its kind by the colour mixed into its own surface. */
   .toast.ask {
-    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
   }
 
   .stack {
@@ -58,16 +59,15 @@
     font-size: 11.5px;
     color: var(--fg-body);
     background: var(--bg-panel);
-    border: 1px solid var(--line);
     /* steps(), not a fade: the whole surface animates in pixel jumps, and a
        toast that slid in smoothly would be the one thing here that does not. */
     animation: toast-in 0.16s steps(4);
   }
   .toast.ok {
-    border-color: rgba(127, 215, 164, 0.3);
+    background: color-mix(in srgb, var(--ok) 12%, var(--bg-panel));
   }
   .toast.error {
-    border-color: rgba(224, 122, 107, 0.35);
+    background: color-mix(in srgb, var(--err) 14%, var(--bg-panel));
   }
 
   .mark {

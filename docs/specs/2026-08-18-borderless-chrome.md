@@ -38,7 +38,7 @@ Flat surfaces at different steps, no rules between them.
 
 These are not separators and stay:
 
-- The ledger spine (`.ledger::before`, 1px, `--line-mid`) and the whole
+- The ledger spine (`.ledger::before`, 1px, `--spine`) and the whole
   spine/node geometry block in `tokens.css`. A tool-call row keeps its spine
   and does not gain a raised panel background. Same for the group summary and
   the reasoning row.
@@ -96,8 +96,8 @@ with a background —
   and `--bg-deep`.
 - Focus and selection stay legible with the borders gone: column focus, fzf
   row selection, insert mode, approve card.
-- `--line-faint`, `--line` and `--line-strong` are deleted; `--line-mid`
-  survives for the spine.
+- `--line-faint`, `--line`, `--line-mid` and `--line-strong` are gone. One
+  token survives, renamed `--spine`, and the spine is all it draws.
 
 ## Validation
 

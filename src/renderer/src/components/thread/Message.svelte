@@ -225,7 +225,7 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--line-strong);
+    background: rgba(255, 255, 255, 0.09);
   }
   .h span {
     flex: none;
@@ -235,7 +235,7 @@
     color: var(--fg-body);
   }
   .h3::after {
-    background: var(--line-faint);
+    background: rgba(255, 255, 255, 0.035);
   }
   .seg > .h:first-child {
     margin-top: 0;
