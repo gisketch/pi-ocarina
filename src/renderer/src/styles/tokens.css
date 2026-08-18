@@ -26,6 +26,25 @@
    *  nested run reads as a ledger inside a ledger. */
   --pad-nest: 28px;
   --bg-raise-2: rgba(255, 255, 255, 0.02);
+  /* Chrome surfaces. Nothing in the shell is separated by a line: a titlebar,
+     a rail, a status bar and a column are told apart by how light they are.
+     Each is a white-alpha tint over the app's ground, so the grain shows
+     through every one of them and the hue never drifts between them. */
+  --bg-titlebar: rgba(255, 255, 255, 0.03);
+  --bg-statusbar: rgba(255, 255, 255, 0.045);
+  /* The rail is the one chrome surface that goes *down* from the ground, so it
+     is a colour rather than a tint. Same family as `--bg`, one step darker. */
+  --bg-rail: #0a0a0d;
+  /* A status bar segment, quiet and loud. They alternate along the bar the way
+     an NVChad statusline does, which is what tells one field from the next. */
+  --seg: rgba(255, 255, 255, 0.035);
+  --seg-strong: rgba(255, 255, 255, 0.07);
+  /* A thread column, by whether it has the reader's attention. The focused one
+     is simply lighter — there is no ring around it to brighten. */
+  --bg-column-focus: rgba(255, 255, 255, 0.03);
+  --bg-column-idle: var(--bg-raise);
+  /* The strip across the top of a column or a card, where its name sits. */
+  --bg-header: rgba(255, 255, 255, 0.03);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
   --bg-hover-2: rgba(255, 255, 255, 0.05);
