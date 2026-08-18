@@ -87,10 +87,6 @@
 <footer class="statusbar">
   <div class="mode" class:accented={app.accented || asking}>{mode}</div>
 
-  <div class="seg workspace">
-    <span class="note">♪ {app.workspace.note}</span>{app.workspace.name}
-  </div>
-
   <div class="seg branch">
     {#if isolated}
       <span class="worktree"><Icon name="branch" /></span>
@@ -155,19 +151,18 @@
 
   <div class="seg left-line">{usage}</div>
 
-  <!-- The hints say what the keys do *now*. While a question holds them, `h`
-       and `l` are the question's, and saying "threads" would be a lie. -->
-  <div class="seg left-line hints">
-    {#if asking}
+  <!-- Only while a question holds the keys. The standing hints — h/l, the
+       leader, ⌘K — are the three bindings a reader learns first and then reads
+       past forever; a bar that always says them teaches nothing and costs the
+       width. This says the one thing they cannot deduce: that `j` and `k` have
+       stopped being the transcript's and belong to the card. -->
+  {#if asking}
+    <div class="seg left-line hints">
       <span><span class="key">j/k</span> choices</span>
       <span><span class="key">l</span> next</span>
       <span><span class="key">esc</span> release</span>
-    {:else}
-      <span><span class="key">h/l</span> threads</span>
-      <span><span class="key">␣</span> leader</span>
-      <span><span class="key">⌘K</span> commands</span>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </footer>
 
 <style>
@@ -249,15 +244,6 @@
   .worktree {
     color: var(--accent);
     margin-right: 5px;
-  }
-
-  .workspace {
-    gap: 7px;
-    color: var(--fg-agent);
-  }
-  .note {
-    color: var(--accent);
-    flex: none;
   }
 
   .branch {

@@ -63,7 +63,10 @@
     position: absolute;
     left: 50%;
     top: 18px;
-    bottom: 14px;
+    /* No gap under the columns: the composer sits against them, so a message
+       is typed at the foot of the transcript it belongs to rather than across
+       a band of empty chrome. */
+    bottom: 0;
     display: flex;
     transition: transform var(--dur-strip) var(--ease-strip);
     will-change: transform;
