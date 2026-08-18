@@ -301,3 +301,28 @@ describe('sending', () => {
     expect(threads.errorFor(id)).toBe('thread is not open')
   })
 })
+
+describe('a model per thread', () => {
+  it('leaves the neighbour alone', () => {
+    const first = freshId()
+    const second = freshId()
+    vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
+    threads.follow(first)
+    threads.follow(second)
+
+    session.ingest([
+      batch(first, 0, [
+        {
+          kind: 'model',
+          provider: 'anthropic',
+          id: 'claude-opus-5',
+          name: 'Opus 5',
+          reasoning: 'high',
+        },
+      ]),
+    ])
+
+    expect(threads.get(first).model).toMatchObject({ name: 'Opus 5', reasoning: 'high' })
+    expect(threads.get(second).model).toBeUndefined()
+  })
+})

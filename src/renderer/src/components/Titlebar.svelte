@@ -11,7 +11,19 @@
   const { onmodel }: { onmodel?: () => void } = $props()
 
   // Whatever pi says this thread is on. "pi default" until it says.
-  const model = $derived(threads.get(app.thread.id).model?.name ?? 'pi default')
+  //
+  // The reasoning level rides with the name, because the two are one choice
+  // and the only place the level could otherwise be read was inside the picker
+  // that changes it. A model that cannot reason says nothing rather than
+  // "off", which would read as a setting the reader turned off.
+  const chosen = $derived(threads.get(app.thread.id).model)
+  const model = $derived(
+    chosen
+      ? chosen.reasoning && chosen.reasoning !== 'off'
+        ? `${chosen.name} · ${chosen.reasoning}`
+        : chosen.name
+      : 'pi default',
+  )
 </script>
 
 <header class="titlebar">
