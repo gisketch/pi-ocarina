@@ -87,6 +87,10 @@
     seen = now
   })
 
+  /** A pin already scheduled for the next frame, so a stream queues one and
+   *  not one per token. */
+  let settling = 0
+
   // Pinned: keep the newest content in view. `scrollTop` rather than a smooth
   // scroll — a stream arriving faster than an animation settles would leave
   // the view permanently chasing itself.
@@ -95,7 +99,25 @@
     void arrivals.blocks
     void arrivals.grown
     if (!body || !follow.following) return
+
     body.scrollTop = body.scrollHeight
+
+    // And again after the browser has laid the new text out. The line above
+    // reads a `scrollHeight` that does not yet include the token that caused
+    // it, so following always stopped a line or two short of the bottom — the
+    // faster the stream, the further short.
+    if (settling !== 0) return
+    settling = requestAnimationFrame(() => {
+      settling = 0
+      // Checked now rather than when this was scheduled: a reader who scrolled
+      // up in the intervening frame has taken the view, and yanking it back
+      // would be the one thing follow mode promises not to do.
+      if (body && follow.following) body.scrollTop = body.scrollHeight
+    })
+  })
+
+  $effect(() => () => {
+    if (settling !== 0) cancelAnimationFrame(settling)
   })
 
   function onscroll(): void {

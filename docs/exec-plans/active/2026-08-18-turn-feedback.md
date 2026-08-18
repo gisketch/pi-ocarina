@@ -4,7 +4,7 @@ Spec: [2026-08-18-turn-feedback.md](../../specs/2026-08-18-turn-feedback.md)
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## T1 — the follow lands on the true bottom — `todo`
+## T1 — the follow lands on the true bottom — `done`
 
 > Smallest of the four and independent of the rest. Fix first: the footer
 > arriving at the end of a turn makes any shortfall more visible.
@@ -18,7 +18,9 @@ Status legend: `todo` · `in-progress` · `done`.
 - Acceptance: with a turn streaming, the last line of the newest block is
   fully visible; the reader's scroll-up still frees the view instantly.
 - Validation: a browser pass measuring `scrollHeight - (scrollTop + clientHeight)`
-  during a stream — it must reach zero, not merely a small number.
+  during a stream — it must reach zero, not merely a small number. **Deferred
+  to T3**: the renderer harness's mock threads are static, and the working
+  footer is the first thing in it that changes every second.
 
 ## T2 — one clock the whole app reads — `todo`
 
