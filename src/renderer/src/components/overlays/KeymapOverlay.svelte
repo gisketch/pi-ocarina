@@ -93,6 +93,10 @@
       {#if mine.length > 0}
         <div class="group">
           <div class="group-title">YOURS</div>
+          <!-- Said rather than merged into the groups above: those are a
+               written list, so a shipped key the reader has taken over still
+               reads there as if it did what it always did. -->
+          <div class="row note">these replace the shipped keys above</div>
           {#each mine as binding (`${binding.mode} ${binding.key}`)}
             <div class="row">
               <span>{binding.action} <span class="where">{binding.mode.toLowerCase()}</span></span>
@@ -106,6 +110,11 @@
 </Backdrop>
 
 <style>
+  .note {
+    color: var(--dim);
+    font-size: 10px;
+  }
+
   .where {
     color: var(--dim);
     font-size: 10px;

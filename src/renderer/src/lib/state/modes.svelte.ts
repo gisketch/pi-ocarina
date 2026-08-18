@@ -19,8 +19,11 @@ class ModeState {
   overridden = $state(false)
 
   #threadId = ''
-  /** Harness only: what the fake backend remembers. */
+  /** Harness only: what the fake backend remembers. Held here rather than in
+   *  `all`, which `load` overwrites — without it an edited voice vanished the
+   *  moment the screen reloaded itself. */
   #demoDefault: string | undefined = undefined
+  #demoModes: ChatMode[] = [...SHIPPED_MODES]
   #demoThread = new Map<string, string | undefined>()
 
   get mode(): ChatMode | undefined {
@@ -36,7 +39,7 @@ class ModeState {
     this.#threadId = threadId
 
     if (!session.wired) {
-      this.all = [...SHIPPED_MODES]
+      this.all = [...this.#demoModes]
       const own = this.#demoThread.get(threadId)
       const resolved = own ?? this.#demoDefault
       this.current = resolved === '' ? undefined : resolved
@@ -92,7 +95,7 @@ class ModeState {
     if (mode.name.trim() === '' || mode.instructions.trim() === '') return false
 
     if (session.wired) await session.invoke('saveMode', { mode })
-    else this.all = [...this.all.filter((one) => one.id !== mode.id), mode]
+    else this.#demoModes = [...this.#demoModes.filter((one) => one.id !== mode.id), mode]
 
     await this.load(this.#threadId)
     return true
@@ -101,7 +104,7 @@ class ModeState {
   async remove(modeId: string): Promise<void> {
     if (session.wired) await session.invoke('deleteMode', { modeId })
     else {
-      this.all = this.all.filter((one) => one.id !== modeId)
+      this.#demoModes = this.#demoModes.filter((one) => one.id !== modeId)
       if (this.#demoDefault === modeId) this.#demoDefault = undefined
       for (const [threadId, chosen] of this.#demoThread) {
         if (chosen === modeId) this.#demoThread.delete(threadId)
