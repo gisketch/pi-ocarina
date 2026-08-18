@@ -12,6 +12,7 @@
 import { parseMarkdown } from './markdown'
 import { segmentText, segmentsOf } from './markdown-segments'
 import { pointableRows } from './ledger-rows'
+import { groupRows, type RowGroup } from './ledger-groups'
 import type { Block, ToolRow } from './thread'
 
 export interface NavBlock {
@@ -67,6 +68,28 @@ function cardText(block: Block): string {
 /** What each card calls itself in the menu's header. */
 function cardLabel(block: Block): string {
   return short(cardText(block))
+}
+
+/** A group's stop.
+ *
+ *  `rowId` is set because it is what marks a stop as expandable — `l` and `h`
+ *  read it before touching the open state. The id is prefixed so it cannot
+ *  collide with the first member's, which is what it is named after. */
+function groupEntry(blockId: string, group: RowGroup): NavBlock {
+  return {
+    id: groupNavId(blockId, group),
+    kind: 'tool',
+    blockId,
+    rowId: `group:${group.id}`,
+    label: short(`${group.tool} ${group.rows.length} calls · ${group.preview}`),
+    text: group.preview,
+  }
+}
+
+/** Where a group registers, and what its open state is keyed on. One function
+ *  so the stop list and the component cannot disagree. */
+export function groupNavId(blockId: string, group: RowGroup): string {
+  return `${blockId}:group:${group.id}`
 }
 
 function toolEntry(blockId: string, row: ToolRow): NavBlock {
@@ -156,6 +179,13 @@ export function navBlocks(blocks: Block[]): NavBlock[] {
     }
 
     if (block.kind === 'ledger') {
+      // Grouping is a projection over the same rows, so the stop list can ask
+      // for it directly: a group is a stop of its own — `l` on it expands the
+      // run — and its members stay stops, which is what lets leap land on one
+      // and the ledger open the group around it.
+      for (const item of groupRows(block.rows)) {
+        if (item.kind === 'group') list.push(groupEntry(block.id, item))
+      }
       for (const row of block.rows) {
         list.push(toolEntry(block.id, row))
         // A child agent is a stop of its own, and has to be: it is always

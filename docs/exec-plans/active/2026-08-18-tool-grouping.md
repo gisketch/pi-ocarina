@@ -44,7 +44,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: `ledger-groups.test.ts`, property test: flatten(groups) ==
   input.
 
-## G3 — the group row, drawn and keyed — `todo`
+## G3 — the group row, drawn and keyed — `done`
 
 > The summary row and its expansion, from the mockup: chevron · kind · count
 > · preview · aggregate meta; members indented under a left rule.
@@ -57,14 +57,17 @@ Status legend: `todo` · `in-progress` · `done`.
 - An edit group's member row still opens its diff (one more `⏎`/`l`), exactly
   as the mockup draws it.
 - Leap: a match on a member of a collapsed group expands the group and
-  focuses the row (spec's open question — record what ships here).
+  focuses the row. **Shipped that way**: the group draws open whenever the
+  focused nav id is one of its members, so a ring never lands on a row the
+  transcript is not drawing. The group is also a stop of its own, so `l` and
+  `h` reach it directly.
 - Acceptance: mockup §01 reproduced — read group collapsed, edit group
   expanded, diff one level deeper; keys work without the pointer.
 - Validation: projection-state tests; browser pass with screenshots collapsed
   and expanded.
 - Blocked by: G2.
 
-## G4 — live groups — `todo`
+## G4 — live groups — `done` (landed with G3)
 
 > While a run is still producing calls, the group is open: current call
 > visible with its progress; it collapses to the summary when the run ends.

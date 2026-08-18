@@ -11,6 +11,9 @@
   import type { ToolRow } from '$lib/thread'
   import { drawnChildren, hiddenUnder, kindsIn, pointableRows } from '$lib/ledger-rows'
   import { widestLabel } from '$lib/tool-label'
+  import GroupRow from './GroupRow.svelte'
+  import { groupRows, type RowGroup } from '$lib/ledger-groups'
+  import { groupNavId } from '$lib/blocks'
 
   interface Props {
     rows: ToolRow[]
@@ -63,6 +66,18 @@
     if (!isExpandable(row)) return
     toolOpen.toggle(threadId, navIdOf(row), defaults[row.id] ?? false)
   }
+
+  // Runs of similar calls draw as one row. A projection over the same rows —
+  // ids, bodies and order are untouched, so focus, leap and the block menu all
+  // still address the rows they always did.
+  const items = $derived(groupRows(rows))
+
+  const groupOpen = (group: RowGroup): boolean =>
+    // A group whose member the reader is pointing at opens around it: leap can
+    // land inside a collapsed run, and a ring on something not drawn is a key
+    // that appears to do nothing.
+    toolOpen.isOpen(threadId, groupNavId(blockId, group), false) ||
+    group.rows.some((row) => focusedNav === navIdOf(row))
 </script>
 
 {#snippet entry(row: ToolRow, nested: boolean)}
@@ -142,8 +157,25 @@
   class:hosting={anyHosting}
   style="--gutter: {gutter}ch"
 >
-  {#each rows as row (row.id)}
-    {@render entry(row, false)}
+  {#each items as item (item.kind === 'group' ? `g:${item.id}` : item.row.id)}
+    {#if item.kind === 'group'}
+      {@const navId = groupNavId(blockId, item)}
+      <div
+        class="entry"
+        class:dim={dimmed && focusedNav !== navId}
+        class:lit={focusedNav === navId}
+        use:navTarget={{ threadId, navId }}
+      >
+        <GroupRow
+          group={item}
+          open={groupOpen(item)}
+          ontoggle={() => toolOpen.toggle(threadId, navId, false)}
+          {entry}
+        />
+      </div>
+    {:else}
+      {@render entry(item.row, false)}
+    {/if}
   {/each}
 </div>
 
@@ -186,35 +218,9 @@
        rest of a long ledger to be re-laid-out. */
     contain: layout style;
   }
-  /* Muted by colour, not by `opacity` and `filter` — see ThreadView. */
-  /* A parent entry's dim sets tokens, and tokens cascade — so a focused child
-     inside a dimmed parent inherited the dim it was exempt from. Restoring them
-     on the focused entry is what makes the ring readable. */
-  .entry.lit {
-    --tone-1: oklch(0.76 0.14 var(--accent-hue));
-    --tone-2: oklch(0.78 0.11 calc(var(--accent-hue) + 60));
-    --tone-3: oklch(0.8 0.09 calc(var(--accent-hue) + 180));
-    --fg-bright: #efefea;
-    --fg-body: #e8e8e3;
-  }
-  .entry.dim {
-    --tone-1: var(--fg-dimmer);
-    --tone-2: var(--fg-dimmer);
-    --tone-3: var(--fg-dimmer);
-    --fg-bright: var(--fg-dimmer);
-    --fg-body: var(--fg-dimmer);
-    --fg: var(--fg-dimmer);
-    --fg-agent: var(--fg-dimmer);
-    --fg-muted: var(--fg-dimmer);
-    --fg-dim: var(--fg-dimmer);
-    --fg-dimmest: var(--fg-dimmer);
-    --accent: var(--fg-dimmer);
-    --ok: var(--fg-dimmer);
-    --ok-text: var(--fg-dimmer);
-    --err: var(--fg-dimmer);
-    --err-text: var(--fg-dimmer);
-    --warn: var(--fg-dimmer);
-  }
+  /* The token sets a lit and a dimmed entry carry live in `tokens.css`: they
+     are theme values, not this component's layout, and a second component now
+     draws entries too. */
   /* The sigil's cells are computed in JS and written as inline backgrounds, so
      the tokens above cannot reach them: a dimmed agent row kept a full-colour
      sigil beside a greyed-out name. Desaturated rather than faded, to match how

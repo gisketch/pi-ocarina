@@ -99,3 +99,40 @@
 :root[data-grain='off'] {
   --grain-opacity: 0;
 }
+
+/* A ledger entry the reader is pointing at, and one they are not.
+ *
+ * Both set tokens only, which is why they live here rather than beside the
+ * ledger's layout: tokens cascade, so a focused child inside a dimmed parent
+ * needs the lit set to win back what the dim took — and more than one
+ * component now draws an entry.
+ *
+ * Muted by colour, never by `opacity` or `filter`: see ThreadView.
+ *
+ * Scoped under `.ledger`: `entry` is a general enough word that another
+ * surface will use it one day, and these rules would repaint it. */
+.ledger .entry.lit {
+  --tone-1: oklch(0.76 0.14 var(--accent-hue));
+  --tone-2: oklch(0.78 0.11 calc(var(--accent-hue) + 60));
+  --tone-3: oklch(0.8 0.09 calc(var(--accent-hue) + 180));
+  --fg-bright: #efefea;
+  --fg-body: #e8e8e3;
+}
+.ledger .entry.dim {
+  --tone-1: var(--fg-dimmer);
+  --tone-2: var(--fg-dimmer);
+  --tone-3: var(--fg-dimmer);
+  --fg-bright: var(--fg-dimmer);
+  --fg-body: var(--fg-dimmer);
+  --fg: var(--fg-dimmer);
+  --fg-agent: var(--fg-dimmer);
+  --fg-muted: var(--fg-dimmer);
+  --fg-dim: var(--fg-dimmer);
+  --fg-dimmest: var(--fg-dimmer);
+  --accent: var(--fg-dimmer);
+  --ok: var(--fg-dimmer);
+  --ok-text: var(--fg-dimmer);
+  --err: var(--fg-dimmer);
+  --err-text: var(--fg-dimmer);
+  --warn: var(--fg-dimmer);
+}

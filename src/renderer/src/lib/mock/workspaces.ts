@@ -52,6 +52,7 @@ export const WORKSPACES: Workspace[] = [
       { id: 'palette-flicker', title: 'palette flicker', status: 'waiting-input', meta: 'running…' },
       { id: 'icon-audit', title: 'icon set audit', status: 'idle', meta: 'idle' },
       { id: 'fan-out', title: 'fan out', status: 'running', meta: 'running…' },
+      { id: 'grouped-sweep', title: 'grouped sweep', status: 'running', meta: 'running…' },
     ],
   },
   {
