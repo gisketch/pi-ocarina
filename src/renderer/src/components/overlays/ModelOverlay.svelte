@@ -136,7 +136,6 @@
 <style>
   .panel {
     width: 560px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
     animation: rise 0.2s ease;
@@ -162,8 +161,7 @@
     text-align: left;
     cursor: pointer;
     border: none;
-    border-left: 2px solid transparent;
-    background: none;
+    background: rgba(255, 255, 255, 0.03);
     font-family: var(--font-body);
     transition: background-color 0.12s;
   }
@@ -171,7 +169,6 @@
     background: var(--bg-hover-2);
   }
   .row.current {
-    border-left-color: var(--accent);
     background: var(--accent-soft);
   }
 
@@ -218,8 +215,8 @@
   .chip {
     font-size: 9.5px;
     color: var(--fg-dim);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 1px 6px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
     flex: none;
   }
 
@@ -232,19 +229,20 @@
   .tile {
     flex: 1 1 90px;
     padding: 16px 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    background: none;
+    background: rgba(255, 255, 255, 0.045);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 9px;
     cursor: pointer;
     font-family: var(--font-body);
-    transition: transform 0.12s, border-color 0.12s;
+    transition:
+      transform 0.12s,
+      background 0.12s;
   }
   .tile:hover {
     transform: translateY(-2px);
-    border-color: oklch(0.76 0.14 var(--accent-hue) / 0.5);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
   }
   .level {
     font-size: 10.5px;
@@ -255,7 +253,7 @@
     display: flex;
     gap: 14px;
     padding: 9px 16px;
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-size: 10px;
     color: var(--fg-dimmest);
     font-family: var(--font-chrome);

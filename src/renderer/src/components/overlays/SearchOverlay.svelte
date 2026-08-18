@@ -149,7 +149,6 @@
     width: 560px;
     max-height: 380px;
     overflow-y: auto;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
     padding: 6px;
@@ -170,13 +169,11 @@
     text-align: left;
     cursor: pointer;
     border: none;
-    border-left: 2px solid transparent;
-    background: none;
+    background: rgba(255, 255, 255, 0.03);
     font-family: var(--font-body);
   }
   .hit.active {
-    border-left-color: var(--accent);
-    background: var(--bg-hover-2);
+    background: var(--accent-soft);
   }
 
   .head {

@@ -77,7 +77,6 @@
 <style>
   .palette {
     width: 560px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
     overflow: hidden;
@@ -89,7 +88,7 @@
     align-items: center;
     gap: 10px;
     padding: 13px 16px;
-    border-bottom: 1px solid var(--bg-chip);
+    background: var(--bg-header);
   }
   .prompt {
     color: var(--accent);
@@ -110,8 +109,8 @@
   .esc {
     font-size: 9.5px;
     color: var(--fg-dimmest);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
   }
 
   .list {
@@ -147,8 +146,8 @@
     margin-left: auto;
     font-size: 9.5px;
     color: var(--fg-dimmer);
-    border: 1px solid rgba(255, 255, 255, 0.055);
-    padding: 1px 6px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
     white-space: nowrap;
   }
 

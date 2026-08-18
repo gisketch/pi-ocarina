@@ -69,7 +69,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.09);
     background: var(--bg-panel);
     padding: 11px 14px;
   }
@@ -103,8 +102,8 @@
   .esc {
     font-size: 9.5px;
     color: var(--fg-dimmest);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
     flex: none;
   }
 </style>

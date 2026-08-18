@@ -64,7 +64,6 @@
     max-height: 60vh;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--line-strong);
     background: var(--bg-panel);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
@@ -74,7 +73,7 @@
     align-items: baseline;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--line);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.12em;
@@ -145,7 +144,7 @@
     display: flex;
     gap: 14px;
     padding: 10px 16px;
-    border-top: 1px solid var(--line);
+    background: var(--bg-header);
     font-size: 10.5px;
     color: var(--fg-dimmest);
   }

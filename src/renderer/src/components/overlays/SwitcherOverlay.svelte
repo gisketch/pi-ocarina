@@ -97,7 +97,6 @@
   .card {
     width: 190px;
     padding: 22px 18px 16px;
-    border: 1px solid var(--line-strong);
     background: var(--bg-panel);
     display: flex;
     flex-direction: column;
@@ -111,8 +110,10 @@
   .card:hover {
     transform: translateY(-3px);
   }
+  /* The workspace under the cursor is the brighter card, tinted with its own
+     seeded hue — the same hue the app will take if it is chosen. */
   .card.active {
-    border-color: oklch(0.76 0.14 var(--card-hue) / 0.45);
+    background: oklch(0.76 0.14 var(--card-hue) / 0.12);
   }
 
   .name {
@@ -141,13 +142,12 @@
     margin-top: auto;
     font-size: 9.5px;
     color: var(--fg-dim);
-    border: 1px solid var(--line-strong);
-    padding: 1px 7px;
+    background: var(--bg-chip);
+    padding: 2px 7px;
   }
 
   .empty {
-    border-style: dashed;
-    background: none;
+    background: rgba(255, 255, 255, 0.03);
     justify-content: center;
     color: var(--fg-dimmest);
     font-size: 10.5px;
@@ -160,22 +160,21 @@
   }
   .empty:not(:disabled):hover {
     color: var(--fg-dim);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: var(--bg-hover);
   }
   .ghost {
     width: 52px;
     height: 52px;
-    border: 1px dashed rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
   }
   .key.plain {
     color: var(--fg-dimmest);
-    border-color: rgba(255, 255, 255, 0.09);
+    background: var(--bg-raise-3);
   }
 
   .failed {
     padding: 7px 12px;
-    border: 1px solid rgba(224, 122, 107, 0.28);
-    background: var(--err-soft);
+    background: rgba(224, 122, 107, 0.09);
     color: var(--err-text);
     font-size: 11px;
     font-family: var(--font-body);
