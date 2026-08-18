@@ -10,6 +10,7 @@ const skills = (names: string[]) => ({
 
 function fake(options: { streaming?: boolean; onReload?: () => void } = {}) {
   let loaded = ['reviewer']
+  const rebuilt: string[][] = []
   const session = {
     isStreaming: options.streaming ?? false,
     resourceLoader: {
@@ -19,6 +20,8 @@ function fake(options: { streaming?: boolean; onReload?: () => void } = {}) {
         loaded = ['reviewer', 'scout']
       },
     },
+    getActiveToolNames: () => ['read', 'bash'],
+    setActiveToolsByName: (names: string[]) => rebuilt.push(names),
   } as unknown as AgentSession
 
   const deps: ProjectDeps = {
@@ -26,7 +29,7 @@ function fake(options: { streaming?: boolean; onReload?: () => void } = {}) {
     cwdOf: () => '/repo',
     sdk: async () => ({ getAgentDir: () => '/home/me/.pi' }) as unknown as Sdk,
   }
-  return { deps, session }
+  return { deps, session, rebuilt }
 }
 
 describe('reading the surface', () => {
@@ -70,6 +73,16 @@ describe('reloading', () => {
     expect(answer.reloaded).toBe(false)
     expect(answer.because).toContain('working')
     expect(onReload).not.toHaveBeenCalled()
+  })
+
+  it('rebuilds the session prompt, not only the loader', async () => {
+    // pi caches the assembled prompt. Reloading the loader alone leaves the
+    // agent running on the skills and instructions it was born with, and
+    // `/reload` would report success for nothing.
+    const { deps, rebuilt } = fake()
+
+    await handleProject(deps, 'reloadProject', { threadId: 't1' })
+    expect(rebuilt).toEqual([['read', 'bash']])
   })
 
   it('survives a loader that cannot reload', async () => {

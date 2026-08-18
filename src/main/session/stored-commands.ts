@@ -15,6 +15,7 @@ import { handleLsp, type LspService } from '../lsp/service'
 import { handleModes, type ModeControl } from './mode-commands'
 import { handlePermission } from './permission-commands'
 import { handleProject, type ProjectDeps } from './project-commands'
+import { reloadResources } from './project-surface'
 import { handleRoles } from './role-commands'
 
 const ROLES = new Set<CommandName>(['listRoles', 'saveRole', 'deleteRole', 'setNamePool'])
@@ -54,7 +55,14 @@ export async function handleStored(
   params: unknown,
 ): Promise<unknown> {
   if (ROLES.has(name)) return handleRoles(deps.catalog, name, params)
-  if (MODES.has(name)) return handleModes(deps.modes, deps.catalog, name, params)
+  if (MODES.has(name)) {
+    return handleModes(deps.modes, deps.catalog, name, params, async (threadId) => {
+      const session = deps.project.session(threadId)
+      // Never under a running turn: the prompt would change between one
+      // request and the next with nothing saying so.
+      if (!session.isStreaming) await reloadResources(session)
+    })
+  }
   if (PERMISSION.has(name)) return handlePermission(deps.catalog, deps.approvals, name, params)
   if (LSP.has(name)) return handleLsp(deps.lsp, name, params)
   return handleProject(deps.project, name, params)

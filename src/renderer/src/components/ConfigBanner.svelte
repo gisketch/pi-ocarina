@@ -10,7 +10,19 @@
    *  Nothing here uses `{@html}`. */
   import { config } from '$lib/state/config.svelte'
 
+  /** Reset when the problems change: a reader who dismissed one file's
+   *  complaint has not dismissed the next one, and a `/reload` that surfaces a
+   *  new problem must not land behind a banner they already closed. */
   let dismissed = $state(false)
+  let seen = $state('')
+
+  $effect(() => {
+    const now = config.problems.map((one) => `${one.where}:${one.message}`).join('|')
+    if (now !== seen) {
+      seen = now
+      dismissed = false
+    }
+  })
 </script>
 
 {#if config.broken && !dismissed}

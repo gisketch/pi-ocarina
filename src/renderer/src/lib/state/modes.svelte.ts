@@ -67,10 +67,25 @@ class ModeState {
     await this.load(this.#threadId)
   }
 
-  /** A stable id from a name, so renaming a mode does not orphan it. */
+  /** A stable id from a name, so renaming a mode does not orphan it.
+   *
+   *  Made unique against what is already stored: two voices called "Terse" and
+   *  "terse!" both slug to `terse`, and the second would silently overwrite the
+   *  first — `saveMode` matches on id. */
   idFor(name: string): string {
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    return slug === '' ? `mode-${this.all.length + 1}` : slug
+    const slug = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const base = slug === '' ? 'mode' : slug
+
+    const taken = new Set(this.all.map((one) => one.id))
+    if (!taken.has(base)) return base
+    for (let n = 2; ; n += 1) {
+      const candidate = `${base}-${n}`
+      if (!taken.has(candidate)) return candidate
+    }
   }
 
   async save(mode: ChatMode): Promise<boolean> {
@@ -103,7 +118,10 @@ class ModeState {
       return
     }
 
-    await session.invoke('setDefaultMode', { modeId })
+    await session.invoke('setDefaultMode', {
+      modeId,
+      ...(this.#threadId === '' ? {} : { threadId: this.#threadId }),
+    })
     await this.load(this.#threadId)
   }
 }

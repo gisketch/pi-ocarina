@@ -92,6 +92,7 @@ describe('the commands behind the picker', () => {
       modes: MODES,
       current: 'terse',
       overridden: false,
+      fallbackMode: 'terse',
     })
 
     control.set('t1', 'plain')
@@ -118,6 +119,38 @@ describe('the commands behind the picker', () => {
     expect(control.overridden('t1')).toBe(false)
   })
 
+  it('re-reads the thread, so the new voice reaches the running session', async () => {
+    // pi assembles the system prompt once and caches it. Without this the
+    // picker would say it changed something that had not changed.
+    const { catalog } = fakeCatalog(undefined)
+    const refreshed: string[] = []
+    const control = new ModeControl(catalog)
+
+    handleModes(control, catalog, 'setThreadMode', { threadId: 't1', modeId: 'plain' }, async (id) => {
+      refreshed.push(id)
+    })
+    await Promise.resolve()
+    expect(refreshed).toEqual(['t1'])
+  })
+
+  it('re-reads only the thread that changed the default', async () => {
+    const { catalog } = fakeCatalog(undefined)
+    const refreshed: string[] = []
+    const control = new ModeControl(catalog)
+
+    handleModes(control, catalog, 'setDefaultMode', { modeId: 'terse', threadId: 't1' }, async (id) => {
+      refreshed.push(id)
+    })
+    await Promise.resolve()
+    expect(refreshed).toEqual(['t1'])
+
+    handleModes(control, catalog, 'setDefaultMode', { modeId: 'plain' }, async (id) => {
+      refreshed.push(id)
+    })
+    await Promise.resolve()
+    expect(refreshed).toEqual(['t1'])
+  })
+
   it('sets the default, saves a mode, and deletes one', () => {
     const { catalog, state } = fakeCatalog(undefined)
     const control = new ModeControl(catalog)
@@ -132,5 +165,19 @@ describe('the commands behind the picker', () => {
 
     handleModes(control, catalog, 'deleteMode', { modeId: 'loud' })
     expect(state.deleted).toEqual(['loud'])
+  })
+
+  it('drops a thread override pointing at a deleted mode', () => {
+    // A dangling override resolves to no voice, but the thread would report
+    // itself as overridden with nothing to show for it.
+    const { catalog } = fakeCatalog(undefined)
+    const control = new ModeControl(catalog)
+    control.set('t1', 'plain')
+    control.set('t2', 'terse')
+
+    handleModes(control, catalog, 'deleteMode', { modeId: 'plain' })
+
+    expect(control.overridden('t1')).toBe(false)
+    expect(control.overridden('t2')).toBe(true)
   })
 })

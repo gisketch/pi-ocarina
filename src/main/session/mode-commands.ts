@@ -41,14 +41,38 @@ export class ModeControl {
     this.#overrides.delete(threadId)
   }
 
+  /** Drops every thread override pointing at a mode that no longer exists.
+   *
+   *  A dangling override resolves to no voice, which is survivable — but the
+   *  thread would report itself as overridden with nothing to show for it, and
+   *  the picker would offer "use the default" for a choice already gone. */
+  forgetMode(modeId: string): void {
+    for (const [threadId, chosen] of this.#overrides) {
+      if (chosen === modeId) this.#overrides.delete(threadId)
+    }
+  }
+
   set(threadId: string, modeId: string | undefined): void {
     if (modeId === undefined) this.#overrides.delete(threadId)
     else this.#overrides.set(threadId, modeId)
   }
 }
 
+/** Re-reads a thread's resources so a voice change reaches the running session.
+ *
+ *  pi assembles the system prompt once and caches it, so a mode that only
+ *  changed the catalog would not be heard until the thread was reopened — and
+ *  the picker would have said it changed something that did not. */
+export type RefreshThread = (threadId: string) => Promise<void>
+
 /** The commands behind the picker and the settings screen. */
-export function handleModes(modes: ModeControl, catalog: CatalogStore, name: CommandName, params: unknown): unknown {
+export function handleModes(
+  modes: ModeControl,
+  catalog: CatalogStore,
+  name: CommandName,
+  params: unknown,
+  refresh?: RefreshThread,
+): unknown {
   switch (name) {
     case 'listModes': {
       const { threadId } = params as CommandParams<'listModes'>
@@ -65,12 +89,20 @@ export function handleModes(modes: ModeControl, catalog: CatalogStore, name: Com
     case 'setThreadMode': {
       const { threadId, modeId } = params as CommandParams<'setThreadMode'>
       modes.set(threadId, modeId)
+      // Not awaited: the picker has closed, and a voice that arrives a
+      // moment later is right either way.
+      void refresh?.(threadId)
       return { ok: true }
     }
 
     case 'setDefaultMode': {
-      const { modeId } = params as CommandParams<'setDefaultMode'>
+      const { modeId, threadId } = params as CommandParams<'setDefaultMode'>
       catalog.setDefaultMode(modeId)
+      // Only the thread that asked. Every other open thread keeps the voice it
+      // was built with until it is reopened — a default is for new threads, and
+      // rewriting the instructions under a turn nobody is watching is worse
+      // than being a moment late.
+      if (threadId !== undefined) void refresh?.(threadId)
       return { ok: true }
     }
 
@@ -82,6 +114,7 @@ export function handleModes(modes: ModeControl, catalog: CatalogStore, name: Com
     default: {
       const { modeId } = params as CommandParams<'deleteMode'>
       catalog.deleteMode(modeId)
+      modes.forgetMode(modeId)
       return { ok: true }
     }
   }

@@ -51,7 +51,10 @@ export interface SessionCommands {
    *  gone after a relaunch. `undefined` returns the thread to the default. */
   setThreadMode: { params: { threadId: string; modeId?: string }; result: { ok: true } }
   /** The voice every thread starts on. `undefined` is "normal". */
-  setDefaultMode: { params: { modeId?: string }; result: { ok: true } }
+  /** `threadId` names the thread to re-read afterwards, so the change is heard
+   *  in the column the reader is looking at. Others keep the voice they were
+   *  built with until they are reopened. */
+  setDefaultMode: { params: { modeId?: string; threadId?: string }; result: { ok: true } }
   saveMode: { params: { mode: ChatMode }; result: { mode: ChatMode } }
   deleteMode: { params: { modeId: string }; result: { ok: true } }
   projectSurface: { params: { threadId: string }; result: { surface: ProjectSurface } }
