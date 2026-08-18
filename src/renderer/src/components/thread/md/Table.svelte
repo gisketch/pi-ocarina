@@ -28,7 +28,6 @@
     scrollbar-color: var(--fg-ghost) transparent;
   }
   table {
-    border-collapse: collapse;
     font-size: 12px;
   }
   th {
@@ -38,9 +37,9 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--fg-dimmest);
-    padding: 0 18px 7px 0;
+    padding: 5px 18px 5px 0;
     white-space: nowrap;
-    border-bottom: 1px solid var(--line-faint);
+    background: rgba(255, 255, 255, 0.035);
   }
   td {
     padding: 6px 18px 6px 0;

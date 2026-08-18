@@ -52,8 +52,7 @@
      — the design's chips, flowing with the text. */
   .mention {
     color: var(--accent);
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
-    outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.32);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.18);
   }
 
   /* A chip drawn as a button keeps the chip's box exactly: a border or a
@@ -71,7 +70,7 @@
     font: inherit;
     padding: 0;
     border: none;
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.18);
     cursor: pointer;
   }
   button.file:hover {
@@ -92,12 +91,15 @@
 
   /* Links open outside the app. The window itself never navigates — main
      refuses that — so this is the only place a URL can go. */
+  /* A link's underline is the link, not a rule between two things — it is
+     drawn by the text itself so it follows the glyphs and wraps with them. */
   a {
     color: var(--tone-2);
-    text-decoration: none;
-    border-bottom: 1px solid color-mix(in oklch, var(--tone-2) 40%, transparent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--tone-2) 40%, transparent);
+    text-underline-offset: 2px;
   }
   a:hover {
-    border-bottom-color: var(--tone-2);
+    text-decoration-color: var(--tone-2);
   }
 </style>

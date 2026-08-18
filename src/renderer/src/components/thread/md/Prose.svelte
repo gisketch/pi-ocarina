@@ -94,9 +94,12 @@
     flex: none;
   }
 
+  /* The author's own rule, which is content rather than chrome — drawn as a
+     band so nothing in the renderer owns a border. */
   hr {
     border: none;
-    border-top: 1px solid var(--line);
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
     margin: 2px 0;
     width: 100%;
   }

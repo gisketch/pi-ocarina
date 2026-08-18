@@ -30,7 +30,6 @@
     margin: 8px 0 0;
     padding: 10px 12px;
     background: var(--bg-deep);
-    border: 1px solid var(--line-faint);
     overflow-x: auto;
     font-family: var(--font-body);
     font-size: 12px;

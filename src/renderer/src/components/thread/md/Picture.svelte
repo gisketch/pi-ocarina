@@ -44,7 +44,6 @@
   img {
     display: block;
     max-width: 100%;
-    border: 1px solid var(--line-faint);
   }
   figcaption {
     padding: 4px 2px 0;
@@ -54,7 +53,7 @@
   }
   .missing {
     padding: 8px 10px;
-    border: 1px dashed var(--line-mid);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--fg-dimmest);
     font-size: 11.5px;
   }
