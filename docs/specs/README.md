@@ -89,11 +89,20 @@ settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
 - [2026-08-16-project-surface.md](2026-08-16-project-surface.md) — the commands a
-  project defines, and the instruction file the session loaded.
+  project defines, the skills it loads, and the instruction file the session
+  read. **Grilled 2026-08-18.** Tickets in
+  [2026-08-18-project-surface.md](../exec-plans/active/2026-08-18-project-surface.md).
+- [2026-08-18-chat-modes.md](2026-08-18-chat-modes.md) — a named voice, held in
+  the system prompt so it survives compaction. Split out of keymap-and-hooks.
+  **Grilled 2026-08-18.** Tickets in
+  [2026-08-18-chat-modes.md](../exec-plans/active/2026-08-18-chat-modes.md).
 - [2026-08-16-thread-fork.md](2026-08-16-thread-fork.md) — fork at a checkpoint
   instead of restoring over the top of the work.
 - [2026-08-16-keymap-and-hooks.md](2026-08-16-keymap-and-hooks.md) — rebindable
   keys, lifecycle hooks, and authored approval policy. One configuration seam.
+  **Grilled 2026-08-18 by the agent, not question by question — the decisions
+  carry their reasons and are cheap to overturn.** Tickets in
+  [2026-08-18-keymap-and-hooks.md](../exec-plans/active/2026-08-18-keymap-and-hooks.md).
 - [2026-08-18-turn-feedback.md](2026-08-18-turn-feedback.md) — a working
   footer that counts while a turn runs and states what it took, reasoning rows
   joined to the ledger's spine, and a follow that reaches the true bottom.
