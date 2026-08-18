@@ -14,7 +14,26 @@
   import { reloadEverything } from '$lib/state/reload'
 
   const surface = $derived(projectSurface.surface)
+
+  /** How many rows a group shows before it asks. Enough that a project with a
+   *  handful of skills is simply listed, and few enough that a machine with
+   *  forty global ones does not bury the settings above it. */
+  const CAP = 6
+
+  /** Which groups the reader has opened. A screen this long is read for one
+   *  thing at a time, so opening one does not open the others. */
+  let shown = $state<Record<string, boolean>>({})
+  const capped = <T,>(key: string, all: T[]): T[] =>
+    shown[key] || all.length <= CAP ? all : all.slice(0, CAP)
 </script>
+
+{#snippet more(key: string, total: number)}
+  {#if total > CAP}
+    <button type="button" class="more" onclick={() => (shown[key] = !shown[key])}>
+      {shown[key] ? 'show fewer' : `${total - CAP} more`}
+    </button>
+  {/if}
+{/snippet}
 
 <div class="imposed">
   <div class="banner">
@@ -35,7 +54,7 @@
 
   {#if surface.skills.length > 0}
     <div class="group">{countOf('skill', surface.skills.length)}</div>
-    {#each surface.skills as skill, i (`${skill.path}-${i}`)}
+    {#each capped('skills', surface.skills) as skill, i (`${skill.path}-${i}`)}
       <div class="item">
         <span class="icon"><Icon name="tool-skill" /></span>
         <span class="name">{skill.name}</span>
@@ -46,11 +65,12 @@
         </span>
       </div>
     {/each}
+    {@render more('skills', surface.skills.length)}
   {/if}
 
   {#if surface.commands.length > 0}
     <div class="group">{countOf('command', surface.commands.length)}</div>
-    {#each surface.commands as command, i (`${command.path}-${i}`)}
+    {#each capped('commands', surface.commands) as command, i (`${command.path}-${i}`)}
       <div class="item">
         <span class="icon"><Icon name="tool-todo" /></span>
         <span class="name">/{command.name}</span>
@@ -58,6 +78,7 @@
         <span class="meta"><span class="from">{command.source}</span></span>
       </div>
     {/each}
+    {@render more('commands', surface.commands.length)}
   {/if}
 
   {#if surface.instructionFiles.length > 0}
@@ -228,6 +249,22 @@
     background: var(--bg-chip);
     border-radius: 4px;
     white-space: pre-wrap;
+  }
+
+  .more {
+    display: block;
+    width: 100%;
+    padding: 5px 2px 5px 25px;
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    background: none;
+    border: 0;
+    color: var(--fg-dimmest);
+    cursor: pointer;
+  }
+  .more:hover {
+    color: var(--fg-body);
   }
 
   .empty {
