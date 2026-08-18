@@ -35,16 +35,13 @@
     width: 100%;
     font-size: 12px;
   }
+  /* Padding on every side, including the first cell's left. A row is a band
+     now, and text sitting on the edge of a band reads as clipped — the indent
+     against the prose above is what says this is a table. */
   th,
   td {
     text-align: left;
-    padding: 6px 16px 6px 0;
-  }
-  /* Flush left, so a table's first column starts where the prose above it
-     does and the eye keeps one margin down the whole message. */
-  th:first-child,
-  td:first-child {
-    padding-left: 0;
+    padding: 7px 16px;
   }
   th {
     font-weight: 400;
