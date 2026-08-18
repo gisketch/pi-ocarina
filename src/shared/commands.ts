@@ -45,7 +45,7 @@ export interface SessionCommands {
   /** The voices on offer, and the one this thread is using. */
   listModes: {
     params: { threadId: string }
-    result: { modes: ChatMode[]; current?: string; overridden: boolean }
+    result: { modes: ChatMode[]; current?: string; overridden: boolean; fallbackMode?: string }
   }
   /** This thread's own voice. Session-scoped: never written to the catalog, and
    *  gone after a relaunch. `undefined` returns the thread to the default. */

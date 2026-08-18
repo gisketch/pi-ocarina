@@ -80,7 +80,7 @@ A test that a relaunch drops the override.
 
 ---
 
-## M4 — modes are the reader's to write — `todo`
+## M4 — modes are the reader's to write — `done`
 
 **Delivers.** The reader creates a mode, edits its prose, renames it, deletes
 it. A thread pointing at a deleted mode falls back to no mode.

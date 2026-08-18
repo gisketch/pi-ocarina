@@ -13,6 +13,8 @@ class ModeState {
   all = $state.raw<ChatMode[]>([])
   /** The id in force for the focused thread, or none. */
   current = $state<string | undefined>(undefined)
+  /** The voice every thread starts on, for the settings screen. */
+  fallback = $state<string | undefined>(undefined)
   /** Whether that came from the thread rather than from the default. */
   overridden = $state(false)
 
@@ -39,6 +41,7 @@ class ModeState {
       const resolved = own ?? this.#demoDefault
       this.current = resolved === '' ? undefined : resolved
       this.overridden = this.#demoThread.has(threadId)
+      this.fallback = this.#demoDefault
       return
     }
 
@@ -46,6 +49,7 @@ class ModeState {
     this.all = answer.modes
     this.current = answer.current
     this.overridden = answer.overridden
+    this.fallback = answer.fallbackMode
   }
 
   /** Sets this thread's own voice. `undefined` returns it to the default. */
@@ -60,6 +64,34 @@ class ModeState {
     }
 
     await session.invoke('setThreadMode', { threadId: this.#threadId, modeId })
+    await this.load(this.#threadId)
+  }
+
+  /** A stable id from a name, so renaming a mode does not orphan it. */
+  idFor(name: string): string {
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    return slug === '' ? `mode-${this.all.length + 1}` : slug
+  }
+
+  async save(mode: ChatMode): Promise<boolean> {
+    if (mode.name.trim() === '' || mode.instructions.trim() === '') return false
+
+    if (session.wired) await session.invoke('saveMode', { mode })
+    else this.all = [...this.all.filter((one) => one.id !== mode.id), mode]
+
+    await this.load(this.#threadId)
+    return true
+  }
+
+  async remove(modeId: string): Promise<void> {
+    if (session.wired) await session.invoke('deleteMode', { modeId })
+    else {
+      this.all = this.all.filter((one) => one.id !== modeId)
+      if (this.#demoDefault === modeId) this.#demoDefault = undefined
+      for (const [threadId, chosen] of this.#demoThread) {
+        if (chosen === modeId) this.#demoThread.delete(threadId)
+      }
+    }
     await this.load(this.#threadId)
   }
 

@@ -53,10 +53,12 @@ export function handleModes(modes: ModeControl, catalog: CatalogStore, name: Com
     case 'listModes': {
       const { threadId } = params as CommandParams<'listModes'>
       const current = modes.modeOf(threadId)
+      const fallback = catalog.modeFor(undefined)
       return {
         modes: catalog.modes(),
         ...(current ? { current: current.id } : {}),
         overridden: modes.overridden(threadId),
+        ...(fallback ? { fallbackMode: fallback.id } : {}),
       }
     }
 

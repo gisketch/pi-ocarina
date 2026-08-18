@@ -17,6 +17,8 @@
     onreasoning?: (direction: 1 | -1) => void
     /** Opens the roles screen: what a child agent is, when one is spawned. */
     onroles?: () => void
+    /** Opens the voices screen: how the agent writes back. */
+    onmodes?: () => void
   }
 
   const {
@@ -27,6 +29,7 @@
     reasoning,
     onreasoning,
     onroles,
+    onmodes,
   }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
@@ -74,6 +77,12 @@
       value: () => 'edit',
       hint: onroles ? 'enter' : 'none',
       enter: onroles,
+    },
+    {
+      label: 'chat modes',
+      value: () => 'edit',
+      hint: onmodes ? 'enter' : 'none',
+      enter: onmodes,
     },
     { label: 'keymap', value: () => 'view', hint: 'enter', enter: onkeymap },
     // A pointer, not a door. Workspace settings have a key of their own,

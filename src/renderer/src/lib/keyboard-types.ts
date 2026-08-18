@@ -14,6 +14,7 @@ export type Overlay =
   | 'settings'
   | 'model'
   | 'mode'
+  | 'modes'
   | 'search'
   | 'roles'
   | 'workspace'

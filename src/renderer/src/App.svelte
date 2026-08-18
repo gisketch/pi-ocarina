@@ -23,6 +23,7 @@
   import WorkspaceOverlay from './components/overlays/WorkspaceOverlay.svelte'
   import CommitCard from './components/overlays/CommitCard.svelte'
   import ModeOverlay from './components/overlays/ModeOverlay.svelte'
+  import ModesOverlay from './components/overlays/ModesOverlay.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import { app } from '$lib/state/app.svelte'
@@ -236,6 +237,7 @@
       onkeymap={() => shell.openOverlay('keymap')}
       onmodel={() => shell.openModelFor('default')}
       onroles={() => shell.openOverlay('roles')}
+      onmodes={() => shell.openOverlay('modes')}
       model={preferences.defaultModelLabel}
       reasoning={preferences.defaultReasoningLabel}
       onreasoning={(direction) => preferences.nudgeDefaultReasoning(direction)}
@@ -258,6 +260,8 @@
         shell.closeOverlay()
       }}
     />
+  {:else if shell.overlay === 'modes'}
+    <ModesOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'mode'}
     <ModeOverlay onclose={() => shell.closeOverlay()} threadLabel={app.threadLabel} />
   {:else if shell.overlay === 'search'}
