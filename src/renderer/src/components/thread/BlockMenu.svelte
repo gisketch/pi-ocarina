@@ -20,7 +20,7 @@
 
     // The registry rather than `closest('.body')`: the column owns that class
     // and could rename it without ever knowing this file existed.
-    const column = columnBody(blockMenu.threadId)
+    const column = blockMenu.threadId === null ? undefined : columnBody(blockMenu.threadId)
     if (!column) return
 
     const measure = (): void => {

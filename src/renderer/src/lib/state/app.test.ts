@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { app } from './app.svelte'
+import { catalog } from './catalog.svelte'
 import { threads } from './threads.svelte'
 import { EMPTY_THREAD } from '../thread'
 import { stripOffset } from '../strip'
@@ -115,5 +116,31 @@ describe('what a column header calls a thread', () => {
     threads.seed('p3', EMPTY_THREAD)
 
     expect(app.titleOf({ ...placeholder, id: 'p3' })).toBe('new thread')
+  })
+})
+
+describe('the focused column, as a thread', () => {
+  it('names the thread when the column is one', () => {
+    app.goWorkspace(0)
+    app.focusThread(0)
+    expect(app.threadId).toBe(app.thread.id)
+  })
+
+  it('names nothing once every thread in the workspace is closed', () => {
+    // The reported bug, from the top: closing the last thread leaves the
+    // placeholder, and its `fresh:<workspace>` id used to be sent to main as
+    // if it were a thread — `session command "projectSurface" failed:
+    // unknown thread: fresh:…`, once per focus change, per workspace.
+    catalog.workspaces = [
+      {
+        ...app.workspaces[0],
+        threads: [{ id: `fresh:${app.workspaces[0].id}`, title: 'x', status: 'idle', meta: '', fresh: true }],
+      },
+    ]
+    app.goWorkspace(0)
+    app.focusThread(0)
+
+    expect(app.thread.id).toBe(`fresh:${app.workspaces[0].id}`)
+    expect(app.threadId).toBeNull()
   })
 })

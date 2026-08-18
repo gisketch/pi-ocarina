@@ -68,7 +68,9 @@ export function storedDeps(parts: DriverParts): StoredDeps {
     modes: parts.modes,
     project: {
       session: (threadId) => parts.threads.get(threadId).session,
+      find: (threadId) => parts.threads.find(threadId)?.session,
       cwdOf: (threadId) => parts.workspaces.cwdOf(threadId),
+      pathOf: (workspaceId) => parts.workspaces.pathOf(workspaceId),
       sdk: () => parts.sessions.load(),
     },
   }

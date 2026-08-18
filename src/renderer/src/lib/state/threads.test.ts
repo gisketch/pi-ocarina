@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventBatch, UiEvent } from '../../../../shared/protocol'
 import { PROTOCOL_VERSION } from '../../../../shared/protocol'
@@ -28,9 +29,9 @@ describe('following a thread', () => {
     const id = freshId()
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
-    threads.follow(id)
-    threads.follow(id)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
+    threads.follow(id as ThreadId)
+    threads.follow(id as ThreadId)
 
     expect(invoke).toHaveBeenCalledTimes(1)
     expect(invoke).toHaveBeenCalledWith('openThread', { threadId: id })
@@ -40,7 +41,7 @@ describe('following a thread', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('no such session file'))
 
-    threads.follow(id)
+    threads.follow(id as ThreadId)
     await Promise.resolve()
     await Promise.resolve()
 
@@ -50,7 +51,7 @@ describe('following a thread', () => {
   it('projects the events that arrive for it', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     session.ingest([
       batch(id, 0, [
@@ -66,7 +67,7 @@ describe('following a thread', () => {
   it('accumulates across batches', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     session.ingest([batch(id, 0, [{ kind: 'agent-message-start', id: 'm1' }])])
     session.ingest([batch(id, 1, [{ kind: 'agent-message-delta', id: 'm1', text: 'hi' }])])
@@ -78,8 +79,8 @@ describe('following a thread', () => {
     const first = freshId()
     const second = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(first)
-    threads.follow(second)
+    threads.follow(first as ThreadId)
+    threads.follow(second as ThreadId)
 
     session.ingest([batch(first, 0, [{ kind: 'user-message', id: 'u1', text: 'mine' }])])
 
@@ -92,7 +93,7 @@ describe('one paint per burst', () => {
   it('replaces the model once for a whole batch, however many events it holds', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     const seen: unknown[] = []
     const burst: UiEvent[] = [
@@ -118,7 +119,7 @@ describe('one paint per burst', () => {
   it('does not touch the model when a batch is empty', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     const before = threads.get(id)
     session.ingest([batch(id, 0, [])])
@@ -132,7 +133,7 @@ describe('loading history', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockReturnValue(new Promise(() => {}) as never)
 
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     expect(threads.isLoaded(id)).toBe(false)
   })
@@ -140,7 +141,7 @@ describe('loading history', () => {
   it('is loaded as soon as the first events arrive', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockReturnValue(new Promise(() => {}) as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     session.ingest([batch(id, 0, [{ kind: 'user-message', id: 'u1', text: 'hi' }])])
 
@@ -151,7 +152,7 @@ describe('loading history', () => {
     // A brand-new thread is genuinely empty; it must not skeleton forever.
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     await Promise.resolve()
     await Promise.resolve()
@@ -163,7 +164,7 @@ describe('loading history', () => {
   it('is loaded even when opening failed, so the error can be shown', async () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('unreadable session file'))
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     await Promise.resolve()
     await Promise.resolve()
@@ -186,12 +187,12 @@ describe('what the cards do', () => {
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
     const answers = [{ id: 'q', kind: 'one' as const, chosen: ['b'], labels: ['B'] }]
-    threads.answer(id, 'ask-1', answers)
-    threads.resolveApproval(id, 'approve-1', 'always')
-    threads.restore(id, 'cp-1')
-    threads.cancelSteer(id, 'steer-1')
-    threads.compact(id)
-    threads.retry(id)
+    threads.answer(id as ThreadId, 'ask-1', answers)
+    threads.resolveApproval(id as ThreadId, 'approve-1', 'always')
+    threads.restore(id as ThreadId, 'cp-1')
+    threads.cancelSteer(id as ThreadId, 'steer-1')
+    threads.compact(id as ThreadId)
+    threads.retry(id as ThreadId)
 
     expect(invoke.mock.calls).toEqual([
       ['answerAsk', { threadId: id, askId: 'ask-1', answers }],
@@ -208,7 +209,7 @@ describe('what the cards do', () => {
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
     const before = threads.get(id)
 
-    threads.resolveApproval(id, 'approve-1', 'deny')
+    threads.resolveApproval(id as ThreadId, 'approve-1', 'deny')
 
     expect(threads.get(id)).toBe(before)
   })
@@ -217,7 +218,7 @@ describe('what the cards do', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('thread is not open'))
 
-    threads.restore(id, 'cp-1')
+    threads.restore(id as ThreadId, 'cp-1')
     await Promise.resolve()
     await Promise.resolve()
 
@@ -227,13 +228,13 @@ describe('what the cards do', () => {
   it('clears a previous failure when a new command is issued', async () => {
     const id = freshId()
     const invoke = vi.spyOn(session, 'invoke').mockRejectedValue(new Error('first failure'))
-    threads.compact(id)
+    threads.compact(id as ThreadId)
     await Promise.resolve()
     await Promise.resolve()
     expect(threads.errorFor(id)).toBe('first failure')
 
     invoke.mockResolvedValue({ ok: true } as never)
-    threads.compact(id)
+    threads.compact(id as ThreadId)
 
     expect(threads.errorFor(id)).toBeNull()
   })
@@ -256,7 +257,7 @@ describe('seeding', () => {
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
     threads.seed(id, { blocks: [], status: 'idle', runState: 'idle' })
-    threads.follow(id)
+    threads.follow(id as ThreadId)
 
     expect(invoke).not.toHaveBeenCalled()
   })
@@ -267,7 +268,7 @@ describe('sending', () => {
     const id = freshId()
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
-    threads.prompt(id, 'fix the sync worker')
+    threads.prompt(id as ThreadId, 'fix the sync worker')
 
     expect(invoke).toHaveBeenCalledWith('prompt', { threadId: id, text: 'fix the sync worker' })
   })
@@ -276,7 +277,7 @@ describe('sending', () => {
     const id = freshId()
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ steerId: 's1' } as never)
 
-    threads.steer(id, 'also cap retries')
+    threads.steer(id as ThreadId, 'also cap retries')
 
     expect(invoke).toHaveBeenCalledWith('steer', { threadId: id, text: 'also cap retries' })
   })
@@ -285,7 +286,7 @@ describe('sending', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
-    threads.prompt(id, 'hello')
+    threads.prompt(id as ThreadId, 'hello')
 
     expect(threads.get(id).blocks).toEqual([])
   })
@@ -294,7 +295,7 @@ describe('sending', () => {
     const id = freshId()
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('thread is not open'))
 
-    threads.prompt(id, 'hello')
+    threads.prompt(id as ThreadId, 'hello')
     await Promise.resolve()
     await Promise.resolve()
 
@@ -307,8 +308,8 @@ describe('a model per thread', () => {
     const first = freshId()
     const second = freshId()
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    threads.follow(first)
-    threads.follow(second)
+    threads.follow(first as ThreadId)
+    threads.follow(second as ThreadId)
 
     session.ingest([
       batch(first, 0, [

@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../shared/thread-id'
 import { listWorkspaceFiles } from './files'
 import { stat } from 'node:fs/promises'
 import type { ThreadSummary, WorkspaceSummary } from '../../shared/protocol'
@@ -163,7 +164,10 @@ export class WorkspaceService {
       .flat()
       .filter(({ session }) => !hidden.includes(session.id))
       .map(({ session, branch }) => ({
-        id: session.id,
+        // The one place main mints a thread id for the renderer. pi's session
+        // id *is* the thread id; the brand exists so that on the other side
+        // nothing but this and `createThread` can produce one.
+        id: session.id as ThreadId,
         title: session.name ?? firstLine(session.firstMessage) ?? 'untitled',
         modified: session.modified.toISOString(),
         messageCount: session.messageCount,

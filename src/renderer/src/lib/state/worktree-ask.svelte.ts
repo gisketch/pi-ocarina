@@ -14,6 +14,7 @@
  *  and a failure needs somewhere to be read: the field the name was typed in is
  *  the only place that can both say why and let the reader fix it. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { validateBranchName, worktreeDirName } from '../../../../shared/branch-name'
 import { session } from '../session'
 
@@ -38,8 +39,8 @@ class WorktreeAsk {
    *  than by git a round trip later. */
   #taken = $state.raw<string[]>([])
 
-  #answer: ((threadId: string | null) => void) | null = null
-  #make: ((choice: WorktreeChoice) => Promise<string | null>) | null = null
+  #answer: ((threadId: ThreadId | null) => void) | null = null
+  #make: ((choice: WorktreeChoice) => Promise<ThreadId | null>) | null = null
 
   /** The rule the typed name breaks, or null. Empty while nothing is typed:
    *  a field that turns red before it has been used is scolding, not helping. */
@@ -63,8 +64,8 @@ class WorktreeAsk {
    *  never learns what a thread is — only what tree it should be in. */
   run(
     workspaceId: string,
-    make: (choice: WorktreeChoice) => Promise<string | null>,
-  ): Promise<string | null> {
+    make: (choice: WorktreeChoice) => Promise<ThreadId | null>,
+  ): Promise<ThreadId | null> {
     if (this.open) return Promise.resolve(null)
 
     this.open = true
@@ -75,7 +76,7 @@ class WorktreeAsk {
     this.#make = make
     void this.#readTaken(workspaceId)
 
-    return new Promise<string | null>((resolve) => {
+    return new Promise<ThreadId | null>((resolve) => {
       this.#answer = resolve
     })
   }
@@ -93,7 +94,7 @@ class WorktreeAsk {
     }
   }
 
-  #settle(threadId: string | null): void {
+  #settle(threadId: ThreadId | null): void {
     const resolve = this.#answer
     this.open = false
     this.naming = false

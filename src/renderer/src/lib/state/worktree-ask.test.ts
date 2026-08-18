@@ -1,3 +1,4 @@
+import { threadIdForTest, type ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invoke = vi.fn()
@@ -15,9 +16,9 @@ function type(text: string): void {
 
 /** Stands in for `catalog.newThread`: records what tree was asked for. */
 let asked: ({ branch: string } | null)[] = []
-let answer: string | null = 't1'
+let answer: ThreadId | null = threadIdForTest('t1')
 
-function make(choice: { branch: string } | null): Promise<string | null> {
+function make(choice: { branch: string } | null): Promise<ThreadId | null> {
   asked.push(choice)
   return Promise.resolve(answer)
 }
@@ -26,7 +27,7 @@ beforeEach(() => {
   invoke.mockReset()
   invoke.mockResolvedValue({ worktrees: [] })
   asked = []
-  answer = 't1'
+  answer = threadIdForTest('t1')
   if (worktreeAsk.open) worktreeAsk.no()
 })
 
@@ -116,8 +117,8 @@ describe('the answer', () => {
 
 describe('while git runs', () => {
   it('holds the dialog up as the pending state', async () => {
-    let settle: (id: string | null) => void = () => {}
-    const slow = (choice: { branch: string } | null): Promise<string | null> => {
+    let settle: (id: ThreadId | null) => void = () => {}
+    const slow = (choice: { branch: string } | null): Promise<ThreadId | null> => {
       asked.push(choice)
       return new Promise((resolve) => {
         settle = resolve
@@ -134,7 +135,7 @@ describe('while git runs', () => {
     press('Escape')
     expect(worktreeAsk.open).toBe(true)
 
-    settle('t9')
+    settle(threadIdForTest('t9'))
     expect(await thread).toBe('t9')
     expect(worktreeAsk.open).toBe(false)
   })

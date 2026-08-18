@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../shared/thread-id'
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../shared/protocol'
 import { PiDriver } from './pi-driver'
@@ -118,7 +119,7 @@ describe.skipIf(!live)('several children at once', () => {
  *
  *  A child holding real tools raises real cards, and a test that waited without
  *  answering them would time out behind its own gate. */
-async function settle(driver: PiDriver, threadId: string, events: UiEvent[]): Promise<void> {
+async function settle(driver: PiDriver, threadId: ThreadId, events: UiEvent[]): Promise<void> {
   const resolved = new Set<string>()
   try {
     await waitFor(async () => {

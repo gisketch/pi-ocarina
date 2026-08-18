@@ -33,3 +33,12 @@ export function isSendKey(event: { key: string; shiftKey?: boolean }): boolean {
 export function sendHint(runState: ThreadRunState): string {
   return runState === 'running' ? 'queue' : 'send'
 }
+
+/** How tall the field is for the text in it.
+ *
+ *  Grows with the content up to a few lines, then scrolls. The height is set
+ *  from content rather than animated, so nothing here can drop a frame. */
+export function resizeField(element: HTMLTextAreaElement): void {
+  element.style.height = 'auto'
+  element.style.height = `${Math.min(element.scrollHeight, 140)}px`
+}

@@ -8,6 +8,7 @@
  *  The rule is per thread rather than global: another column's question does
  *  not touch the keys of the one being read. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { AskAnswer } from '../../../../shared/vocabulary'
 import { app } from './app.svelte'
 import { asks } from './ask.svelte'
@@ -130,7 +131,10 @@ class AskKeys {
     const askId = this.holding
     if (askId === null) return false
 
-    const threadId = app.thread.id
+    // A question is drawn inside a transcript, so a card holding the keys is
+    // proof the focused column is a thread.
+    const threadId = app.threadId
+    if (threadId === null) return false
 
     // The reader is scrolled up with the "a question below" bar showing. The
     // key that bar advertises must take them to the question, not answer one
@@ -233,7 +237,7 @@ class AskKeys {
     return false
   }
 
-  #advance(threadId: string, askId: string, flow: ReturnType<typeof asks.flow>): void {
+  #advance(threadId: ThreadId, askId: string, flow: ReturnType<typeof asks.flow>): void {
     // A single-choice question with nothing picked takes what the cursor is on:
     // `enter` on a highlighted option is what everyone expects it to mean.
     if (flow.question?.kind === 'one' && !flow.ready) flow.toggle()
@@ -247,7 +251,7 @@ class AskKeys {
     this.#submit(threadId, askId, flow.answers())
   }
 
-  #submit(threadId: string, askId: string, answers: AskAnswer[]): void {
+  #submit(threadId: ThreadId, askId: string, answers: AskAnswer[]): void {
     // Released state first, then the mark — `forget` clears an answer in
     // flight, which is exactly what this is about to become.
     this.forget(threadId)

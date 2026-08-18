@@ -9,6 +9,7 @@
  *  taken when the peek opened would freeze the thing the reader opened it to
  *  watch. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { blockFocus } from './block-focus.svelte'
 import { confirm } from './confirm.svelte'
 import { session } from '../session'
@@ -24,7 +25,7 @@ export interface KeyLike {
 }
 
 export interface Peeked {
-  threadId: string
+  threadId: ThreadId
   entry: AgentEntry
   /** The child's own calls, newest last. */
   rows: ToolRow[]
@@ -34,7 +35,7 @@ class AgentPeek {
   /** The child being watched, or null. One at a time: a second peek would
    *  stack over the first, and `h` would then close a surface the reader
    *  cannot see. */
-  #at = $state.raw<{ threadId: string; agentId: string } | null>(null)
+  #at = $state.raw<{ threadId: ThreadId; agentId: string } | null>(null)
   /** Ids cancelled from here, so a second `x` on the same child cannot ask
    *  twice while the first is still in flight. */
   readonly #stopping = new Set<string>()
@@ -57,7 +58,7 @@ class AgentPeek {
   }
 
   /** Opens on whichever agent row is focused in this thread, if any. */
-  openAt(threadId: string, navId: string | null): boolean {
+  openAt(threadId: ThreadId, navId: string | null): boolean {
     if (!navId) return false
 
     const agentId = navId.slice(navId.indexOf(':') + 1)
@@ -116,7 +117,7 @@ class AgentPeek {
    *
    *  Lives here rather than in the shell because the shell is already the
    *  longest file in the app and this is the peek's own behaviour. */
-  handleKey(event: KeyLike, mode: string, threadId: string): boolean {
+  handleKey(event: KeyLike, mode: string, threadId: ThreadId | null): boolean {
     if (event.ctrlKey || event.metaKey || event.altKey) return false
     // The composer's keys are the composer's: `x` in a sentence is a letter.
     // LEADER's are the chord's: `␣ x` closes a column and `␣ h` moves a thread,
@@ -144,7 +145,9 @@ class AgentPeek {
       return false
     }
 
-    if (event.key !== 'l') return false
+    // A placeholder and a shell have no transcript, so no agent row to descend
+    // into. Closing above still runs, so a peek left open over one goes.
+    if (event.key !== 'l' || threadId === null) return false
     return this.openAt(threadId, blockFocus.idOf(threadId))
   }
 }

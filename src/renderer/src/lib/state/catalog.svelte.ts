@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { ThreadSummary, WorkspaceSummary } from '../../../../shared/protocol'
 import { bridge } from '../bridge'
 import { blocksFor, MOCK_THREADS } from '../mock/threads'
@@ -85,7 +86,7 @@ class Catalog {
    *  by re-listing the workspace. pi may not have written the session file yet,
    *  so a listing taken now can come back without the thread in it — and the
    *  column would vanish underneath a turn that is already running. */
-  async newThread(workspaceId: string, worktree?: { branch: string }): Promise<string | null> {
+  async newThread(workspaceId: string, worktree?: { branch: string }): Promise<ThreadId | null> {
     if (this.source !== 'live') return null
     this.error = null
 
@@ -172,7 +173,7 @@ class Catalog {
    *  a column, so history search still finds the thread and `reopen` brings it
    *  back. A workspace left with no threads gets its fresh column again, rather
    *  than becoming a workspace you cannot type into. */
-  closeThread(threadId: string): void {
+  closeThread(threadId: ThreadId): void {
     this.error = null
     this.workspaces = this.workspaces.map((workspace) => {
       if (!workspace.threads.some((thread) => thread.id === threadId)) return workspace
@@ -194,7 +195,7 @@ class Catalog {
 
   /** Brings a closed thread back onto its workspace's strip, and returns its
    *  column. Used when a search hit lands on a thread the user had closed. */
-  async reopen(workspaceId: string, threadId: string, title: string): Promise<number> {
+  async reopen(workspaceId: string, threadId: ThreadId, title: string): Promise<number> {
     this.error = null
 
     try {
@@ -216,7 +217,7 @@ class Catalog {
    *  has no thread yet", which has stopped being true. */
   #insert(
     workspaceId: string,
-    threadId: string,
+    threadId: ThreadId,
     title = PLACEHOLDER_TITLE,
     branch: string | null = null,
   ): void {
@@ -255,7 +256,7 @@ class Catalog {
     const listed = await this.#listThreads(workspace.id)
     const built = listed.map(toThread)
 
-    for (const thread of built) threads.follow(thread.id)
+    for (const summary of listed) threads.follow(summary.id)
 
     return {
       id: workspace.id,

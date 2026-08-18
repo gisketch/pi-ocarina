@@ -1,7 +1,8 @@
 import { catalog } from './catalog.svelte'
 import { clampThread } from '../strip'
 import { threads } from './threads.svelte'
-import type { Mode, Thread, ThreadStatus, Workspace } from '../types'
+import { threadOf, type Mode, type Thread, type ThreadStatus, type Workspace } from '../types'
+import type { ThreadId } from '../../../../shared/thread-id'
 
 /** Stand-ins for "there is nothing here yet". Frozen so a component cannot
  *  write into what is meant to be the absence of a workspace or thread. The
@@ -75,6 +76,16 @@ class AppState {
 
   get thread(): Thread {
     return this.workspace.threads[this.threadIndex] ?? NO_THREAD
+  }
+
+  /** The focused column's thread, or null when the column is not one.
+   *
+   *  Everything that commands the backend asks for this rather than for
+   *  `thread.id`. The distinction is not a detail: `␣p` on a placeholder used
+   *  to record a permission override under an id nothing runs, and the status
+   *  bar then read that override back and displayed it. */
+  get threadId(): ThreadId | null {
+    return threadOf(this.thread)
   }
 
   get threadLabel(): string {

@@ -18,6 +18,7 @@ import { confirm } from './confirm.svelte'
 import { sweep } from './sweep.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
 import type { KeyEventLike } from '../keyboard'
+import type { ThreadId } from '../../../../shared/thread-id'
 
 export function routeToOverlay(event: KeyEventLike): boolean | null {
   // The destructive modal outranks everything, including the close confirm.
@@ -51,7 +52,11 @@ export function routeToOverlay(event: KeyEventLike): boolean | null {
  *  because that file is the longest in the app and this is not about the strip.
  *
  *  Returns true when the key was consumed. */
-export function routeToSurface(event: KeyEventLike, mode: string, threadId: string): boolean {
+export function routeToSurface(
+  event: KeyEventLike,
+  mode: string,
+  threadId: ThreadId | null,
+): boolean {
   // A menu or a set of hints can outlive what they point at: a column can be
   // clicked away, a restore can take the block, a compaction can fold it out of
   // sight. Either would then swallow every key from behind a surface that is no

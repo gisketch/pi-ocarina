@@ -1,10 +1,11 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { permission } from './permission.svelte'
 
 /** Unwired, which is the browser harness: the state holds the level itself so
  *  the row can be moved and reviewed against the design. */
 beforeEach(async () => {
-  await permission.load('w1', 't1')
+  await permission.load('w1', 't1' as ThreadId)
   await permission.setThread(undefined)
   await permission.set(undefined)
 })
@@ -57,5 +58,19 @@ describe('a thread of its own', () => {
     const seen: string[] = []
     for (let i = 0; i < 4; i += 1) seen.push(await permission.setThread(permission.pendingThread))
     expect(seen).toEqual(['ask', 'auto', 'full', 'auto'])
+  })
+})
+
+describe('a column with no thread behind it', () => {
+  it('holds no level of its own, and cannot be given one', async () => {
+    // `␣p` over the placeholder used to write an override keyed on
+    // `fresh:<workspace>`. Main stored it, the bar read it back, and it
+    // governed nothing — a permission level the reader believed was in force.
+    await permission.load('w1', null)
+    expect(permission.thread).toBeUndefined()
+
+    const level = permission.level
+    expect(await permission.setThread('full')).toBe(level)
+    expect(permission.thread).toBeUndefined()
   })
 })

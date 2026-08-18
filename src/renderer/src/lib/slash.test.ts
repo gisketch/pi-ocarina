@@ -113,3 +113,26 @@ describe('a project’s own commands', () => {
     expect(resolveSlash('/model')?.id).toBe('model')
   })
 })
+
+describe('a column with no thread behind it', () => {
+  it('keeps the project’s commands, which is what the first message is sent under', () => {
+    // The hero column is the one most likely to receive the first message, and
+    // the reader who has just closed every thread is looking at nothing else.
+    const names = allSlash(PROJECT, { hasThread: false }).map((one) => one.name)
+    expect(names).toContain('/ship')
+  })
+
+  it('drops the two that need a session, rather than erroring on them', () => {
+    const ids = allSlash(PROJECT, { hasThread: false }).map((one) => one.id)
+    expect(ids).not.toContain('compact')
+    expect(ids).not.toContain('reload')
+    // Everything else is about the folder, so it stays.
+    expect(ids).toContain('commit')
+    expect(ids).toContain('model')
+  })
+
+  it('does not resolve a typed command it does not offer', () => {
+    expect(resolveSlash('/compact', PROJECT, { hasThread: false })).toBeNull()
+    expect(resolveSlash('/compact', PROJECT)?.id).toBe('compact')
+  })
+})

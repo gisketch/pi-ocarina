@@ -7,11 +7,12 @@
  *  knows whether it matters. Commits are never removed at all — the commits
  *  are the work, and a clean tree is no evidence they have gone anywhere. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { confirm } from './confirm.svelte'
 import { session } from '../session'
 import { toasts } from './toasts.svelte'
 
-export async function settleWorktree(threadId: string): Promise<void> {
+export async function settleWorktree(threadId: ThreadId): Promise<void> {
   const found = await session
     .invoke('threadWorktree', { threadId })
     .then(({ worktree }) => worktree)

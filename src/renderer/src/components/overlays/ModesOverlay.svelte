@@ -23,7 +23,7 @@
   // would clear the chip's `current` until something else happened to reload
   // it — which, keyed on the thread, would be never.
   $effect(() => {
-    if (app.thread.id !== '') void modes.load(app.thread.id)
+    void modes.load(app.threadId)
   })
 
   function isTyping(target: EventTarget | null): boolean {

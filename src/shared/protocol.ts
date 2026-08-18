@@ -184,7 +184,8 @@ export interface ModelSummary {
 export interface SearchHit {
   workspaceId: string
   workspaceName: string
-  threadId: string
+  /** A thread that exists on disk — a search hit is proof of one. */
+  threadId: ThreadId
   title: string
   /** The line the match sits in, for the result row. */
   snippet: string
@@ -204,7 +205,10 @@ export interface ChangedFile {
 }
 
 export interface ThreadSummary {
-  id: string
+  /** Minted by pi. This is where the renderer's supply of proven thread ids
+   *  comes from: a column built from a summary is a thread, and one built from
+   *  a placeholder is not. */
+  id: ThreadId
   title: string
   /** ISO timestamp of the last write, for the column's right-hand label. */
   modified: string
@@ -214,6 +218,9 @@ export interface ThreadSummary {
    *  a restart is still known to be isolated. */
   branch?: string | null
 }
+
+export type { ThreadId } from './thread-id'
+import type { ThreadId } from './thread-id'
 
 export type {
   CommandName,

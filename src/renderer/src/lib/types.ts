@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../shared/thread-id'
 import type { GitStatus } from '../../../shared/protocol'
 import type { ThreadRunState } from '../../../shared/vocabulary'
 
@@ -18,6 +19,9 @@ export type ThreadStatus = ThreadRunState
  *  clamping, the titlebar dots, column moves and leader-x all work on it
  *  without knowing it is a terminal. */
 export interface Thread {
+  /** The **column's** id, which is a thread's id only sometimes. A fresh
+   *  placeholder and a shell are columns with no session behind them, and both
+   *  carry an id of their own. Use `threadOf` before sending it anywhere. */
   id: string
   title: string
   /** What the catalog knew at list time; the live model overrides it once the
@@ -33,6 +37,18 @@ export interface Thread {
    *  the workspace's own directory. Carried on the thread rather than derived,
    *  so a column reopened after a restart still says it is isolated. */
   branch?: string | null
+}
+
+/** The pi thread this column is, or null when it is not one.
+ *
+ *  The only place a `ThreadId` is minted in the renderer, and the cast is
+ *  sound: a column that is neither fresh nor a shell was built from a
+ *  `ThreadSummary`, whose id pi minted. Everything that commands a thread goes
+ *  through here, so a column that has no session cannot reach the backend at
+ *  all — which is what stops main being asked about `fresh:<workspace>`. */
+export function threadOf(column: Thread): ThreadId | null {
+  if (column.fresh === true || column.terminal === true || column.id === '') return null
+  return column.id as ThreadId
 }
 
 /** The id a workspace's terminal column always has. Derived rather than stored,

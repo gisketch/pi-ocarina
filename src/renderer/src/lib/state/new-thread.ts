@@ -4,6 +4,7 @@
  *  and both must ask the same question in the same order, or a worktree would
  *  depend on which way the reader started the thread. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { git } from './git.svelte'
@@ -18,7 +19,7 @@ import { worktreeAsk } from './worktree-ask.svelte'
  *  pinned repository would never be asked about at all — its first thread, the
  *  one most likely to want its own branch, is exactly the one that would miss
  *  the question. */
-export async function createThread(workspaceId: string): Promise<string | null> {
+export async function createThread(workspaceId: string): Promise<ThreadId | null> {
   await git.settled(workspaceId)
   if (app.workspace.id !== workspaceId || app.workspace.git === null) {
     return catalog.newThread(workspaceId)

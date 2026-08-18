@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import type {
   CommandName,
   CommandParams,
@@ -55,7 +56,7 @@ class ThreadStore {
 
   /** Starts following a thread. Safe to call on every render; only the first
    *  call subscribes and asks the backend to replay the thread's history. */
-  follow(threadId: string): void {
+  follow(threadId: ThreadId): void {
     const box = this.#box(threadId)
     if (box.following) return
     box.following = true
@@ -133,7 +134,7 @@ class ThreadStore {
 
   /** Starts a turn. The user's own message comes back as an event, so the
    *  composer never draws it locally — one projection, one truth. */
-  prompt(threadId: string, text: string, attachments: AttachmentRef[] = []): void {
+  prompt(threadId: ThreadId, text: string, attachments: AttachmentRef[] = []): void {
     this.#command(threadId, 'prompt', {
       threadId,
       text,
@@ -142,14 +143,14 @@ class ThreadStore {
   }
 
   /** Queues text into the turn already running. */
-  steer(threadId: string, text: string): void {
+  steer(threadId: ThreadId, text: string): void {
     this.#command(threadId, 'steer', { threadId, text })
   }
 
   /** Moves a thread onto another model, and optionally sets how hard it
    *  thinks. Both are pi's to persist — it writes them into the session — so
    *  nothing is kept here that could disagree after a relaunch. */
-  setModel(threadId: string, model: ModelSummary, reasoning: ReasoningLevel | null): void {
+  setModel(threadId: ThreadId, model: ModelSummary, reasoning: ReasoningLevel | null): void {
     this.#command(threadId, 'setModel', {
       threadId,
       provider: model.provider,
@@ -158,40 +159,40 @@ class ThreadStore {
     if (reasoning) this.#command(threadId, 'setReasoning', { threadId, reasoning })
   }
 
-  setReasoning(threadId: string, reasoning: ReasoningLevel): void {
+  setReasoning(threadId: ThreadId, reasoning: ReasoningLevel): void {
     this.#command(threadId, 'setReasoning', { threadId, reasoning })
   }
 
   /** Every answer to one ask, sent once. */
-  answer(threadId: string, askId: string, answers: AskAnswer[]): void {
+  answer(threadId: ThreadId, askId: string, answers: AskAnswer[]): void {
     this.#command(threadId, 'answerAsk', { threadId, askId, answers })
   }
 
-  resolveApproval(threadId: string, approvalId: string, outcome: ApprovalOutcome): void {
+  resolveApproval(threadId: ThreadId, approvalId: string, outcome: ApprovalOutcome): void {
     this.#command(threadId, 'resolveApproval', { threadId, approvalId, outcome })
   }
 
-  restore(threadId: string, checkpointId: string): void {
+  restore(threadId: ThreadId, checkpointId: string): void {
     this.#command(threadId, 'restoreCheckpoint', { threadId, checkpointId })
   }
 
-  cancelSteer(threadId: string, steerId: string): void {
+  cancelSteer(threadId: ThreadId, steerId: string): void {
     this.#command(threadId, 'cancelQueuedSteer', { threadId, steerId })
   }
 
-  compact(threadId: string): void {
+  compact(threadId: ThreadId): void {
     this.#command(threadId, 'compact', { threadId })
   }
 
-  retry(threadId: string): void {
+  retry(threadId: ThreadId): void {
     this.#command(threadId, 'retryTurn', { threadId })
   }
 
-  cancel(threadId: string): void {
+  cancel(threadId: ThreadId): void {
     this.#command(threadId, 'cancelTurn', { threadId })
   }
 
-  #command<N extends CommandName>(threadId: string, name: N, params: CommandParams<N>): void {
+  #command<N extends CommandName>(threadId: ThreadId, name: N, params: CommandParams<N>): void {
     const box = this.#box(threadId)
     box.error = null
 
@@ -215,7 +216,7 @@ class ThreadStore {
  *  Exported so it can be exercised without a live subscription: this is the
  *  only path that tells the reader a thread is asking, and the one place a
  *  half-answered card is thrown away. */
-export function applyAskEffects(threadId: string, events: readonly UiEvent[]): void {
+export function applyAskEffects(threadId: ThreadId, events: readonly UiEvent[]): void {
   for (const event of events) {
     // A question that has just arrived decides for itself who is told and how
     // loudly, from where the reader happens to be standing.
@@ -250,7 +251,7 @@ export const threads = new ThreadStore()
  *
  *  The jump is carried as ids rather than a closure: the toast is data, and
  *  the one place that knows how to put a thread on screen makes the jump. */
-function announce(threadId: string, events: readonly UiEvent[], wasRunning: boolean): void {
+function announce(threadId: ThreadId, events: readonly UiEvent[], wasRunning: boolean): void {
   const notices = noticesFor(events, { focused: app.thread.id === threadId, wasRunning })
   if (notices.length === 0) return
 

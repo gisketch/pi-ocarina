@@ -17,7 +17,7 @@ export type ToastTone = keyof typeof LIFETIME_MS
  *  already knows how to make it. */
 export interface ToastJump {
   workspaceId: string
-  threadId: string
+  threadId: ThreadId
   title: string
 }
 
@@ -83,3 +83,5 @@ class Toasts {
 }
 
 export const toasts = new Toasts()
+
+import type { ThreadId } from '../../../../shared/thread-id'

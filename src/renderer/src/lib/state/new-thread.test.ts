@@ -1,3 +1,4 @@
+import { threadIdForTest } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitStatus, GitStatusMessage } from '../../../../shared/protocol'
 
@@ -74,7 +75,7 @@ beforeEach(() => {
   git.start()
   vi.spyOn(catalog, 'newThread').mockImplementation(async (id: string, worktree?: unknown) => {
     created(id, worktree)
-    return 't1'
+    return threadIdForTest('t1')
   })
 })
 

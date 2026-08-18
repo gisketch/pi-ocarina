@@ -9,6 +9,7 @@
  *  leap's do: `gg` needs a pending state that only means something inside this
  *  mode, and the shell's reducer should not learn a second grammar. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { ChangedFile } from '../../../../shared/protocol'
 import { session } from '../session'
 import { app } from './app.svelte'
@@ -77,7 +78,7 @@ class Changes {
 
   /** Opens on a thread, optionally at a file — which is what `a` on a capped
    *  row does. */
-  async show(threadId: string, path?: string): Promise<void> {
+  async show(threadId: ThreadId, path?: string): Promise<void> {
     this.#from = app.mode === 'READ' ? 'READ' : 'NORMAL'
     this.threadId = threadId
     this.loading = true
@@ -135,7 +136,7 @@ class Changes {
    *  file may have moved — the same signal the git summary refreshes on. A
    *  viewer left open beside a working agent otherwise shows the change as it
    *  was when it opened. */
-  async refreshFor(threadId: string): Promise<void> {
+  async refreshFor(threadId: ThreadId): Promise<void> {
     if (this.threadId !== threadId) return
 
     try {

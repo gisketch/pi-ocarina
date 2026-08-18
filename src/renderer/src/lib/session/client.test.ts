@@ -1,3 +1,4 @@
+import { threadIdForTest } from '../../../../shared/thread-id'
 import { describe, expect, it, vi } from 'vitest'
 import { PROTOCOL_VERSION, type EventBatch, type UiEvent } from '../../../../shared/protocol'
 import { SessionClient } from './client'
@@ -113,15 +114,15 @@ describe('SessionClient commands', () => {
     const send = vi.fn().mockResolvedValue({ ok: true })
     const client = new SessionClient(send)
 
-    await client.invoke('prompt', { threadId: 't1', text: 'hello' })
+    await client.invoke('prompt', { threadId: threadIdForTest('t1'), text: 'hello' })
 
-    expect(send).toHaveBeenCalledWith('prompt', { threadId: 't1', text: 'hello' })
+    expect(send).toHaveBeenCalledWith('prompt', { threadId: threadIdForTest('t1'), text: 'hello' })
   })
 
   it('fails clearly with no backend instead of silently doing nothing', async () => {
     const client = new SessionClient()
 
-    await expect(client.invoke('cancelTurn', { threadId: 't1' })).rejects.toThrow(
+    await expect(client.invoke('cancelTurn', { threadId: threadIdForTest('t1') })).rejects.toThrow(
       /no session backend/,
     )
   })

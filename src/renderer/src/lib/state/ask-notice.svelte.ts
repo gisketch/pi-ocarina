@@ -9,6 +9,7 @@
  *  The toast notifies; it is not the record. The header and the transcript hold
  *  a pending question and neither times out. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { revealBlock } from './block-focus.svelte'
 import { app } from './app.svelte'
 import { askKeys } from './ask-keys.svelte'
@@ -32,7 +33,7 @@ class AskNotice {
   }
 
   /** A question has just arrived in a thread. */
-  arrived(threadId: string, askId: string): void {
+  arrived(threadId: ThreadId, askId: string): void {
     const focused = app.thread.id === threadId
     const body = columnBody(threadId)
 
@@ -69,7 +70,7 @@ class AskNotice {
     return workspace.threads.some((thread) => askKeys.pendingIn(thread.id) !== null)
   }
 
-  #toast(threadId: string): void {
+  #toast(threadId: ThreadId): void {
     const workspace = catalog.workspaces.find((one) =>
       one.threads.some((thread) => thread.id === threadId),
     )

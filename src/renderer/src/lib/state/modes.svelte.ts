@@ -6,6 +6,7 @@
  *  The browser harness has no backend, so it keeps the same shapes in memory —
  *  a picker that could not be opened cannot be reviewed against the design. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import { modeChip, SHIPPED_MODES, type ChatMode } from '../../../../shared/chat-modes'
 import { session } from '../session'
 
@@ -18,7 +19,7 @@ class ModeState {
   /** Whether that came from the thread rather than from the default. */
   overridden = $state(false)
 
-  #threadId = ''
+  #threadId: ThreadId | null = null
   /** Harness only: what the fake backend remembers. Held here rather than in
    *  `all`, which `load` overwrites — without it an edited voice vanished the
    *  moment the screen reloaded itself. */
@@ -35,20 +36,23 @@ class ModeState {
     return modeChip(this.mode)
   }
 
-  async load(threadId: string): Promise<void> {
+  async load(threadId: ThreadId | null): Promise<void> {
     this.#threadId = threadId
 
     if (!session.wired) {
       this.all = [...this.#demoModes]
-      const own = this.#demoThread.get(threadId)
+      const own = threadId === null ? undefined : this.#demoThread.get(threadId)
       const resolved = own ?? this.#demoDefault
       this.current = resolved === '' ? undefined : resolved
-      this.overridden = this.#demoThread.has(threadId)
+      this.overridden = threadId !== null && this.#demoThread.has(threadId)
       this.fallback = this.#demoDefault
       return
     }
 
-    const answer = await session.invoke('listModes', { threadId })
+    const answer = await session.invoke(
+      'listModes',
+      threadId === null ? {} : { threadId },
+    )
     this.all = answer.modes
     this.current = answer.current
     this.overridden = answer.overridden
@@ -57,7 +61,7 @@ class ModeState {
 
   /** Sets this thread's own voice. `undefined` returns it to the default. */
   async setThread(modeId: string | undefined): Promise<void> {
-    if (this.#threadId === '') return
+    if (this.#threadId === null) return
 
     if (!session.wired) {
       if (modeId === undefined) this.#demoThread.delete(this.#threadId)
@@ -66,8 +70,11 @@ class ModeState {
       return
     }
 
-    await session.invoke('setThreadMode', { threadId: this.#threadId, modeId })
-    await this.load(this.#threadId)
+    const threadId = this.#threadId
+    if (threadId === null) return
+
+    await session.invoke('setThreadMode', { threadId, modeId })
+    await this.load(threadId)
   }
 
   /** A stable id from a name, so renaming a mode does not orphan it.
@@ -123,7 +130,9 @@ class ModeState {
 
     await session.invoke('setDefaultMode', {
       modeId,
-      ...(this.#threadId === '' ? {} : { threadId: this.#threadId }),
+      // Named only when there is one to re-read. A default is for new
+      // threads; a placeholder has none to refresh.
+      ...(this.#threadId === null ? {} : { threadId: this.#threadId }),
     })
     await this.load(this.#threadId)
   }

@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../bridge', async () => (await import('./fixtures')).BRIDGE_MOCK)
@@ -203,7 +204,7 @@ describe('overlays that lose their block', () => {
   })
 
   it('drops a menu whose block the thread no longer holds', () => {
-    blockMenu.openOn('s1', navBlocks([{ kind: 'user', id: 'gone', text: 'x' }])[0])
+    blockMenu.openOn('s1' as ThreadId, navBlocks([{ kind: 'user', id: 'gone', text: 'x' }])[0])
 
     shell.handleKey({ key: 'l' })
 
@@ -215,7 +216,7 @@ describe('overlays that lose their block', () => {
     // leaving them in the model. The menu would stay modal over nothing.
     const block = navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0]
     const off = registerBlock('s1', 'u1', stubElement())
-    blockMenu.openOn('s1', block)
+    blockMenu.openOn('s1' as ThreadId, block)
 
     shell.handleKey({ key: 'j' })
     expect(blockMenu.open).toBe(true)
@@ -226,7 +227,7 @@ describe('overlays that lose their block', () => {
   })
 
   it('drops a menu left behind on another column', () => {
-    blockMenu.openOn('s2', navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0])
+    blockMenu.openOn('s2' as ThreadId, navBlocks([{ kind: 'user', id: 'u1', text: 'hello' }])[0])
 
     shell.handleKey({ key: 'l' })
 

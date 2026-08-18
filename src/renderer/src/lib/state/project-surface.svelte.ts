@@ -14,6 +14,7 @@ import {
   surfaceIsEmpty,
   type ProjectSurface,
 } from '../../../../shared/project-surface'
+import type { ThreadId } from '../../../../shared/thread-id'
 import { session } from '../session'
 import { toasts } from './toasts.svelte'
 
@@ -50,7 +51,11 @@ class ProjectSurfaceState {
    *  and two open files would push the rows the reader came for off screen. */
   reading = $state<string | null>(null)
 
-  #threadId = ''
+  /** Which workspace the held surface describes. A singleton with no key was
+   *  its own bug: skipping the load for a column with no thread would have
+   *  left the previous workspace's commands in this workspace's `/` menu. */
+  #workspaceId = ''
+  #threadId: ThreadId | null = null
 
   get empty(): boolean {
     return surfaceIsEmpty(this.surface)
@@ -66,7 +71,8 @@ class ProjectSurfaceState {
     this.reading = this.reading === path ? null : path
   }
 
-  async load(threadId: string): Promise<void> {
+  async load(workspaceId: string, threadId: ThreadId | null): Promise<void> {
+    this.#workspaceId = workspaceId
     this.#threadId = threadId
     this.reading = null
 
@@ -78,7 +84,13 @@ class ProjectSurfaceState {
     this.loading = true
     this.error = null
     try {
-      const { surface } = await session.invoke('projectSurface', { threadId })
+      // The workspace always, the thread only when there is one. A column with
+      // no session still sits in a folder, and that folder's commands are what
+      // its first message will be sent under.
+      const { surface } = await session.invoke('projectSurface', {
+        workspaceId,
+        ...(threadId === null ? {} : { threadId }),
+      })
       this.surface = surface
     } catch (cause) {
       this.error = cause instanceof Error ? cause.message : String(cause)
@@ -94,7 +106,10 @@ class ProjectSurfaceState {
    *  something the turn did, and a refusal the reader cannot see would look
    *  like an edit that silently failed to take. */
   async reload(): Promise<boolean> {
-    if (this.#threadId === '') return false
+    const threadId = this.#threadId
+    // Nothing to re-prompt without a session. The menu does not offer `/reload`
+    // on a column that has none, and this is the same answer said twice.
+    if (threadId === null) return false
 
     if (!session.wired) {
       toasts.push({ tone: 'ok', text: 're-read this project' })
@@ -103,7 +118,7 @@ class ProjectSurfaceState {
 
     this.loading = true
     try {
-      const answer = await session.invoke('reloadProject', { threadId: this.#threadId })
+      const answer = await session.invoke('reloadProject', { threadId })
       if (!answer.reloaded) {
         toasts.push({ tone: 'info', text: answer.because })
         return false

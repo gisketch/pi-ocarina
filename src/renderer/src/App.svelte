@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { windowDrop } from '$lib/state/window-drop'
+  import type { ThreadId } from '../../shared/thread-id'
   import Titlebar from './components/Titlebar.svelte'
   import Icon from './components/Icon.svelte'
   import Statusbar from './components/Statusbar.svelte'
@@ -79,30 +81,8 @@
 
   // Dragenter/dragleave fire for every child element, so the zone is driven by
   // a depth counter rather than by the last event seen.
-  let dragDepth = $state(0)
 
-  function ondragenter(event: DragEvent): void {
-    if (!event.dataTransfer?.types.includes('Files')) return
-    event.preventDefault()
-    dragDepth += 1
-    attachments.dragging = true
-  }
-
-  function ondragleave(): void {
-    dragDepth = Math.max(0, dragDepth - 1)
-    if (dragDepth === 0) attachments.dragging = false
-  }
-
-  function ondragover(event: DragEvent): void {
-    if (event.dataTransfer?.types.includes('Files')) event.preventDefault()
-  }
-
-  function ondrop(event: DragEvent): void {
-    event.preventDefault()
-    dragDepth = 0
-    attachments.dragging = false
-    attachments.add([...(event.dataTransfer?.files ?? [])])
-  }
+  const { ondragenter, ondragleave, ondragover, ondrop } = windowDrop()
 
   function onKeydown(event: KeyboardEvent): void {
     if (shell.handleKey(event)) event.preventDefault()
@@ -110,7 +90,7 @@
 
   /** Puts a thread from somewhere else on screen: the right workspace, then the
    *  right column within it. */
-  async function jumpTo(workspaceId: string, threadId: string, title: string): Promise<void> {
+  async function jumpTo(workspaceId: string, threadId: ThreadId, title: string): Promise<void> {
     const workspace = app.workspaces.findIndex((candidate) => candidate.id === workspaceId)
     if (workspace === -1) return
     app.goWorkspace(workspace)
@@ -258,7 +238,11 @@
         : threads.get(app.thread.id).model}
       onpick={(model, reasoning) => {
         if (shell.modelFor === 'default') preferences.setDefaultModel(model, reasoning)
-        else threads.setModel(app.thread.id, model, reasoning)
+        // A column with no session cannot be moved onto a model; the picker
+        // over a placeholder is asking about the default its first message
+        // will be born with.
+        else if (app.threadId) threads.setModel(app.threadId, model, reasoning)
+        else preferences.setDefaultModel(model, reasoning)
         shell.closeOverlay()
       }}
     />

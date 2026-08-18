@@ -1,8 +1,9 @@
 <script lang="ts">
   import { tick } from 'svelte'
+  import type { ThreadId } from '../../../shared/thread-id'
   import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
-  import { isSendKey, sendHint } from '$lib/composer'
+  import { isSendKey, resizeField, sendHint } from '$lib/composer'
   import { sendMessage } from '$lib/composer-send'
   import { wrapIndex } from '$lib/fuzzy'
   import { fuzzyFilter } from '$lib/fuzzy'
@@ -43,11 +44,13 @@
   // Read once per focused thread rather than per keystroke: the loader answers
   // from memory, but the command crosses a process boundary, and `/` is typed
   // often enough for that to matter.
-  $effect(() => {
-    if (thread.id !== '') void projectSurface.load(thread.id)
-  })
+  // The workspace, and the thread only when this column is one: a fresh column
+  // sits in a folder that has commands, and it is the column most likely to
+  // receive the first message.
+  $effect(() => void projectSurface.load(app.workspace.id, app.threadId))
   const projectCommands = $derived(projectSurface.surface.commands)
-  const slash = $derived(query === null ? [] : filterSlash(query, projectCommands))
+  const hasThread = $derived(app.threadId !== null)
+  const slash = $derived(query === null ? [] : filterSlash(query, projectCommands, { hasThread }))
 
   // Where the caret is, so `@` knows which word it is inside.
   let caret = $state(0)
@@ -105,20 +108,21 @@
   function run(command: SlashCommand): void {
     text = ''
     picked = 0
-    runSlash(command, { threadId: thread.id, onmodel, oncommit })
+    runSlash(command, { threadId: app.threadId, targetThread, onmodel, oncommit })
   }
 
   /** A fresh column has no thread behind it yet. Sending is what brings one
    *  into existence, so the hero is not a dead end. */
-  async function targetThread(): Promise<string | null> {
-    if (!thread.fresh) return thread.id
+  async function targetThread(): Promise<ThreadId | null> {
+    const here = app.threadId
+    if (here !== null) return here
     return createThread(app.workspace.id)
   }
 
   async function send(): Promise<void> {
     // A message naming a real command runs it. Anything else starting with `/`
     // is just text someone typed, and is sent as written.
-    const command = resolveSlash(text, projectCommands)
+    const command = resolveSlash(text, projectCommands, { hasThread })
     if (command) {
       run(command)
       return
@@ -237,16 +241,9 @@
     void send()
   }
 
-  // Grows with the text up to a few lines, then scrolls. Height is set from
-  // content rather than animated, so nothing here can drop a frame.
-  function resize(element: HTMLTextAreaElement): void {
-    element.style.height = 'auto'
-    element.style.height = `${Math.min(element.scrollHeight, 140)}px`
-  }
-
   $effect(() => {
     void text
-    if (input) resize(input)
+    if (input) resizeField(input)
   })
 
   $effect(() => {

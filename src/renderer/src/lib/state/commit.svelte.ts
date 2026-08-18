@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { GitChange } from '../../../../shared/protocol'
 import { bridge } from '../bridge'
 import { app } from './app.svelte'
@@ -16,7 +17,7 @@ class Commit {
   /** The thread the card opened on, and the branch it is isolated on. Held
    *  from the moment it opened: the card must commit into the tree it listed,
    *  even if the focus has moved to another column since. */
-  threadId = $state.raw<string | null>(null)
+  threadId = $state.raw<ThreadId | null>(null)
   branch = $state.raw<string | null>(null)
   changes = $state.raw<GitChange[]>([])
   message = $state.raw('')
@@ -42,7 +43,7 @@ class Commit {
     if (!workspaceId || !bridge) return
 
     this.workspaceId = workspaceId
-    this.threadId = app.thread.id || null
+    this.threadId = app.threadId
     this.branch = app.thread.branch ?? null
     this.changes = []
     this.message = ''
@@ -101,7 +102,8 @@ class Commit {
       git.refresh(workspaceId)
       // An isolated thread's checkout has no watcher, and a commit is exactly
       // the moment its counts stop being true.
-      if (this.threadId) threadGit.refresh(this.threadId)
+      const isolated = this.threadId
+      if (isolated) threadGit.refresh(isolated)
       if (stillOurs) this.close()
       return
     }

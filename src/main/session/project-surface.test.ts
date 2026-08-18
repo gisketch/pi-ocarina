@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import { readSurface } from './project-surface'
 
-/** A session whose loader answers the way pi's does. Cast because the real
- *  type is a class with two dozen members the reader never touches. */
-const sessionWith = (loader: unknown): AgentSession =>
-  ({ resourceLoader: loader }) as unknown as AgentSession
+/** `readSurface` takes the loader itself now, because a surface is a property
+ *  of a folder and a workspace with no thread open still has one. */
+const sessionWith = (loader: unknown): unknown => loader
 
 const WHERE = { cwd: '/repo', agentDir: '/home/me/.pi', appDir: '/app/resources' }
 
@@ -34,7 +33,7 @@ const FULL = {
   getSystemPromptSource: () => ({ path: '/repo/.pi/system.md' }),
 }
 
-describe('reading what a session loaded', () => {
+describe('reading what a loader loaded', () => {
   it('reads every getter pi exposes', () => {
     const surface = readSurface(sessionWith(FULL), WHERE)
 

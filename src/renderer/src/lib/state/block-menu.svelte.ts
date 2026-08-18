@@ -8,6 +8,7 @@
  *  rule drawn between every user message and the rest of the thread, which cut
  *  the transcript in half for the sake of one action nobody uses often. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { NavBlock } from '../blocks'
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
@@ -56,7 +57,10 @@ class BlockMenu {
   /** The block the menu is open on. Null when it is closed. */
   block = $state.raw<NavBlock | null>(null)
   /** Which thread it belongs to, so a menu cannot outlive its column. */
-  threadId = $state.raw('')
+  /** The thread the menu is open over, or null when it is closed. Null rather
+   *  than an empty string: the id is spent on a restore, and "no menu" must
+   *  not be a value that typechecks as a thread. */
+  threadId = $state.raw<ThreadId | null>(null)
   index = $state.raw(0)
   /** True once restore has been asked for and is waiting to be said twice. */
   confirming = $state.raw(false)
@@ -70,7 +74,7 @@ class BlockMenu {
     return block === null ? [] : actionsFor(block, catalog.source === 'live')
   }
 
-  openOn(threadId: string, block: NavBlock): void {
+  openOn(threadId: ThreadId, block: NavBlock): void {
     this.block = block
     this.threadId = threadId
     this.index = 0
@@ -79,7 +83,7 @@ class BlockMenu {
 
   close(): void {
     this.block = null
-    this.threadId = ''
+    this.threadId = null
     this.confirming = false
   }
 
@@ -125,6 +129,7 @@ class BlockMenu {
       const threadId = this.threadId
       const path = block.diffPath
       this.close()
+      if (threadId === null) return
       app.mode = 'DIFF'
       void changes.show(threadId, path)
       return
@@ -145,7 +150,7 @@ class BlockMenu {
     const checkpointId = block.checkpointId
     const threadId = this.threadId
     this.close()
-    if (checkpointId === undefined) return
+    if (checkpointId === undefined || threadId === null) return
 
     // No toast: the transcript itself is about to change, in the column the
     // reader is looking at. Saying it twice trains them to ignore the corner.

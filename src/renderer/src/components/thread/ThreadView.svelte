@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ThreadId } from '../../../../shared/thread-id'
   import Message from './Message.svelte'
   import Ledger from './Ledger.svelte'
   import AskCard from './AskCard.svelte'
@@ -25,7 +26,7 @@
   import { navBlocks } from '$lib/blocks'
 
   interface Props {
-    threadId: string
+    threadId: ThreadId
     blocks: Block[]
   }
 

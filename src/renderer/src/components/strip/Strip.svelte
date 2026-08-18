@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { threadOf } from '$lib/types'
   import ThreadColumn from './ThreadColumn.svelte'
   import FreshThread from './FreshThread.svelte'
   import LiveThread from './LiveThread.svelte'
@@ -25,6 +26,12 @@
   {#key workspace.id}
     <div class="strip" style:transform="translateX({offset}px)" style:gap="{COLUMN_GAP}px">
       {#each workspace.threads as thread, i (thread.id)}
+        <!-- The branch below is the proof, not a formality: a column that is
+             neither the placeholder nor the shell was built from a listing pi
+             minted, so `threadOf` answers with an id and everything under it
+             may speak to the backend. The other two branches draw columns that
+             have no session to speak to. -->
+        {@const live = threadOf(thread)}
         {#if thread.fresh}
           <FreshThread {workspace} />
         {:else if thread.terminal}
@@ -34,9 +41,9 @@
             focused={i === app.threadIndex}
             onfocus={() => focusColumn(i)}
           />
-        {:else}
+        {:else if live}
           <ThreadColumn {thread} focused={i === app.threadIndex} onfocus={() => focusColumn(i)}>
-            <LiveThread threadId={thread.id} />
+            <LiveThread threadId={live} />
           </ThreadColumn>
         {/if}
       {/each}

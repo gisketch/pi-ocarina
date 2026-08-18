@@ -24,7 +24,7 @@
   // settings screen, or in another column, and a stale list would offer a mode
   // the reader deleted.
   $effect(() => {
-    void modes.load(app.thread.id)
+    void modes.load(app.threadId)
   })
 
   /** "Normal" is the absence of a mode, so it is a row rather than an entry in

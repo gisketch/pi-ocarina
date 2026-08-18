@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChangedFile } from '../../../../shared/protocol'
 
@@ -199,7 +200,7 @@ describe('when the backend cannot answer', () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockRejectedValueOnce(new Error('no session backend'))
 
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
 
     expect(changes.error).toBe('no session backend')
     expect(changes.files).toEqual([])
@@ -210,7 +211,7 @@ describe('when the backend cannot answer', () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
 
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
     expect(changes.error).toBeNull()
   })
 })
@@ -277,7 +278,7 @@ describe('which file a row opens', () => {
       files: [file('src/a.ts', []), file('vendor/src/a.ts', [])],
     } as never)
 
-    await changes.show('t1', '/work/vendor/src/a.ts')
+    await changes.show('t1' as ThreadId, '/work/vendor/src/a.ts')
 
     expect(changes.file?.path).toBe('vendor/src/a.ts')
   })
@@ -290,7 +291,7 @@ describe('leaving the viewer', () => {
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
 
     app.mode = 'READ'
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
     changes.handleKey({ key: 'Escape' })
 
     expect(app.mode).toBe('READ')
@@ -303,7 +304,7 @@ describe('leaving the viewer', () => {
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
 
     app.mode = 'NORMAL'
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
     changes.handleKey({ key: 'Escape' })
 
     expect(app.mode).toBe('NORMAL')
@@ -314,10 +315,10 @@ describe('following a thread that is still working', () => {
   it('re-reads when a tool call ends on the thread it is watching', async () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
 
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [file('late.ts', [])] } as never)
-    await changes.refreshFor('t1')
+    await changes.refreshFor('t1' as ThreadId)
 
     expect(changes.files.map((entry) => entry.path)).toEqual(['late.ts'])
   })
@@ -325,20 +326,20 @@ describe('following a thread that is still working', () => {
   it('ignores a thread it is not watching', async () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
     vi.mocked(session.invoke).mockClear()
 
-    await changes.refreshFor('t2')
+    await changes.refreshFor('t2' as ThreadId)
     expect(vi.mocked(session.invoke)).not.toHaveBeenCalled()
   })
 
   it('keeps what the reader has when a refresh fails', async () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [file('a.ts', [])] } as never)
-    await changes.show('t1')
+    await changes.show('t1' as ThreadId)
 
     vi.mocked(session.invoke).mockRejectedValueOnce(new Error('gone'))
-    await changes.refreshFor('t1')
+    await changes.refreshFor('t1' as ThreadId)
 
     expect(changes.files.map((entry) => entry.path)).toEqual(['a.ts'])
     expect(changes.error).toBeNull()

@@ -7,6 +7,7 @@
  *  The browser harness has no backend, so it holds the level locally — a
  *  settings row that cannot be moved cannot be reviewed against the design. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import {
   DEFAULT_PERMISSION,
   nextLevel,
@@ -28,7 +29,7 @@ class PermissionState {
   thread = $state<PermissionLevel | undefined>(undefined)
 
   #workspaceId = ''
-  #threadId = ''
+  #threadId: ThreadId | null = null
 
   /** What the workspace row reads: its own level, or what it inherits. */
   get row(): string {
@@ -36,7 +37,7 @@ class PermissionState {
     return this.workspace === undefined ? `inherit — ${label}` : label
   }
 
-  async load(workspaceId: string, threadId = ''): Promise<void> {
+  async load(workspaceId: string, threadId: ThreadId | null = null): Promise<void> {
     this.#workspaceId = workspaceId
     this.#threadId = threadId
     if (!session.wired) return
@@ -47,7 +48,10 @@ class PermissionState {
       this.global = described.global
       this.level = described.level
 
-      if (threadId === '') {
+      // A column with no session behind it cannot hold a level of its own:
+      // there is nothing for one to govern. The bar shows what the workspace
+      // resolved to, with no `*`.
+      if (threadId === null) {
         this.thread = undefined
         return
       }
@@ -82,6 +86,14 @@ class PermissionState {
   /** Steps the focused thread's own level. Returns what it became, so the
    *  caller can say so. */
   async setThread(level: PermissionLevel | undefined): Promise<PermissionLevel> {
+    const threadId = this.#threadId
+    // `␣p` over a placeholder or a shell used to record an override under an
+    // id that runs nothing, and the bar then read that override back and
+    // showed it — a level the reader believes is in force over a column where
+    // no tool can run. Nothing is the honest answer, and it is the same answer
+    // wired or not.
+    if (threadId === null) return this.level
+
     if (!session.wired) {
       this.thread = level
       this.level = level ?? this.workspace ?? this.global
@@ -89,7 +101,7 @@ class PermissionState {
     }
 
     const { level: now, thread } = await session.invoke('setThreadPermission', {
-      threadId: this.#threadId,
+      threadId,
       workspaceId: this.#workspaceId,
       level,
     })

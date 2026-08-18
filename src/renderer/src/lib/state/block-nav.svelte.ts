@@ -114,11 +114,13 @@ class BlockNav {
       // Drawn, not merely present: a compaction folds the blocks above it out
       // of the rendered list while leaving them in the model, so membership
       // alone would keep a menu open on a block nobody can see.
+      const menuThread = blockMenu.threadId
       const gone =
-        blockMenu.threadId !== here ||
+        menuThread === null ||
+        menuThread !== here ||
         block === null ||
-        blockElement(blockMenu.threadId, block.id) === undefined ||
-        !this.#list(blockMenu.threadId).some((entry) => entry.id === block.id)
+        blockElement(menuThread, block.id) === undefined ||
+        !this.#list(menuThread).some((entry) => entry.id === block.id)
       if (gone) blockMenu.close()
     }
 
@@ -213,9 +215,11 @@ class BlockNav {
   /** `a`. Opens the menu on the focused block, and does nothing when there is
    *  no block to act on — a shell, or a column nobody has navigated. */
   openBlockMenu(): void {
-    if (app.thread.terminal) return
+    // A shell and a placeholder both draw no transcript, so neither has a
+    // block for the menu to open on.
+    const threadId = app.threadId
+    if (threadId === null) return
 
-    const threadId = app.thread.id
     const navId = blockFocus.idOf(threadId)
     if (navId === null) return
 

@@ -63,9 +63,22 @@ export function projectEntries(commands: readonly ProjectCommand[]): SlashComman
   }))
 }
 
+/** The built-ins that need a session behind the column.
+ *
+ *  `/compact` summarises a transcript and `/reload` rebuilds the prompt pi has
+ *  cached inside a session. A column with neither is not a place either can
+ *  mean anything, so they are absent there rather than erroring. Everything
+ *  else — `/commit`, `/model`, `/worktrees`, and every project command — is
+ *  about the folder, and stays. */
+const NEEDS_THREAD: ReadonlySet<string> = new Set(['compact', 'reload'])
+
 /** Built-ins first, then the project's, in one list. */
-export function allSlash(project: readonly ProjectCommand[] = []): SlashCommand[] {
-  return [...SLASH_COMMANDS, ...projectEntries(project)]
+export function allSlash(
+  project: readonly ProjectCommand[] = [],
+  { hasThread = true }: { hasThread?: boolean } = {},
+): SlashCommand[] {
+  const built = hasThread ? SLASH_COMMANDS : SLASH_COMMANDS.filter((one) => !NEEDS_THREAD.has(one.id))
+  return [...built, ...projectEntries(project)]
 }
 
 /** The menu is open only while the text is one `/`-word at the very start.
@@ -83,8 +96,12 @@ export function slashQuery(text: string): string | null {
   return rest
 }
 
-export function filterSlash(query: string, project: readonly ProjectCommand[] = []): SlashCommand[] {
-  return fuzzyFilter(allSlash(project), query, (command) => command.name)
+export function filterSlash(
+  query: string,
+  project: readonly ProjectCommand[] = [],
+  options: { hasThread?: boolean } = {},
+): SlashCommand[] {
+  return fuzzyFilter(allSlash(project, options), query, (command) => command.name)
 }
 
 /** Whether this text names a command that exists.
@@ -94,11 +111,12 @@ export function filterSlash(query: string, project: readonly ProjectCommand[] = 
 export function resolveSlash(
   text: string,
   project: readonly ProjectCommand[] = [],
+  options: { hasThread?: boolean } = {},
 ): SlashCommand | null {
   const query = slashQuery(text.trim())
   if (query === null) return null
 
   // `find` over built-ins first is the same rule the menu's order states: a
   // typed `/commit` is the app's, whatever the repository ships.
-  return allSlash(project).find((command) => command.name === `/${query}`) ?? null
+  return allSlash(project, options).find((command) => command.name === `/${query}`) ?? null
 }

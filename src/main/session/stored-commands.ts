@@ -57,10 +57,13 @@ export async function handleStored(
   if (ROLES.has(name)) return handleRoles(deps.catalog, name, params)
   if (MODES.has(name)) {
     return handleModes(deps.modes, deps.catalog, name, params, async (threadId) => {
-      const session = deps.project.session(threadId)
+      // `find`, not `session`: the refresh is fired and not awaited, so a
+      // throw here becomes an unhandled rejection in main while the command
+      // reports `{ ok: true }` and the picker paints success.
+      const session = deps.project.find(threadId)
       // Never under a running turn: the prompt would change between one
       // request and the next with nothing saying so.
-      if (!session.isStreaming) await reloadResources(session)
+      if (session && !session.isStreaming) await reloadResources(session)
     })
   }
   if (PERMISSION.has(name)) return handlePermission(deps.catalog, deps.approvals, name, params)

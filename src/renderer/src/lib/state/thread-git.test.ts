@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GitStatus } from '../../../../shared/protocol'
 
@@ -33,7 +34,7 @@ describe('threadGit', () => {
   it('keeps what the backend answered', async () => {
     invoke.mockResolvedValue({ status: status('fix/OCA-231') })
 
-    threadGit.refresh('t1')
+    threadGit.refresh('t1' as ThreadId)
     await vi.waitFor(() => expect(threadGit.statusOf('t1')?.branch).toBe('fix/OCA-231'))
     expect(invoke).toHaveBeenCalledWith('threadGit', { threadId: 't1' })
   })
@@ -46,9 +47,9 @@ describe('threadGit', () => {
       }),
     )
 
-    threadGit.refresh('t1')
-    threadGit.refresh('t1')
-    threadGit.refresh('t1')
+    threadGit.refresh('t1' as ThreadId)
+    threadGit.refresh('t1' as ThreadId)
+    threadGit.refresh('t1' as ThreadId)
     expect(invoke).toHaveBeenCalledTimes(1)
 
     settle()
@@ -57,18 +58,18 @@ describe('threadGit', () => {
 
   it('keeps the last answer when a read fails', async () => {
     invoke.mockResolvedValueOnce({ status: status('held') })
-    threadGit.refresh('t1')
+    threadGit.refresh('t1' as ThreadId)
     await vi.waitFor(() => expect(threadGit.statusOf('t1')?.branch).toBe('held'))
 
     invoke.mockRejectedValueOnce(new Error('no'))
-    threadGit.refresh('t1')
+    threadGit.refresh('t1' as ThreadId)
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(2))
 
     expect(threadGit.statusOf('t1')?.branch).toBe('held')
   })
 
   it('never asks about a thread with no id', () => {
-    threadGit.refresh('')
+    threadGit.refresh('' as ThreadId)
     expect(invoke).not.toHaveBeenCalled()
   })
 })

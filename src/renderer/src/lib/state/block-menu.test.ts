@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../bridge', () => ({
@@ -41,7 +42,7 @@ describe('the menu', () => {
   })
 
   it('opens on the block it was given, at the first action', () => {
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
 
     expect(blockMenu.open).toBe(true)
     expect(blockMenu.index).toBe(0)
@@ -49,7 +50,7 @@ describe('the menu', () => {
   })
 
   it('moves the highlight with j and k, and clamps', () => {
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
 
     blockMenu.handleKey({ key: 'j' })
     expect(blockMenu.index).toBe(1)
@@ -61,14 +62,14 @@ describe('the menu', () => {
   })
 
   it('closes on escape', () => {
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'Escape' })
 
     expect(blockMenu.open).toBe(false)
   })
 
   it('swallows every other key rather than letting it move the column', () => {
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
 
     expect(blockMenu.handleKey({ key: 'l' })).toBe(true)
     expect(blockMenu.open).toBe(true)
@@ -78,7 +79,7 @@ describe('the menu', () => {
     const writeText = vi.fn(() => Promise.resolve())
     vi.stubGlobal('navigator', { clipboard: { writeText } })
 
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'Enter' })
 
     expect(writeText).toHaveBeenCalledWith('hello')
@@ -89,7 +90,7 @@ describe('the menu', () => {
   it('asks before it restores, and only rewinds on the second press', () => {
     const restore = vi.spyOn(threads, 'restore').mockImplementation(() => {})
 
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'j' })
     blockMenu.handleKey({ key: 'Enter' })
 
@@ -104,7 +105,7 @@ describe('the menu', () => {
   })
 
   it('takes back the question on escape without closing the menu', () => {
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'j' })
     blockMenu.handleKey({ key: 'Enter' })
 
@@ -117,7 +118,7 @@ describe('the menu', () => {
   it('takes back the question when the highlight moves off it', () => {
     const restore = vi.spyOn(threads, 'restore').mockImplementation(() => {})
 
-    blockMenu.openOn('t1', message)
+    blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'j' })
     blockMenu.handleKey({ key: 'Enter' })
     blockMenu.handleKey({ key: 'k' })

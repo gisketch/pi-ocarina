@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandName } from '../../../../shared/protocol'
 import { session } from '../session'
@@ -145,7 +146,7 @@ describe('closing a thread', () => {
   it('takes the column off the strip', async () => {
     await twoThreads()
 
-    catalog.closeThread('s1')
+    catalog.closeThread('s1' as ThreadId)
 
     expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['s2'])
   })
@@ -154,7 +155,7 @@ describe('closing a thread', () => {
     await twoThreads()
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
 
-    catalog.closeThread('s1')
+    catalog.closeThread('s1' as ThreadId)
 
     expect(invoke).toHaveBeenCalledWith('archiveThread', { threadId: 's1' })
   })
@@ -165,7 +166,7 @@ describe('closing a thread', () => {
     })
     await catalog.load()
 
-    catalog.closeThread('s1')
+    catalog.closeThread('s1' as ThreadId)
 
     // A workspace with no columns is a workspace you cannot type into.
     expect(catalog.workspaces[0].threads).toEqual([
@@ -177,7 +178,7 @@ describe('closing a thread', () => {
     await twoThreads()
     app.focusThread(1)
 
-    catalog.closeThread('s2')
+    catalog.closeThread('s2' as ThreadId)
 
     expect(app.threadIndex).toBe(0)
   })
@@ -189,7 +190,7 @@ describe('closing a thread', () => {
     })
     await catalog.load()
 
-    catalog.closeThread('s1')
+    catalog.closeThread('s1' as ThreadId)
 
     expect(catalog.workspaces[1].threads.map((thread) => thread.id)).toEqual(['s9'])
   })
@@ -203,7 +204,7 @@ describe('reopening a closed thread', () => {
     await catalog.load()
 
     const invoke = vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    const column = await catalog.reopen('w1', 's2', 'the closed one')
+    const column = await catalog.reopen('w1', 's2' as ThreadId, 'the closed one')
 
     expect(invoke).toHaveBeenCalledWith('unarchiveThread', { threadId: 's2' })
     expect(column).toBe(1)
@@ -215,7 +216,7 @@ describe('reopening a closed thread', () => {
     await catalog.load()
 
     vi.spyOn(session, 'invoke').mockRejectedValue(new Error('catalog is read-only'))
-    const column = await catalog.reopen('w1', 's2', 'the closed one')
+    const column = await catalog.reopen('w1', 's2' as ThreadId, 'the closed one')
 
     // The thread is on screen now; it simply will not stay after a relaunch.
     expect(column).toBe(0)
@@ -229,7 +230,7 @@ describe('reopening a closed thread', () => {
     await catalog.load()
 
     vi.spyOn(session, 'invoke').mockResolvedValue({ ok: true } as never)
-    await catalog.reopen('w1', 's1', 'kept')
+    await catalog.reopen('w1', 's1' as ThreadId, 'kept')
 
     expect(catalog.workspaces[0].threads.map((thread) => thread.id)).toEqual(['s1'])
   })

@@ -6,6 +6,8 @@
  *  list, it is missing from the agent's system prompt too. */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
+import { loaderOptions } from './resource-dirs'
+import type { Sdk } from './workspaces'
 import {
   EMPTY_SURFACE,
   sourceOf,
@@ -58,20 +60,28 @@ export interface SurfaceContext {
   appDir: string
 }
 
-/** Everything this session loaded, in one object.
+/** Everything a loader loaded, in one object.
  *
- *  Returns the empty surface rather than throwing when pi's loader is not the
+ *  Takes the loader rather than the session, because a surface is a property of
+ *  a folder and not of a turn: a workspace whose threads are all closed still
+ *  has commands, skills and instruction files, and used to answer the screen
+ *  with `unknown thread: fresh:<workspace>`.
+ *
+ *  Returns the empty surface rather than throwing when the loader is not pi's
  *  default one — a stub session in a test has no resources, and a screen that
  *  says "nothing loaded" is right about that. */
-export function readSurface(session: AgentSession, where: SurfaceContext): ProjectSurface {
-  const loader = session.resourceLoader as unknown as Record<string, unknown> | undefined
-  if (!loader) return EMPTY_SURFACE
+export function readSurface(
+  loader: unknown,
+  where: SurfaceContext,
+): ProjectSurface {
+  if (!loader || typeof loader !== 'object') return EMPTY_SURFACE
+  const read = loader as Record<string, unknown>
 
   const call = <T>(name: string, fallback: T): T => {
-    const method = loader[name]
+    const method = read[name]
     if (typeof method !== 'function') return fallback
     try {
-      return (method as () => T).call(loader)
+      return (method as () => T).call(read)
     } catch {
       return fallback
     }
@@ -116,4 +126,20 @@ export function readSurface(session: AgentSession, where: SurfaceContext): Proje
     ...(promptSource?.path ? { systemPromptSource: promptSource.path } : {}),
     problems: [...problemsOf(prompts.diagnostics), ...problemsOf(skills.diagnostics)],
   }
+}
+
+/** A read-only loader for a folder nobody has a thread open in.
+ *
+ *  A workspace's surface is a property of the folder, so it is readable with no
+ *  session at all — which is the state a reader is in the moment they close
+ *  their last thread, and the state every workspace is in on a fresh install.
+ *
+ *  The `reload()` is not optional. pi's `DefaultResourceLoader` constructor sets
+ *  its lists empty and reads no disk; `buildResources` carries the same scar in
+ *  a comment. Without it this answers "nothing loaded" for a project full of
+ *  skills. */
+export async function workspaceLoader(sdk: Sdk, cwd: string): Promise<unknown> {
+  const loader = new sdk.DefaultResourceLoader(loaderOptions(sdk.getAgentDir(), cwd))
+  await loader.reload()
+  return loader
 }

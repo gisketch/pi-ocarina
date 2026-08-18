@@ -12,6 +12,7 @@
  *  state at all. Main reads the workspace's folder for nobody — that answer
  *  already reaches the chrome on the git channel. */
 
+import type { ThreadId } from '../../../../shared/thread-id'
 import type { GitStatus } from '../../../../shared/protocol'
 import { session } from '../session'
 
@@ -26,7 +27,7 @@ class ThreadGit {
   }
 
   /** Asks about a thread, unless a question is already out for it. */
-  refresh(threadId: string): void {
+  refresh(threadId: ThreadId): void {
     if (threadId === '' || this.#asking.has(threadId)) return
     this.#asking.add(threadId)
 

@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UiEvent } from '../../../../shared/protocol'
 import type { AskQuestion } from '../../../../shared/vocabulary'
@@ -54,7 +55,7 @@ const WORKSPACES = [
 function ask(threadId: string, askId = 'ask-1'): void {
   const events: UiEvent[] = [{ kind: 'ask', id: askId, questions: QUESTIONS }]
   threads.seed(threadId, replayThread(events))
-  askNotice.arrived(threadId, askId)
+  askNotice.arrived(threadId as ThreadId, askId)
 }
 
 beforeEach(() => {
@@ -145,7 +146,7 @@ describe('the flow behind a card', () => {
     ask('s1')
     asks.flow('ask-1', QUESTIONS).write('half a thought')
 
-    applyAskEffects('s1', [
+    applyAskEffects('s1' as ThreadId, [
       { kind: 'ask-answered', id: 'ask-1', outcome: 'cancelled', answers: [], said: 'no' },
     ])
 

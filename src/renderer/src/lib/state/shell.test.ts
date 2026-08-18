@@ -1,3 +1,4 @@
+import { threadIdForTest } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
@@ -123,7 +124,7 @@ describe('leader n', () => {
       catalog.workspaces = [
         { ...WORKSPACE, threads: [...WORKSPACE.threads, { id: 's2', title: 'new thread', status: 'idle', meta: '' }] },
       ]
-      return 's2'
+      return threadIdForTest('s2')
     })
 
     shell.newThread()
@@ -162,7 +163,7 @@ describe('leader n', () => {
     vi.spyOn(catalog, 'newThread').mockImplementation(async () => {
       // The person switched workspace while the backend was working.
       app.goWorkspace(1)
-      return 's2'
+      return threadIdForTest('s2')
     })
 
     shell.newThread()

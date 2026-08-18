@@ -23,9 +23,10 @@
   $effect(() => {
     void workspaceLsp.load(app.workspace.id)
     void permission.load(app.workspace.id)
-    // Keyed on the thread, not the workspace: the loader belongs to a session,
-    // and a workspace with no open thread has loaded nothing yet.
-    if (app.thread.id !== '') void projectSurface.load(app.thread.id)
+    // Keyed on the workspace, with the thread only narrowing it. This screen
+    // is workspace-scoped, and it used to render `unknown thread: fresh:<id>`
+    // where the inventory belongs whenever every column was closed.
+    void projectSurface.load(app.workspace.id, app.threadId)
   })
 
   /** Permissions, then the master switch, then one row per server. */

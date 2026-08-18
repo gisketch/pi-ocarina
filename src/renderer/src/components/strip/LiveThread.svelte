@@ -1,11 +1,12 @@
 <script lang="ts">
+  import type { ThreadId } from '../../../../shared/thread-id'
   import ThreadView from '../thread/ThreadView.svelte'
   import ThreadError from '../thread/ThreadError.svelte'
   import ThreadSkeleton from '../thread/ThreadSkeleton.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
-  const { threadId }: { threadId: string } = $props()
+  const { threadId }: { threadId: ThreadId } = $props()
 
   const model = $derived(threads.get(threadId))
   const loading = $derived(!threads.isLoaded(threadId))

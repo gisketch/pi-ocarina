@@ -5,6 +5,7 @@
  *  so nothing that imports them had to move. */
 
 import type { LspServerState } from './lsp'
+import type { ThreadId } from './thread-id'
 import type { ChatMode } from './chat-modes'
 import type { ProjectSurface } from './project-surface'
 import type { PermissionLevel } from './permissions'
@@ -36,28 +37,39 @@ export interface SessionCommands {
    *  cannot be decided later. A failure rejects, leaving no thread behind. */
   createThread: {
     params: { workspaceId: string; title?: string; worktree?: { branch: string } }
-    result: { threadId: string }
+    result: { threadId: ThreadId }
   }
-  openThread: { params: { threadId: string }; result: { ok: true } }
+  openThread: { params: { threadId: ThreadId }; result: { ok: true } }
   /** What this workspace loaded: its commands, its skills, its instruction
    *  files, and anything that failed to load. Read-only — the app shows what
    *  the project imposed and never authors it. */
   /** The voices on offer, and the one this thread is using. */
   listModes: {
-    params: { threadId: string }
+    /** Absent for a column with no session behind it — the placeholder. There
+     *  is no override to look up, so the answer is the default the thread its
+     *  first message creates will be born with. */
+    params: { threadId?: ThreadId }
     result: { modes: ChatMode[]; current?: string; overridden: boolean; fallbackMode?: string }
   }
   /** This thread's own voice. Session-scoped: never written to the catalog, and
    *  gone after a relaunch. `undefined` returns the thread to the default. */
-  setThreadMode: { params: { threadId: string; modeId?: string }; result: { ok: true } }
+  setThreadMode: { params: { threadId: ThreadId; modeId?: string }; result: { ok: true } }
   /** The voice every thread starts on. `undefined` is "normal". */
   /** `threadId` names the thread to re-read afterwards, so the change is heard
    *  in the column the reader is looking at. Others keep the voice they were
    *  built with until they are reopened. */
-  setDefaultMode: { params: { modeId?: string; threadId?: string }; result: { ok: true } }
+  setDefaultMode: { params: { modeId?: string; threadId?: ThreadId }; result: { ok: true } }
   saveMode: { params: { mode: ChatMode }; result: { mode: ChatMode } }
   deleteMode: { params: { modeId: string }; result: { ok: true } }
-  projectSurface: { params: { threadId: string }; result: { surface: ProjectSurface } }
+  /** Keyed on the workspace, because that is what a surface is: every field of
+   *  it comes from a folder, pi's configuration directory and this app's own
+   *  resources. `threadId` narrows it to what one open thread actually loaded,
+   *  and is absent for a column with no session — the placeholder and the
+   *  shell, and every column in a workspace whose threads are all closed. */
+  projectSurface: {
+    params: { workspaceId: string; threadId?: ThreadId }
+    result: { surface: ProjectSurface }
+  }
   /** Re-reads those files from disk.
    *
    *  Refused while a turn is running rather than queued. pi builds the system
@@ -66,28 +78,28 @@ export interface SessionCommands {
    *  in the transcript saying so. A queued one would land at a moment nobody
    *  chose. */
   reloadProject: {
-    params: { threadId: string }
+    params: { threadId: ThreadId }
     result: { surface: ProjectSurface; reloaded: true } | { reloaded: false; because: string }
   }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
-  archiveThread: { params: { threadId: string }; result: { ok: true } }
+  archiveThread: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Brings a closed thread back — what jumping to it from search does. */
-  unarchiveThread: { params: { threadId: string }; result: { ok: true } }
+  unarchiveThread: { params: { threadId: ThreadId }; result: { ok: true } }
   prompt: {
-    params: { threadId: string; text: string; attachments?: AttachmentRef[] }
+    params: { threadId: ThreadId; text: string; attachments?: AttachmentRef[] }
     result: { ok: true }
   }
-  steer: { params: { threadId: string; text: string }; result: { steerId: string } }
-  cancelQueuedSteer: { params: { threadId: string; steerId: string }; result: { ok: true } }
+  steer: { params: { threadId: ThreadId; text: string }; result: { steerId: string } }
+  cancelQueuedSteer: { params: { threadId: ThreadId; steerId: string }; result: { ok: true } }
   /** Every answer at once. Never one question at a time: a model handed answer
    *  one while the reader is still on question two is acting on half a
    *  decision. */
   answerAsk: {
-    params: { threadId: string; askId: string; answers: AskAnswer[] }
+    params: { threadId: ThreadId; askId: string; answers: AskAnswer[] }
     result: { ok: true }
   }
   resolveApproval: {
-    params: { threadId: string; approvalId: string; outcome: ApprovalOutcome }
+    params: { threadId: ThreadId; approvalId: string; outcome: ApprovalOutcome }
     result: { ok: true }
   }
   listApprovalRules: { params: { workspaceId: string }; result: { rules: string[] } }
@@ -131,11 +143,11 @@ export interface SessionCommands {
    *  window reopening days later at full access, because of a decision made
    *  once for one command, is the surprise the levels exist to remove. */
   setThreadPermission: {
-    params: { threadId: string; workspaceId: string; level?: PermissionLevel }
+    params: { threadId: ThreadId; workspaceId: string; level?: PermissionLevel }
     result: { level: PermissionLevel; thread?: PermissionLevel }
   }
   threadPermission: {
-    params: { threadId: string; workspaceId: string }
+    params: { threadId: ThreadId; workspaceId: string }
     result: { level: PermissionLevel; thread?: PermissionLevel }
   }
   /** Switches LSP for a workspace, or one server within it. Takes effect on the
@@ -145,16 +157,16 @@ export interface SessionCommands {
     result: { ok: true }
   }
   revokeApprovalRule: { params: { workspaceId: string; rule: string }; result: { ok: true } }
-  cancelTurn: { params: { threadId: string }; result: { ok: true } }
+  cancelTurn: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Stops one child agent. Its siblings keep running, and the turn stays open
    *  — that is the difference between this and `cancelTurn`. */
-  cancelAgent: { params: { threadId: string; agentId: string }; result: { ok: boolean } }
-  retryTurn: { params: { threadId: string }; result: { ok: true } }
+  cancelAgent: { params: { threadId: ThreadId; agentId: string }; result: { ok: boolean } }
+  retryTurn: { params: { threadId: ThreadId }; result: { ok: true } }
   restoreCheckpoint: {
-    params: { threadId: string; checkpointId: string }
-    result: { threadId: string }
+    params: { threadId: ThreadId; checkpointId: string }
+    result: { threadId: ThreadId }
   }
-  compact: { params: { threadId: string }; result: { ok: true } }
+  compact: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Paths the @-mention picker offers, relative to the workspace. */
   listFiles: { params: { workspaceId: string }; result: { files: string[] } }
   /** Searches thread titles and transcripts. `complete` is false when the time
@@ -170,18 +182,18 @@ export interface SessionCommands {
    *  first touched it, against the file as it is now. The ledger answers the
    *  other question — what each call did — and both come from the same
    *  snapshots through the same diff, so the two cannot disagree. */
-  listChanges: { params: { threadId: string }; result: { files: ChangedFile[] } }
+  listChanges: { params: { threadId: ThreadId }; result: { files: ChangedFile[] } }
   /** What removing this thread's worktree would cost, or null when it has none.
    *  `commits` counts commits on its branch and nowhere else. */
   threadWorktree: {
-    params: { threadId: string }
+    params: { threadId: ThreadId }
     result: { worktree: { branch: string; path: string; dirty: number; commits: number } | null }
   }
   /** Removes a thread's worktree. Refuses one holding commits outright — the
    *  commits are the work — and a dirty one unless `force` says the reader was
    *  asked and answered. */
   removeThreadWorktree: {
-    params: { threadId: string; force?: boolean }
+    params: { threadId: ThreadId; force?: boolean }
     result: { ok: boolean; reason?: string }
   }
   /** Every worktree this app made under a workspace, and what each holds. */
@@ -197,13 +209,13 @@ export interface SessionCommands {
   /** The git state of the checkout a thread runs in, or null when the thread
    *  is not isolated — the workspace's own state is already published on the
    *  git channel, and answering with it here would let the two disagree. */
-  threadGit: { params: { threadId: string }; result: { status: GitStatus | null } }
+  threadGit: { params: { threadId: ThreadId }; result: { status: GitStatus | null } }
   listModels: { params: Record<string, never>; result: { models: ModelSummary[] } }
   setModel: {
-    params: { threadId: string; provider: string; model: string }
+    params: { threadId: ThreadId; provider: string; model: string }
     result: { ok: true }
   }
-  setReasoning: { params: { threadId: string; reasoning: ReasoningLevel }; result: { ok: true } }
+  setReasoning: { params: { threadId: ThreadId; reasoning: ReasoningLevel }; result: { ok: true } }
 }
 
 export type CommandName = keyof SessionCommands

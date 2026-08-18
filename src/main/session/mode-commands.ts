@@ -76,12 +76,14 @@ export function handleModes(
   switch (name) {
     case 'listModes': {
       const { threadId } = params as CommandParams<'listModes'>
-      const current = modes.modeOf(threadId)
       const fallback = catalog.modeFor(undefined)
+      // No thread means no override to find: a column with no session speaks
+      // in the default, and says so without claiming to have chosen it.
+      const current = threadId === undefined ? fallback : modes.modeOf(threadId)
       return {
         modes: catalog.modes(),
         ...(current ? { current: current.id } : {}),
-        overridden: modes.overridden(threadId),
+        overridden: threadId !== undefined && modes.overridden(threadId),
         ...(fallback ? { fallbackMode: fallback.id } : {}),
       }
     }

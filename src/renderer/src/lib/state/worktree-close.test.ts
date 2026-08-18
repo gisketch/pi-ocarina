@@ -1,3 +1,4 @@
+import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invoke = vi.fn()
@@ -23,7 +24,7 @@ describe('settleWorktree', () => {
   it('does nothing for a thread with no worktree', async () => {
     invoke.mockResolvedValueOnce({ worktree: null })
 
-    await settleWorktree('t1')
+    await settleWorktree('t1' as ThreadId)
 
     expect(invoke).toHaveBeenCalledTimes(1)
     expect(toasts.items).toEqual([])
@@ -32,7 +33,7 @@ describe('settleWorktree', () => {
   it('removes a clean worktree without asking, and without a word', async () => {
     invoke.mockResolvedValueOnce(worktree()).mockResolvedValueOnce({ ok: true })
 
-    await settleWorktree('t1')
+    await settleWorktree('t1' as ThreadId)
 
     expect(invoke).toHaveBeenLastCalledWith('removeThreadWorktree', {
       threadId: 't1',
@@ -45,7 +46,7 @@ describe('settleWorktree', () => {
   it('never removes a worktree holding commits', async () => {
     invoke.mockResolvedValueOnce(worktree({ commits: 2 }))
 
-    await settleWorktree('t1')
+    await settleWorktree('t1' as ThreadId)
 
     expect(invoke).toHaveBeenCalledTimes(1)
     expect(toasts.items[0]?.text).toBe('kept fix/OCA-231 · 2 commits')
@@ -54,7 +55,7 @@ describe('settleWorktree', () => {
   it('asks before discarding uncommitted work, and keeps it on no', async () => {
     invoke.mockResolvedValueOnce(worktree({ dirty: 3 }))
 
-    const settled = settleWorktree('t1')
+    const settled = settleWorktree('t1' as ThreadId)
     await vi.waitFor(() => expect(confirm.pending).toBe(true))
     expect(confirm.request?.message).toContain('3 uncommitted files')
     confirm.answer(false)
@@ -67,7 +68,7 @@ describe('settleWorktree', () => {
   it('forces the removal when the reader said discard', async () => {
     invoke.mockResolvedValueOnce(worktree({ dirty: 1 })).mockResolvedValueOnce({ ok: true })
 
-    const settled = settleWorktree('t1')
+    const settled = settleWorktree('t1' as ThreadId)
     await vi.waitFor(() => expect(confirm.pending).toBe(true))
     confirm.answer(true)
     await settled
@@ -81,7 +82,7 @@ describe('settleWorktree', () => {
       .mockResolvedValueOnce(worktree())
       .mockResolvedValueOnce({ ok: false, reason: 'the branch holds commits' })
 
-    await settleWorktree('t1')
+    await settleWorktree('t1' as ThreadId)
 
     expect(toasts.items[0]).toMatchObject({
       tone: 'error',

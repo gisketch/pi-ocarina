@@ -57,3 +57,18 @@ export function shippedSkillPaths(): string[] {
 export function agentDirOf(sdk: Sdk): string {
   return sdk.getAgentDir()
 }
+
+/** The options every resource loader in this app is built with.
+ *
+ *  One function because there are two constructions — the one behind a live
+ *  session and the one behind a workspace with no thread open — and a reader
+ *  looking at the `/` menu of a fresh column must see the same list they would
+ *  see a moment later, once their first message has made the thread. Two option
+ *  literals is exactly how that drifts. */
+export function loaderOptions(agentDir: string, cwd: string): {
+  cwd: string
+  agentDir: string
+  additionalSkillPaths: string[]
+} {
+  return { cwd, agentDir, additionalSkillPaths: shippedSkillPaths() }
+}

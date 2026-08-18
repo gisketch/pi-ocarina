@@ -27,7 +27,8 @@
   // ones the folder behind it has.
   const isolated = $derived(Boolean(app.thread.branch))
   $effect(() => {
-    if (isolated) threadGit.refresh(app.thread.id)
+    const id = app.threadId
+    if (isolated && id) threadGit.refresh(id)
   })
   // A question holding the keys is a mode the reader is in, and it was the one
   // mode the bar did not name: `j` and `k` moved choices rather than blocks and
@@ -56,7 +57,7 @@
   // invisible is a level that surprises — and `full` is the one state where
   // being reminded is the whole point.
   $effect(() => {
-    void permission.load(app.workspace.id, app.thread.id)
+    void permission.load(app.workspace.id, app.threadId)
   })
   const level = $derived(permission.level)
   /** A thread that overrode its workspace says so, because the same word would
@@ -67,7 +68,7 @@
 
   // The voice belongs to the thread, so the chip follows the focused column.
   $effect(() => {
-    if (app.thread.id !== '') void modes.load(app.thread.id)
+    void modes.load(app.threadId)
   })
   const modeChip = $derived(modes.chip)
   /** On, with nothing started. The chip says so quietly rather than counting. */

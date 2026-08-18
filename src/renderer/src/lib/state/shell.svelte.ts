@@ -11,7 +11,7 @@ import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
 import { threadGit } from './thread-git.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
-import { workspaceOfTerminal } from '../types'
+import { threadOf, workspaceOfTerminal } from '../types'
 import { terminals } from './terminal.svelte'
 import { termMode } from './term-mode.svelte'
 import { following } from './following.svelte'
@@ -145,23 +145,31 @@ class ShellState {
     this.closeThread(thread.id, { cancelTurn: false })
   }
 
-  closeThread(threadId: string, { cancelTurn }: { cancelTurn: boolean }): void {
-    const workspaceId = workspaceOfTerminal(threadId)
+  closeThread(columnId: string, { cancelTurn }: { cancelTurn: boolean }): void {
+    const workspaceId = workspaceOfTerminal(columnId)
     if (workspaceId) {
       terminals.kill(workspaceId)
-      blockNav.forget(threadId)
-      agentPeek.forget(threadId)
-      catalog.closeColumn(threadId)
+      blockNav.forget(columnId)
+      agentPeek.forget(columnId)
+      catalog.closeColumn(columnId)
       return
     }
 
+    const column = app.workspace.threads.find((thread) => thread.id === columnId)
+    const threadId = column ? threadOf(column) : null
+
+    blockNav.forget(columnId)
+    askKeys.forget(columnId)
+    // A column with no session behind it has no turn to cancel and no session
+    // file to hide. `requestClose` turns the placeholder away already; this is
+    // the type saying the same thing where the id would otherwise be spent.
+    if (threadId === null) return
+
     if (cancelTurn) threads.cancel(threadId)
-    blockNav.forget(threadId)
-    askKeys.forget(threadId)
     // The column goes now. The checkout behind it is settled afterwards,
     // because the answer can need a question and a person watching a column
     // that will not close has no idea what it is waiting for.
-    const isolated = app.workspace.threads.find((thread) => thread.id === threadId)?.branch
+    const isolated = column?.branch
     catalog.closeThread(threadId)
     threadGit.forget(threadId)
     if (isolated) void settleWorktree(threadId)
@@ -187,7 +195,7 @@ class ShellState {
     // leap hints, a pending question, the agent peek. All four sit behind an
     // open overlay, so none of them may read a key from under one — a digit
     // answering a question the reader cannot see is the worst version of it.
-    if (this.overlay === null && routeToSurface(event, app.mode, app.thread.id)) return true
+    if (this.overlay === null && routeToSurface(event, app.mode, app.threadId)) return true
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run

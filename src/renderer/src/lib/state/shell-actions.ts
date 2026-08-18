@@ -57,13 +57,15 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'leap':
       blockNav.leap()
       break
-    case 'openChanges':
+    case 'openChanges': {
       // A shell has no files to change, and a thread nobody has prompted has
       // not changed any. Both would open a modal viewer over nothing, and a
       // modal owns every key — so the mode goes straight back instead.
-      if (app.thread.terminal || app.thread.fresh) app.mode = 'NORMAL'
-      else void changes.show(app.thread.id)
+      const changed = app.threadId
+      if (changed === null) app.mode = 'NORMAL'
+      else void changes.show(changed)
       break
+    }
     case 'openBlockMenu':
       blockNav.openBlockMenu()
       break
@@ -90,9 +92,14 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'focusSwitcher':
       queueMicrotask(() => shell.targets.switcher?.focus())
       break
-    case 'compact':
-      threads.compact(app.thread.id)
+    case 'compact': {
+      // Nothing to summarise on a column with no transcript. `␣c` over the
+      // shell or the placeholder used to reject in main and write the error
+      // onto a box nothing draws.
+      const summarised = app.threadId
+      if (summarised) threads.compact(summarised)
       break
+    }
     case 'cyclePermission':
       void permission.cycleThread()
       break
