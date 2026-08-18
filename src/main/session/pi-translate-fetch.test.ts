@@ -87,10 +87,11 @@ describe('a language-server row', () => {
   })
 
   it('reads sensibly for the tools that take no symbol', () => {
-    expect(toolTarget('lsp_diagnostics', { path: 'a.ts' })).toBe('problems a.ts')
+    expect(toolTarget('lsp_diagnostics', { path: 'a.ts' })).toBe('problems in a.ts')
   })
 
-  it('draws as a lookup rather than as raw JSON', () => {
-    expect(toolKind('lsp_references')).toBe('grep')
+  it('draws as its own row, never as a grep', () => {
+    // `grepped outline src/app.ts` claimed the one thing these tools replace.
+    expect(toolKind('lsp_references')).toBe('lsp')
   })
 })

@@ -10,6 +10,7 @@ export type ToolKind =
   | 'write'
   | 'edit'
   | 'bash'
+  | 'lsp'
   | 'fetch'
   | 'todo'
   | 'skill'

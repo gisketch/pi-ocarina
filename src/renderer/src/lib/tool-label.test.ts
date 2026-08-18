@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ToolKind, ToolStatus } from '../../../shared/vocabulary'
 import { labelFor, widestLabel } from './tool-label'
 
-const KINDS: ToolKind[] = ['read', 'grep', 'write', 'edit', 'bash', 'fetch', 'todo', 'skill', 'agent', 'raw']
+const KINDS: ToolKind[] = ['read', 'grep', 'write', 'edit', 'bash', 'lsp', 'fetch', 'todo', 'skill', 'agent', 'raw']
 
 describe('what a row calls itself', () => {
   it('is in the present tense while the call is in flight', () => {
@@ -16,6 +16,8 @@ describe('what a row calls itself', () => {
     expect(labelFor('edit', 'ok')).toBe('edited')
     expect(labelFor('write', 'ok')).toBe('wrote')
     expect(labelFor('bash', 'ok')).toBe('ran')
+    // Never `grepped`: these rows asked the compiler, not the text.
+    expect(labelFor('lsp', 'ok')).toBe('asked')
   })
 
   it('does not conjugate by rule', () => {

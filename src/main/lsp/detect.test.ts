@@ -49,6 +49,31 @@ describe('hasRootFile', () => {
   it('says no when a server names no root file at all', async () => {
     expect(await hasRootFile(root, [])).toBe(false)
   })
+
+  it('finds a marker below the root, which is where a polyglot repo keeps it', async () => {
+    // The shape that made this necessary: a .NET solution at the top and the
+    // React app in `src/frontend`, which was offered C# and nothing else.
+    await mkdir(join(root, 'src', 'frontend'), { recursive: true })
+    await writeFile(join(root, 'global.json'), '{}')
+    await writeFile(join(root, 'src', 'frontend', 'package.json'), '{}')
+
+    expect(await hasRootFile(root, ['global.json'])).toBe(true)
+    expect(await hasRootFile(root, ['tsconfig.json', 'package.json'])).toBe(true)
+  })
+
+  it('never descends into dependencies or build output', async () => {
+    await mkdir(join(root, 'node_modules', 'left-pad'), { recursive: true })
+    await writeFile(join(root, 'node_modules', 'left-pad', 'package.json'), '{}')
+
+    expect(await hasRootFile(root, ['package.json'])).toBe(false)
+  })
+
+  it('stops at the stated depth', async () => {
+    await mkdir(join(root, 'a', 'b', 'c', 'd'), { recursive: true })
+    await writeFile(join(root, 'a', 'b', 'c', 'd', 'go.mod'), 'module x\n')
+
+    expect(await hasRootFile(root, ['go.mod'])).toBe(false)
+  })
 })
 
 describe('onPath', () => {

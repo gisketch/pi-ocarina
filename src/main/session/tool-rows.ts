@@ -26,25 +26,31 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   // row that holds them has to read as the fan-out it is rather than as a
   // `raw` row with a page of JSON in it.
   spawn_agents: 'agent',
-  // The language-server tools read the program rather than the text, so they
-  // borrow the row the design already has for looking things up.
-  lsp_symbols: 'grep',
-  lsp_diagnostics: 'grep',
-  lsp_definition: 'grep',
-  lsp_references: 'grep',
-  lsp_hover: 'grep',
-  lsp_rename_preview: 'grep',
+  // The language-server tools get a row of their own. They borrowed `grep`
+  // at first and the ledger then said `grepped outline src/app.ts` for a call
+  // that asked the compiler — the row claimed the exact thing these tools
+  // exist to replace.
+  lsp_symbols: 'lsp',
+  lsp_diagnostics: 'lsp',
+  lsp_definition: 'lsp',
+  lsp_references: 'lsp',
+  lsp_hover: 'lsp',
+  lsp_rename_preview: 'lsp',
 }
 
-/** The word each language-server row leads with, so a reader can tell six
- *  similar-looking rows apart at a glance. */
+/** The phrase each language-server row leads with, so a reader can tell six
+ *  similar-looking rows apart at a glance.
+ *
+ *  Written to follow the gutter's word: the row reads `asked definition of draw
+ *  · Ledger.svelte` as one sentence, rather than as a label and an unrelated
+ *  fragment. */
 const LSP_VERBS: Readonly<Record<string, string>> = {
-  lsp_symbols: 'outline',
-  lsp_diagnostics: 'problems',
-  lsp_definition: 'defines',
+  lsp_symbols: 'outline of',
+  lsp_diagnostics: 'problems in',
+  lsp_definition: 'definition of',
   lsp_references: 'uses of',
   lsp_hover: 'type of',
-  lsp_rename_preview: 'rename',
+  lsp_rename_preview: 'rename of',
 }
 
 export function toolKind(name: string): ToolKind {

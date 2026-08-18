@@ -16,32 +16,78 @@ import {
   type WorkspaceLsp,
 } from '../../shared/lsp'
 
-/** Whether one of a server's root files exists at the workspace root.
+/** How far below the workspace root a marker file still counts.
+ *
+ *  The root alone was wrong for the shape most polyglot repositories actually
+ *  have: a `global.json` at the top and the React app down in `src/frontend`.
+ *  That workspace was offered C# and nothing else, which is the one case the
+ *  polyglot support exists for. Three levels reaches `src/frontend/`,
+ *  `apps/web/`, and `services/api/` without becoming a repository walk. */
+export const MARKER_DEPTH = 3
+
+/** Directories never descended into. Build output and dependencies contain
+ *  thousands of `package.json` files, none of which say anything about what
+ *  this repository is written in. */
+const SKIP = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  'target',
+  'vendor',
+  'bin',
+  'obj',
+  '.venv',
+  'venv',
+  '.next',
+  '.nuxt',
+  'coverage',
+])
+
+function matches(name: string, exact: readonly string[], globs: readonly string[]): boolean {
+  return exact.includes(name) || globs.some((glob) => name.endsWith(glob.slice(1)))
+}
+
+/** Whether one of a server's root files exists at or under the workspace root.
  *
  *  A pattern like `*.csproj` matches by extension, because a C# project's file
  *  is named after the project and its name cannot be known in advance. */
-export async function hasRootFile(cwd: string, patterns: readonly string[]): Promise<boolean> {
+export async function hasRootFile(
+  cwd: string,
+  patterns: readonly string[],
+  depth: number = MARKER_DEPTH,
+): Promise<boolean> {
   if (patterns.length === 0) return false
 
   const globs = patterns.filter((one) => one.startsWith('*.'))
   const exact = patterns.filter((one) => !one.startsWith('*.'))
 
-  for (const name of exact) {
-    try {
-      await access(join(cwd, name), constants.F_OK)
-      return true
-    } catch {
-      // Not here. Try the next one.
-    }
-  }
+  let level = [cwd]
+  for (let below = 0; below <= depth && level.length > 0; below += 1) {
+    const next: string[] = []
 
-  if (globs.length === 0) return false
-  try {
-    const entries = await readdir(cwd)
-    return entries.some((entry) => globs.some((glob) => entry.endsWith(glob.slice(1))))
-  } catch {
-    return false
+    for (const dir of level) {
+      let entries
+      try {
+        entries = await readdir(dir, { withFileTypes: true })
+      } catch {
+        continue
+      }
+
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          if (below < depth && !SKIP.has(entry.name) && !entry.name.startsWith('.')) {
+            next.push(join(dir, entry.name))
+          }
+          continue
+        }
+        if (matches(entry.name, exact, globs)) return true
+      }
+    }
+    level = next
   }
+  return false
 }
 
 /** Whether a command resolves on PATH.

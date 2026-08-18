@@ -24,6 +24,11 @@ const TENSES: Record<ToolKind, Tense> = {
   write: { running: 'writing', done: 'wrote' },
   edit: { running: 'editing', done: 'edited' },
   bash: { running: 'running', done: 'ran' },
+  // The language-server rows read as a sentence with their target: `asked uses
+  // of draw · Ledger.svelte`. `grepped` was borrowed here and said the opposite
+  // of what happened — the whole point of these calls is that they are not a
+  // text search.
+  lsp: { running: 'asking', done: 'asked' },
   fetch: { running: 'fetching', done: 'fetched' },
   todo: { running: 'listing', done: 'todo' },
   skill: { running: 'loading', done: 'skill' },
