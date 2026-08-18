@@ -17,13 +17,13 @@ describe('segmenting', () => {
   it('finds a mention', () => {
     expect(segment('why is @src/app.ts slow')).toEqual([
       { kind: 'plain', text: 'why is ' },
-      { kind: 'mention', text: '@src/app.ts' },
+      { kind: 'mention', text: '@src/app.ts', lead: 1 },
       { kind: 'plain', text: ' slow' },
     ])
   })
 
   it('finds a mention at the very start', () => {
-    expect(segment('@a.ts please')[0]).toEqual({ kind: 'mention', text: '@a.ts' })
+    expect(segment('@a.ts please')[0]).toEqual({ kind: 'mention', text: '@a.ts', lead: 1 })
   })
 
   it('leaves an email address alone', () => {
@@ -40,7 +40,7 @@ describe('segmenting', () => {
     const fold = makeFold(1, 'x'.repeat(500))
     expect(segment(`why does ${fold.token} happen`, [fold])).toEqual([
       { kind: 'plain', text: 'why does ' },
-      { kind: 'fold', text: fold.token },
+      { kind: 'fold', text: fold.token, lead: 1 },
       { kind: 'plain', text: ' happen' },
     ])
   })

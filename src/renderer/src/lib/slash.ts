@@ -230,8 +230,8 @@ export function resolveSlash(
 export function skillSpans(
   text: string,
   names: readonly string[],
-): { start: number; end: number; name: string }[] {
-  const spans: { start: number; end: number; name: string }[] = []
+): { start: number; end: number; name: string; lead: number }[] {
+  const spans: { start: number; end: number; name: string; lead: number }[] = []
   if (names.length === 0) return spans
 
   const pattern = /(^|\s)\/([A-Za-z0-9._-]+)/g
@@ -240,8 +240,12 @@ export function skillSpans(
     if (!match) break
     if (!names.includes(match[2])) continue
 
+    // The whitespace in front comes with the chip. A mirror may not occupy
+    // space, so the only room a chip's mark can have is room the text already
+    // holds — one cell for the mark, and the `/` after it as the gap before
+    // the name.
     const start = match.index + match[1].length
-    spans.push({ start, end: start + match[2].length + 1, name: match[2] })
+    spans.push({ start, end: start + match[2].length + 1, name: match[2], lead: match[1].length })
   }
   return spans
 }

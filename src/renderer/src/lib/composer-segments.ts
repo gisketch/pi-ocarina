@@ -13,19 +13,22 @@
 import type { Fold } from './paste'
 import { skillSpans } from './slash'
 
+/** How many characters at the front of a chip the mark stands on. Those
+ *  characters keep their place in the flow and give up only their ink — which
+ *  is the only way a mirror that may not occupy space can have a mark at all. */
 export type Segment =
   | { kind: 'plain'; text: string }
-  | { kind: 'mention'; text: string }
-  | { kind: 'fold'; text: string }
+  | { kind: 'mention'; text: string; lead: number }
+  | { kind: 'fold'; text: string; lead: number }
   /** A file staged for this message, named in the text. Drawn as a chip in
    *  the flow of the sentence, which is where the reader put it — a row of
    *  chips above the composer is a second place to look and a second thing to
    *  keep in sync with what was typed. */
-  | { kind: 'file'; text: string }
-  /** A skill the reader named. `/skill:name` is what main expands before the
-   *  model sees it; the chip is so the sentence reads as the reader meant it
-   *  rather than as pi's syntax. */
-  | { kind: 'skill'; text: string }
+  | { kind: 'file'; text: string; lead: number }
+  /** A skill the reader named. `skillsSaid` writes it as pi's `/skill:name` on
+   *  the way out; the chip is so the sentence reads as the reader meant it
+   *  rather than as a namespace they never typed. */
+  | { kind: 'skill'; text: string; lead: number }
 
 /** A mention: an `@` at the start or after whitespace, whose text has the
  *  shape of a path.
@@ -99,14 +102,23 @@ export function segment(
   files: readonly string[] = [],
   skills: readonly string[] = [],
 ): Segment[] {
-  const marks: { start: number; end: number; kind: 'mention' | 'fold' | 'file' | 'skill' }[] = [
+  const marks: {
+    start: number
+    end: number
+    kind: 'mention' | 'fold' | 'file' | 'skill'
+    /** How many characters at the front of the chip the mark stands on. */
+    lead?: number
+  }[] = [
     ...foldSpans(text, folds).map((span) => ({ ...span, kind: 'fold' as const })),
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
     ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
     ...skillSpans(text, skills).map((span) => ({
-      start: span.start,
+      // Back over the whitespace in front, so the chip owns a cell for its
+      // mark and the `/` after it becomes the gap before the name.
+      start: span.start - span.lead,
       end: span.end,
       kind: 'skill' as const,
+      lead: span.lead + 1,
     })),
   ].sort((a, b) => a.start - b.start)
 
@@ -119,7 +131,11 @@ export function segment(
     // is dropped rather than allowed to duplicate the characters.
     if (mark.start < at) continue
     if (mark.start > at) segments.push({ kind: 'plain', text: text.slice(at, mark.start) })
-    segments.push({ kind: mark.kind, text: text.slice(mark.start, mark.end) })
+    segments.push({
+      kind: mark.kind,
+      text: text.slice(mark.start, mark.end),
+      lead: mark.lead ?? 1,
+    })
     at = mark.end
   }
 

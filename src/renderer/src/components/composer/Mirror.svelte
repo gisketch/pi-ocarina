@@ -70,8 +70,8 @@
   style:--mark-skill={MARKS['--mark-skill']}
   style:--mark-fold={MARKS['--mark-fold']}
 >{#each parts as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<span
-        class={part.kind}><span class="lead">{part.text.slice(0, 1)}</span>{part.text.slice(
-          1,
+        class={part.kind}><span class="lead">{part.text.slice(0, part.lead)}</span>{part.text.slice(
+          part.lead,
         )}</span
       >{/if}{/each}</div>
 
@@ -86,13 +86,13 @@
     overflow: hidden;
   }
 
-  /* Every chip is one class, and none of it occupies space. The pad is a
-     `box-shadow` spread and the ring is an `outline` at the same offset: both
-     paint *outside* the layout box, so the pill has breathing room while every
-     glyph stays exactly where the textarea put it — the contract this whole
-     file rests on. Padding would have moved them, and the caret with them.
-     Two pixels, not four: a space between two chips is one monospace cell,
-     and a wider pad made neighbours overlap. */
+  /* Every chip is one class, and none of it occupies space — the contract this
+     whole file rests on, since a single pixel of padding would shift every
+     glyph after it and take the caret with it.
+     So the padding is a *character*: the whitespace in front of the chip is
+     inside it, tinted with it, and the mark stands on it. Nothing paints
+     outside the box, which is what stops two chips side by side from
+     overlapping: they share an edge instead. */
   .file,
   .mention,
   .fold,
@@ -106,17 +106,15 @@
   .file,
   .mention {
     color: var(--accent);
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.12);
-    box-shadow: 0 0 0 2px oklch(0.76 0.14 var(--accent-hue) / 0.12);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.13);
     outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.3);
-    outline-offset: 2px;
+    outline-offset: -1px;
   }
   .fold {
     color: var(--fg-dim);
     background: var(--bg-hover);
-    box-shadow: 0 0 0 2px var(--bg-hover);
     outline: 1px solid var(--line-strong);
-    outline-offset: 2px;
+    outline-offset: -1px;
   }
 
   /* A skill. Its own colour rather than the accent, because it is a different
@@ -124,25 +122,30 @@
      agent should go about it. */
   .skill {
     color: var(--warn);
-    background: oklch(0.84 0.12 85 / 0.12);
-    box-shadow: 0 0 0 2px oklch(0.84 0.12 85 / 0.12);
-    outline: 1px solid oklch(0.84 0.12 85 / 0.3);
-    outline-offset: 2px;
+    background: oklch(0.84 0.12 85 / 0.13);
+    outline: 1px solid oklch(0.84 0.12 85 / 0.32);
+    outline-offset: -1px;
   }
 
-  /* The mark, painted over the token's own leading punctuation.
-     Absolutely positioned, so it takes no space at all — and it covers a
-     character that was already standing for "this is a reference", so nothing
-     a reader needs to read is hidden. Sized to one monospace cell. */
-  .file::before,
-  .mention::before,
-  .skill::before,
-  .fold::before {
+  /* The mark stands on the chip's own first characters — the space in front of
+     it, and the `@` or `/` that was already saying "this is a reference".
+     Those cells keep their place in the flow and give up only their ink, which
+     is the only way a mirror that may not occupy space can carry a mark.
+
+     Anchored to the *lead* rather than to the chip, so it gets exactly as many
+     cells as that chip claimed: two for a skill, and the second is the gap
+     before the name. Sized in pixels and aligned left, so nothing is squeezed
+     into a cell narrower than the mark. */
+  .lead {
+    position: relative;
+    color: transparent;
+  }
+  .lead::before {
     content: '';
     position: absolute;
-    left: 0;
+    left: 3px;
     top: 50%;
-    width: 1ch;
+    width: 11px;
     height: 11px;
     transform: translateY(-50%);
     background-color: currentColor;
@@ -153,25 +156,20 @@
     -webkit-mask-position: center;
     -webkit-mask-repeat: no-repeat;
   }
-  .mention::before,
-  .file::before {
+  .mention > .lead::before,
+  .file > .lead::before {
     mask-image: var(--mark-file);
     -webkit-mask-image: var(--mark-file);
   }
-  .skill::before {
+  .skill > .lead::before {
     mask-image: var(--mark-skill);
     -webkit-mask-image: var(--mark-skill);
   }
 
-  .fold::before {
+  .fold > .lead::before {
     mask-image: var(--mark-fold);
     -webkit-mask-image: var(--mark-fold);
   }
 
-  /* The character the mark stands on goes invisible rather than away: it is
-     still in the flow, still one cell wide, still exactly where the textarea
-     put it. Only its ink is gone. */
-  .lead {
-    color: transparent;
-  }
+
 </style>
