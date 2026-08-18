@@ -12,6 +12,7 @@
   import WorktreeAsk from './components/WorktreeAsk.svelte'
   import SweepOverlay from './components/overlays/SweepOverlay.svelte'
   import AgentPeek from './components/thread/AgentPeek.svelte'
+  import ConfigBanner from './components/ConfigBanner.svelte'
   import ConnectivityBanner from './components/ConnectivityBanner.svelte'
   import Toasts from './components/Toasts.svelte'
   import DiffViewer from './components/overlays/DiffViewer.svelte'
@@ -165,6 +166,7 @@
   <Titlebar onmodel={() => shell.openModelFor('thread')} />
 
   <ConnectivityBanner />
+  <ConfigBanner />
 
   <div class="body">
     <Rail onPin={() => shell.openOverlay('switcher')} onKeymap={() => shell.openOverlay('keymap')} />

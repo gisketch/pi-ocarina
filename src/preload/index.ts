@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CatalogLoad, CatalogPosition } from '../main/catalog'
+import type { ConfigLoad } from '../shared/config-file'
 import {
   GIT_STATUS_CHANNEL,
   SESSION_COMMAND_CHANNEL,
@@ -27,6 +28,11 @@ const api = {
   catalog: {
     load: (): Promise<CatalogLoad> => ipcRenderer.invoke('catalog:load'),
     save: (position: CatalogPosition): Promise<void> => ipcRenderer.invoke('catalog:save', position),
+  },
+  /** The reader's own configuration file. Read only — the app never writes it,
+   *  so there is no `save` here and there is not meant to be one. */
+  config: {
+    load: (): Promise<ConfigLoad & { path: string }> => ipcRenderer.invoke('config:load'),
   },
   files: {
     /** The real path of a dropped file. Electron 38 removed `File.path`, and

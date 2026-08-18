@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { CatalogPosition } from './catalog'
 import { ensurePath } from './env-path'
 import { CatalogStore } from './catalog-store'
+import { ConfigStore, configPath } from './config-store'
 import { registerGit } from './git'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
 import { PiDriver } from './session/pi-driver'
@@ -151,6 +152,16 @@ function registerDialogs(): void {
   })
 }
 
+function registerConfig(config: ConfigStore): void {
+  // Read at launch, reported here. The app never writes this file: the moment
+  // it does, a hand-edit can be lost at a save the reader did not make.
+  ipcMain.handle('config:load', () => ({
+    path: config.path,
+    config: config.config,
+    problems: config.problems,
+  }))
+}
+
 function registerCatalog(catalog: CatalogStore): void {
   // The store is already loaded before any window exists, so this reports what
   // main holds rather than reading the file again. A second read here would
@@ -186,6 +197,13 @@ void app.whenReady().then(async () => {
   registerWindowControls()
   registerDialogs()
   registerCatalog(catalog)
+
+  const config = new ConfigStore(configPath(app.getPath('home')))
+  await config.load()
+  for (const problem of config.problems) {
+    console.warn(`[config] ${problem.where}: ${problem.message}`)
+  }
+  registerConfig(config)
 
   // The driver is built after git, and git needs to ask it where a thread
   // runs. The question is only ever asked from an IPC handler, long after both

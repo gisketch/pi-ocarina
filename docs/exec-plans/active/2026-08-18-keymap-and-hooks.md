@@ -10,7 +10,7 @@ the same thing three times.
 
 ---
 
-## K1 — one configuration file, read and reported — `todo`
+## K1 — one configuration file, read and reported — `done`
 
 **Delivers.** `~/.piocarina/config.json` is read at launch. A malformed file
 raises a banner naming the line and the app starts on defaults. Nothing yet
