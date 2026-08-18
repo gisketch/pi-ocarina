@@ -8,7 +8,11 @@
    *
    *  Takes `src` and `alt` rather than a markdown node, so a ledger body can
    *  use it without inventing a node to pass. */
-  const { src, alt = '' }: { src: string; alt?: string } = $props()
+  const {
+    src,
+    alt = '',
+    caption = '',
+  }: { src: string; alt?: string; caption?: string } = $props()
 
   let failed = $state(false)
 </script>
@@ -18,14 +22,31 @@
 {#if failed}
   <div class="missing">image unavailable{alt ? ` — ${alt}` : ''}</div>
 {:else}
-  <img {src} {alt} loading="lazy" onerror={() => (failed = true)} />
+  <figure>
+    <img {src} {alt} loading="lazy" onerror={() => (failed = true)} />
+    {#if caption}
+      <!-- What pi saw, and how big it was. Under the picture rather than in
+           the row: the row is a line and this is about the picture. -->
+      <figcaption>{caption}</figcaption>
+    {/if}
+  </figure>
 {/if}
 
 <style>
+  figure {
+    margin: 0;
+    max-width: 100%;
+  }
   img {
     display: block;
     max-width: 100%;
     border: 1px solid var(--line-faint);
+  }
+  figcaption {
+    padding: 4px 2px 0;
+    font-family: var(--font-chrome);
+    font-size: 9.5px;
+    color: var(--fg-dimmest);
   }
   .missing {
     padding: 8px 10px;

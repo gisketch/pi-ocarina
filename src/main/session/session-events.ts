@@ -24,6 +24,10 @@ export interface Wiring {
   /** What this thread's children have spent. pi cannot see them, so the figure
    *  has to be added in from outside its accounting. */
   spent: () => { tokens: number; costUsd: number }
+  /** Whether a path outside the workspace is one this app staged. Without it
+   *  a pasted screenshot the agent read draws nothing: it lives in a temporary
+   *  directory, which is exactly what the containment check refuses. */
+  staged?: (path: string) => boolean
 }
 
 /** Subscribes one session, and returns the unsubscribe. */
@@ -36,6 +40,7 @@ export function subscribeSession({
   changes,
   steers,
   spent,
+  staged,
 }: Wiring): () => void {
   translator.watchChanges((toolCallId) => changes.end(threadId, toolCallId))
 
@@ -67,7 +72,7 @@ export function subscribeSession({
       const args = reading.get(id)
       reading.delete(id)
       if (args !== undefined) {
-        void imageBody(event.toolName, args, cwd, event.isError === true).then((body) => {
+        void imageBody(event.toolName, args, cwd, event.isError === true, staged).then((body) => {
           if (body) emit(threadId, { kind: 'tool-body', id, body })
         })
       }

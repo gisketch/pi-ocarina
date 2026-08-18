@@ -31,6 +31,9 @@ export interface OpenDeps {
    *  function rather than the gate itself: this is the only thing opening a
    *  thread needs from it. */
   takeBlocked: (toolCallId: string) => boolean
+  /** Whether a path is one this app staged — a pasted screenshot's temporary
+   *  file. What lets the ledger draw a picture the agent read from it. */
+  staged: (path: string) => boolean
 }
 
 /** Reopens a thread: its history is replayed as events before the live session
@@ -113,6 +116,7 @@ export function adoptSession(
     changes: deps.changes,
     steers: deps.steers,
     spent: () => deps.fleet.spentIn(threadId),
+    staged: deps.staged,
   })
 
   deps.threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })

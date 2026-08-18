@@ -64,7 +64,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Validation: segment tests for the chip mapping; browser pass with
   screenshots.
 
-## C4 — the thumbnail of what pi saw — `todo`
+## C4 — the thumbnail of what pi saw — `done`
 
 > A `read` of a staged screenshot draws its thumbnail; today it draws
 > nothing because the staging directory is outside the workspace.
@@ -80,5 +80,12 @@ Status legend: `todo` · `in-progress` · `done`.
   headers only — no decode).
 - Acceptance: paste a screenshot, ask pi to read it, see the thumbnail live
   and on replay; a read of `/etc/anything.png` still draws nothing.
-- Validation: `tool-image` tests for the allowlist and header parsing; a
-  gated live pass.
+- Validation: `tool-image` tests for the allowlist and header parsing.
+  **Shipped**: `StagedImages.owns` answers for one directory it created, and
+  only after it exists; `imageBody` takes that predicate and refuses
+  everything else exactly as before. Sizes come from PNG, GIF, JPEG and WebP
+  headers — never a decode — and a header this app cannot read draws the
+  picture with nothing said about its size.
+- Not yet done: a gated live pass with pi actually reading a pasted
+  screenshot. The seam is covered by tests on both sides; the end-to-end run
+  is still owed.

@@ -11,6 +11,7 @@
 import { readFile, stat } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import type { ToolBody } from '../../shared/vocabulary'
+import { imageSize } from './image-size'
 
 const MIMES: Readonly<Record<string, string>> = {
   '.png': 'image/png',
@@ -42,6 +43,10 @@ export async function imageBody(
   args: unknown,
   cwd: string,
   isError: boolean,
+  /** Paths outside the workspace this app vouches for — the directory it
+   *  staged pasted screenshots into. Not a general exception: the caller names
+   *  one directory it created, and everything else is still refused. */
+  ours: (path: string) => boolean = () => false,
 ): Promise<ToolBody | null> {
   if (toolName !== 'read' || isError) return null
 
@@ -60,7 +65,7 @@ export async function imageBody(
   // Outside the workspace is not this app's to open, whatever the model asked
   // the read tool for. The separator matters: `/w/repo-secrets` must not pass
   // a prefix test against `/w/repo`.
-  if (full !== root && !full.startsWith(`${root}/`)) return null
+  if (full !== root && !full.startsWith(`${root}/`) && !ours(full)) return null
 
   try {
     const info = await stat(full)
@@ -70,7 +75,13 @@ export async function imageBody(
     }
 
     const bytes = await readFile(full)
-    return { type: 'image', src: `data:${mime};base64,${bytes.toString('base64')}`, alt: path }
+    const size = imageSize(bytes)
+    return {
+      type: 'image',
+      src: `data:${mime};base64,${bytes.toString('base64')}`,
+      alt: path,
+      ...(size ? { caption: `${size.width}×${size.height}` } : {}),
+    }
   } catch {
     // The read succeeded and this did not, which says the file moved or is not
     // ours to open. A plain row is the honest outcome.

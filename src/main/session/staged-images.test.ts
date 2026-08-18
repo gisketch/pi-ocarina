@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { extensionForMime, MAX_IMAGE_BYTES, StagedImages } from './staged-images'
 
@@ -102,5 +103,32 @@ describe('two images pasted at once', () => {
     await staged.cleanup()
     await expect(readFile(a!.path)).rejects.toThrow()
     await expect(readFile(b!.path)).rejects.toThrow()
+  })
+})
+
+describe('what this app vouches for', () => {
+  it('owns nothing before it has staged anything', () => {
+    expect(new StagedImages().owns('/tmp/anything.png')).toBe(false)
+  })
+
+  it('owns the files it wrote, and nothing beside them', async () => {
+    const staged = new StagedImages()
+    const attachment = await staged.stage(PNG, 'image/png')
+    expect(attachment).not.toBeNull()
+
+    expect(staged.owns(attachment?.path ?? '')).toBe(true)
+    // A sibling directory whose name merely starts the same way is not ours.
+    expect(staged.owns(`${dirname(attachment?.path ?? '')}-else/x.png`)).toBe(false)
+    expect(staged.owns('/etc/passwd')).toBe(false)
+
+    await staged.cleanup()
+  })
+
+  it('stops vouching once the directory is gone', async () => {
+    const staged = new StagedImages()
+    const attachment = await staged.stage(PNG, 'image/png')
+    await staged.cleanup()
+
+    expect(staged.owns(attachment?.path ?? '')).toBe(false)
   })
 })

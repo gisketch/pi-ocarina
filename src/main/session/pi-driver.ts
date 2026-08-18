@@ -328,6 +328,7 @@ export class PiDriver implements SessionDriver {
       changes: this.#changes,
       steers: this.#steers,
       takeBlocked: (toolCallId) => this.#approvals.takeBlocked(toolCallId),
+      staged: (path) => this.#staged.owns(path),
     }
   }
 

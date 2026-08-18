@@ -109,7 +109,10 @@ export type ToolBody =
   // A picture, as a data URI. Every image in the transcript — attached, pasted,
   // read by the agent, or written into an answer as markdown — draws through
   // one component, so four of them cannot end up looking like four ideas.
-  | { type: 'image'; src: string; alt: string }
+  /** `caption` is what the picture is, said beside it — `1078×822`. Optional:
+   *  a format whose header this app cannot read still draws, it just says
+   *  nothing about its size rather than guessing. */
+  | { type: 'image'; src: string; alt: string; caption?: string }
 
 /** One thing the reader can pick.
  *

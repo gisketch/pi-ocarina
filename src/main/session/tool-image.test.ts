@@ -85,3 +85,47 @@ describe('a read of an image', () => {
     expect(await imageBody('read', undefined, root, false)).toBeNull()
   })
 })
+
+describe('a picture this app staged itself', () => {
+  it('draws, even though it is outside the workspace', async () => {
+    // A pasted screenshot lives in a temporary directory by construction, so
+    // the containment check refuses exactly the files this app put there.
+    const outside = join(tmpdir(), `piocarina-staged-${Date.now()}.png`)
+    await writeFile(outside, PNG)
+
+    const body = await imageBody('read', { path: outside }, root, false, (path) => path === outside)
+    expect(body?.type).toBe('image')
+
+    await rm(outside, { force: true })
+  })
+
+  it('still refuses a path nobody vouched for', async () => {
+    const outside = join(tmpdir(), `piocarina-elsewhere-${Date.now()}.png`)
+    await writeFile(outside, PNG)
+
+    expect(await imageBody('read', { path: outside }, root, false)).toBeNull()
+    expect(await imageBody('read', { path: outside }, root, false, () => false)).toBeNull()
+
+    await rm(outside, { force: true })
+  })
+
+  it('says how big the picture is, when the header says', async () => {
+    // A whole IHDR, not just the signature: the caption is read from the
+    // header, and the fixture above is eight bytes of magic number.
+    const header = Buffer.alloc(24)
+    header.writeUInt32BE(0x89504e47, 0)
+    header.write('IHDR', 12, 'ascii')
+    header.writeUInt32BE(1078, 16)
+    header.writeUInt32BE(822, 20)
+    await writeFile(join(root, 'big.png'), header)
+
+    const body = await imageBody('read', { path: 'big.png' }, root, false)
+    expect(body?.type === 'image' && body.caption).toBe('1078×822')
+  })
+
+  it('draws a picture whose header it cannot read, and says nothing about it', async () => {
+    const body = await imageBody('read', { path: 'shot.png' }, root, false)
+    expect(body?.type).toBe('image')
+    expect(body?.type === 'image' && body.caption).toBeUndefined()
+  })
+})

@@ -43,6 +43,10 @@ export class StagedImages {
    *  assignment orphans the first — a leaked folder nobody would think to look
    *  for. Caching the promise makes the second caller wait for the first. */
   #dir: Promise<string> | null = null
+  /** The resolved directory, once there is one. `owns` is asked synchronously
+   *  while a tool result is being drawn, and awaiting a promise there would
+   *  make every row's body wait on a directory most threads never create. */
+  #made: string | null = null
   #count = 0
 
   /** Writes clipboard bytes to a file and describes it as an attachment. */
@@ -60,6 +64,7 @@ export class StagedImages {
 
     this.#dir ??= mkdtemp(join(tmpdir(), 'piocarina-pasted-'))
     const dir = await this.#dir
+    this.#made = dir
     this.#count += 1
 
     const name = `pasted-${this.#count}.${extension}`
@@ -69,6 +74,21 @@ export class StagedImages {
     return { name, path, mime }
   }
 
+  /** Whether a path is one this app staged.
+   *
+   *  The ledger asks before drawing a picture the agent read. A pasted
+   *  screenshot lives outside the workspace by construction — it is in a
+   *  temporary directory — so the workspace containment check refuses exactly
+   *  the files this app put there itself, and the reader watched the agent
+   *  look at something they could not see.
+   *
+   *  A directory this app created and holds the only handle to, compared as a
+   *  prefix with its separator. Not a general escape hatch: it answers for one
+   *  directory, and only after that directory exists. */
+  owns(path: string): boolean {
+    return this.#made !== null && (path === this.#made || path.startsWith(`${this.#made}/`))
+  }
+
   /** Removes the directory. Called when the app closes: a pasted screenshot is
    *  scratch, and leaving a folder of them behind on every session would be a
    *  slow leak nobody would think to look for. */
@@ -76,6 +96,7 @@ export class StagedImages {
     if (!this.#dir) return
     const pending = this.#dir
     this.#dir = null
+    this.#made = null
     this.#count = 0
     // Awaited before removal: a directory still being created cannot be
     // removed, and cleanup running during a paste is exactly when that happens.
