@@ -184,7 +184,6 @@
 
   .list {
     overflow-y: auto;
-    scrollbar-color: var(--fg-ghost) transparent;
   }
   .file {
     display: flex;
@@ -228,7 +227,6 @@
   .body {
     overflow: auto;
     padding: 6px 0;
-    scrollbar-color: var(--fg-ghost) transparent;
   }
   .dline {
     padding: 1px 12px;

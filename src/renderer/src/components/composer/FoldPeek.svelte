@@ -62,7 +62,6 @@
     line-height: 1.5;
     color: var(--fg-dim);
     white-space: pre;
-    scrollbar-width: thin;
   }
 
   .more {

@@ -34,8 +34,6 @@
     font-family: var(--font-body);
     font-size: 12px;
     line-height: 1.6;
-    scrollbar-width: thin;
-    scrollbar-color: var(--fg-ghost) transparent;
   }
 
   .lang {

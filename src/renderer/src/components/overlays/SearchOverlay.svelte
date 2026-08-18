@@ -155,8 +155,6 @@
     display: flex;
     flex-direction: column;
     animation: rise 0.2s ease;
-    scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
   }
 
   .hit {

@@ -29,6 +29,27 @@ select {
   border: none;
 }
 
+/* One scrollbar everywhere: thin, square and flat, like the rest of the app.
+ *
+ * `::-webkit-scrollbar` and not `scrollbar-width` / `scrollbar-color` — the
+ * two cannot be mixed. Chromium drops every `::-webkit-scrollbar` rule on an
+ * element that sets either standard property, which is why each scroll box
+ * used to declare its own thin grey one and none of them could be square. */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.13);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 html,
 body {
   margin: 0;

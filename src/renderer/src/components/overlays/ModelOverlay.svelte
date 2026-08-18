@@ -147,8 +147,6 @@
     flex-direction: column;
     max-height: 320px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #2c2c33 transparent;
   }
 
   .row {

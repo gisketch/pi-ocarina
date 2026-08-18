@@ -24,8 +24,6 @@
 <style>
   .wrap {
     overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--fg-ghost) transparent;
   }
   table {
     /* One grid rather than a set of boxes. Without this the cells sit two

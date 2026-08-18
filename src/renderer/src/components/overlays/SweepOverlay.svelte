@@ -87,7 +87,6 @@
   .list {
     overflow-y: auto;
     padding: 6px 0;
-    scrollbar-color: var(--fg-ghost) transparent;
   }
 
   .row {
