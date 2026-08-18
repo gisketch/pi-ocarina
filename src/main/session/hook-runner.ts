@@ -92,7 +92,10 @@ export function runHook(hook: HookEntry, options: RunOptions): Promise<HookResul
   }
 
   return new Promise((resolve) => {
-    const child = spawn(program, args, { cwd: options.cwd, shell: false })
+    // Its own process group. Without it a killed hook leaves whatever it
+    // started behind: `sh -c "pnpm test"` dies and the test runner keeps going,
+    // holding the port or the file lock the next turn needs.
+    const child = spawn(program, args, { cwd: options.cwd, shell: false, detached: true })
     let output = ''
     let done = false
 
@@ -116,7 +119,13 @@ export function runHook(hook: HookEntry, options: RunOptions): Promise<HookResul
     child.stderr?.on('data', take)
 
     const timer = setTimeout(() => {
-      child.kill('SIGKILL')
+      // The group, not the process: see `detached` above.
+      try {
+        if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL')
+        else child.kill('SIGKILL')
+      } catch {
+        // Already gone between the timer firing and the signal.
+      }
       finish({ code: null, output, timedOut: true })
     }, hook.timeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS)
 

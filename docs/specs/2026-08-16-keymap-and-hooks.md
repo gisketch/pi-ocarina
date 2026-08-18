@@ -103,11 +103,21 @@ No hook can veto, delay or alter a turn. A hook that could refuse one is
 approval policy, which is the third capability in this spec and has its own
 shape.
 
-The app does wait for `turn.end` hooks to finish before the footer settles, up
-to a timeout, so their result can be reported in the turn they belong to. The
-wait is bounded and a hook that exceeds it is killed and reported as timed out.
 A non-zero exit, a missing binary and a timeout are all reported and none of
-them fails the turn.
+them fails the turn. A hook that exceeds its timeout is killed — with its whole
+process group, so a test runner it started does not outlive it — and reported.
+
+**Amended during implementation.** The decision had also said the app would wait
+for `turn.end` hooks before the footer settled, so their result landed in the
+turn they observed. It does not, and should not: pi emits a turn's terminal
+state synchronously from the session subscription, so waiting would mean holding
+the turn's own outcome open until a reader's script finished. That is the exact
+coupling "a hook observes" exists to prevent — a slow hook would make the app
+look hung.
+
+The cost is real and is accepted: a hook that takes longer than the reader takes
+to send their next message draws its rows inside the following turn. Lowering a
+hook's `timeoutMs` is the lever for anyone that bothers.
 
 ### Approval rules are global and per workspace, and deny always wins
 

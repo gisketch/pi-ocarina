@@ -53,6 +53,10 @@ export function subscribeSession({
    *  thing the picture needs — which file — has to be kept from the start. */
   const reading = new Map<string, unknown>()
 
+  /** Whether this turn changed a file. What decides if `edit.after` runs: a
+   *  formatter has nothing to format on a turn that only read. */
+  let edited = false
+
   return session.subscribe((event) => {
     // Before the translation, and synchronously. pi is about to write the file,
     // and an awaited read would come back holding the version it had already
@@ -60,6 +64,7 @@ export function subscribeSession({
     // empty.
     if (event.type === 'tool_execution_start' && CHANGING_TOOLS.has(event.toolName)) {
       changes.start(event.toolCallId, toolTarget(event.toolName, event.args), cwd)
+      edited = true
     }
     if (event.type === 'tool_execution_start' && event.toolName === 'read') {
       reading.set(event.toolCallId, event.args)
@@ -83,6 +88,13 @@ export function subscribeSession({
       }
     }
 
+    // Before anything the turn does. A hook here is for taking a note or a
+    // snapshot; it cannot change what the turn is about to do.
+    if (event.type === 'turn_start') {
+      edited = false
+      void hooks?.('turn.start', threadId)
+    }
+
     if (event.type === 'turn_end') {
       // A read abandoned by an abort never sends its end event, so its entry
       // would sit in the map for the life of the thread. Nothing is pending
@@ -94,7 +106,12 @@ export function subscribeSession({
       // turn open or change what the agent did. Not awaited here — the
       // subscription is synchronous, and a hook's rows attach to the thread
       // whenever they arrive.
-      void hooks?.('edit.after', threadId).then(() => hooks?.('turn.end', threadId))
+      //
+      // `edit.after` only when the turn actually changed a file. A formatter
+      // has nothing to format on a turn that only read, and a row saying it
+      // ran would be a row about nothing.
+      const after = edited ? hooks?.('edit.after', threadId) : undefined
+      void Promise.resolve(after).then(() => hooks?.('turn.end', threadId))
     }
     if (event.type === 'queue_update') steers.sync(threadId, event.steering)
   })
