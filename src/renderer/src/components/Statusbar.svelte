@@ -172,8 +172,7 @@
     display: flex;
     align-items: stretch;
     font-size: 10.5px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    background: var(--bg-raise-2);
+    background: var(--bg-statusbar);
     position: relative;
     z-index: 2;
     user-select: none;
@@ -199,10 +198,7 @@
   .perm,
   .voice,
   .paused {
-    border-top: none;
-    border-bottom: none;
-    border-left: none;
-    background: none;
+    border: none;
     font: inherit;
     color: var(--fg-dim);
     cursor: pointer;
@@ -220,11 +216,9 @@
 
   .lsp {
     border: none;
-    background: none;
     font: inherit;
     color: var(--accent);
     cursor: pointer;
-    padding: 0;
   }
   .lsp.idle {
     color: var(--fg-dimmest);
@@ -233,12 +227,25 @@
     color: var(--warn, var(--fg-bright));
   }
 
+  /* One field from the next by how light it is, the way an NVChad statusline
+     reads. The segments alternate loud, quiet, plain along the bar, and the
+     right-hand side mirrors it inwards — there is no rule between any two. */
   .seg {
     display: flex;
     align-items: center;
     padding: 0 12px;
-    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    background: none;
     color: var(--fg-dim);
+  }
+  .branch {
+    background: var(--seg-strong);
+  }
+  .perm,
+  .lsp {
+    background: var(--seg);
+  }
+  .paused {
+    background: var(--seg-strong);
   }
 
   .worktree {
@@ -254,10 +261,11 @@
     margin-left: auto;
   }
 
-  .right,
   .left-line {
-    border-right: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.04);
+    background: var(--seg);
+  }
+  .hints {
+    background: var(--seg-strong);
   }
 
   .ctx {

@@ -57,7 +57,7 @@
     align-items: center;
     gap: 14px;
     padding: 16px 0 12px;
-    border-right: 1px solid var(--bg-hover);
+    background: var(--bg-rail);
   }
 
   .pin {
@@ -88,17 +88,17 @@
     cursor: pointer;
     transition:
       color 0.2s,
-      border-color 0.2s;
+      background 0.2s;
   }
 
   .add {
-    border: 1px dashed var(--line-strong);
+    background: rgba(255, 255, 255, 0.05);
     font-size: 12px;
     font-family: var(--font-chrome);
   }
   .add:hover {
     color: var(--fg-muted);
-    border-color: rgba(255, 255, 255, 0.35);
+    background: var(--bg-chip);
   }
 
   .help {

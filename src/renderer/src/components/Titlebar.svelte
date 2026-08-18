@@ -63,7 +63,7 @@
     align-items: center;
     gap: 16px;
     padding: 0 14px;
-    border-bottom: 1px solid var(--line-faint);
+    background: var(--bg-titlebar);
     position: relative;
     z-index: 2;
     -webkit-app-region: drag;
@@ -140,21 +140,21 @@
     color: var(--fg-faint);
   }
   .model {
-    border: 1px solid var(--line-mid);
+    border: none;
     padding: 3px 8px;
-    background: var(--bg-hover);
+    background: var(--bg-chip);
     color: inherit;
     font: inherit;
     cursor: pointer;
     transition:
       color 0.15s,
-      border-color 0.15s;
+      background 0.15s;
   }
   .model:disabled {
     cursor: default;
   }
   .model:not(:disabled):hover {
     color: var(--fg-dim);
-    border-color: var(--line-strong);
+    background: var(--bg-hover-2);
   }
 </style>
