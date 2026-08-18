@@ -65,7 +65,9 @@ export const WORKSPACES: Workspace[] = [
     name: 'docs-site',
     note: 'A',
     hue: 45,
-    git: repo('main'),
+    // The one pinned folder outside a repository, so the bar's `no git` state
+    // and the switcher card's can both be looked at.
+    git: null,
     snippet: 'fresh thread',
     threads: [
       { id: 'fresh', title: 'docs-site', status: 'idle', meta: 'fresh thread', fresh: true },

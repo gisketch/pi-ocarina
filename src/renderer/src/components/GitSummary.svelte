@@ -15,11 +15,18 @@
   {#each segments as segment (segment.text)}
     <span class="seg {segment.tone}">{segment.text}</span>
   {/each}
+{:else}
+  <!-- A folder outside a repository is a state, not an absence. Saying so
+       costs one word and stops the field reading as a bar that broke. -->
+  <span class="none">no git</span>
 {/if}
 
 <style>
   .branch {
     color: inherit;
+  }
+  .none {
+    color: var(--fg-dimmest);
   }
   .seg {
     margin-left: 6px;
