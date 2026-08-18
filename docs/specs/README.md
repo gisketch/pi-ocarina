@@ -94,6 +94,16 @@ settle. Ordered by the ranking in
   instead of restoring over the top of the work.
 - [2026-08-16-keymap-and-hooks.md](2026-08-16-keymap-and-hooks.md) — rebindable
   keys, lifecycle hooks, and authored approval policy. One configuration seam.
+- [2026-08-18-turn-feedback.md](2026-08-18-turn-feedback.md) — a working
+  footer that counts while a turn runs and states what it took, reasoning rows
+  joined to the ledger's spine, and a follow that reaches the true bottom.
+  Amends the chat-polish spec. Tickets in
+  [2026-08-18-turn-feedback.md](../exec-plans/active/2026-08-18-turn-feedback.md).
+- [2026-08-18-chrome-and-focus.md](2026-08-18-chrome-and-focus.md) — a status
+  bar carrying only what the reader cannot see elsewhere, the model in each
+  column header, and a full-bleed highlight on the focused block instead of a
+  dim over everything else. Amends shell-navigation and chat-polish. Tickets in
+  [2026-08-18-chrome-and-focus.md](../exec-plans/active/2026-08-18-chrome-and-focus.md).
 - [2026-08-18-tool-row-grouping.md](2026-08-18-tool-row-grouping.md) — runs of
   similar tool calls collapse to one expandable summary row, and the
   language-server rows get a denser vocabulary led by `lsp`.
