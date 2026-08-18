@@ -87,6 +87,7 @@ export class SessionFactory {
     return this.#sdk
   }
 
+
   /** A brand-new thread in a workspace. */
   async create(cwd: string, workspaceId: string, handle: ThreadHandle): Promise<AgentSession> {
     const { createAgentSession } = await this.load()

@@ -13,6 +13,8 @@
   import { permission } from '$lib/state/permission.svelte'
   import { PERMISSION_NOTES } from '../../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
+  import { projectSurface } from '$lib/state/project-surface.svelte'
+  import ProjectSurfaceSection from './ProjectSurfaceSection.svelte'
 
   const { onclose }: { onclose: () => void } = $props()
 
@@ -21,6 +23,9 @@
   $effect(() => {
     void workspaceLsp.load(app.workspace.id)
     void permission.load(app.workspace.id)
+    // Keyed on the thread, not the workspace: the loader belongs to a session,
+    // and a workspace with no open thread has loaded nothing yet.
+    if (app.thread.id !== '') void projectSurface.load(app.thread.id)
   })
 
   /** Permissions, then the master switch, then one row per server. */
@@ -176,6 +181,7 @@
           </span>
         </button>
       {/each}
+      <ProjectSurfaceSection />
     </div>
 
     <div class="foot">j/k move · ⏎ switch · y copy install · esc close</div>

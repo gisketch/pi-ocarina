@@ -9,7 +9,7 @@ the work is a command, a screen, and a row.
 
 ---
 
-## P1 — the reader sees what the project loaded — `todo`
+## P1 — the reader sees what the project loaded — `done`
 
 **Delivers.** Workspace Settings gains a read-only section naming every command,
 skill and instruction file this workspace loaded, and the file that became the

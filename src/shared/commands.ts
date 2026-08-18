@@ -5,6 +5,7 @@
  *  so nothing that imports them had to move. */
 
 import type { LspServerState } from './lsp'
+import type { ProjectSurface } from './project-surface'
 import type { PermissionLevel } from './permissions'
 import type {
   AgentRole,
@@ -37,6 +38,10 @@ export interface SessionCommands {
     result: { threadId: string }
   }
   openThread: { params: { threadId: string }; result: { ok: true } }
+  /** What this workspace loaded: its commands, its skills, its instruction
+   *  files, and anything that failed to load. Read-only — the app shows what
+   *  the project imposed and never authors it. */
+  projectSurface: { params: { threadId: string }; result: { surface: ProjectSurface } }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: string }; result: { ok: true } }
   /** Brings a closed thread back — what jumping to it from search does. */

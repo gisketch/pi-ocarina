@@ -20,6 +20,8 @@ import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
 import { handlePermission } from './permission-commands'
 import { handleLsp, LspService } from '../lsp/service'
+import { readSurface } from './project-surface'
+import { agentDirOf, SHIPPED_RESOURCES } from './resource-dirs'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
@@ -108,6 +110,16 @@ export class PiDriver implements SessionDriver {
         )
         await this.#applyDefaults(threadId)
         return { threadId } as CommandResult<N>
+      }
+
+      case 'projectSurface': {
+        const { threadId } = params as CommandParams<'projectSurface'>
+        const surface = readSurface(this.#threads.get(threadId).session, {
+          cwd: this.#workspaces.cwdOf(threadId) ?? '',
+          agentDir: agentDirOf(await this.#sessions.load()),
+          appDir: SHIPPED_RESOURCES,
+        })
+        return { surface } as CommandResult<N>
       }
 
       case 'openThread': {
