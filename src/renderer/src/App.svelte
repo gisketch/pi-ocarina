@@ -311,6 +311,12 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    /* The one gap at the foot of the app, held here rather than under the
+       columns. Below it lives whatever is last — the composer, or a column
+       that has none, which is a shell or an unfocused neighbour. Held by the
+       strip instead, it opened a band between a column and its own composer
+       and still let a shell run into the status bar. */
+    padding-bottom: 14px;
   }
 
   /* Shown while a file is over the window. Pointer-events off so it cannot

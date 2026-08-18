@@ -306,7 +306,10 @@
 <style>
   .dock {
     flex: none;
-    padding: 0 28px 14px;
+    padding: 0 28px;
+    /* Up by one border, so the composer's top edge lands on the column's
+       bottom one: two 1px lines touching read as a seam, one reads as a foot. */
+    margin-top: -1px;
   }
 
   .composer {
