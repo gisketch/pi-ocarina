@@ -16,6 +16,17 @@
   box-sizing: border-box;
 }
 
+/* Nothing in this app draws an edge — but a `<button>` does, by default, in
+   2px of the UA's own `buttonborder`. That is the one border nobody writes,
+   and it reappears the moment a component stops declaring one of its own. It
+   is turned off once, here, rather than remembered in forty style blocks. */
+button,
+input,
+textarea,
+select {
+  border: none;
+}
+
 html,
 body {
   margin: 0;

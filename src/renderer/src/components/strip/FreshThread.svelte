@@ -18,7 +18,7 @@
   } = $props()
 </script>
 
-<div class="hero">
+<div class="hero" class:focused>
   <div class="middle">
     <Identicon name={workspace.name} hue={workspace.hue} size={70} />
     <div class="name">{workspace.name}</div>
@@ -44,8 +44,14 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-column-idle);
+    transition: background 0.4s;
     animation: rise 0.35s ease;
     overflow: hidden;
+  }
+  /* The same step every other column takes: the one with the reader is the
+     lighter one. */
+  .hero.focused {
+    background: var(--bg-column-focus);
   }
 
   .middle {
