@@ -112,6 +112,17 @@ export type Block =
   | { kind: 'raw'; id: string; rawKind: string; detail?: string }
 
 /** What one thread looks like right now. The reducer's only output. */
+/** One turn, as long as it took.
+ *
+ *  `endedAt` absent means it is still running and the footer counts. `outcome`
+ *  is how it stopped, because a turn that failed and a turn that finished took
+ *  the same time and mean opposite things. */
+export interface TurnSpan {
+  startedAt: number
+  endedAt?: number
+  outcome?: 'done' | 'failed' | 'stopped'
+}
+
 export interface ThreadViewModel {
   blocks: Block[]
   /** What the header shows: `runState`, unless a card is waiting on a person. */
@@ -132,6 +143,13 @@ export interface ThreadViewModel {
   /** What pi says this thread is running on. Absent until the thread opens. */
   model?: { provider: string; id: string; name: string; reasoning: ReasoningLevel }
   connectivity?: { state: 'degraded' | 'restored'; retryInSeconds?: number }
+  /** The turn the thread is running, or the one it last ran.
+   *
+   *  Timed here rather than by the backend: it is what the reader waited, not
+   *  what pi billed, and nothing about it belongs in the session log. Absent
+   *  until a turn actually starts in this session, which is what keeps a
+   *  reopened thread from drawing a footer for work it only read about. */
+  turn?: TurnSpan
 }
 
 export const EMPTY_THREAD: ThreadViewModel = {

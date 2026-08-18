@@ -10,6 +10,7 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import ReasoningBlock from './ReasoningBlock.svelte'
+  import TurnFooter from './TurnFooter.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
   import { groupShown } from '$lib/ledger-groups'
   import { toolOpen } from '$lib/state/tool-open.svelte'
@@ -65,6 +66,8 @@
   // Null until the reader starts navigating. That is what keeps a column
   // nobody has touched looking exactly as it always did: no ring, no dim.
   const focused = $derived(blockFocus.idOf(threadId))
+  /** The turn's clock, when this session has timed one. */
+  const turn = $derived(threads.get(threadId).turn)
 
   // A leap mutes the whole column at the column's own level, by colour. The
   // opacity dim stands down while it does: stacking the two would take the
@@ -241,6 +244,13 @@
     </div>
   {/if}
 {/each}
+
+{#if turn}
+  <!-- After every block, so anything that arrives lands above it: the footer
+       is the end of the turn, and content under it would be work the turn had
+       already reported finishing. -->
+  <TurnFooter {turn} />
+{/if}
 
 <style>
   /* The dim is the whole of the navigation's appearance — one signal for one

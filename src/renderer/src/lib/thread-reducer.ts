@@ -11,7 +11,7 @@
 
 import type { UiEvent } from '../../../shared/protocol'
 import type { ThreadRunState } from '../../../shared/vocabulary'
-import type { Block, ThreadViewModel, ToolRow } from './thread'
+import type { Block, ThreadViewModel, ToolRow, TurnSpan } from './thread'
 import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
@@ -53,7 +53,7 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return EMPTY_THREAD
 
     case 'thread-state':
-      return { ...model, runState: event.state, reason: event.reason }
+      return { ...model, runState: event.state, reason: event.reason, turn: turnFor(model, event) }
 
     case 'user-message':
       return push(model, {
@@ -250,6 +250,34 @@ function isPendingGate(block: Block): boolean {
 }
 
 
+
+/** The turn's clock, advanced by the one event that says a turn changed state.
+ *
+ *  Started on the way *into* `running` and stopped on the way out, so the
+ *  span is the time the reader actually waited. A reopened thread replays its
+ *  history and lands on `idle` or `done` without ever passing through
+ *  `running`, so it gets no turn and draws no footer — which is honest: the
+ *  session log records what was said, not how long it took to say. */
+function turnFor(
+  model: ThreadViewModel,
+  event: UiEvent & { kind: 'thread-state' },
+): TurnSpan | undefined {
+  if (event.state === 'running') {
+    // Already timing this one. `running` arrives again after an approval or an
+    // answered question, and restarting the clock there would report the last
+    // stretch rather than the turn.
+    return model.turn && model.turn.endedAt === undefined ? model.turn : { startedAt: Date.now() }
+  }
+
+  // A gate is the turn waiting on a person, not the turn ending. The clock
+  // keeps running because the reader is still waiting for an answer.
+  if (event.state === 'waiting-input') return model.turn
+  if (!model.turn || model.turn.endedAt !== undefined) return model.turn
+
+  const outcome =
+    event.state === 'failed' ? 'failed' : event.state === 'done' ? 'done' : 'stopped'
+  return { ...model.turn, endedAt: Date.now(), outcome }
+}
 
 /** A delta for a message that never started still carries the agent's words,
  *  so it opens the message rather than being discarded. */

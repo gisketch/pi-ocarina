@@ -37,7 +37,7 @@ Status legend: `todo` · `in-progress` · `done`.
 - Acceptance: the formatter's cases; the clock stops when the last turn ends.
 - Validation: `elapsed.test.ts`; a check that no interval is live at rest.
 
-## T3 — the working footer — `todo`
+## T3 — the working footer — `done`
 
 > The line at the end of pi's turn: live while it runs, final when it ends.
 
@@ -53,7 +53,20 @@ Status legend: `todo` · `in-progress` · `done`.
 - Acceptance: send with the backend stubbed to stall — the footer is there and
   counting before any block arrives; it settles to the past tense on
   `turn_end`; a failed turn reads as failed.
-- Validation: projection tests over run-state sequences; a browser pass.
+- Validation: `thread-turn-span.test.ts` over run-state sequences; a browser
+  pass confirming both the running and the finished footer render with the
+  right words and tone.
+- **Decisions taken here**, from the spec's open questions: the words are
+  `working… 4s` / `worked for 1m04s`, with `stopped after 12s` for a failure
+  and `interrupted after 12s` for a cancel. The clock is wall-clock from the
+  transition into `running`, which is one IPC hop after the send. A gate does
+  not stop it — the reader is still waiting. Only the *current* turn carries a
+  footer; a per-turn history of them would need the reducer to keep a span per
+  turn, and is not what was asked for.
+- **Not verified in the harness**: the counter ticking. The Browser pane
+  reports `visibilityState: hidden`, and the shared clock stops while the
+  window is hidden — by design, and documented in `clock.svelte.ts`. The
+  formatter and the clock are unit-tested either side of it.
 - Blocked by: T2.
 
 ## T4 — one spine through a turn's work — `todo`

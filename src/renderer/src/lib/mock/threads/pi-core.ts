@@ -18,6 +18,11 @@ export const RETRY_BACKOFF: MockThread = {
       'Wrapping `runSync()` in a bounded retry loop — 5 attempts, jittered backoff from 250ms.',
     ),
 
+    // A real turn says it started before it does anything. Without this the
+    // mock never enters `running`, and the transcript's turn footer — which is
+    // timed from that transition — has nothing to report.
+    { kind: 'thread-state', state: 'running' },
+
     { kind: 'tool-start', id: 'r-read', tool: 'read', target: 'src/sync/worker.ts' },
     {
       kind: 'tool-body',
