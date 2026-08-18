@@ -23,8 +23,16 @@ class ConfigState {
 
   async load(): Promise<void> {
     if (!bridge) return
+    this.#take(await bridge.config.load())
+  }
 
-    const answer = await bridge.config.load()
+  /** Re-reads the file from disk. What `/reload` does for this half. */
+  async reload(): Promise<void> {
+    if (!bridge) return
+    this.#take(await bridge.config.reload())
+  }
+
+  #take(answer: { path: string; config: AppConfig; problems: ConfigProblem[] }): void {
     this.config = answer.config
     this.problems = answer.problems
     this.path = answer.path

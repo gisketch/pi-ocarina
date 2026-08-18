@@ -93,12 +93,12 @@ class ProjectSurfaceState {
    *  Reported in the corner rather than in the thread: a reload is not
    *  something the turn did, and a refusal the reader cannot see would look
    *  like an edit that silently failed to take. */
-  async reload(): Promise<void> {
-    if (this.#threadId === '') return
+  async reload(): Promise<boolean> {
+    if (this.#threadId === '') return false
 
     if (!session.wired) {
       toasts.push({ tone: 'ok', text: 're-read this project' })
-      return
+      return true
     }
 
     this.loading = true
@@ -106,13 +106,15 @@ class ProjectSurfaceState {
       const answer = await session.invoke('reloadProject', { threadId: this.#threadId })
       if (!answer.reloaded) {
         toasts.push({ tone: 'info', text: answer.because })
-        return
+        return false
       }
       this.surface = answer.surface
       this.error = null
       toasts.push({ tone: 'ok', text: 're-read this project' })
+      return true
     } catch (cause) {
       toasts.push({ tone: 'error', text: cause instanceof Error ? cause.message : String(cause) })
+      return false
     } finally {
       this.loading = false
     }

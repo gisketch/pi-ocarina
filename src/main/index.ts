@@ -155,11 +155,16 @@ function registerDialogs(): void {
 function registerConfig(config: ConfigStore): void {
   // Read at launch, reported here. The app never writes this file: the moment
   // it does, a hand-edit can be lost at a save the reader did not make.
-  ipcMain.handle('config:load', () => ({
-    path: config.path,
-    config: config.config,
-    problems: config.problems,
-  }))
+  const answer = () => ({ path: config.path, config: config.config, problems: config.problems })
+
+  ipcMain.handle('config:load', answer)
+  // Re-read on demand. The hooks and rules main holds are read through a
+  // closure over this store, so they pick up the new file with no further
+  // wiring; the renderer re-reads for its keymap.
+  ipcMain.handle('config:reload', async () => {
+    await config.load()
+    return answer()
+  })
 }
 
 function registerCatalog(catalog: CatalogStore): void {

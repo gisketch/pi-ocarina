@@ -33,6 +33,7 @@ const api = {
    *  so there is no `save` here and there is not meant to be one. */
   config: {
     load: (): Promise<ConfigLoad & { path: string }> => ipcRenderer.invoke('config:load'),
+    reload: (): Promise<ConfigLoad & { path: string }> => ipcRenderer.invoke('config:reload'),
   },
   files: {
     /** The real path of a dropped file. Electron 38 removed `File.path`, and

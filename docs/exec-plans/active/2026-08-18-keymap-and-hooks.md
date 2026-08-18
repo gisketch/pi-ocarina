@@ -135,7 +135,7 @@ which file each came from. A rule that was refused says why.
 
 ---
 
-## K7 — reload the configuration without restarting — `todo`
+## K7 — reload the configuration without restarting — `done`
 
 **Delivers.** The reader edits the file, runs `/reload`, and the new keys, hooks
 and rules take effect. Refused mid-turn.

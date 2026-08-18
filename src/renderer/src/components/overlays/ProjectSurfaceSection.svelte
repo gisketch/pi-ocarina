@@ -11,6 +11,7 @@
   import Icon from '../Icon.svelte'
   import { countOf } from '../../../../shared/project-surface'
   import { projectSurface } from '$lib/state/project-surface.svelte'
+  import { reloadEverything } from '$lib/state/reload'
 
   const surface = $derived(projectSurface.surface)
 </script>
@@ -19,7 +20,7 @@
   <div class="banner">
     LOADED HERE
     <span class="note">read only — these come from files</span>
-    <button type="button" class="reload" onclick={() => void projectSurface.reload()}>
+    <button type="button" class="reload" onclick={() => void reloadEverything()}>
       {projectSurface.loading ? 'reading…' : 're-read (/reload)'}
     </button>
   </div>
