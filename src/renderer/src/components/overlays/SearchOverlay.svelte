@@ -151,10 +151,9 @@
     overflow-y: auto;
     background: var(--bg-panel);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-    padding: 6px;
+    padding: 6px 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
     animation: rise 0.2s ease;
     scrollbar-width: thin;
     scrollbar-color: #2c2c33 transparent;
@@ -164,7 +163,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 8px 11px;
+    padding: 8px 17px;
     width: 100%;
     text-align: left;
     cursor: pointer;
@@ -208,7 +207,7 @@
   }
 
   .capped {
-    padding: 9px 11px;
+    padding: 9px 17px;
     color: var(--fg-dimmest);
     font-size: 10.5px;
     font-family: var(--font-chrome);

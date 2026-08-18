@@ -220,10 +220,9 @@
   }
 
   .rows {
-    padding: 8px;
+    padding: 8px 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
   }
 
   .row {
@@ -231,7 +230,7 @@
     grid-template-columns: 1fr auto 22px;
     align-items: baseline;
     gap: 10px;
-    padding: 9px 12px;
+    padding: 9px 20px;
     width: 100%;
     text-align: left;
     cursor: pointer;

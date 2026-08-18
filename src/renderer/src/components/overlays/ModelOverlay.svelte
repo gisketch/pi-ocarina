@@ -142,10 +142,9 @@
   }
 
   .rows {
-    padding: 6px;
+    padding: 6px 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
     max-height: 320px;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -156,7 +155,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 9px 11px;
+    padding: 9px 17px;
     width: 100%;
     text-align: left;
     cursor: pointer;

@@ -180,6 +180,27 @@
   z-index: -1;
 }
 
+/* A message the reader walks paragraph by paragraph lights one segment, and a
+ * segment sits inside the block's own inline padding — so its band stopped two
+ * paddings short of the column while a lit block reached both edges, and the
+ * same key looked like it did two different things.
+ *
+ * The band reaches back out to the block's padding box, which is the column's
+ * edge and exactly where paint containment clips. `.message` and not `.seg`
+ * alone: the status bar's fields are also `.seg`. */
+.message .seg.lit {
+  background: none;
+}
+.message .seg.lit::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: calc(-1 * var(--pad-column));
+  right: calc(-1 * var(--pad-column));
+  background: var(--band);
+  z-index: -1;
+}
+
 /* A ledger node's colour, by the status its row ended in.
  *
  * One mapping, shared: the ledger, a group's summary and a reasoning row all

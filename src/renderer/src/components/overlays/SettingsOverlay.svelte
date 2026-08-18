@@ -188,18 +188,19 @@
     letter-spacing: 0;
   }
 
+  /* No inset and no gaps: a chosen row is a band reaching both edges, and the
+     rows sit against each other the way a block selection does. */
   .rows {
-    padding: 8px;
+    padding: 8px 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
   }
 
   .row {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 12px;
+    padding: 9px 20px;
     width: 100%;
     text-align: left;
     cursor: pointer;

@@ -113,8 +113,11 @@
     padding: 2px 6px;
   }
 
+  /* No inset. A chosen row is a band reaching both edges of the panel, the way
+     a line-wise visual selection reads in vim — the breathing room lives in the
+     row's own padding, where it cannot cut the band short. */
   .list {
-    padding: 6px;
+    padding: 6px 0;
   }
 
   .row {
@@ -122,7 +125,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 11px;
+    padding: 8px 17px;
     cursor: pointer;
     color: var(--fg-agent);
     font-size: 11.5px;
