@@ -155,12 +155,12 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-deep);
-    border: 1px solid var(--line-faint);
     overflow: hidden;
-    transition: border-color 0.4s;
   }
-  .terminal.focused {
-    border-color: var(--accent-soft);
+  /* Which shell has the keys is said by its name strip, which is the only part
+     of a terminal the app paints — everything below it belongs to xterm. */
+  .terminal.focused .head {
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.12);
   }
 
   .head {
@@ -169,7 +169,8 @@
     align-items: center;
     gap: 9px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--line-faint);
+    background: var(--bg-header);
+    transition: background 0.4s;
     font-size: 11px;
   }
   .dot {
@@ -191,8 +192,8 @@
     margin-left: auto;
     font-size: 10px;
     color: var(--fg-dimmest);
-    border: 1px solid var(--line-mid);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
   }
 
   .screen {
@@ -206,7 +207,7 @@
     display: flex;
     gap: 14px;
     padding: 8px 14px;
-    border-top: 1px solid var(--line-faint);
+    background: var(--bg-raise-3);
     font-family: var(--font-chrome);
     font-size: 10px;
     color: var(--fg-dimmest);

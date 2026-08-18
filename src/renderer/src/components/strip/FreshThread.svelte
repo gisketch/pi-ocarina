@@ -43,8 +43,7 @@
     flex: none;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--line);
-    background: var(--bg-raise);
+    background: var(--bg-column-idle);
     animation: rise 0.35s ease;
     overflow: hidden;
   }
@@ -80,8 +79,8 @@
     margin-top: 4px;
   }
   .kbd {
-    border: 1px solid var(--line-strong);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
     color: var(--fg-muted);
   }
 </style>

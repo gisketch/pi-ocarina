@@ -149,9 +149,11 @@
     left: 10px;
     right: 10px;
     bottom: 10px;
-    padding: 5px 9px;
-    border: 1px solid var(--accent-soft);
-    background: var(--bg-float, var(--bg-panel));
+    padding: 6px 10px;
+    /* It floats over the transcript, so it has to hide what it covers — a
+       tint would let the text read through it. Accent mixed into the float
+       colour rather than laid over it as a translucent layer. */
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-float));
     font: inherit;
     font-size: 10.5px;
     color: var(--fg-bright);
@@ -171,8 +173,8 @@
     font-size: 9.5px;
     letter-spacing: 0.08em;
     color: var(--accent);
-    border: 1px solid var(--accent-soft);
-    padding: 1px 5px;
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
+    padding: 2px 6px;
     max-width: 40%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -186,18 +188,23 @@
     flex: none;
     display: flex;
     flex-direction: column;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    background: var(--bg-raise);
+    /* Which column has the reader is said by how light it is, and by nothing
+       else. `--bg-column` travels with it: a ledger node paints the column's
+       own ground to cover the spine, and a node still painting the idle value
+       inside a focused column reads as a darker patch under every icon. */
+    --bg-column: color-mix(in srgb, #ffffff 1.5%, var(--bg));
+    background: var(--bg-column-idle);
     opacity: 0.4;
     transition:
       opacity 0.4s,
-      border-color 0.4s;
+      background 0.4s;
     overflow: hidden;
     cursor: pointer;
   }
   .column.focused {
+    --bg-column: color-mix(in srgb, #ffffff 3%, var(--bg));
     opacity: 1;
-    border-color: var(--bg-chip);
+    background: var(--bg-column-focus);
     cursor: default;
   }
 
@@ -207,7 +214,7 @@
     align-items: center;
     gap: 9px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--line-faint);
+    background: var(--bg-header);
     font-size: 11px;
   }
 
