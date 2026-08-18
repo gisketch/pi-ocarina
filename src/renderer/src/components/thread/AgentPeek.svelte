@@ -1,7 +1,7 @@
 <script lang="ts">
   import Identicon from '../Identicon.svelte'
   import { agentMark, agentTone, elapsedText } from '$lib/agent-row'
-  import { agentClock } from '$lib/state/agent-clock.svelte'
+  import { clock } from '$lib/state/clock.svelte'
   import { agentPeek } from '$lib/state/agent-peek.svelte'
   import { tokensIn } from '../../../../shared/vocabulary'
   import { app } from '$lib/state/app.svelte'
@@ -20,13 +20,13 @@
 
   $effect(() => {
     if (!running) return
-    return agentClock.watch()
+    return clock.watch()
   })
 
   const elapsed = $derived.by(() => {
     const entry = peeked?.entry
     if (!entry) return ''
-    return elapsedText((entry.endedAt ?? agentClock.now) - entry.startedAt)
+    return elapsedText((entry.endedAt ?? clock.now) - entry.startedAt)
   })
 
   const cost = $derived.by(() => {

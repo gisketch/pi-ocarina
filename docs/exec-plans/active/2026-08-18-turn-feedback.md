@@ -22,14 +22,16 @@ Status legend: `todo` · `in-progress` · `done`.
   to T3**: the renderer harness's mock threads are static, and the working
   footer is the first thing in it that changes every second.
 
-## T2 — one clock the whole app reads — `todo`
+## T2 — one clock the whole app reads — `done`
 
 > Something has to tick for a footer to count, and it must not be a timer per
 > thread.
 
-- There is already a clock for agent rows (`agent-clock.svelte.ts`); either it
-  serves this too or a sibling does. One interval, started when something is
-  running and stopped when nothing is — an app at rest holds no timer.
+- There was already exactly this clock, built for agent rows: one interval,
+  watcher-counted, stopped when nothing is running and while the window is
+  hidden. It serves both now, so `agent-clock.svelte.ts` became
+  `clock.svelte.ts` — a name that told the truth about one caller was going to
+  mislead about the second.
 - New `src/renderer/src/lib/elapsed.ts` — `elapsed(ms)`: `4s`, `12s`,
   `1m04s`, `12m` — a pure function with the minute boundary as its test.
 - Acceptance: the formatter's cases; the clock stops when the last turn ends.

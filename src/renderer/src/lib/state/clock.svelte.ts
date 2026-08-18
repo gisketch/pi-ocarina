@@ -1,9 +1,9 @@
-/** One clock, for every running child in the app.
+/** One clock, for every duration in the app that ticks.
  *
- *  A duration that ticks is the only part of an agent row that changes on its
- *  own, and there may be several rows in several columns. One interval serves
- *  all of them: an interval per row would multiply with the fan-out, and a
- *  timer that runs when nothing is running is a wakeup for no reason.
+ *  A running child's elapsed time, and a turn's. Both change on their own and
+ *  there may be several of each across the strip, so one interval serves all
+ *  of them: an interval per row would multiply with the fan-out, and a timer
+ *  that runs when nothing is running is a wakeup for no reason.
  *
  *  It exists only while something is running, and stops while the window is
  *  hidden. What reads `now` is the leaf that draws the duration, so a second
@@ -29,7 +29,7 @@ const REAL: Visibility = {
   },
 }
 
-export class AgentClock {
+export class Clock {
   /** The current second, as milliseconds. Read by the row that draws a
    *  duration, and by nothing else. */
   now = $state(Date.now())
@@ -97,4 +97,4 @@ export class AgentClock {
   }
 }
 
-export const agentClock = new AgentClock()
+export const clock = new Clock()

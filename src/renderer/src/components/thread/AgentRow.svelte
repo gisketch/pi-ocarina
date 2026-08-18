@@ -1,7 +1,7 @@
 <script lang="ts">
   import Identicon from '../Identicon.svelte'
   import { agentMark, agentTone, doingIn, elapsedText } from '$lib/agent-row'
-  import { agentClock } from '$lib/state/agent-clock.svelte'
+  import { clock } from '$lib/state/clock.svelte'
   import type { AgentEntry, ToolRow } from '$lib/thread'
 
   /** One child agent, as a row under the call that spawned it.
@@ -35,14 +35,14 @@
   // settles — so an app with nothing running holds no timer at all.
   $effect(() => {
     if (!running) return
-    return agentClock.watch()
+    return clock.watch()
   })
 
   const doing = $derived(running ? doingIn(agent, rows) : '')
   // Read here, in the leaf that draws it: a second passing repaints this text
   // node rather than the row, the ledger, or the transcript.
   const elapsed = $derived(
-    running ? elapsedText(agentClock.now - agent.startedAt) : elapsedText(finished()),
+    running ? elapsedText(clock.now - agent.startedAt) : elapsedText(finished()),
   )
 
   function finished(): number {

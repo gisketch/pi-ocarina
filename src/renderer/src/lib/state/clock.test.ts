@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AgentClock, agentClock, type Visibility } from './agent-clock.svelte'
+import { Clock, clock, type Visibility } from './clock.svelte'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -7,44 +7,44 @@ afterEach(() => {
 
 describe('the one clock', () => {
   it('does not run when nothing is running', () => {
-    expect(agentClock.ticking).toBe(false)
+    expect(clock.ticking).toBe(false)
   })
 
   it('starts on the first watcher and stops on the last', () => {
-    const first = agentClock.watch()
-    const second = agentClock.watch()
-    expect(agentClock.ticking).toBe(true)
+    const first = clock.watch()
+    const second = clock.watch()
+    expect(clock.ticking).toBe(true)
 
     first()
-    expect(agentClock.ticking).toBe(true)
+    expect(clock.ticking).toBe(true)
     second()
-    expect(agentClock.ticking).toBe(false)
+    expect(clock.ticking).toBe(false)
   })
 
   it('ignores a release called twice, so the count cannot go negative', () => {
-    const release = agentClock.watch()
+    const release = clock.watch()
     release()
     release()
 
-    const next = agentClock.watch()
-    expect(agentClock.ticking).toBe(true)
+    const next = clock.watch()
+    expect(clock.ticking).toBe(true)
     next()
-    expect(agentClock.ticking).toBe(false)
+    expect(clock.ticking).toBe(false)
   })
 
   it('advances once a second while anything is watching', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-17T12:00:00Z'))
 
-    const release = agentClock.watch()
-    const started = agentClock.now
+    const release = clock.watch()
+    const started = clock.now
 
     vi.advanceTimersByTime(3_000)
-    expect(agentClock.now - started).toBe(3_000)
+    expect(clock.now - started).toBe(3_000)
 
     release()
     vi.advanceTimersByTime(5_000)
-    expect(agentClock.now - started).toBe(3_000)
+    expect(clock.now - started).toBe(3_000)
   })
 })
 
@@ -68,7 +68,7 @@ describe('a window nobody is looking at', () => {
   it('does not start a timer behind a hidden window', () => {
     const { visibility, hide } = pane()
     hide()
-    const clock = new AgentClock(visibility)
+    const clock = new Clock(visibility)
 
     const release = clock.watch()
     expect(clock.ticking).toBe(false)
@@ -77,7 +77,7 @@ describe('a window nobody is looking at', () => {
 
   it('stops when the window is hidden and starts again when it comes back', () => {
     const { visibility, hide, show } = pane()
-    const clock = new AgentClock(visibility)
+    const clock = new Clock(visibility)
 
     const release = clock.watch()
     expect(clock.ticking).toBe(true)
@@ -92,7 +92,7 @@ describe('a window nobody is looking at', () => {
 
   it('stays stopped when it comes back with nothing running', () => {
     const { visibility, hide, show } = pane()
-    const clock = new AgentClock(visibility)
+    const clock = new Clock(visibility)
 
     clock.watch()()
     hide()
@@ -104,7 +104,7 @@ describe('a window nobody is looking at', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-17T12:00:00Z'))
     const { visibility, hide, show } = pane()
-    const clock = new AgentClock(visibility)
+    const clock = new Clock(visibility)
 
     const release = clock.watch()
     hide()
