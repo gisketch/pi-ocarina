@@ -63,6 +63,10 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   workspace and a new thread, and a workspace screen with its own key.
   **Approved 2026-08-18.** Tickets in
   [2026-08-18-permissions-and-defaults.md](../exec-plans/active/2026-08-18-permissions-and-defaults.md).
+- [2026-08-18-overlay-key-ownership.md](2026-08-18-overlay-key-ownership.md) —
+  a screen drawn over the strip owns every key it covers; the frozen
+  digits-from-an-overlay escape hatch is withdrawn. **Approved 2026-08-18.**
+  Amends shell-navigation.
 - [2026-08-18-tool-row-grouping.md](2026-08-18-tool-row-grouping.md) — runs of
   similar tool calls collapse to one expandable summary row; lsp rows get the
   `lsp · subject · operation` grammar. **Approved 2026-08-18** (Polish mockup).

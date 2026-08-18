@@ -183,7 +183,11 @@ class ShellState {
     const answered = routeToOverlay(event)
     if (answered !== null) return answered
 
-    if (routeToSurface(event, app.mode, app.thread.id)) return true
+    // Everything `routeToSurface` asks belongs to a column: a block menu, the
+    // leap hints, a pending question, the agent peek. All four sit behind an
+    // open overlay, so none of them may read a key from under one — a digit
+    // answering a question the reader cannot see is the worst version of it.
+    if (this.overlay === null && routeToSurface(event, app.mode, app.thread.id)) return true
 
     // A pending confirmation is modal: it is asked because the answer changes
     // what happens to work already in flight, so no other binding may run

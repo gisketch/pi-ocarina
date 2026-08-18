@@ -44,8 +44,9 @@ function goWorkspace(state: KeyState, index: number): KeyResult {
   ])
 }
 
-/** Overlays that own a text caret. Their input must receive every keystroke
- *  the shell would otherwise read as a binding. */
+/** Overlays that own a text caret, or read raw letters of their own. Their
+ *  input must receive every keystroke the shell would otherwise read as a
+ *  binding — including the keys that open other screens. */
 const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   'palette',
   'switcher',
@@ -65,6 +66,24 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   'workspace',
 ])
 
+/** The key each screen opens on, which is also the key that closes it again.
+ *
+ *  A map rather than six switch cases, because it is also the answer to "may
+ *  this key still run while a screen is open" — an overlay key only ever acts
+ *  on overlays, so it is the one thing that never reaches the strip behind. */
+const OVERLAY_KEYS: ReadonlyMap<string, Overlay> = new Map<string, Overlay>([
+  ['w', 'switcher'],
+  ['?', 'keymap'],
+  [',', 'settings'],
+  // The shifted sibling of `,`: same key, narrower scope. Workspace settings
+  // are not a section of the app's settings, so they are not reached through
+  // them.
+  ['<', 'workspace'],
+  ['m', 'model'],
+  // Search, by the convention every editor and pager already taught.
+  ['/', 'search'],
+])
+
 function focusFor(overlay: Overlay | null): Action[] {
   if (overlay === 'palette') return [{ type: 'focusPalette' }]
   if (overlay === 'switcher') return [{ type: 'focusSwitcher' }]
@@ -81,6 +100,15 @@ function enterRead(state: KeyState, ctx: KeyContext, actions: Action[]): KeyResu
  *  otherwise read as a binding must reach it untouched. */
 function isTyping(state: KeyState): boolean {
   return state.mode === 'INSERT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
+}
+
+/** Whether anything is drawn on top of the strip.
+ *
+ *  A dialog is over the columns, so a key it does not use must do nothing
+ *  rather than move what is behind it — the reader cannot see what it moved,
+ *  and cannot see it move back. */
+function occupied(state: KeyState): boolean {
+  return isTyping(state) || state.overlay !== null
 }
 
 function toggleOverlay(state: KeyState, overlay: Overlay): KeyResult {
@@ -152,7 +180,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // chord is a scroll and nothing else: a reader skimming a transcript has
   // not asked to point at anything, and lighting one block — which dims every
   // other — is a mode change they did not ask for.
-  if (event.ctrlKey && !event.metaKey && !event.altKey && !isTyping(state)) {
+  if (event.ctrlKey && !event.metaKey && !event.altKey && !occupied(state)) {
     const paging = state.mode === 'READ' ? 'page' : 'scroll'
     if (key === 'd') return result(state, [{ type: paging, delta: 1 }])
     if (key === 'u') return result(state, [{ type: paging, delta: -1 }])
@@ -162,15 +190,21 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
 
   if (state.mode === 'LEADER') return reduceLeader(state, key, ctx)
 
-  const anyOverlay = state.overlay !== null
-  const typing = isTyping(state)
+  // Everything below this line moves the strip. Typing must reach the input
+  // untouched, and a screen on top of the strip owns every key it is drawn
+  // over — a digit that changed workspaces from behind the settings screen
+  // moved a strip the reader was not even looking at.
+  if (isTyping(state)) return result(state, [], false)
 
-  // Digits jump workspaces even from a focused palette — the design's escape hatch.
+  if (state.overlay !== null) {
+    // One exception, and it acts on the screen rather than under it: the key
+    // that opened this one closes it, and another screen's key swaps to it.
+    const swap = OVERLAY_KEYS.get(key)
+    return swap === undefined ? result(state, [], false) : toggleOverlay(state, swap)
+  }
+
   const index = digitFor(key, ctx.workspaceCount)
-  if (index !== null && (!typing || anyOverlay)) return goWorkspace(state, index)
-
-  // Everything below is NORMAL-only; typing must reach the input untouched.
-  if (typing) return result(state, [], false)
+  if (index !== null) return goWorkspace(state, index)
 
   // READ owns the four direction keys. h/l stop meaning "another column" and
   // start meaning "this block, wider or narrower" — which is the point: a
@@ -208,9 +242,14 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
 
   // With nothing pinned the welcome screen is the whole app, and its one
   // action is the only thing ⏎ could mean.
-  if (key === 'Enter' && ctx.workspaceCount === 0 && !anyOverlay) {
+  if (key === 'Enter' && ctx.workspaceCount === 0) {
     return result(state, [{ type: 'pinWorkspace' }])
   }
+
+  // Opening a screen, from NORMAL or from READ. Above the switch because the
+  // same map decides which keys survive once one is open.
+  const overlay = OVERLAY_KEYS.get(key)
+  if (overlay !== undefined) return toggleOverlay(state, overlay)
 
   switch (key) {
     case ' ':
@@ -234,22 +273,6 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return result(state, [{ type: 'jumpToLive' }])
     case 'o':
       return result(state, [{ type: 'toggleReasoning' }])
-    case 'w':
-      return toggleOverlay(state, 'switcher')
-    case '?':
-      return toggleOverlay(state, 'keymap')
-    case ',':
-      return toggleOverlay(state, 'settings')
-    case '<':
-      // The shifted sibling of `,`: same key, narrower scope. Workspace
-      // settings are not a section of the app's settings, so they are not
-      // reached through them.
-      return toggleOverlay(state, 'workspace')
-    case 'm':
-      return toggleOverlay(state, 'model')
-    case '/':
-      // Search, by the convention every editor and pager already taught.
-      return toggleOverlay(state, 'search')
     case 'i':
       return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
     case 'a':
