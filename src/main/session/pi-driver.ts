@@ -216,6 +216,25 @@ export class PiDriver implements SessionDriver {
         return { attachment: await this.#staged.stage(data, mime) } as CommandResult<N>
       }
 
+      case 'threadPermission': {
+        const { threadId, workspaceId } = params as CommandParams<'threadPermission'>
+        return {
+          level: this.#approvals.levelFor(threadId, workspaceId),
+          ...(this.#approvals.threadLevel(threadId) !== undefined
+            ? { thread: this.#approvals.threadLevel(threadId) }
+            : {}),
+        } as CommandResult<N>
+      }
+
+      case 'setThreadPermission': {
+        const { threadId, workspaceId, level } = params as CommandParams<'setThreadPermission'>
+        this.#approvals.setThreadLevel(threadId, level)
+        return {
+          level: this.#approvals.levelFor(threadId, workspaceId),
+          ...(level !== undefined ? { thread: level } : {}),
+        } as CommandResult<N>
+      }
+
       case 'workspacePermission': {
         const { workspaceId } = params as CommandParams<'workspacePermission'>
         return this.#catalog.describeLevel(workspaceId) as CommandResult<N>

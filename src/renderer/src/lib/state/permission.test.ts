@@ -4,7 +4,8 @@ import { permission } from './permission.svelte'
 /** Unwired, which is the browser harness: the state holds the level itself so
  *  the row can be moved and reviewed against the design. */
 beforeEach(async () => {
-  await permission.load('w1')
+  await permission.load('w1', 't1')
+  await permission.setThread(undefined)
   await permission.set(undefined)
 })
 
@@ -32,5 +33,29 @@ describe('the workspace row', () => {
   it('names full access before it is switched on, so the question can', () => {
     // What the confirmation reads to decide whether to ask.
     expect(permission.pending).toBe('ask')
+  })
+})
+
+describe('a thread of its own', () => {
+  it('starts inheriting its workspace', () => {
+    expect(permission.thread).toBeUndefined()
+  })
+
+  it('overrides the workspace, and clears back to it', async () => {
+    await permission.set('ask')
+    expect(permission.level).toBe('ask')
+
+    await permission.setThread('full')
+    expect(permission.level).toBe('full')
+
+    await permission.setThread(undefined)
+    expect(permission.level).toBe('ask')
+    expect(permission.thread).toBeUndefined()
+  })
+
+  it('cycles from inherit through the three', async () => {
+    const seen: string[] = []
+    for (let i = 0; i < 4; i += 1) seen.push(await permission.setThread(permission.pendingThread))
+    expect(seen).toEqual(['ask', 'auto', 'full', 'auto'])
   })
 })

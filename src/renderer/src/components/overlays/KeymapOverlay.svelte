@@ -25,6 +25,7 @@
         ['␣ n new thread', 'chord'],
         ['␣ x close column', 'chord'],
         ['␣ c compact', 'chord'],
+        ['␣ p permission', 'chord'],
         ['␣ f find thread', 'chord'],
         ['␣ m model', 'chord'],
         ['␣ s settings', 'chord'],

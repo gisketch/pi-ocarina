@@ -276,6 +276,11 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result(done, [{ type: 'openTerminal' }], true, 'clear')
     case 'c':
       return result(done, [{ type: 'compact' }], true, 'clear')
+    case 'p':
+      // This thread's level, not the workspace's — the workspace has a screen
+      // of its own, and a chord that quietly changed every thread would be a
+      // very expensive keystroke.
+      return result(done, [{ type: 'cyclePermission' }], true, 'clear')
     case 'd':
       // The same door as the bare `d`, so the which-key bar can teach it to a
       // reader who has not learnt the letter yet.

@@ -53,9 +53,12 @@
   // invisible is a level that surprises — and `full` is the one state where
   // being reminded is the whole point.
   $effect(() => {
-    void permission.load(app.workspace.id)
+    void permission.load(app.workspace.id, app.thread.id)
   })
   const level = $derived(permission.level)
+  /** A thread that overrode its workspace says so, because the same word would
+   *  otherwise mean two different scopes on two different threads. */
+  const ownLevel = $derived(permission.thread !== undefined)
 
   const lsp = $derived(workspaceLsp.chip)
   /** On, with nothing started. The chip says so quietly rather than counting. */
@@ -86,10 +89,10 @@
     class="seg perm"
     class:quiet={level === 'auto'}
     class:warn={level === 'full'}
-    onclick={() => shell.openOverlay('workspace')}
-    title="permission level — click for workspace settings"
+    onclick={() => void shell.cyclePermission()}
+    title="permission level — click to change it for this thread (␣p)"
   >
-    {PERMISSION_LABELS[level]}
+    {PERMISSION_LABELS[level]}{ownLevel ? '*' : ''}
   </button>
 
   {#if lsp}

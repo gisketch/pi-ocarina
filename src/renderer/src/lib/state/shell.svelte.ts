@@ -16,6 +16,7 @@ import { agentPeek } from './agent-peek.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
 import { changes } from './changes.svelte'
+import { permission } from './permission.svelte'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
@@ -73,6 +74,28 @@ class ShellState {
    *
    *  With nothing pinned there is no workspace to create it in, so the same
    *  keystroke starts the pin flow — the destination either way. */
+  /** Steps the focused thread's permission level, asking first on the way into
+   *  full access.
+   *
+   *  The thread's, not the workspace's: the workspace has a screen of its own,
+   *  and a chord that quietly relaxed every thread in a folder would be a very
+   *  expensive keystroke. Nothing is announced — the status bar already names
+   *  the level, and a toast for something already on screen trains the reader
+   *  to ignore the corner. */
+  async cyclePermission(): Promise<void> {
+    const next = permission.pendingThread
+    if (next === 'full') {
+      const ok = await confirm.ask({
+        title: 'full access',
+        message:
+          'This thread will stop asking before anything — deleting files, pushing branches, writing outside the folder. There is no sandbox here, so the agent can do whatever you can. It returns to the workspace level when the app closes.',
+        confirmLabel: 'allow',
+      })
+      if (!ok) return
+    }
+    await permission.setThread(next)
+  }
+
   newThread(): void {
     if (catalog.source !== 'live') {
       void catalog.pin()
@@ -262,6 +285,9 @@ class ShellState {
         break
       case 'compact':
         threads.compact(app.thread.id)
+        break
+      case 'cyclePermission':
+        void this.cyclePermission()
         break
       case 'yank':
         void yankNewestCodeBlock()

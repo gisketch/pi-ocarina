@@ -9,6 +9,7 @@ describe('command palette contents', () => {
       'next-thread',
       'switch-branch',
       'compact-thread',
+      'cycle-permission',
       'open-keymap',
     ])
   })

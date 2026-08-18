@@ -95,6 +95,17 @@ export interface SessionCommands {
     params: { workspaceId: string; level?: PermissionLevel }
     result: { ok: true }
   }
+  /** One thread's own level, for as long as the app is open. Never stored: a
+   *  window reopening days later at full access, because of a decision made
+   *  once for one command, is the surprise the levels exist to remove. */
+  setThreadPermission: {
+    params: { threadId: string; workspaceId: string; level?: PermissionLevel }
+    result: { level: PermissionLevel; thread?: PermissionLevel }
+  }
+  threadPermission: {
+    params: { threadId: string; workspaceId: string }
+    result: { level: PermissionLevel; thread?: PermissionLevel }
+  }
   /** Switches LSP for a workspace, or one server within it. Takes effect on the
    *  next call the agent makes; a running server it turns off is stopped. */
   setWorkspaceLsp: {

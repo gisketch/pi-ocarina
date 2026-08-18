@@ -148,6 +148,9 @@
         // The same path as leader n, so the two cannot drift apart.
         shell.newThread()
         break
+      case 'cycle-permission':
+        void shell.cyclePermission()
+        break
       case 'switch-branch':
       case 'compact-thread':
         break

@@ -40,6 +40,7 @@ export type Action =
   | { type: 'moveColumn'; delta: number }
   | { type: 'pinWorkspace' }
   | { type: 'compact' }
+  | { type: 'cyclePermission' }
   | { type: 'yank' }
   | { type: 'focusComposer' }
   | { type: 'blurComposer' }
