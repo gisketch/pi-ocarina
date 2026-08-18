@@ -16,8 +16,10 @@ describe('what a row calls itself', () => {
     expect(labelFor('edit', 'ok')).toBe('edited')
     expect(labelFor('write', 'ok')).toBe('wrote')
     expect(labelFor('bash', 'ok')).toBe('ran')
-    // Never `grepped`: these rows asked the compiler, not the text.
-    expect(labelFor('lsp', 'ok')).toBe('asked')
+    // The one label that does not conjugate — and never `grepped`, which
+    // claimed the thing these rows replace.
+    expect(labelFor('lsp', 'ok')).toBe('lsp')
+    expect(labelFor('lsp', 'running')).toBe('lsp')
   })
 
   it('does not conjugate by rule', () => {

@@ -46,6 +46,9 @@ export interface ToolRow {
   kind: ToolKind
   /** Primary label — path, command, url, query. */
   target: string
+  /** A muted word drawn after the target: what kind of call this is within
+   *  its family. An lsp row's `references`; nothing on most rows. */
+  detail?: string
   status: ToolStatus
   /** Right-aligned summary, e.g. "142L", "3 matches", "exit 0 · 3.2s". */
   meta?: string

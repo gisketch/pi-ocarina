@@ -5,7 +5,7 @@ Mockup: `docs/reference/design/PiOcarina Polish.dc.html` §01–02.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## G1 — the lsp row grammar — `todo`
+## G1 — the lsp row grammar — `done`
 
 > Replace `asked outline of …` with the mockup's grammar: gutter `lsp`,
 > SUBJECT at full strength, operation muted, result meta right-aligned.

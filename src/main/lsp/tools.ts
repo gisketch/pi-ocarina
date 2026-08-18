@@ -10,7 +10,14 @@ import { isAbsolute, join, resolve } from 'node:path'
 import type { WorkspaceLsp } from '../../shared/lsp'
 import type { LspClient, Position } from './client'
 import { describeAmbiguous, describeMissing, flatten, locate } from './locate'
-import { describeDiagnostics, listLocations, where } from './report'
+import {
+  countPlaces,
+  countProblems,
+  describeDiagnostics,
+  firstLine,
+  listLocations,
+  where,
+} from './report'
 import { NoServerError, type LspPool } from './pool'
 
 export const LSP_TOOLS = [
@@ -48,14 +55,23 @@ export interface LspToolDeps {
   settings: () => WorkspaceLsp | undefined
 }
 
-/** pi's tool result, as these tools use it. `details` is what the ledger reads
- *  and the model never sees; for these it is the same text, so a row can say
- *  what was asked without re-deriving it. */
-type Said = { content: { type: 'text'; text: string }[]; details: unknown }
-const said = (text: string): Said => ({
+/** pi's tool result, as these tools use it.
+ *
+ *  `details` is what the ledger reads and the model never sees. It carries the
+ *  row's right-aligned summary — `14 symbols`, `6 refs · 3 files` — stated by
+ *  the tool that counted rather than parsed back out of the prose the model
+ *  was handed. A call that found nothing states nothing. */
+export interface LspDetails {
+  summary?: string
+}
+type Said = { content: { type: 'text'; text: string }[]; details: LspDetails | undefined }
+const said = (text: string, summary?: string): Said => ({
   content: [{ type: 'text' as const, text }],
-  details: undefined,
+  details: summary === undefined ? undefined : { summary },
 })
+
+const plural = (n: number, one: string, many = `${one}s`): string =>
+  `${n} ${n === 1 ? one : many}`
 
 /** Resolves a model-supplied path, refusing anything outside the workspace.
  *
@@ -137,8 +153,11 @@ export function lspTools(deps: LspToolDeps) {
         try {
           return await deps.pool.withClient(file, deps.settings(), async (client) => {
             const all = flatten(await client.documentSymbols(file))
-            if (all.length === 0) return said(`${path} declares no symbols`)
-            return said(all.map((one) => `${path}:${one.line} ${one.kind} ${one.name}`).join('\n'))
+            if (all.length === 0) return said(`${path} declares no symbols`, 'no symbols')
+            return said(
+              all.map((one) => `${path}:${one.line} ${one.kind} ${one.name}`).join('\n'),
+              plural(all.length, 'symbol'),
+            )
           })
         } catch (thrown) {
           return said(reason(thrown, path))
@@ -155,9 +174,10 @@ export function lspTools(deps: LspToolDeps) {
         const file = inWorkspace(deps.cwd, path)
         if (!file) return said(`${path} is outside this workspace`)
         try {
-          return await deps.pool.withClient(file, deps.settings(), async (client) =>
-            said(describeDiagnostics(await client.diagnostics(file), path)),
-          )
+          return await deps.pool.withClient(file, deps.settings(), async (client) => {
+            const found = await client.diagnostics(file)
+            return said(describeDiagnostics(found, path), countProblems(found))
+          })
         } catch (thrown) {
           return said(reason(thrown, path))
         }
@@ -170,9 +190,13 @@ export function lspTools(deps: LspToolDeps) {
       'Where a symbol is defined. Answers from the compiler, so it is right even when the name appears in a hundred other places.',
       AT,
       async ({ path, symbol }: Static<typeof AT>) =>
-        at(deps, path, symbol, async (client, position, file) =>
-          said(listLocations(await client.definition(file, position), deps.cwd, 'definitions')),
-        ) as Promise<Said>,
+        at(deps, path, symbol, async (client, position, file) => {
+          const found = await client.definition(file, position)
+          return said(
+            listLocations(found, deps.cwd, 'definitions'),
+            countPlaces(found, deps.cwd, 'definition'),
+          )
+        }) as Promise<Said>,
     ),
 
     tool(
@@ -181,9 +205,13 @@ export function lspTools(deps: LspToolDeps) {
       'Every place a symbol is used. This is what to call before changing or deleting anything — grep finds the word, this finds the uses.',
       AT,
       async ({ path, symbol }: Static<typeof AT>) =>
-        at(deps, path, symbol, async (client, position, file) =>
-          said(listLocations(await client.references(file, position), deps.cwd, 'references')),
-        ) as Promise<Said>,
+        at(deps, path, symbol, async (client, position, file) => {
+          const found = await client.references(file, position)
+          return said(
+            listLocations(found, deps.cwd, 'references'),
+            countPlaces(found, deps.cwd, 'ref'),
+          )
+        }) as Promise<Said>,
     ),
 
     tool(
@@ -194,7 +222,10 @@ export function lspTools(deps: LspToolDeps) {
       async ({ path, symbol }: Static<typeof AT>) =>
         at(deps, path, symbol, async (client, position, file) => {
           const text = await client.hover(file, position)
-          return said(text === '' ? `the server has nothing to say about ${symbol}` : text)
+          if (text === '') return said(`the server has nothing to say about ${symbol}`, 'nothing')
+          // The first line of a hover is the signature; the row says that much
+          // and the panel holds the rest.
+          return said(text, firstLine(text))
         }) as Promise<Said>,
     ),
 
@@ -210,13 +241,16 @@ export function lspTools(deps: LspToolDeps) {
           symbol,
           async (client, position, file) => {
             const edits = await client.rename(file, position, newName)
-            if (edits.length === 0) return said(`the server would not rename ${symbol}`)
+            if (edits.length === 0) {
+              return said(`the server would not rename ${symbol}`, 'refused')
+            }
 
             const lines = edits
               .map((one) => where(one, deps.cwd))
               .filter((one): one is string => one !== null)
             return said(
               `renaming ${symbol} to ${newName} would change ${lines.length} place${lines.length === 1 ? '' : 's'}:\n${lines.join('\n')}\n\nNothing has changed yet. Apply these with edit.`,
+              plural(lines.length, 'place'),
             )
           },
           // Never replayed against a fresh server: a rename applied twice is

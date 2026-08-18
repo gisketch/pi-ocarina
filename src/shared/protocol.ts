@@ -51,6 +51,10 @@ export type UiEvent =
       id: string
       tool: ToolKind
       target: string
+      /** A muted word after the target, saying what kind of call this is
+       *  within its family — an lsp row's `references`, `outline`. Additive:
+       *  a backend that never sends it draws the row exactly as before. */
+      detail?: string
       parentId?: string
       /** Present only on an `agent` row: who the child is. The row and the
        *  envelope the model reads carry the same shape, so the two cannot

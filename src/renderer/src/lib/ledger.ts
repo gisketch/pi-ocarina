@@ -42,10 +42,31 @@ export interface MetaSegment {
   tone: Tone | null
 }
 
-/** Splits a summary so diff counters keep their own colours:
- *  "+14 −3" renders green then red, the rest inherits the row's meta tone. */
+/** A count and the word it counts, which belong to one another.
+ *
+ *  Matched before the summary is split on whitespace: `2 errors` is one fact
+ *  and colouring only the digit would read as a stray red `2`. */
+const PROBLEMS = /\b(\d+)\s+(errors?|warns?|warnings?)\b/g
+
+/** Splits a summary so its counters keep their own colours: "+14 −3" renders
+ *  green then red, "2 errors 5 warns" red then yellow, and the rest inherits
+ *  the row's meta tone. */
 export function metaSegments(meta: string): MetaSegment[] {
-  return meta.split(/(\s+)/).flatMap((part): MetaSegment[] => {
+  const segments: MetaSegment[] = []
+  let at = 0
+
+  PROBLEMS.lastIndex = 0
+  for (let match = PROBLEMS.exec(meta); match; match = PROBLEMS.exec(meta)) {
+    if (match.index > at) segments.push(...plainSegments(meta.slice(at, match.index)))
+    segments.push({ text: match[0], tone: match[2].startsWith('error') ? 'err' : 'warn' })
+    at = match.index + match[0].length
+  }
+  if (at < meta.length) segments.push(...plainSegments(meta.slice(at)))
+  return segments
+}
+
+function plainSegments(text: string): MetaSegment[] {
+  return text.split(/(\s+)/).flatMap((part): MetaSegment[] => {
     if (part.trim() === '') return part === '' ? [] : [{ text: part, tone: null }]
     if (/^\+\S+$/.test(part)) return [{ text: part, tone: 'ok' }]
     if (/^[−-]\S+$/.test(part)) return [{ text: part, tone: 'err' }]

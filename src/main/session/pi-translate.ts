@@ -3,10 +3,10 @@ import type { UiEvent } from '../../shared/protocol'
 import type { TerminalLine, ToolBody, ToolKind } from '../../shared/vocabulary'
 import type { CallChange } from './change-log'
 import { ASK_TOOL, askable } from './ask-replay'
-import { toolKind, toolTarget } from './tool-rows'
+import { toolDetail, toolKind, toolTarget } from './tool-rows'
 import { FETCH_TOOL } from './fetch-tool'
 
-export { toolKind, toolTarget } from './tool-rows'
+export { toolDetail, toolKind, toolTarget } from './tool-rows'
 import { diffOf } from './tool-diff'
 
 /** Longest tool body we forward. A tool that prints a megabyte should not cost
@@ -83,6 +83,19 @@ export function fetchMeta(result: unknown): string | undefined {
   if (typeof details.bytes === 'number') parts.push(`${(details.bytes / 1024).toFixed(1)}KB`)
   if (details.truncated) parts.push('truncated')
   return parts.length > 0 ? parts.join(' · ') : undefined
+}
+
+/** What a finished language-server call adds to its row.
+ *
+ *  Read from `details`, which the tool sets and the model never sees, for the
+ *  same reason `fetchMeta` does: the tool counted, so the row states its
+ *  count rather than parsing it back out of the prose. */
+export function lspMeta(toolName: string, result: unknown): string | undefined {
+  if (toolDetail(toolName) === undefined) return undefined
+  const details = (result as { details?: unknown } | null)?.details as
+    | { summary?: unknown }
+    | undefined
+  return typeof details?.summary === 'string' ? details.summary : undefined
 }
 
 /** Translates one pi session's events into the UI vocabulary.
@@ -210,6 +223,7 @@ export class PiTranslator {
             id: event.toolCallId,
             tool: toolKind(event.toolName),
             target: toolTarget(event.toolName, event.args),
+            ...(toolDetail(event.toolName) ? { detail: toolDetail(event.toolName) } : {}),
           },
         ]
 
@@ -233,7 +247,7 @@ export class PiTranslator {
             ? 'denied'
             : event.toolName === FETCH_TOOL
               ? fetchMeta(event.result)
-              : (changed?.meta ?? undefined),
+              : (lspMeta(event.toolName, event.result) ?? changed?.meta ?? undefined),
         })
         return events
       }

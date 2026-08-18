@@ -14,6 +14,7 @@
 
 <span class="kind {labelTone(row)}">{labelFor(row.kind, row.status)}</span>
 <span class="target" class:struck={row.status === 'cancelled'}>{row.target}</span>
+{#if row.detail}<span class="detail">{row.detail}</span>{/if}
 
 <style>
   .kind {
@@ -43,5 +44,11 @@
   .target.struck {
     text-decoration: line-through;
     color: var(--fg-dim);
+  }
+  /* Context, not the subject: the reader scans the target and reads this only
+     when the target alone did not say enough. */
+  .detail {
+    color: var(--fg-dim);
+    flex: none;
   }
 </style>

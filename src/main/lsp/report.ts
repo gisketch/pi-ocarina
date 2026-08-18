@@ -60,6 +60,48 @@ export function listLocations(locations: readonly Location[], cwd: string, what:
 
 const SEVERITY: Record<number, string> = { 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' }
 
+/** A diagnostics row's summary: what the reader needs before expanding.
+ *
+ *  Errors and warnings only. Info and hints are real but they are not why
+ *  anyone looks at this row, and a summary that counts them buries the two
+ *  numbers that matter. */
+export function countProblems(diagnostics: readonly Diagnostic[]): string {
+  const errors = diagnostics.filter((one) => (one.severity ?? 1) === 1).length
+  const warns = diagnostics.filter((one) => one.severity === 2).length
+  if (errors === 0 && warns === 0) return 'clean'
+
+  const parts: string[] = []
+  if (errors > 0) parts.push(`${errors} error${errors === 1 ? '' : 's'}`)
+  if (warns > 0) parts.push(`${warns} warn${warns === 1 ? '' : 's'}`)
+  return parts.join(' ')
+}
+
+/** A locations row's summary: how many, and across how many files.
+ *
+ *  Counts only what is inside the workspace, because that is what the list
+ *  shows. A summary that counted the toolchain's hits would promise lines the
+ *  expansion does not have. */
+export function countPlaces(
+  locations: readonly Location[],
+  cwd: string,
+  what: string,
+): string {
+  const inside = locations
+    .map((one) => insideWorkspace(one.uri, cwd))
+    .filter((one): one is string => one !== null)
+  if (inside.length === 0) return `no ${what}s`
+
+  const files = new Set(inside).size
+  const count = `${inside.length} ${what}${inside.length === 1 ? '' : 's'}`
+  return files > 1 ? `${count} · ${files} files` : count
+}
+
+/** The first line of a hover, which is the signature. */
+export function firstLine(text: string): string {
+  const line = text.split('\n').find((one) => one.trim() !== '')?.trim() ?? ''
+  return line.length > 48 ? `${line.slice(0, 47)}…` : line
+}
+
 export function describeDiagnostics(
   diagnostics: readonly Diagnostic[],
   path: string,

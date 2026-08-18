@@ -1,6 +1,6 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent'
 import { describe, expect, it } from 'vitest'
-import { PiTranslator, toolKind, toolTarget } from './pi-translate'
+import { PiTranslator, lspMeta, toolDetail, toolKind, toolTarget } from './pi-translate'
 
 /** pi's event shapes, fabricated — see the note in `pi-translate.test.ts`. */
 const pi = (event: unknown): AgentSessionEvent => event as AgentSessionEvent
@@ -67,31 +67,44 @@ describe('a fetch row', () => {
 })
 
 describe('a language-server row', () => {
-  it('says what was asked and about what', () => {
-    expect(toolTarget('lsp_references', { path: 'src/Ledger.svelte', symbol: 'draw' })).toBe(
-      'uses of draw · src/Ledger.svelte',
-    )
+  it('leads with its subject, not with a verb phrase', () => {
+    // `lsp · draw · references · 6 refs · 3 files` — the two words a reader
+    // scans are the first two, at full strength.
+    expect(toolTarget('lsp_references', { path: 'src/Ledger.svelte', symbol: 'draw' })).toBe('draw')
+    expect(toolDetail('lsp_references')).toBe('references')
   })
 
-  it('tells the six of them apart', () => {
-    const targets = [
+  it('falls back to the file when the tool takes no symbol', () => {
+    expect(toolTarget('lsp_symbols', { path: 'src/sync/worker.ts' })).toBe('worker.ts')
+    expect(toolDetail('lsp_symbols')).toBe('outline')
+  })
+
+  it('tells the six of them apart by their operation', () => {
+    const operations = [
       'lsp_symbols',
       'lsp_diagnostics',
       'lsp_definition',
       'lsp_references',
       'lsp_hover',
       'lsp_rename_preview',
-    ].map((name) => toolTarget(name, { path: 'a.ts', symbol: 'x' }))
+    ].map((name) => toolDetail(name))
 
-    expect(new Set(targets).size).toBe(6)
+    expect(new Set(operations).size).toBe(6)
   })
 
-  it('reads sensibly for the tools that take no symbol', () => {
-    expect(toolTarget('lsp_diagnostics', { path: 'a.ts' })).toBe('problems in a.ts')
+  it('names no operation for a tool that is not one of them', () => {
+    expect(toolDetail('grep')).toBeUndefined()
   })
 
   it('draws as its own row, never as a grep', () => {
     // `grepped outline src/app.ts` claimed the one thing these tools replace.
     expect(toolKind('lsp_references')).toBe('lsp')
+  })
+
+  it('takes its meta from what the tool counted, never from the prose', () => {
+    const result = { details: { summary: '6 refs · 3 files' } }
+    expect(lspMeta('lsp_references', result)).toBe('6 refs · 3 files')
+    expect(lspMeta('grep', result)).toBeUndefined()
+    expect(lspMeta('lsp_references', { details: undefined })).toBeUndefined()
   })
 })

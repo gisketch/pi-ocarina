@@ -304,6 +304,7 @@ function startTool(
     kind: event.tool,
     target: event.target,
     status: 'running',
+    ...(event.detail ? { detail: event.detail } : {}),
     ...(event.agent ? { agent: event.agent } : {}),
   }
 

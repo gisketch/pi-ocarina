@@ -38,19 +38,40 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   lsp_rename_preview: 'lsp',
 }
 
-/** The phrase each language-server row leads with, so a reader can tell six
- *  similar-looking rows apart at a glance.
+/** The operation each language-server row names, drawn muted after its
+ *  subject.
  *
- *  Written to follow the gutter's word: the row reads `asked definition of draw
- *  · Ledger.svelte` as one sentence, rather than as a label and an unrelated
- *  fragment. */
-const LSP_VERBS: Readonly<Record<string, string>> = {
-  lsp_symbols: 'outline of',
-  lsp_diagnostics: 'problems in',
-  lsp_definition: 'definition of',
-  lsp_references: 'uses of',
-  lsp_hover: 'type of',
-  lsp_rename_preview: 'rename of',
+ *  A noun, not a verb phrase. The row is `lsp · withRetry · references · 6
+ *  refs · 3 files`: the gutter says which tool family, the subject says what
+ *  was asked about, and this says what was asked. The sentence form it
+ *  replaced (`asked definition of draw`) spent the row's width on grammar
+ *  instead of on the two words a reader scans for. */
+const LSP_OPERATIONS: Readonly<Record<string, string>> = {
+  lsp_symbols: 'outline',
+  lsp_diagnostics: 'diagnostics',
+  lsp_definition: 'definition',
+  lsp_references: 'references',
+  lsp_hover: 'type',
+  lsp_rename_preview: 'rename',
+}
+
+/** The muted word a row draws after its target, or none.
+ *
+ *  Only the language-server rows have one today. It is a separate field rather
+ *  than part of the target because the two are drawn in different strengths —
+ *  the subject is what the reader scans, the operation is context. */
+export function toolDetail(name: string): string | undefined {
+  return LSP_OPERATIONS[name]
+}
+
+/** The last segment of a path — what a row shows when the directory is noise.
+ *
+ *  An lsp row's subject competes for width with its operation and its result,
+ *  and `src/features/telemetry-widgets/components/WidgetLabPage.tsx` crowds
+ *  both out. The full path is one expand away in the body. */
+function baseName(path: string): string {
+  const at = path.lastIndexOf('/')
+  return at === -1 ? path : path.slice(at + 1)
 }
 
 export function toolKind(name: string): ToolKind {
@@ -70,16 +91,15 @@ export function toolTarget(name: string, args: unknown): string {
     return agents === 1 ? 'spawn 1 agent' : `spawn ${agents} agents`
   }
 
-  // A language-server row says what was asked and about what: `uses of draw ·
-  // Ledger.svelte`. Without the verb the six of them are indistinguishable,
-  // and without the symbol the row says nothing a reader wanted.
-  const verb = LSP_VERBS[name]
-  if (verb) {
+  // A language-server row's target is its *subject*: the symbol when the tool
+  // takes one, the file when it does not. The operation is drawn beside it as
+  // detail, and the count is drawn as meta, so all three are legible at a
+  // glance instead of competing inside one string.
+  if (LSP_OPERATIONS[name]) {
     const symbol = pick('symbol')
+    if (symbol) return symbol
     const where = pick('path')
-    if (symbol && where) return `${verb} ${symbol} · ${where}`
-    if (where) return `${verb} ${where}`
-    if (symbol) return `${verb} ${symbol}`
+    if (where) return baseName(where)
   }
 
   // A fetch row is the method and the address, with the scheme dropped: it is

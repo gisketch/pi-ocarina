@@ -144,3 +144,36 @@ describe('thread fixtures', () => {
     expect(statuses.has('ok')).toBe(true)
   })
 })
+
+describe('a summary that counts problems', () => {
+  it('colours a count and its word as one fact', () => {
+    expect(metaSegments('2 errors 5 warns')).toEqual([
+      { text: '2 errors', tone: 'err' },
+      { text: ' ', tone: null },
+      { text: '5 warns', tone: 'warn' },
+    ])
+  })
+
+  it('leaves the rest of the summary alone', () => {
+    // `refs` and `files` are not problems; nothing in this one is coloured.
+    expect(metaSegments('6 refs · 3 files').every((one) => one.tone === null)).toBe(true)
+  })
+
+  it('still colours diff counters', () => {
+    expect(metaSegments('+14 −3')).toEqual([
+      { text: '+14', tone: 'ok' },
+      { text: ' ', tone: null },
+      { text: '−3', tone: 'err' },
+    ])
+  })
+
+  it('reproduces the summary exactly, whatever is in it', () => {
+    for (const meta of ['2 errors 5 warns', '+14 −3', '14 symbols', 'clean', '']) {
+      expect(
+        metaSegments(meta)
+          .map((one) => one.text)
+          .join(''),
+      ).toBe(meta)
+    }
+  })
+})
