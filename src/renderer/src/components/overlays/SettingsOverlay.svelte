@@ -1,5 +1,6 @@
 <script lang="ts">
   import Backdrop from './Backdrop.svelte'
+  import ConfigSection from './ConfigSection.svelte'
   import { wrapIndex } from '$lib/fuzzy'
   import { preferences } from '$lib/state/preferences.svelte'
 
@@ -154,6 +155,8 @@
           {/if}
         </button>
       {/each}
+
+      <ConfigSection />
     </div>
 
     <div class="foot">j/k move · ⏎ change · esc close</div>

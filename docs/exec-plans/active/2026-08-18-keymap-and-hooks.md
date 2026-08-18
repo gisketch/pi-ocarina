@@ -119,7 +119,7 @@ allow a write to `.env` — which must still raise a card.
 
 ---
 
-## K6 — the reader can see the rules that are running — `todo`
+## K6 — the reader can see the rules that are running — `done`
 
 **Delivers.** Settings lists the rules in force, global and workspace, and marks
 which file each came from. A rule that was refused says why.
