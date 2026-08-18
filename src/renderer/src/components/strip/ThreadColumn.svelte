@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import Icon from '../Icon.svelte'
   import { app } from '$lib/state/app.svelte'
   import { registerColumnBody } from '$lib/state/columns'
   import LeapOverlay from '../thread/LeapOverlay.svelte'
@@ -109,7 +110,7 @@
       <!-- The chip's presence is the isolation: a thread in the workspace's
            own folder carries nothing, so there is one thing to look for
            rather than two labels to compare. -->
-      <span class="branch" title="worktree · {thread.branch}">⑂ {thread.branch}</span>
+      <span class="branch" title="worktree · {thread.branch}"><Icon name="branch" />{thread.branch}</span>
     {/if}
     <span class="meta">{thread.meta}</span>
   </header>
@@ -164,6 +165,9 @@
   }
 
   .branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-family: var(--font-chrome);
     font-size: 9.5px;
     letter-spacing: 0.08em;

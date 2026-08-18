@@ -5,6 +5,7 @@
    *  line height, and a picture that pushed the words apart would be the
    *  separate row this design removes, only worse. */
   import { bridge } from '$lib/bridge'
+  import Icon from '../Icon.svelte'
   import type { MessageAttachment } from '$lib/thread'
 
   const { attachment }: { attachment: MessageAttachment } = $props()
@@ -23,7 +24,7 @@
     <span class="from">expanded from chip</span>
     {#if attachment.path}
       <button type="button" onclick={() => void bridge?.files.open(attachment.path ?? '')}>
-        open ↗
+        open <Icon name="open" />
       </button>
     {:else}
       <!-- A replayed message knows the name its prompt recorded and nothing

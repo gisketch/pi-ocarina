@@ -17,6 +17,7 @@
     "@electron/rebuild": "^4.2.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tsconfig/svelte": "^5.0.4",
+    "@vscode/codicons": "0.0.46-24",
     "electron": "^38.2.2",
     "electron-vite": "^4.0.1",
     "svelte": "^5.42.2",

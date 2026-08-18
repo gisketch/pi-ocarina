@@ -1,5 +1,6 @@
 <script lang="ts">
   import { wrapIndex } from '$lib/fuzzy'
+  import Icon from '../Icon.svelte'
   import { READ_ONLY_TOOLS } from '../../../../shared/vocabulary'
   import type { AgentRole } from '$lib/thread'
 
@@ -99,7 +100,7 @@
           class:picked={role.tools.includes(tool)}
           onclick={() => toggleTool(tool)}
         >
-          {role.tools.includes(tool) ? '■' : '□'} {tool}
+          <Icon name={role.tools.includes(tool) ? 'box-done' : 'box'} /> {tool}
         </button>
       {/each}
     </span>

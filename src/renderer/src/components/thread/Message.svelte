@@ -1,5 +1,6 @@
 <script lang="ts">
   import { parseMarkdown, type ListItem, type MarkdownNode } from '$lib/thread'
+  import Icon from '../Icon.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import Fence from './md/Fence.svelte'
@@ -88,7 +89,7 @@
 {#snippet items(list: ListItem[])}{#each list as item, j (j)}<li
     class:task={item.done !== undefined}
     >{#if item.done !== undefined}<span class="box" class:on={item.done}
-      >{item.done ? '×' : ' '}</span
+      >{#if item.done}<Icon name="check" />{/if}</span
     >{/if}<Inline parts={item.segments} />{#if item.children}{#if item.childrenOrdered}<ol
         start={item.childrenStart ?? 1}>{@render items(item.children)}</ol
       >{:else}<ul>{@render items(item.children)}</ul>{/if}{/if}</li

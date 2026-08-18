@@ -92,8 +92,8 @@ describe('expansion state', () => {
   })
 
   it('points the chevron at the state', () => {
-    expect(chevron(true)).toBe('▾')
-    expect(chevron(false)).toBe('▸')
+    expect(chevron(true)).toBe('chevron-down')
+    expect(chevron(false)).toBe('chevron-right')
   })
 })
 

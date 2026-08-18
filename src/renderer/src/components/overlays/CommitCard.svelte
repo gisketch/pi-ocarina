@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte'
+  import Icon from '../Icon.svelte'
   import { commit } from '$lib/state/commit.svelte'
   import { branchLabel } from '$lib/git-format'
 
@@ -8,7 +9,10 @@
   // The card's own branch, not the workspace's: an isolated thread commits
   // into its own checkout, and a header naming the folder's branch would be
   // naming a tree this card is not about.
-  const branch = $derived(commit.branch ? `⑂ ${commit.branch}` : branchLabel(app.workspace.git))
+  const branch = $derived(commit.branch ?? branchLabel(app.workspace.git))
+  /** Only a thread with its own checkout wears the mark; the workspace's own
+   *  branch is where a commit lands by default and needs no badge. */
+  const isolated = $derived(commit.branch !== undefined && commit.branch !== null)
   const nothing = $derived(!commit.loading && commit.changes.length === 0)
 
   // Focused the moment editing starts: the key that opened the field and the
@@ -35,7 +39,7 @@
       {:else}
         <span class="message">{commit.message || 'no message yet'}</span>
       {/if}
-      <span class="branch"> {branch}</span>
+      <span class="branch">{#if isolated}<Icon name="branch" /> {/if}{branch}</span>
     </div>
 
     <div class="files">

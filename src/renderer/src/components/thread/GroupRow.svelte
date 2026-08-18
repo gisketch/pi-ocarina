@@ -1,5 +1,9 @@
 <script lang="ts">
   import { chevron, metaSegments } from '$lib/ledger'
+  import { groupNavId } from '$lib/blocks'
+  import { navTarget } from '$lib/state/block-focus.svelte'
+  import { toolOpen } from '$lib/state/tool-open.svelte'
+  import Icon from '../Icon.svelte'
   import type { RowGroup } from '$lib/ledger-groups'
   import type { ToolRow } from '$lib/thread'
 
@@ -15,11 +19,19 @@
   interface Props {
     group: RowGroup
     open: boolean
-    ontoggle: () => void
+    threadId: string
+    blockId: string
+    focusedNav: string | null
+    dimmed: boolean
     entry: import('svelte').Snippet<[ToolRow, boolean]>
   }
 
-  const { group, open, ontoggle, entry }: Props = $props()
+  const { group, open, threadId, blockId, focusedNav, dimmed, entry }: Props = $props()
+
+  // The group registers as its own stop, so `j` lands on it and `l` opens it.
+  // Its own component rather than the ledger's, because the wrapper and what
+  // goes in it are one thing.
+  const navId = $derived(groupNavId(blockId, group))
 
   // A live group draws open whatever the reader last chose: while a sweep is
   // running, the call in flight is the one thing they cannot be asked to
@@ -27,9 +39,15 @@
   const shown = $derived(open || group.live)
 </script>
 
-<div class="group" class:live={group.live}>
+<div
+  class="entry group"
+  class:live={group.live}
+  class:dim={dimmed && focusedNav !== navId}
+  class:lit={focusedNav === navId}
+  use:navTarget={{ threadId, navId }}
+>
   <span class="node" class:pulse={group.live}></span>
-  <button class="row" onclick={ontoggle}>
+  <button class="row" onclick={() => toolOpen.toggle(threadId, navId, false)}>
     <!-- The bare kind, never a tense. A group is a category of call, not one
          call that happened: `edited 2 calls` claims a single edit and reads as
          a grammatical mistake beside `read 4 calls`. -->
@@ -39,7 +57,7 @@
     <span class="meta">
       {#each metaSegments(group.meta) as segment, i (i)}<span class={segment.tone ?? ''}
         >{segment.text}</span
-      >{/each}<span class="chev"> {chevron(shown)}</span>
+      >{/each}<span class="chev"><Icon name={chevron(shown)} /></span>
     </span>
   </button>
 </div>
@@ -129,6 +147,7 @@
     color: var(--warn);
   }
   .chev {
+    margin-left: 4px;
     color: var(--fg-dimmest);
   }
 

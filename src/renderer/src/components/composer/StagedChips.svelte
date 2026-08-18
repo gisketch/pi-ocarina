@@ -6,6 +6,7 @@
    *  chips are drawn. The first is the sent message; keeping the shape here
    *  means the two cannot drift into looking like different ideas. */
   import { attachments } from '$lib/state/attachments.svelte'
+  import Icon from '../Icon.svelte'
   import { bridge } from '$lib/bridge'
 
   const chips = $derived(attachments.list)
@@ -24,14 +25,14 @@
                found. -->
           <img src={`file://${attachment.path}`} alt="" />
         {:else}
-          <span class="glyph">▤</span>
+          <span class="glyph"><Icon name="image" /></span>
         {/if}
         {attachment.name}
         <button
           type="button"
           class="act"
           aria-label="open {attachment.name}"
-          onclick={() => void bridge?.files.open(attachment.path)}>↗</button
+          onclick={() => void bridge?.files.open(attachment.path)}><Icon name="open" /></button
         >
         <button
           type="button"

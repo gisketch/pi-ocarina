@@ -12,6 +12,7 @@
   import { drawnChildren, hiddenUnder, kindsIn, pointableRows } from '$lib/ledger-rows'
   import { widestLabel } from '$lib/tool-label'
   import GroupRow from './GroupRow.svelte'
+  import Icon from '../Icon.svelte'
   import { groupRows, type RowGroup } from '$lib/ledger-groups'
   import { groupNavId } from '$lib/blocks'
 
@@ -120,7 +121,9 @@
         <span class="meta {metaTone(row)}">
           {#each metaSegments(row.meta) as segment, i (i)}<span class={segment.tone ?? ''}
             >{segment.text}</span
-          >{/each}{#if isExpandable(row)}<span class="chev"> {chevron(isOpen(row))}</span>{/if}
+          >{/each}{#if isExpandable(row)}<span class="chev"><Icon
+              name={chevron(isOpen(row))}
+            /></span>{/if}
         </span>
       {/if}
     </svelte:element>
@@ -159,20 +162,15 @@
 >
   {#each items as item (item.kind === 'group' ? `g:${item.id}` : item.row.id)}
     {#if item.kind === 'group'}
-      {@const navId = groupNavId(blockId, item)}
-      <div
-        class="entry"
-        class:dim={dimmed && focusedNav !== navId}
-        class:lit={focusedNav === navId}
-        use:navTarget={{ threadId, navId }}
-      >
-        <GroupRow
-          group={item}
-          open={groupOpen(item)}
-          ontoggle={() => toolOpen.toggle(threadId, navId, false)}
-          {entry}
-        />
-      </div>
+      <GroupRow
+        group={item}
+        open={groupOpen(item)}
+        {threadId}
+        {blockId}
+        {focusedNav}
+        {dimmed}
+        {entry}
+      />
     {:else}
       {@render entry(item.row, false)}
     {/if}
@@ -322,6 +320,7 @@
     color: var(--err);
   }
   .chev {
+    margin-left: 4px;
     color: var(--fg-dimmest);
   }
 

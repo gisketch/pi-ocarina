@@ -1,11 +1,12 @@
 <script lang="ts">
   import { toasts, type Toast, type ToastJump } from '$lib/state/toasts.svelte'
+  import Icon from './Icon.svelte'
 
   // The jump belongs to whoever already knows how to put a thread on screen;
   // a toast only says which thread it means.
   const { onview }: { onview: (jump: ToastJump) => void } = $props()
 
-  const MARK = { ok: '✓', info: '▪', ask: '?', error: '✗' } as const
+  const MARK = { ok: 'check', info: 'info', ask: 'warning', error: 'error' } as const
 
   function act(toast: Toast): void {
     if (toast.jump) onview(toast.jump)
@@ -17,7 +18,7 @@
 <div class="stack" role="status" aria-live="polite">
   {#each toasts.items as toast (toast.id)}
     <div class="toast {toast.tone}">
-      <span class="mark">{MARK[toast.tone]}</span>
+      <span class="mark"><Icon name={MARK[toast.tone]} /></span>
       <span class="text">{toast.text}</span>
       {#if toast.label}
         <button type="button" class="action" onclick={() => act(toast)}>{toast.label}</button>

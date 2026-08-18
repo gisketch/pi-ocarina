@@ -1,5 +1,6 @@
 <script lang="ts">
   import { asks, describeAnswer, type Flow } from '$lib/state/ask.svelte'
+  import Icon from '../Icon.svelte'
   import AskChoices from './AskChoices.svelte'
   import AskRecord from './AskRecord.svelte'
   import type { AskAnswer, AskOutcome, AskQuestion } from '$lib/thread'
@@ -71,7 +72,7 @@
       <span class="step">{flow.at + 1} / {questions.length}</span>
     {/if}
     <span class="status">
-      {#if outcome === 'answered'}answered ✓
+      {#if outcome === 'answered'}answered <Icon name="check" />
       {:else if outcome === 'cancelled'}answered in the composer
       {:else if outcome === 'ended'}unanswered — {reason ?? 'the turn ended'}
       {:else if focused}awaiting input

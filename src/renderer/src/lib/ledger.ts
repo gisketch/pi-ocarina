@@ -1,3 +1,4 @@
+import type { IconName } from './icons'
 import type { ToolRow, ToolStatus } from './thread'
 
 /** Semantic tone names; components map these to tokens. */
@@ -78,8 +79,11 @@ export function isExpandable(row: ToolRow): boolean {
   return row.body !== undefined
 }
 
-export function chevron(open: boolean): string {
-  return open ? '▾' : '▸'
+/** Which chevron a row wears. An icon name rather than a character: the two
+ *  triangles differed by platform font, and one of them was a different weight
+ *  from the other on every machine that had to substitute it. */
+export function chevron(open: boolean): IconName {
+  return open ? 'chevron-down' : 'chevron-right'
 }
 
 /** Rows carry their own default expansion; unknown ids fall back to closed. */

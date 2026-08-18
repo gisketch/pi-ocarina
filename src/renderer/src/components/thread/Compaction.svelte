@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte'
+
   interface Props {
     running: boolean
     beforePercent?: number
@@ -59,7 +61,8 @@
     {#if hidden > 0 && ontoggle}
       <div class="actions">
         <button type="button" onclick={ontoggle}>
-          {collapsed ? 'expand original ▸' : 'collapse original ▾'}
+          {collapsed ? 'expand original' : 'collapse original'}
+          <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} />
           <span class="count">{hidden} blocks</span>
         </button>
       </div>

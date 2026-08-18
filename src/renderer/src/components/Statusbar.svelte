@@ -1,5 +1,6 @@
 <script lang="ts">
   import GitSummary from './GitSummary.svelte'
+  import Icon from './Icon.svelte'
   import { app } from '$lib/state/app.svelte'
   import { askKeys } from '$lib/state/ask-keys.svelte'
   import { changes } from '$lib/state/changes.svelte'
@@ -79,7 +80,7 @@
 
   <div class="seg branch">
     {#if isolated}
-      <span class="worktree">⑂</span>
+      <span class="worktree"><Icon name="branch" /></span>
     {/if}
     <GitSummary status={isolated ? threadGit.statusOf(app.thread.id) : app.workspace.git} />
   </div>

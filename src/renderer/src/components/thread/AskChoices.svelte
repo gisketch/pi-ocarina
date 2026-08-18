@@ -1,5 +1,6 @@
 <script lang="ts">
   import { OTHER, type Flow } from '$lib/state/ask.svelte'
+  import Icon from '../Icon.svelte'
   import type { AskQuestion } from '$lib/thread'
 
   /** The rows of one question: its choices, its free-text option, or the field
@@ -47,7 +48,7 @@
         onclick={() => onpick(index)}
         aria-pressed={picked.includes(choice.id)}
       >
-        <span class="mark">{picked.includes(choice.id) ? '■' : '□'}</span>
+        <span class="mark"><Icon name={picked.includes(choice.id) ? 'box-done' : 'box'} /></span>
         <span class="body">
           <span class="title">{choice.title}</span>
           {#if choice.description}<span class="sub">{choice.description}</span>{/if}
@@ -58,7 +59,7 @@
     {#if question.allowOther}
       <div class="option other" class:on={flow.cursor === -1} class:picked={picked.includes(OTHER)}>
         <button type="button" class="mark" aria-label="something else" onclick={() => flow.other()}>
-          {picked.includes(OTHER) ? '■' : '□'}
+          <Icon name={picked.includes(OTHER) ? 'box-done' : 'box'} />
         </button>
         <span class="body">
           <span class="title">Something else</span>

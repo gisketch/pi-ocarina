@@ -1,5 +1,6 @@
 <script lang="ts">
   import { DRAWN_DIFF_LINES } from '$lib/ledger'
+  import Icon from '../Icon.svelte'
   import type { ToolBody } from '$lib/thread'
   import Prose from './md/Prose.svelte'
   import Picture from './md/Picture.svelte'
@@ -54,7 +55,7 @@
   <div class="panel todo">
     {#each body.items as item, i (i)}
       <div class:done={item.done}>
-        <span class="box">{item.done ? '▣' : '□'}</span>
+        <span class="box"><Icon name={item.done ? 'box-done' : 'box'} /></span>
         <span class="label">{item.text}</span>
       </div>
     {/each}

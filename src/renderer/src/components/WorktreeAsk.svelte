@@ -1,5 +1,6 @@
 <script lang="ts">
   import { worktreeAsk } from '$lib/state/worktree-ask.svelte'
+  import Icon from './Icon.svelte'
 
   // Keys are answered by the shell's modal gate, so this draws the question
   // and nothing else — one place decides what an answer means.
@@ -11,7 +12,7 @@
 {#if worktreeAsk.open}
   <div class="scrim">
     <div class="modal" role="dialog" aria-label="new worktree">
-      <div class="header">⑂ NEW THREAD</div>
+      <div class="header"><Icon name="branch" /> NEW THREAD</div>
 
       {#if !naming}
         <div class="message">Run this thread in a new worktree?</div>

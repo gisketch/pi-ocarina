@@ -1,5 +1,6 @@
 <script lang="ts">
   import { sweep } from '$lib/state/sweep.svelte'
+  import Icon from '../Icon.svelte'
 
   // Keys are answered by the shell's modal gate; this draws the list and
   // nothing else.
@@ -24,7 +25,7 @@
         {:else}
           {#each entries as entry, i (entry.path)}
             <div class="row" class:on={i === sweep.at}>
-              <span class="branch">⑂ {entry.branch}</span>
+              <span class="branch"><Icon name="branch" /> {entry.branch}</span>
               <span class="state">
                 {#if entry.live}<span class="live">thread open</span>{/if}
                 {#if entry.commits > 0}<span class="held">{entry.commits} commits</span>{/if}

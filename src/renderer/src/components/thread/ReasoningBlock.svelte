@@ -7,6 +7,7 @@
    *  where the model's head is while it is still there — and expanded it shows
    *  the whole thought, plain. No markdown: reasoning styled like an answer
    *  competes with the answer. */
+  import Icon from '../Icon.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
 
   interface Props {
@@ -33,7 +34,7 @@
     {#if streaming}
       <span class="mark"></span>
     {:else}
-      <span class="chev">{open ? '▾' : '▸'}</span>
+      <span class="chev"><Icon name={open ? 'chevron-down' : 'chevron-right'} /></span>
     {/if}
     <span class="word">REASONING</span>
     {#if streaming}
