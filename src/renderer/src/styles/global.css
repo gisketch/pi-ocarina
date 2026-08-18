@@ -16,14 +16,16 @@
   box-sizing: border-box;
 }
 
-/* Nothing in this app draws an edge — but a `<button>` does, by default, in
-   2px of the UA's own `buttonborder`. That is the one border nobody writes,
-   and it reappears the moment a component stops declaring one of its own. It
-   is turned off once, here, rather than remembered in forty style blocks. */
+/* Nothing in this app draws an edge — but a control does, by default: 2px of
+   the UA's own `buttonborder`, and under `appearance: auto` a native bevel
+   painted over whatever fill the component gave it. That bevel is what made
+   every filled button read as embossed once the borders came off. Both are
+   turned off once, here, rather than remembered in forty style blocks. */
 button,
 input,
 textarea,
 select {
+  appearance: none;
   border: none;
 }
 
