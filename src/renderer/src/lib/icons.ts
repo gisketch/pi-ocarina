@@ -80,6 +80,17 @@ import ruby from 'simple-icons/icons/ruby.svg?raw'
 import php from 'simple-icons/icons/php.svg?raw'
 import markdown from 'simple-icons/icons/markdown.svg?raw'
 // Phosphor, for the gap named at `box` below.
+// The file kinds a picker meets that are not a programming language: a
+// screenshot, a PDF, an archive, a lock file, a note. Codicons has a mark for
+// each, so the fallback is only ever reached by something genuinely unusual.
+import filePdf from '@vscode/codicons/src/icons/file-pdf.svg?raw'
+import fileZip from '@vscode/codicons/src/icons/file-zip.svg?raw'
+import fileText from '@vscode/codicons/src/icons/file-text.svg?raw'
+import fileBinary from '@vscode/codicons/src/icons/file-binary.svg?raw'
+import gear from '@vscode/codicons/src/icons/gear.svg?raw'
+import lock from '@vscode/codicons/src/icons/lock.svg?raw'
+
+import { langOf } from '../../../shared/lang-of'
 import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
 import squareFilled from '@phosphor-icons/core/assets/fill/square-fill.svg?raw'
 
@@ -138,6 +149,15 @@ export const ICONS = {
   'lang-ruby': ruby,
   'lang-php': php,
   'lang-markdown': markdown,
+
+  // File kinds that are not a language. The picker reaches for these after
+  // `lang-*`, so a `.ts` is still TypeScript and a `.png` is still a picture.
+  'file-pdf': filePdf,
+  'file-zip': fileZip,
+  'file-text': fileText,
+  'file-binary': fileBinary,
+  'file-config': gear,
+  'file-lock': lock,
 } as const
 
 export type IconName = keyof typeof ICONS
@@ -189,4 +209,80 @@ export function langIcon(lang: string): IconName | null {
   if (lang === '') return null
   const name = `lang-${LANG_ALIAS[lang] ?? lang}`
   return isIcon(name) ? name : null
+}
+
+/** The mark for a file that is not a programming language, by extension.
+ *
+ *  `langOf` answers for code and says nothing for everything else, which in a
+ *  file picker is most of what a repository holds. These are the kinds a
+ *  reader actually meets there. */
+const BY_KIND: Readonly<Record<string, IconName>> = {
+  png: 'image',
+  jpg: 'image',
+  jpeg: 'image',
+  gif: 'image',
+  webp: 'image',
+  avif: 'image',
+  svg: 'image',
+  ico: 'image',
+  pdf: 'file-pdf',
+  zip: 'file-zip',
+  gz: 'file-zip',
+  tgz: 'file-zip',
+  tar: 'file-zip',
+  txt: 'file-text',
+  rtf: 'file-text',
+  doc: 'file-text',
+  docx: 'file-text',
+  log: 'file-text',
+  csv: 'file-text',
+  sh: 'tool-bash',
+  bash: 'tool-bash',
+  zsh: 'tool-bash',
+  fish: 'tool-bash',
+  env: 'file-config',
+  ini: 'file-config',
+  cfg: 'file-config',
+  conf: 'file-config',
+  lock: 'file-lock',
+  wasm: 'file-binary',
+  woff: 'file-binary',
+  woff2: 'file-binary',
+  ttf: 'file-binary',
+  otf: 'file-binary',
+}
+
+/** Whole names that carry more meaning than their extension does. */
+const BY_NAME: Readonly<Record<string, IconName>> = {
+  dockerfile: 'file-config',
+  makefile: 'file-config',
+  '.gitignore': 'file-config',
+  '.env': 'file-config',
+  '.npmrc': 'file-config',
+  'package-lock.json': 'file-lock',
+  'pnpm-lock.yaml': 'file-lock',
+  'yarn.lock': 'file-lock',
+  'cargo.lock': 'file-lock',
+}
+
+/** The mark beside a path in a picker.
+ *
+ *  Language first, so a `.ts` wears TypeScript's mark rather than a generic
+ *  page; then the kinds above; then a plain file, which is an honest answer
+ *  for something this app has never heard of. */
+export function fileIcon(path: string): IconName {
+  const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+  const base = (slash === -1 ? path : path.slice(slash + 1)).toLowerCase()
+
+  const whole = BY_NAME[base]
+  if (whole) return whole
+
+  const lang = langIcon(langOf(path))
+  if (lang) return lang
+
+  const dot = base.lastIndexOf('.')
+  // A dotfile is not an extension: `.gitignore` is the whole name, and it was
+  // asked for above.
+  if (dot <= 0) return 'file'
+  return BY_KIND[base.slice(dot + 1)] ?? 'file'
 }

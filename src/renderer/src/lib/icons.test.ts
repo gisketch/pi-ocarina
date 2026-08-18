@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ICONS, iconSvg, isIcon, toolIcon, type IconName } from './icons'
+import { fileIcon, ICONS, iconSvg, isIcon, toolIcon, type IconName } from './icons'
 
 const names = Object.keys(ICONS) as IconName[]
 
@@ -50,5 +50,32 @@ describe('the mark a row wears', () => {
 
   it('names an icon for a tool it has never heard of', () => {
     expect(toolIcon('whatever')).toBe('tool-raw')
+  })
+})
+
+describe('the mark beside a path', () => {
+  it('wears the language when the file has one', () => {
+    expect(fileIcon('src/lib/thing.ts')).toBe('lang-ts')
+    expect(fileIcon('App.svelte')).toBe('lang-svelte')
+    expect(fileIcon('a/b/main.py')).toBe('lang-python')
+  })
+
+  it('knows the kinds that are not a language', () => {
+    expect(fileIcon('docs/shot.png')).toBe('image')
+    expect(fileIcon('notes.txt')).toBe('file-text')
+    expect(fileIcon('paper.pdf')).toBe('file-pdf')
+    expect(fileIcon('build.tar.gz')).toBe('file-zip')
+    expect(fileIcon('scripts/check.sh')).toBe('tool-bash')
+  })
+
+  it('reads a whole name that says more than its extension', () => {
+    expect(fileIcon('pnpm-lock.yaml')).toBe('file-lock')
+    expect(fileIcon('Dockerfile')).toBe('file-config')
+    expect(fileIcon('.gitignore')).toBe('file-config')
+  })
+
+  it('falls back to a plain file rather than guessing', () => {
+    expect(fileIcon('LICENSE')).toBe('file')
+    expect(fileIcon('weird.qqq')).toBe('file')
   })
 })

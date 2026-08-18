@@ -148,12 +148,15 @@ describe('the workspace’s skills', () => {
     // in a `<skill>` block before the model sees anything. The app sends the
     // name it shows and invents nothing.
     const skills = allSlash([], { skills: SKILLS })
-    expect(skills.map((one) => one.name)).toContain('/skill:reviewer')
-    expect(skills.find((one) => one.name === '/skill:handoff')?.prompt).toBe('/skill:handoff')
+    // Typed as `/reviewer`, drawn as `reviewer`, sent as `/skill:reviewer`.
+    const one = skills.find((entry) => entry.name === '/reviewer')
+    expect(one?.label).toBe('reviewer')
+    expect(one?.prompt).toBe('/skill:reviewer')
+    expect(skills.find((entry) => entry.name === '/handoff')?.prompt).toBe('/skill:handoff')
   })
 
   it('offers the ones the model cannot load itself, and says so', () => {
-    const only = allSlash([], { skills: SKILLS }).find((one) => one.name === '/skill:handoff')
+    const only = allSlash([], { skills: SKILLS }).find((one) => one.name === '/handoff')
     expect(only?.explicitOnly).toBe(true)
   })
 
@@ -164,11 +167,24 @@ describe('the workspace’s skills', () => {
 
   it('finds one by the part of its name a reader remembers', () => {
     expect(filterSlash('review', [], { skills: SKILLS }).map((one) => one.name)).toContain(
-      '/skill:reviewer',
+      '/reviewer',
     )
   })
 
   it('is absent when the workspace loaded none', () => {
     expect(allSlash(PROJECT).some((one) => one.id === 'skill')).toBe(false)
+  })
+
+  it('resolves a typed name to the skill, not to a prefix nobody types', () => {
+    expect(resolveSlash('/handoff', [], { skills: SKILLS })?.prompt).toBe('/skill:handoff')
+  })
+
+  it('lets a project command of the same name win, as a built-in does', () => {
+    // The precedence the menu already states: the app's, then the
+    // repository's, then a skill. A skill cannot capture a name a reader has
+    // learnt means something else.
+    const clash = [{ name: 'ship', description: 'the project’s', source: 'project' as const, path: 'x' }]
+    const skill = [{ ...SKILLS[0], name: 'ship' }]
+    expect(resolveSlash('/ship', clash, { skills: skill })?.id).toBe('project')
   })
 })

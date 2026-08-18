@@ -68,7 +68,10 @@ export function completions(deps: CompletionDeps) {
   const paths = $derived(
     mention === null
       ? []
-      : fuzzyFilter(files.files(app.workspace.id), mention.query, (path) => path).slice(0, 8),
+      : // The menu scrolls, so this is a bound on how far a fuzzy match is
+        // worth chasing rather than on what fits: past a few dozen the reader
+        // types another letter instead of scrolling.
+        fuzzyFilter(files.files(app.workspace.id), mention.query, (path) => path).slice(0, 40),
   )
 
   // One menu at a time. A slash only ever opens at position 0 and a mention

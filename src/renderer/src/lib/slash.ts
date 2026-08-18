@@ -1,4 +1,5 @@
 import { fuzzyFilter } from './fuzzy'
+import type { IconName } from './icons'
 import type { ProjectCommand, ProjectSkill, SurfaceSource } from '../../../shared/project-surface'
 
 export type SlashId =
@@ -16,7 +17,15 @@ export type SlashSource = 'built-in' | SurfaceSource
 
 export interface SlashCommand {
   id: SlashId
+  /** What the reader types to name it, and what the menu matches on. */
   name: string
+  /** What the menu draws, when that is not the name. A skill is `humanizer`
+   *  on screen: the `/` is the key that opened the menu and `skill:` is pi's
+   *  namespace, and neither is part of what the reader is looking for. */
+  label?: string
+  /** The mark beside it, so a skill and a command are told apart at a glance
+   *  rather than by reading a prefix. */
+  icon?: IconName
   description: string
   source: SlashSource
   /** For a project command or a skill: the text sent to pi, which expands it
@@ -66,6 +75,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 export function projectEntries(commands: readonly ProjectCommand[]): SlashCommand[] {
   return commands.map((command) => ({
     id: 'project' as const,
+    icon: 'tool-todo' as const,
     name: `/${command.name}`,
     description: command.description,
     source: command.source,
@@ -95,7 +105,12 @@ const NEEDS_THREAD: ReadonlySet<string> = new Set(['compact', 'reload'])
 export function skillEntries(skills: readonly ProjectSkill[]): SlashCommand[] {
   return skills.map((skill) => ({
     id: 'skill' as const,
-    name: `/skill:${skill.name}`,
+    // Matched and typed as `/name`, drawn as `name`, sent as `/skill:name`.
+    // Three forms because they answer three questions: what a reader reaches
+    // for, what they read, and what pi expands.
+    name: `/${skill.name}`,
+    label: skill.name,
+    icon: 'tool-skill' as const,
     description: skill.description,
     source: skill.source,
     prompt: `/skill:${skill.name}`,
