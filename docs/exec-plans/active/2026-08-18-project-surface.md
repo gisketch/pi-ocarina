@@ -135,3 +135,14 @@ card at `auto` and a write inside the workspace does not.
 ## Order
 
 `P1 → P2`, `P1 → P4`, `P1 → P5`. `P3` is independent and can go first.
+
+## Review — 2026-08-18
+
+One P1 shared with the chat-modes plan: `/reload` re-read the files and the
+agent kept running on the skills and instructions it was born with, because pi
+caches the assembled prompt. Fixed in `reloadResources`.
+
+Two smaller ones: pi emits several diagnostics carrying the same path, which
+collided as `{#each}` keys, and every project command carries the id `project`,
+so the slash menu's rows collided the moment a workspace defined two.
+

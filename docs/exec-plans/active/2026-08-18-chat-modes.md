@@ -103,3 +103,24 @@ referenced mode clears both pointers.
 ## Order
 
 `M1 → M2 → M3`, with `M4` free after `M1`.
+
+## Review — 2026-08-18
+
+Two P1s in this plan, both about a claim that was true at construction and false
+afterwards.
+
+**pi caches the assembled system prompt.** `appendSystemPromptOverride` runs
+inside `DefaultResourceLoader.reload()`, but the session snapshots the result
+and rebuilds it in only two places — neither of them a bare loader reload. So a
+voice reached a new thread and never reached a running one, and the picker said
+it had changed something that had not. `reloadResources` now asks pi to
+reassemble the prompt, and changing a voice re-reads that thread.
+
+**Seeding shared a marker with the roles.** Every catalog that predates modes
+carries `seeded: true`, so `seedOnce` returned before writing them: no existing
+install would have seen `terse`, which is the one case seeding exists for.
+
+Both were invisible to the suite, and both are pinned now — including a test
+that stands where the options are handed to pi, since "the voice is in the
+system prompt" is the whole argument for the feature.
+

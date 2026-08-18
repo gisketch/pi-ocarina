@@ -157,3 +157,34 @@ mid-turn reload is refused.
 
 `K1` first. Then `K2`, `K3`, `K5` in parallel. `K4` after `K3`, `K6` after `K5`,
 `K7` last.
+
+## Review — 2026-08-18
+
+64 agents over five dimensions, 59 claims, 44 confirmed after an adversarial
+verify pass. Every confirmed finding is fixed, except one that was answered by
+amending the spec instead.
+
+The P0 was in this plan's own K5. A written `allow` matched by prefix, so
+`allow bash "pnpm test"` covered `pnpm test && rm -rf .git`, and
+`allow bash "echo"` covered `echo x > /repo/.env`. The gate's `ruleKey` already
+refused to key a remembered approval on a compound command for exactly that
+reason; the written path had regressed the guarantee. An allow now covers a
+single simple command whose every word stays inside the workspace and touches
+nothing protected.
+
+Worth carrying forward:
+
+- **`turn.start` never ran.** It parsed, it was listed in Settings as loaded,
+  and no code path fired it. Three tests named the point and all three called
+  the runner directly, which proved the filter and not the wiring.
+  `subscribeSession` had no test at all — that is why it shipped.
+- **A spread over a `KeyboardEvent` loses its modifiers.** `metaKey` and friends
+  are prototype accessors. The remap handed the reducer an event that looked
+  unmodified, defeating the guard that ignores modifier chords.
+- **`FIXED_KEYS` protected the wrong keys.** `:` and `v`, which nothing reads,
+  while the leader's own space bar was free to be taken.
+- **The spec's "the footer waits for turn.end hooks" was not implemented and
+  should not be.** pi emits a turn's terminal state synchronously from the
+  subscription, so waiting would hold the turn's outcome open until a reader's
+  script finished. Amended in the spec, with the cost stated.
+
