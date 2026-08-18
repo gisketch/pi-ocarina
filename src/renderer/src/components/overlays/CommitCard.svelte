@@ -105,7 +105,6 @@
     max-height: 70vh;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--line-strong);
     background: var(--bg-panel);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
@@ -115,7 +114,7 @@
     align-items: center;
     gap: 9px;
     padding: 9px 12px;
-    border-bottom: 1px solid var(--line);
+    background: var(--bg-header);
   }
   .what {
     font-family: var(--font-chrome);
@@ -132,12 +131,13 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Being written in is the field going accent — a bar under the words was
+     the only thing left drawing a line in this card. */
   .message.editing {
     border: none;
-    border-bottom: 1px solid var(--accent);
-    background: none;
+    background: var(--accent-soft);
     font-family: inherit;
-    padding: 0 0 2px;
+    padding: 1px 5px;
     outline: none;
   }
   .branch {
@@ -207,15 +207,15 @@
     display: flex;
     gap: 14px;
     padding: 9px 12px;
-    border-top: 1px solid var(--line);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     color: var(--fg-dimmest);
   }
   .key {
     color: var(--fg-muted);
-    border: 1px solid var(--line-strong);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
   }
   .running {
     margin-left: auto;

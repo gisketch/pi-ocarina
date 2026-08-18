@@ -135,8 +135,7 @@
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding: 5px 7px;
-    border: 1px solid transparent;
+    padding: 6px 8px;
     background: transparent;
     font: inherit;
     font-size: 11.5px;
@@ -145,7 +144,7 @@
     width: 100%;
   }
   .row.on {
-    border-color: var(--accent-soft);
+    background: var(--accent-soft);
   }
   .row.tall {
     align-items: flex-start;
@@ -157,9 +156,9 @@
   }
   .value {
     flex: 1;
-    padding: 3px 6px;
-    border: 1px solid var(--line-mid);
-    background: transparent;
+    padding: 4px 7px;
+    border: none;
+    background: rgba(255, 255, 255, 0.05);
     font: inherit;
     font-size: 11px;
     color: var(--fg-bright);
@@ -167,7 +166,7 @@
   }
   .value:focus {
     outline: none;
-    border-color: var(--accent-soft);
+    background: var(--accent-soft);
   }
   .tools {
     display: flex;
@@ -190,8 +189,7 @@
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding-top: 6px;
-    border-top: 1px solid var(--line-mid);
+    padding-top: 10px;
   }
   .hint {
     color: var(--fg-dimmer);
@@ -199,8 +197,8 @@
   }
   .primary,
   .ghost {
-    border: 1px solid var(--line-strong);
-    background: transparent;
+    border: none;
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.15);
     font: inherit;
     font-size: 10.5px;
     padding: 3px 9px;
@@ -209,5 +207,6 @@
   }
   .ghost {
     color: var(--fg-dim);
+    background: rgba(255, 255, 255, 0.06);
   }
 </style>

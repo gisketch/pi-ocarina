@@ -99,7 +99,6 @@
 <style>
   .panel {
     width: 560px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
   }
 
@@ -157,6 +156,6 @@
   }
 
   .foot {
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
   }
 </style>

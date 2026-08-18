@@ -201,7 +201,6 @@
     gap: 10px;
     padding: 14px 16px;
     background: var(--bg-panel);
-    border: 1px solid var(--line-strong);
     font-size: 11.5px;
     color: var(--fg-body);
   }
@@ -227,8 +226,7 @@
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding: 5px 7px;
-    border: 1px solid transparent;
+    padding: 6px 8px;
     background: transparent;
     font: inherit;
     font-size: 11.5px;
@@ -244,7 +242,7 @@
   }
   .entry.on,
   .row.on {
-    border-color: var(--accent-soft);
+    background: var(--accent-soft);
   }
   .row.pool {
     align-items: flex-start;
@@ -263,9 +261,9 @@
   }
   .value {
     flex: 1;
-    padding: 3px 6px;
-    border: 1px solid var(--line-mid);
-    background: transparent;
+    padding: 4px 7px;
+    border: none;
+    background: rgba(255, 255, 255, 0.05);
     font: inherit;
     font-size: 11px;
     color: var(--fg-bright);
@@ -273,14 +271,13 @@
   }
   .value:focus {
     outline: none;
-    border-color: var(--accent-soft);
+    background: var(--accent-soft);
   }
   .foot {
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding-top: 6px;
-    border-top: 1px solid var(--line-mid);
+    padding-top: 10px;
   }
   .primary {
     color: var(--fg-dim);

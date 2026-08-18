@@ -124,7 +124,6 @@
 
   .keymap {
     width: var(--column-w);
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     padding: 26px 30px;
     animation: rise 0.2s ease;

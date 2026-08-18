@@ -63,8 +63,8 @@
 <style>
   .imposed {
     margin-top: 12px;
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
+    background: var(--bg-raise-3);
+    padding: 10px;
   }
 
   .banner {

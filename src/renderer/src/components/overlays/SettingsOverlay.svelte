@@ -166,7 +166,6 @@
 <style>
   .settings {
     width: 540px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     animation: rise 0.2s ease;
   }
@@ -176,15 +175,15 @@
     align-items: center;
     gap: 9px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-size: 10px;
     letter-spacing: 0.14em;
     color: var(--fg-dim);
   }
   .chip {
     margin-left: auto;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
     color: var(--fg-dimmest);
     letter-spacing: 0;
   }
@@ -206,17 +205,13 @@
     cursor: pointer;
     color: var(--fg-agent);
     border: none;
-    border-left: 2px solid transparent;
     background: none;
     font-family: var(--font-body);
     font-size: 12px;
-    transition:
-      background-color 0.15s,
-      border-color 0.15s;
+    transition: background 0.15s;
   }
   .row.selected {
-    border-left-color: var(--accent);
-    background: var(--bg-hover);
+    background: var(--accent-soft);
   }
 
   .value {
@@ -239,7 +234,7 @@
     display: flex;
     gap: 14px;
     padding: 10px 20px;
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-size: 10px;
     color: var(--fg-dimmest);
   }

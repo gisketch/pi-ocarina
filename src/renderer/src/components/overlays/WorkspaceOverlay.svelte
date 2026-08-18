@@ -192,7 +192,6 @@
 <style>
   .screen {
     width: 560px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
     animation: rise 0.2s ease;
   }
@@ -202,7 +201,7 @@
     align-items: center;
     gap: 9px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.14em;
@@ -238,17 +237,13 @@
     cursor: pointer;
     color: var(--fg-agent);
     border: none;
-    border-left: 2px solid transparent;
     background: none;
     font-family: var(--font-body);
     font-size: 12px;
-    transition:
-      background-color 0.15s,
-      border-color 0.15s;
+    transition: background 0.15s;
   }
   .row.selected {
-    border-left-color: var(--accent);
-    background: var(--bg-hover);
+    background: var(--accent-soft);
   }
   /* A server row means nothing while the workspace switch is off; it is still
      shown, because that is where the reader looks to find out what would run. */
@@ -302,7 +297,7 @@
     display: flex;
     gap: 14px;
     padding: 10px 20px;
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     color: var(--fg-dimmest);

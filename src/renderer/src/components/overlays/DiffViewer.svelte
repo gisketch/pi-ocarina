@@ -108,7 +108,6 @@
     display: grid;
     grid-template-columns: minmax(200px, 300px) 1fr;
     background: var(--bg-float);
-    border: 1px solid var(--line);
     box-shadow: 0 24px 64px rgb(0 0 0 / 55%);
     overflow: hidden;
   }
@@ -119,14 +118,16 @@
     min-width: 0;
     overflow: hidden;
   }
+  /* The file list is a step down from the diff beside it — that step is the
+     only thing separating the two panes. */
   .files {
-    border-right: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.025);
   }
-  /* Which pane has the keys, said quietly. A border rather than a glow: the
-     reader is reading code, and the surface should not compete with it. */
+  /* Which pane has the keys, said quietly: its name strip goes accent. The
+     reader is reading code, and the surface must not compete with it. */
   .pane.focused .head {
     color: var(--accent);
-    border-bottom-color: var(--accent-soft);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
   }
 
   .head {
@@ -134,7 +135,7 @@
     align-items: baseline;
     gap: 8px;
     padding: 9px 12px;
-    border-bottom: 1px solid var(--line);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.1em;
@@ -245,11 +246,15 @@
     color: var(--err-text);
     background: var(--err-soft);
   }
-  /* The line under the cursor. An outline rather than a fill, so the add and
-     delete tints underneath it stay readable. */
+  /* The line under the cursor. `background-image` and not `background`: the
+     add and delete tints are background colours, and a second colour would
+     replace the one saying what kind of line this is. An image layers over it
+     instead, so the row brightens and stays green or red underneath. */
   .dline.on {
-    outline: 1px solid var(--accent);
-    outline-offset: -1px;
+    background-image: linear-gradient(
+      oklch(0.76 0.14 var(--accent-hue) / 0.18),
+      oklch(0.76 0.14 var(--accent-hue) / 0.18)
+    );
   }
   .num {
     display: inline-block;

@@ -152,13 +152,12 @@
 <style>
   .screen {
     width: 560px;
-    border: 1px solid rgba(255, 255, 255, 0.055);
     background: var(--bg-panel);
   }
 
   .head {
     padding: 14px 20px;
-    border-bottom: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.14em;
@@ -230,7 +229,7 @@
     width: 100%;
     padding: 6px 8px;
     background: var(--bg-chip);
-    border: 1px solid var(--line);
+    border: none;
     border-radius: 3px;
     color: var(--fg);
     font: inherit;
@@ -246,6 +245,6 @@
   }
 
   .foot {
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
   }
 </style>

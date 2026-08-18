@@ -115,8 +115,8 @@
 <style>
   .imposed {
     margin-top: 14px;
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
+    background: var(--bg-raise-3);
+    padding: 10px;
   }
 
   .banner {
@@ -155,8 +155,7 @@
     font-size: 10px;
     letter-spacing: 0.14em;
     color: var(--fg-dimmest);
-    padding: 14px 2px 5px;
-    border-bottom: 1px solid var(--line-faint);
+    padding: 14px 8px 5px;
     margin-bottom: 3px;
   }
 
