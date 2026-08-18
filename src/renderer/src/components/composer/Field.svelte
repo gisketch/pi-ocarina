@@ -14,6 +14,8 @@
     folds: readonly Fold[]
     /** Names of files staged for this message, drawn as chips. */
     files?: readonly string[]
+    /** Skill names this workspace loaded, so `/name` can be told from a path. */
+    skills?: readonly string[]
     element?: HTMLTextAreaElement | null
     placeholder: string
     onkeydown: (event: KeyboardEvent) => void
@@ -29,6 +31,7 @@
     value = $bindable(),
     folds,
     files = [],
+    skills = [],
     element = $bindable(null),
     placeholder,
     onkeydown,
@@ -45,7 +48,7 @@
 </script>
 
 <div class="field">
-  <Mirror text={value} {folds} {files} scrollTop={scrolled} />
+  <Mirror text={value} {folds} {files} {skills} scrollTop={scrolled} />
   <textarea
     bind:this={element}
     bind:value

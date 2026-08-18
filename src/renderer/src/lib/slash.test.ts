@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { allSlash, applySlash, filterSlash, resolveSlash, SLASH_COMMANDS, slashAt } from './slash'
+import {
+  allSlash,
+  applySlash,
+  filterSlash,
+  resolveSlash,
+  skillBackspace,
+  skillsSaid,
+  SLASH_COMMANDS,
+  slashAt,
+} from './slash'
 import type { ProjectCommand } from '../../../shared/project-surface'
 
 describe('the `/` token under the caret', () => {
@@ -60,13 +69,9 @@ describe('writing a skill into a sentence', () => {
     const token = slashAt(text, 14)!
     const next = applySlash(text, token, SKILL)
 
-    expect(next.text).toBe('this is /skill:humanizer  and more')
-    expect(next.text.slice(0, next.caret)).toBe('this is /skill:humanizer ')
-  })
-
-  it('sends what pi expands, not what the menu drew', () => {
-    const next = applySlash('/hum', slashAt('/hum', 4)!, SKILL)
-    expect(next.text.trim()).toBe('/skill:humanizer')
+    // The name, not pi's syntax: a chip should read as the thing it names.
+    expect(next.text).toBe('this is /humanizer  and more')
+    expect(next.text.slice(0, next.caret)).toBe('this is /humanizer ')
   })
 })
 
@@ -226,5 +231,38 @@ describe('the workspace’s skills', () => {
     const clash = [{ name: 'ship', description: 'the project’s', source: 'project' as const, path: 'x' }]
     const skill = [{ ...SKILLS[0], name: 'ship' }]
     expect(resolveSlash('/ship', clash, { skills: skill })?.id).toBe('project')
+  })
+})
+
+describe('a skill in the sentence, on the way out', () => {
+  const NAMES = ['humanizer', 'reviewer']
+
+  it('becomes pi’s own syntax, everywhere it was named', () => {
+    expect(skillsSaid('this is /humanizer and /reviewer', NAMES)).toBe(
+      'this is /skill:humanizer and /skill:reviewer',
+    )
+  })
+
+  it('leaves a slash that names no skill exactly as it was typed', () => {
+    expect(skillsSaid('look at src/lib and /tmp', NAMES)).toBe('look at src/lib and /tmp')
+  })
+
+  it('leaves a message with none of them untouched', () => {
+    expect(skillsSaid('plain words', NAMES)).toBe('plain words')
+  })
+})
+
+describe('deleting a skill chip', () => {
+  const NAMES = ['humanizer']
+
+  it('takes the whole chip, not one character of it', () => {
+    const text = 'this is /humanizer'
+    expect(skillBackspace(text, text.length, NAMES)).toEqual({ text: 'this is ', caret: 8 })
+  })
+
+  it('does nothing when the caret is not just after one', () => {
+    const text = 'this is /humanizer more'
+    expect(skillBackspace(text, text.length, NAMES)).toBeNull()
+    expect(skillBackspace(text, 12, NAMES)).toBeNull()
   })
 })

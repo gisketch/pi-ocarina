@@ -9,7 +9,7 @@
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
   import { menuKey } from '$lib/composer-menu'
-  import type { SlashCommand } from '$lib/slash'
+  import { skillBackspace, skillsSaid, type SlashCommand } from '$lib/slash'
   import { attachments } from '$lib/state/attachments.svelte'
   import { nameAt, pasting } from '$lib/state/pasting.svelte'
   import { following } from '$lib/state/following.svelte'
@@ -65,6 +65,11 @@
   })
 
   const insert = $derived(focused && app.mode === 'INSERT')
+
+  /** The skill names this workspace loaded. Three things ask "is this a
+   *  skill?": the mirror's chips, the backspace that removes one whole, and
+   *  the swap into pi's syntax on the way out. */
+  const skillNames = $derived(projectSurface.surface.skills.map((skill) => skill.name))
 
   const menus = completions({
     text: () => text,
@@ -132,7 +137,10 @@
       const went = await sendMessage(text, {
         runState,
         targetThread,
-        expand: (said) => pasting.expand(said),
+        // Folds put back, then the readable `/name` written as pi's
+        // `/skill:name`. Both are the same idea: the field holds what reads
+        // best and this is where it becomes what the backend needs.
+        expand: (said) => skillsSaid(pasting.expand(said), skillNames),
         attachments: () => attachments.list,
         prompt: (threadId, said, files) => threads.prompt(threadId, said, files),
         steer: (threadId, said) => threads.steer(threadId, said),
@@ -178,7 +186,10 @@
     // dropped the paste and left its characters behind as literal text.
     if (event.key === 'Backspace' && input?.selectionStart === input?.selectionEnd) {
       const caret = input?.selectionStart ?? 0
-      const cut = pasting.backspace(text, caret) ?? attachments.backspace(text, caret)
+      const cut =
+        pasting.backspace(text, caret) ??
+        attachments.backspace(text, caret) ??
+        skillBackspace(text, caret, skillNames)
       if (cut) {
         event.preventDefault()
         void applyToField(cut)
@@ -253,6 +264,7 @@
       bind:element={input}
       folds={pasting.folds}
       files={attachments.names}
+      skills={skillNames}
       placeholder="Message pi in {app.workspace.name}…  (i to focus)"
       {onkeydown}
       {onpaste}

@@ -33,6 +33,9 @@
      *  drawn as a chip — the file *is* where the reader typed it, so it does
      *  not need a row of its own above the composer. */
     files = [],
+    /** Names of skills this workspace loaded. A `/name` in the text is a chip
+     *  only when a skill answers to it — otherwise it is a path. */
+    skills = [],
     /** How far the real field has scrolled.
      *
      *  The mirror has to follow it exactly. A composer taller than its box
@@ -44,10 +47,11 @@
     text: string
     folds: readonly Fold[]
     files?: readonly string[]
+    skills?: readonly string[]
     scrollTop?: number
   } = $props()
 
-  const parts = $derived(segment(text, folds, files))
+  const parts = $derived(segment(text, folds, files, skills))
 
   let box = $state<HTMLDivElement | null>(null)
 
@@ -82,11 +86,13 @@
     overflow: hidden;
   }
 
-  /* Every chip is one class, and none of it occupies space.
-     `box-shadow` with a spread paints *outside* the layout box, so the pill
-     has breathing room on both sides while every glyph stays exactly where
-     the textarea put it — which is the whole contract this file rests on.
-     Padding would have moved them, and the caret with them. */
+  /* Every chip is one class, and none of it occupies space. The pad is a
+     `box-shadow` spread and the ring is an `outline` at the same offset: both
+     paint *outside* the layout box, so the pill has breathing room while every
+     glyph stays exactly where the textarea put it — the contract this whole
+     file rests on. Padding would have moved them, and the caret with them.
+     Two pixels, not four: a space between two chips is one monospace cell,
+     and a wider pad made neighbours overlap. */
   .file,
   .mention,
   .fold,
@@ -100,17 +106,17 @@
   .file,
   .mention {
     color: var(--accent);
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.1);
-    box-shadow:
-      0 0 0 3px oklch(0.76 0.14 var(--accent-hue) / 0.1),
-      0 0 0 4px oklch(0.76 0.14 var(--accent-hue) / 0.3);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.12);
+    box-shadow: 0 0 0 2px oklch(0.76 0.14 var(--accent-hue) / 0.12);
+    outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.3);
+    outline-offset: 2px;
   }
   .fold {
     color: var(--fg-dim);
     background: var(--bg-hover);
-    box-shadow:
-      0 0 0 3px var(--bg-hover),
-      0 0 0 4px var(--line-strong);
+    box-shadow: 0 0 0 2px var(--bg-hover);
+    outline: 1px solid var(--line-strong);
+    outline-offset: 2px;
   }
 
   /* A skill. Its own colour rather than the accent, because it is a different
@@ -118,10 +124,10 @@
      agent should go about it. */
   .skill {
     color: var(--warn);
-    background: var(--warn-soft);
-    box-shadow:
-      0 0 0 3px var(--warn-soft),
-      0 0 0 4px oklch(0.84 0.12 85 / 0.3);
+    background: oklch(0.84 0.12 85 / 0.12);
+    box-shadow: 0 0 0 2px oklch(0.84 0.12 85 / 0.12);
+    outline: 1px solid oklch(0.84 0.12 85 / 0.3);
+    outline-offset: 2px;
   }
 
   /* The mark, painted over the token's own leading punctuation.

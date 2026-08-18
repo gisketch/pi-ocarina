@@ -183,7 +183,10 @@ export function applySlash(
   token: SlashToken,
   command: SlashCommand,
 ): { text: string; caret: number } {
-  const inserted = `${command.prompt ?? command.name} `
+  // The name, not pi's syntax. A chip should read as the thing it names, and
+  // the mirror can only draw what the field holds — so `skill:` is not written
+  // rather than hidden, and `skillsSaid` puts it back on the way out.
+  const inserted = `${command.name} `
   return {
     text: text.slice(0, token.start) + inserted + text.slice(token.end),
     caret: token.start + inserted.length,
@@ -217,4 +220,62 @@ export function resolveSlash(
   // `find` over built-ins first is the same rule the menu's order states: a
   // typed `/commit` is the app's, whatever the repository ships.
   return allSlash(project, options).find((command) => command.name === `/${query}`) ?? null
+}
+
+/** Where a skill named in the text sits, given the names that exist.
+ *
+ *  `/name` at the start or after whitespace, the rule the picker opens on. The
+ *  list of names is the guard: `/tmp` in a sentence is a path unless a skill
+ *  happens to be called `tmp`, and nothing else in the app has to guess. */
+export function skillSpans(
+  text: string,
+  names: readonly string[],
+): { start: number; end: number; name: string }[] {
+  const spans: { start: number; end: number; name: string }[] = []
+  if (names.length === 0) return spans
+
+  const pattern = /(^|\s)\/([A-Za-z0-9._-]+)/g
+  for (;;) {
+    const match = pattern.exec(text)
+    if (!match) break
+    if (!names.includes(match[2])) continue
+
+    const start = match.index + match[1].length
+    spans.push({ start, end: start + match[2].length + 1, name: match[2] })
+  }
+  return spans
+}
+
+/** The message as pi must receive it: every skill the reader named written in
+ *  pi's own `/skill:name` form.
+ *
+ *  The composer holds the readable form so the chip reads as a name; this is
+ *  the one place the two are swapped, on the way out, the way a folded paste
+ *  is put back. */
+export function skillsSaid(text: string, names: readonly string[]): string {
+  const spans = skillSpans(text, names)
+  if (spans.length === 0) return text
+
+  let out = ''
+  let at = 0
+  for (const span of spans) {
+    out += text.slice(at, span.start) + `/skill:${span.name}`
+    at = span.end
+  }
+  return out + text.slice(at)
+}
+
+/** Deletes a whole skill chip when the caret sits just after one.
+ *
+ *  A chip is one thing. Taking a character out of the middle leaves wreckage
+ *  that no longer names anything — the bug folds and staged files were each
+ *  given a `backspace` for. */
+export function skillBackspace(
+  text: string,
+  caret: number,
+  names: readonly string[],
+): { text: string; caret: number } | null {
+  const span = skillSpans(text, names).find((one) => one.end === caret)
+  if (!span) return null
+  return { text: text.slice(0, span.start) + text.slice(span.end), caret: span.start }
 }

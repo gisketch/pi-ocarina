@@ -11,6 +11,7 @@
  *  caret cannot drift, and selection covers what it appears to. */
 
 import type { Fold } from './paste'
+import { skillSpans } from './slash'
 
 export type Segment =
   | { kind: 'plain'; text: string }
@@ -33,24 +34,6 @@ export type Segment =
  *  after an `@`, so `@alice` was a chip while it was typed and plain text the
  *  moment it was sent. One rule, one appearance. */
 const MENTION = /(^|\s)(@[^\s@]*[./][^\s]*)/g
-
-/** A skill reference: `/skill:name` at the start or after whitespace, which is
- *  the rule the picker opens on and the rule main expands on. All three agree
- *  by sharing the shape. */
-const SKILL = /(^|\s)(\/skill:[A-Za-z0-9._-]+)/g
-
-function skillSpans(text: string): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = []
-  SKILL.lastIndex = 0
-
-  for (;;) {
-    const match = SKILL.exec(text)
-    if (!match) break
-    const start = match.index + match[1].length
-    spans.push({ start, end: start + match[2].length })
-  }
-  return spans
-}
 
 /** Where each fold's token sits in the text. */
 function foldSpans(text: string, folds: readonly Fold[]): { start: number; end: number }[] {
@@ -114,12 +97,17 @@ export function segment(
   text: string,
   folds: readonly Fold[] = [],
   files: readonly string[] = [],
+  skills: readonly string[] = [],
 ): Segment[] {
   const marks: { start: number; end: number; kind: 'mention' | 'fold' | 'file' | 'skill' }[] = [
     ...foldSpans(text, folds).map((span) => ({ ...span, kind: 'fold' as const })),
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
     ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
-    ...skillSpans(text).map((span) => ({ ...span, kind: 'skill' as const })),
+    ...skillSpans(text, skills).map((span) => ({
+      start: span.start,
+      end: span.end,
+      kind: 'skill' as const,
+    })),
   ].sort((a, b) => a.start - b.start)
 
   const segments: Segment[] = []
