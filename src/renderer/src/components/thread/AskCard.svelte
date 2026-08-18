@@ -140,7 +140,10 @@
     align-items: center;
     gap: 9px;
     padding: 8px 12px;
-    background: var(--bg-header);
+    /* Its own step rather than `--bg-header`: a card this quiet needs a
+       louder strip than a column does, or the name of the question and the
+       question itself read as one block of the same grey. */
+    background: rgba(255, 255, 255, 0.055);
     font-family: var(--font-chrome);
     font-size: 10px;
     letter-spacing: 0.1em;
@@ -155,7 +158,7 @@
 
   .said {
     padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.015);
     font-size: 11.5px;
     color: var(--fg-dim);
     font-style: italic;
