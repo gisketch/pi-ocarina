@@ -41,10 +41,10 @@
   --seg-strong: rgba(255, 255, 255, 0.07);
   /* A thread column, by whether it has the reader's attention. The focused one
      is simply lighter — there is no ring around it to brighten. */
-  --bg-column-focus: rgba(255, 255, 255, 0.03);
-  --bg-column-idle: var(--bg-raise);
+  --bg-column-focus: rgba(255, 255, 255, 0.016);
+  --bg-column-idle: rgba(255, 255, 255, 0.007);
   /* The strip across the top of a column or a card, where its name sits. */
-  --bg-header: rgba(255, 255, 255, 0.03);
+  --bg-header: rgba(255, 255, 255, 0.016);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
   --bg-hover-2: rgba(255, 255, 255, 0.05);

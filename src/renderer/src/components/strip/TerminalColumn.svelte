@@ -157,11 +157,6 @@
     background: var(--bg-deep);
     overflow: hidden;
   }
-  /* Which shell has the keys is said by its name strip, which is the only part
-     of a terminal the app paints — everything below it belongs to xterm. */
-  .terminal.focused .head {
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.12);
-  }
 
   .head {
     flex: none;
@@ -170,7 +165,6 @@
     gap: 9px;
     padding: 10px 14px;
     background: var(--bg-header);
-    transition: background 0.4s;
     font-size: 11px;
   }
   .dot {

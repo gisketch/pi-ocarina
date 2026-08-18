@@ -126,13 +126,13 @@
 
 <style>
   .ask {
-    background: var(--bg-raise-2);
+    background: rgba(255, 255, 255, 0.012);
     transition: background 0.15s;
   }
   /* The card that has the keys says so by being the lighter card, quietly —
      the reader is reading a question, not looking for a highlight. */
   .ask.focused {
-    background: var(--bg-hover-2);
+    background: rgba(255, 255, 255, 0.03);
   }
 
   .head {

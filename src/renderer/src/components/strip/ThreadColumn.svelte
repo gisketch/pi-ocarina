@@ -192,7 +192,7 @@
        else. `--bg-column` travels with it: a ledger node paints the column's
        own ground to cover the spine, and a node still painting the idle value
        inside a focused column reads as a darker patch under every icon. */
-    --bg-column: color-mix(in srgb, #ffffff 1.5%, var(--bg));
+    --bg-column: color-mix(in srgb, #ffffff 0.7%, var(--bg));
     background: var(--bg-column-idle);
     opacity: 0.4;
     transition:
@@ -202,7 +202,7 @@
     cursor: pointer;
   }
   .column.focused {
-    --bg-column: color-mix(in srgb, #ffffff 3%, var(--bg));
+    --bg-column: color-mix(in srgb, #ffffff 1.6%, var(--bg));
     opacity: 1;
     background: var(--bg-column-focus);
     cursor: default;
