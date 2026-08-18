@@ -44,7 +44,7 @@ later, and after a compaction.
 
 ---
 
-## M2 — the status bar names the mode — `todo`
+## M2 — the status bar names the mode — `done`
 
 **Delivers.** The bar names the current mode. It shows nothing when none is set.
 

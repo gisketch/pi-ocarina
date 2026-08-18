@@ -11,6 +11,7 @@
   import { permission } from '$lib/state/permission.svelte'
   import { PERMISSION_LABELS } from '../../../shared/permissions'
   import { workspaceLsp } from '$lib/state/workspace-lsp.svelte'
+  import { modes } from '$lib/state/modes.svelte'
 
   // pi's own accounting for the focused thread. A thread that has not run a
   // turn has no usage, and the segment stays blank rather than showing zeros
@@ -62,6 +63,12 @@
   const ownLevel = $derived(permission.thread !== undefined)
 
   const lsp = $derived(workspaceLsp.chip)
+
+  // The voice belongs to the thread, so the chip follows the focused column.
+  $effect(() => {
+    if (app.thread.id !== '') void modes.load(app.thread.id)
+  })
+  const modeChip = $derived(modes.chip)
   /** On, with nothing started. The chip says so quietly rather than counting. */
   const lspIdle = $derived(lsp === 'lsp' || lsp === 'lsp !')
 
@@ -93,6 +100,20 @@
   >
     {PERMISSION_LABELS[level]}{ownLevel ? '*' : ''}
   </button>
+
+  {#if modeChip}
+    <!-- Absent when no voice is set, on the same rule the lsp chip follows: an
+         empty state does not need a word for itself, and a segment that always
+         reads "normal" is a permanent reminder of nothing. -->
+    <button
+      type="button"
+      class="seg voice"
+      onclick={() => shell.openOverlay('mode')}
+      title="the voice this thread writes in — click to change it (␣M)"
+    >
+      {modeChip}{modes.overridden ? '*' : ''}
+    </button>
+  {/if}
 
   {#if lsp}
     <!-- Absent rather than "off": a bar segment that always reads off is a
@@ -161,7 +182,8 @@
     color: var(--bg);
   }
 
-  .perm {
+  .perm,
+  .voice {
     border-top: none;
     border-bottom: none;
     border-left: none;
