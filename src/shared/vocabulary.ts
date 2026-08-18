@@ -18,6 +18,10 @@ export type ToolKind =
   | 'fetch'
   | 'todo'
   | 'skill'
+  /** A command the reader's configuration file runs at a point in a turn's
+   *  life. A tool kind because a hook is one more thing that happened during
+   *  the turn, and a row is the shape the app already has for saying so. */
+  | 'hook'
   | 'agent'
   | 'raw'
 

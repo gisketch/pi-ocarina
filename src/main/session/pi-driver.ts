@@ -20,7 +20,10 @@ import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive } from './role-commands'
 import { LspService } from '../lsp/service'
 import { ModeControl } from './mode-commands'
-import { handleStored, ownsStored } from './stored-commands'
+import { handleStored, ownsStored, type StoredDeps } from './stored-commands'
+import { openingDeps, storedDeps, type DriverParts } from './driver-deps'
+import { applyThreadDefaults } from './thread-defaults'
+import type { HookEntry } from '../../shared/config-file'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
@@ -59,6 +62,10 @@ export class PiDriver implements SessionDriver {
   readonly #models: ModelControl
   readonly #queries: WorkspaceQueries
   readonly #modes: ModeControl
+  /** The reader's hooks, read from their configuration file. Supplied after
+   *  construction: main reads the file once at launch, and a driver built
+   *  before it simply has none. */
+  #hooks: () => readonly HookEntry[] = () => []
   readonly #changes = new ChangeLog()
   readonly #staged = new StagedImages()
   readonly #asks: AskGate
@@ -94,6 +101,13 @@ export class PiDriver implements SessionDriver {
     })
   }
 
+  /** Hands the driver the reader's hooks. Called once, after main has read
+   *  their configuration file. Absent means no hooks, which is what a driver in
+   *  a test has and what most readers have. */
+  useHooks(hooks: () => readonly HookEntry[]): void {
+    this.#hooks = hooks
+  }
+
   async execute<N extends CommandName>(
     name: N,
     params: CommandParams<N>,
@@ -105,21 +119,7 @@ export class PiDriver implements SessionDriver {
     // Then everything that reads or writes stored state rather than running a
     // turn. What is left below is the agent itself.
     if (ownsStored(name)) {
-      return (await handleStored(
-        {
-          catalog: this.#catalog,
-          approvals: this.#approvals,
-          lsp: this.#lsp,
-          modes: this.#modes,
-          project: {
-            session: (threadId) => this.#threads.get(threadId).session,
-            cwdOf: (threadId) => this.#workspaces.cwdOf(threadId),
-            sdk: () => this.#sessions.load(),
-          },
-        },
-        name,
-        params,
-      )) as CommandResult<N>
+      return (await handleStored(this.#stored(), name, params)) as CommandResult<N>
     }
 
     switch (name) {
@@ -305,28 +305,26 @@ export class PiDriver implements SessionDriver {
    *  reader sees which one in the title bar.
    */
   async #applyDefaults(threadId: string): Promise<void> {
-    const { defaultModel, defaultReasoning } = this.#catalog.snapshot().preferences
-    const thread = this.#threads.find(threadId)
-    if (!thread) return
-
-    if (defaultModel) {
-      try {
-        await this.#models.set(thread.session, defaultModel.provider, defaultModel.id)
-      } catch {
-        // Named in settings, gone from pi's config. Nothing to do about it here.
-      }
-    }
-    if (defaultReasoning) this.#models.setReasoning(thread.session, defaultReasoning)
-    if (defaultModel || defaultReasoning) {
-      this.#models.announce(threadId, thread.session, this.#emit)
-    }
+    await applyThreadDefaults(
+      { catalog: this.#catalog, models: this.#models, emit: this.#emit },
+      threadId,
+      this.#threads.find(threadId)?.session,
+    )
   }
 
   #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {
     return adoptSession(this.#opening(), session, cwd, branch)
   }
 
+  #stored(): StoredDeps {
+    return storedDeps(this.#parts())
+  }
+
   #opening(): OpenDeps {
+    return openingDeps(this.#parts())
+  }
+
+  #parts(): DriverParts {
     return {
       emit: this.#emit,
       threads: this.#threads,
@@ -336,10 +334,12 @@ export class PiDriver implements SessionDriver {
       workspaces: this.#workspaces,
       changes: this.#changes,
       steers: this.#steers,
-      takeBlocked: (toolCallId) => this.#approvals.takeBlocked(toolCallId),
-      staged: (path) => this.#staged.owns(path),
+      approvals: this.#approvals,
+      staged: this.#staged,
+      catalog: this.#catalog,
+      lsp: this.#lsp,
+      modes: this.#modes,
+      hooks: this.#hooks,
     }
   }
-
-
 }

@@ -58,7 +58,7 @@ attempt to rebind `Escape`.
 
 ---
 
-## K3 — a hook runs, and the ledger says so — `todo`
+## K3 — a hook runs, and the ledger says so — `done`
 
 **Delivers.** A `turn.end` hook runs `pnpm test` when a turn finishes, and its
 row appears in the ledger with the output inside it.
@@ -78,7 +78,7 @@ larger than the bound.
 
 ---
 
-## K4 — a hook cannot take the app down — `todo`
+## K4 — a hook cannot take the app down — `done`
 
 **Delivers.** A hook that hangs is killed at its timeout and reported. The turn
 finishes either way. A hook that fails does not fail the turn.

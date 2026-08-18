@@ -56,6 +56,7 @@ import symbolNamespace from '@vscode/codicons/src/icons/symbol-namespace.svg?raw
 import globe from '@vscode/codicons/src/icons/globe.svg?raw'
 import checklist from '@vscode/codicons/src/icons/checklist.svg?raw'
 import book from '@vscode/codicons/src/icons/book.svg?raw'
+import plug from '@vscode/codicons/src/icons/plug.svg?raw'
 import robot from '@vscode/codicons/src/icons/robot.svg?raw'
 import tools from '@vscode/codicons/src/icons/tools.svg?raw'
 import sparkle from '@vscode/codicons/src/icons/sparkle.svg?raw'
@@ -118,6 +119,7 @@ export const ICONS = {
   'tool-todo': checklist,
   'tool-skill': book,
   'tool-agent': robot,
+  'tool-hook': plug,
   'tool-raw': tools,
   'tool-think': sparkle,
 

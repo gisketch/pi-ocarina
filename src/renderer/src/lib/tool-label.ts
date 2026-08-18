@@ -37,6 +37,10 @@ const TENSES: Record<ToolKind, Tense> = {
   todo: { running: 'listing', done: 'todo' },
   skill: { running: 'loading', done: 'skill' },
   agent: { running: 'working', done: 'agent' },
+  // Named for the thing rather than for the verb: `hook` beside the command it
+  // ran says who asked for it, which is the reader's own file and not the
+  // agent.
+  hook: { running: 'hook', done: 'hook' },
   raw: { running: 'running', done: 'tool' },
 }
 

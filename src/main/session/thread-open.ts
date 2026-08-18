@@ -6,6 +6,7 @@
  *  driver keeps the collaborators; this keeps the sequence. */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
+import type { HookPoint } from '../../shared/config-file'
 import type { EmitEvent } from '../../shared/protocol'
 import type { AgentFleet } from './agent-fleet'
 import type { ChangeLog } from './change-log'
@@ -34,6 +35,9 @@ export interface OpenDeps {
   /** Whether a path is one this app staged — a pasted screenshot's temporary
    *  file. What lets the ledger draw a picture the agent read from it. */
   staged: (path: string) => boolean
+  /** Runs the reader's hooks for a point. Absent means this app has none
+   *  configured, which is the ordinary case. */
+  hooks?: (point: HookPoint, threadId: string) => Promise<unknown>
 }
 
 /** Reopens a thread: its history is replayed as events before the live session
@@ -117,6 +121,7 @@ export function adoptSession(
     steers: deps.steers,
     spent: () => deps.fleet.spentIn(threadId),
     staged: deps.staged,
+    hooks: deps.hooks,
   })
 
   deps.threads.add(threadId, { session, unsubscribe, translator, prompts: 0 })

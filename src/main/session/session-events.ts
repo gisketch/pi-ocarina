@@ -5,6 +5,7 @@
  *  careful about *when* it acts rather than only what it does. */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
+import type { HookPoint } from '../../shared/config-file'
 import type { EmitEvent } from '../../shared/protocol'
 import { CHANGING_TOOLS, type ChangeLog } from './change-log'
 import { PiTranslator, toolTarget } from './pi-translate'
@@ -28,6 +29,9 @@ export interface Wiring {
    *  a pasted screenshot the agent read draws nothing: it lives in a temporary
    *  directory, which is exactly what the containment check refuses. */
   staged?: (path: string) => boolean
+  /** Runs the reader's hooks for a point. Absent means no hooks, which is what
+   *  most readers have and what every test without one gets. */
+  hooks?: (point: HookPoint, threadId: string) => Promise<unknown>
 }
 
 /** Subscribes one session, and returns the unsubscribe. */
@@ -41,6 +45,7 @@ export function subscribeSession({
   steers,
   spent,
   staged,
+  hooks,
 }: Wiring): () => void {
   translator.watchChanges((toolCallId) => changes.end(threadId, toolCallId))
 
@@ -84,6 +89,12 @@ export function subscribeSession({
       // once the turn is over.
       reading.clear()
       emitUsage(emit, threadId, session, spent())
+
+      // After the turn, never during it. A hook observes; it cannot hold the
+      // turn open or change what the agent did. Not awaited here — the
+      // subscription is synchronous, and a hook's rows attach to the thread
+      // whenever they arrive.
+      void hooks?.('edit.after', threadId).then(() => hooks?.('turn.end', threadId))
     }
     if (event.type === 'queue_update') steers.sync(threadId, event.steering)
   })

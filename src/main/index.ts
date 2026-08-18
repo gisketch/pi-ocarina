@@ -218,6 +218,9 @@ void app.whenReady().then(async () => {
     onUnpin: (workspaceId) => git.forget(workspaceId),
   })
   piDriver = driver instanceof PiDriver ? driver : null
+  // Read once at launch and handed over, not read per turn: the file is the
+  // reader's and the app does not watch it. `/reload` is how a change lands.
+  piDriver?.useHooks(() => config.config.hooks)
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),
