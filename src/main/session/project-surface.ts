@@ -26,6 +26,18 @@ function problemsOf(diagnostics: unknown): SurfaceProblem[] {
   })
 }
 
+/** Re-reads the files this session was built from.
+ *
+ *  pi's loader owns the reading; this only asks. A loader that cannot reload —
+ *  a stub, or a pi release that drops the method — is left alone rather than
+ *  throwing, and the surface read afterwards simply says what it said before. */
+export async function reloadResources(session: AgentSession): Promise<void> {
+  const loader = session.resourceLoader as unknown as Record<string, unknown> | undefined
+  const reload = loader?.reload
+  if (typeof reload !== 'function') return
+  await (reload as () => Promise<void>).call(loader)
+}
+
 export interface SurfaceContext {
   cwd: string
   agentDir: string

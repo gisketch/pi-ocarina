@@ -38,6 +38,12 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description: 'list and sweep this workspace’s worktrees',
     source: 'built-in',
   },
+  {
+    id: 'reload',
+    name: '/reload',
+    description: 're-read this project’s skills, commands and instructions',
+    source: 'built-in',
+  },
 ]
 
 /** The project's own commands, as menu entries.

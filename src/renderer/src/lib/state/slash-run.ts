@@ -6,6 +6,7 @@
  *  overlays they open. */
 
 import type { SlashCommand } from '../slash'
+import { projectSurface } from './project-surface.svelte'
 import { sweep } from './sweep.svelte'
 import { threads } from './threads.svelte'
 
@@ -23,4 +24,5 @@ export function runSlash(command: SlashCommand, { threadId, onmodel, oncommit }:
   else if (command.id === 'model') onmodel?.()
   else if (command.id === 'commit') oncommit?.()
   else if (command.id === 'worktrees') void sweep.show()
+  else if (command.id === 'reload') void projectSurface.reload()
 }

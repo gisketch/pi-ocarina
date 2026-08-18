@@ -85,7 +85,7 @@ proving a skill row breaks a run of reads rather than joining it.
 
 ---
 
-## P4 — reload on demand, never mid-turn — `todo`
+## P4 — reload on demand, never mid-turn — `done`
 
 **Delivers.** The reader edits a skill, types `/reload`, and the next turn uses
 it. Asking during a running turn is refused with a reason.

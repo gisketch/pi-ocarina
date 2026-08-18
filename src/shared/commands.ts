@@ -42,6 +42,17 @@ export interface SessionCommands {
    *  files, and anything that failed to load. Read-only — the app shows what
    *  the project imposed and never authors it. */
   projectSurface: { params: { threadId: string }; result: { surface: ProjectSurface } }
+  /** Re-reads those files from disk.
+   *
+   *  Refused while a turn is running rather than queued. pi builds the system
+   *  prompt per request, so a reload landing mid-turn would leave one turn
+   *  running under different instructions than the turn before it, with nothing
+   *  in the transcript saying so. A queued one would land at a moment nobody
+   *  chose. */
+  reloadProject: {
+    params: { threadId: string }
+    result: { surface: ProjectSurface; reloaded: true } | { reloaded: false; because: string }
+  }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: string }; result: { ok: true } }
   /** Brings a closed thread back — what jumping to it from search does. */

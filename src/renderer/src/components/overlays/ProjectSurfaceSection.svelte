@@ -19,6 +19,9 @@
   <div class="banner">
     LOADED HERE
     <span class="note">read only — these come from files</span>
+    <button type="button" class="reload" onclick={() => void projectSurface.reload()}>
+      {projectSurface.loading ? 'reading…' : 're-read (/reload)'}
+    </button>
   </div>
 
   {#if projectSurface.error}
@@ -100,6 +103,22 @@
     letter-spacing: 0.14em;
     color: var(--dim);
     padding: 0 2px 6px;
+  }
+
+  .reload {
+    margin-left: auto;
+    background: none;
+    border: 0;
+    padding: 0 2px;
+    font: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--dim);
+    cursor: pointer;
+  }
+
+  .reload:hover {
+    color: var(--fg);
   }
 
   .note {

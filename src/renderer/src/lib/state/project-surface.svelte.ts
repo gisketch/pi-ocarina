@@ -15,6 +15,7 @@ import {
   type ProjectSurface,
 } from '../../../../shared/project-surface'
 import { session } from '../session'
+import { toasts } from './toasts.svelte'
 
 const DEMO: ProjectSurface = {
   commands: [
@@ -87,9 +88,34 @@ class ProjectSurfaceState {
     }
   }
 
-  /** Re-read after the reader changed something on disk. */
-  async refresh(): Promise<void> {
-    if (this.#threadId !== '') await this.load(this.#threadId)
+  /** Re-read the files on disk, and say what happened.
+   *
+   *  Reported in the corner rather than in the thread: a reload is not
+   *  something the turn did, and a refusal the reader cannot see would look
+   *  like an edit that silently failed to take. */
+  async reload(): Promise<void> {
+    if (this.#threadId === '') return
+
+    if (!session.wired) {
+      toasts.push({ tone: 'ok', text: 're-read this project' })
+      return
+    }
+
+    this.loading = true
+    try {
+      const answer = await session.invoke('reloadProject', { threadId: this.#threadId })
+      if (!answer.reloaded) {
+        toasts.push({ tone: 'info', text: answer.because })
+        return
+      }
+      this.surface = answer.surface
+      this.error = null
+      toasts.push({ tone: 'ok', text: 're-read this project' })
+    } catch (cause) {
+      toasts.push({ tone: 'error', text: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      this.loading = false
+    }
   }
 }
 

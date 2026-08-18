@@ -20,8 +20,7 @@ import { fleetFor, type AgentFleet } from './agent-fleet'
 import { handleArchive, handleRoles } from './role-commands'
 import { handlePermission } from './permission-commands'
 import { handleLsp, LspService } from '../lsp/service'
-import { readSurface } from './project-surface'
-import { agentDirOf, SHIPPED_RESOURCES } from './resource-dirs'
+import { handleProject } from './project-commands'
 import { StagedImages } from './staged-images'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
@@ -112,15 +111,17 @@ export class PiDriver implements SessionDriver {
         return { threadId } as CommandResult<N>
       }
 
-      case 'projectSurface': {
-        const { threadId } = params as CommandParams<'projectSurface'>
-        const surface = readSurface(this.#threads.get(threadId).session, {
-          cwd: this.#workspaces.cwdOf(threadId) ?? '',
-          agentDir: agentDirOf(await this.#sessions.load()),
-          appDir: SHIPPED_RESOURCES,
-        })
-        return { surface } as CommandResult<N>
-      }
+      case 'projectSurface':
+      case 'reloadProject':
+        return (await handleProject(
+          {
+            session: (threadId) => this.#threads.get(threadId).session,
+            cwdOf: (threadId) => this.#workspaces.cwdOf(threadId),
+            sdk: () => this.#sessions.load(),
+          },
+          name,
+          params,
+        )) as CommandResult<N>
 
       case 'openThread': {
         const { threadId } = params as CommandParams<'openThread'>
