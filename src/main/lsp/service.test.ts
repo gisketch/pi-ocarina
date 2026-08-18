@@ -1,13 +1,21 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { WorkspaceLsp } from '../../shared/lsp'
+import { ensurePath } from '../env-path'
 import { handleLsp, LspService, type LspSettingsStore } from './service'
 import { LspPool } from './pool'
 import type { LspClient } from './client'
 
 let root = ''
+
+// Detection waits for the resolved PATH, and resolving it asks a login shell.
+// Settled here with an answer of our own, so this file describes the service
+// rather than the machine it runs on.
+beforeAll(async () => {
+  await ensurePath({ env: { PATH: '' }, home: root, run: async () => '' })
+})
 
 /** The catalog, reduced to the three things the service reads and writes. */
 function store(initial?: WorkspaceLsp): LspSettingsStore & { saved?: WorkspaceLsp } {

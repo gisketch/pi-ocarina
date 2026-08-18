@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { CatalogPosition } from './catalog'
+import { ensurePath } from './env-path'
 import { CatalogStore } from './catalog-store'
 import { registerGit } from './git'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
@@ -170,6 +171,10 @@ function registerCatalog(catalog: CatalogStore): void {
 }
 
 void app.whenReady().then(async () => {
+  // Started, not awaited: asking a login shell costs about a second, and
+  // nothing needs the answer until the reader looks at a workspace's servers.
+  void ensurePath()
+
   const catalog = new CatalogStore(catalogFile())
   // Before anything can be asked about it. The driver answers `listWorkspaces`
   // straight from this store, and the renderer asks the moment it starts, so a

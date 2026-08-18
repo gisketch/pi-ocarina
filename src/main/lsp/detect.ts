@@ -8,6 +8,7 @@
 import { access, readdir } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { delimiter, join } from 'node:path'
+import { ensurePath } from '../env-path'
 import {
   lspEnabledFor,
   SHIPPED_SERVERS,
@@ -128,6 +129,10 @@ export async function detectServers(
   options: DetectOptions = {},
 ): Promise<LspServerState[]> {
   const servers = options.servers ?? SHIPPED_SERVERS
+
+  // A caller with its own environment is describing one, not asking about this
+  // machine, so it is never made to wait for a shell.
+  if (!options.env) await ensurePath()
 
   return Promise.all(
     servers.map(async (server): Promise<LspServerState> => {

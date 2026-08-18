@@ -80,7 +80,10 @@ export const SHIPPED_SERVERS: readonly LspServerSpec[] = [
     command: 'csharp-ls',
     args: [],
     rootFiles: ['*.sln', '*.csproj', 'global.json'],
-    install: 'dotnet tool install --global csharp-ls',
+    // The install puts the binary in `~/.dotnet/tools`, which nothing adds to
+    // PATH. A reader who ran only the first line had installed the server and
+    // still read that it was missing.
+    install: 'dotnet tool install --global csharp-ls && export PATH="$PATH:$HOME/.dotnet/tools"',
   },
   {
     id: 'json',
