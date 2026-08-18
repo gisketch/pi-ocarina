@@ -228,6 +228,11 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return toggleOverlay(state, 'keymap')
     case ',':
       return toggleOverlay(state, 'settings')
+    case '<':
+      // The shifted sibling of `,`: same key, narrower scope. Workspace
+      // settings are not a section of the app's settings, so they are not
+      // reached through them.
+      return toggleOverlay(state, 'workspace')
     case 'm':
       return toggleOverlay(state, 'model')
     case '/':
@@ -264,6 +269,8 @@ function reduceLeader(state: KeyState, key: string, ctx: KeyContext): KeyResult 
       return result({ ...done, overlay: 'keymap' }, [], true, 'clear')
     case 's':
       return result({ ...done, overlay: 'settings' }, [], true, 'clear')
+    case 'S':
+      return result({ ...done, overlay: 'workspace' }, [], true, 'clear')
     case 'm':
       return result({ ...done, overlay: 'model' }, [], true, 'clear')
     case 'f':

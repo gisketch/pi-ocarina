@@ -239,7 +239,6 @@
       onkeymap={() => shell.openOverlay('keymap')}
       onmodel={() => shell.openOverlay('model')}
       onroles={() => shell.openOverlay('roles')}
-      onworkspace={() => shell.openOverlay('workspace')}
       model={threads.get(app.thread.id).model?.name ?? 'pi default'}
       reasoning={threads.get(app.thread.id).model?.reasoning}
       onreasoning={threads.get(app.thread.id).model

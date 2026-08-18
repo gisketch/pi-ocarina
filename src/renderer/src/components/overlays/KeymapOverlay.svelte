@@ -16,6 +16,7 @@
         ['terminal column', 't'],
         ['move column', '⇧H/⇧L'],
         ['settings', ','],
+        ['workspace settings', '<'],
       ],
     },
     {
@@ -29,6 +30,7 @@
         ['␣ f find thread', 'chord'],
         ['␣ m model', 'chord'],
         ['␣ s settings', 'chord'],
+        ['␣ S workspace', 'chord'],
         ['␣ k keymap', 'chord'],
       ],
     },

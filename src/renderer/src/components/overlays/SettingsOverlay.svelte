@@ -17,8 +17,6 @@
     onreasoning?: (direction: 1 | -1) => void
     /** Opens the roles screen: what a child agent is, when one is spawned. */
     onroles?: () => void
-    /** Opens the open workspace's own settings — language servers, today. */
-    onworkspace?: () => void
   }
 
   const {
@@ -29,7 +27,6 @@
     reasoning,
     onreasoning,
     onroles,
-    onworkspace,
   }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
@@ -73,18 +70,16 @@
       nudge: (direction) => preferences.nudgeLeaderTimeout(direction),
     },
     {
-      label: 'workspace settings',
-      value: () => 'language servers',
-      hint: onworkspace ? 'enter' : 'none',
-      enter: onworkspace,
-    },
-    {
       label: 'agent roles',
       value: () => 'edit',
       hint: onroles ? 'enter' : 'none',
       enter: onroles,
     },
     { label: 'keymap', value: () => 'view', hint: 'enter', enter: onkeymap },
+    // A pointer, not a door. Workspace settings have a key of their own,
+    // because a per-workspace screen reached through the app-wide one reads as
+    // if the workspace were a subsection of the app.
+    { label: 'workspace settings', value: () => 'press <', hint: 'none' },
   ])
 
   let selected = $state(0)

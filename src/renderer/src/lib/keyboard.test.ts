@@ -163,6 +163,7 @@ describe('LEADER chords', () => {
       ['t', {}, [{ type: 'openTerminal' }]],
       ['c', {}, [{ type: 'compact' }]],
       ['p', {}, [{ type: 'cyclePermission' }]],
+      ['S', { overlay: 'workspace' }, []],
       ['h', {}, [{ type: 'moveThread', delta: -1 }]],
       ['l', {}, [{ type: 'moveThread', delta: 1 }]],
     ]
@@ -278,6 +279,30 @@ describe('settings', () => {
   it('stays mutually exclusive with the other overlays', () => {
     const settings = press(NORMAL, ',').state
     expect(press(settings, '?').state.overlay).toBe('keymap')
+  })
+})
+
+describe('workspace settings', () => {
+  it('opens on the shifted comma', () => {
+    expect(press(NORMAL, '<').state.overlay).toBe('workspace')
+  })
+
+  it('keeps its keys once it is open, so j and y belong to the screen', () => {
+    // It walks rows with j/k and copies an install line with y. A second `<`
+    // reaching the reducer would mean those keys were never really the
+    // screen's; esc is what closes it.
+    expect(press(NORMAL, '<', '<').state.overlay).toBe('workspace')
+    expect(press(NORMAL, '<', 'Escape').state.overlay).toBe(null)
+  })
+
+  it('is a sibling of settings, not a room inside it', () => {
+    const settings = press(NORMAL, ',').state
+    expect(press(settings, '<').state.overlay).toBe('workspace')
+  })
+
+  it('does not steal the key from a focused input', () => {
+    const insert = press(NORMAL, 'i').state
+    expect(press(insert, '<').state.overlay).toBe(null)
   })
 })
 
