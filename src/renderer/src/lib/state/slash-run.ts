@@ -16,7 +16,10 @@ export interface SlashHandlers {
 }
 
 export function runSlash(command: SlashCommand, { threadId, onmodel, oncommit }: SlashHandlers): void {
-  if (command.id === 'compact') threads.compact(threadId)
+  // A project command is a prompt template. pi expands it, so the app sends the
+  // text it was named by and invents no argument syntax of its own.
+  if (command.id === 'project') threads.prompt(threadId, command.prompt ?? command.name)
+  else if (command.id === 'compact') threads.compact(threadId)
   else if (command.id === 'model') onmodel?.()
   else if (command.id === 'commit') oncommit?.()
   else if (command.id === 'worktrees') void sweep.show()

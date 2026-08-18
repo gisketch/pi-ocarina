@@ -39,7 +39,7 @@ as text.
 
 ---
 
-## P2 — project commands in the slash menu — `todo`
+## P2 — project commands in the slash menu — `done`
 
 **Delivers.** A project's commands appear in the slash menu, each labelled with
 its type. A project command named like a built-in appears next to it rather than

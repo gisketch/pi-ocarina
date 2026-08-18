@@ -29,12 +29,20 @@
     >
       <span class="name">{command.name}</span>
       <span class="description">{command.description}</span>
+      {#if command.source !== 'built-in'}<span class="from">{command.source}</span>{/if}
       {#if i === active}<span class="kbd">⏎</span>{/if}
     </button>
   {/each}
 </div>
 
 <style>
+  .from {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    opacity: 0.75;
+  }
+
   .menu {
     max-width: var(--column-w);
     margin: 0 auto 6px;

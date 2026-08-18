@@ -19,6 +19,7 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import { createThread } from '$lib/state/new-thread'
   import { runSlash } from '$lib/state/slash-run'
+  import { projectSurface } from '$lib/state/project-surface.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
   interface Props {
@@ -36,7 +37,17 @@
   const insert = $derived(app.mode === 'INSERT')
 
   const query = $derived(slashQuery(text))
-  const slash = $derived(query === null ? [] : filterSlash(query))
+  // The project's commands come from the surface main already read for the
+  // workspace screen. A workspace that defines none leaves the list as it was.
+  //
+  // Read once per focused thread rather than per keystroke: the loader answers
+  // from memory, but the command crosses a process boundary, and `/` is typed
+  // often enough for that to matter.
+  $effect(() => {
+    if (thread.id !== '') void projectSurface.load(thread.id)
+  })
+  const projectCommands = $derived(projectSurface.surface.commands)
+  const slash = $derived(query === null ? [] : filterSlash(query, projectCommands))
 
   // Where the caret is, so `@` knows which word it is inside.
   let caret = $state(0)
@@ -107,7 +118,7 @@
   async function send(): Promise<void> {
     // A message naming a real command runs it. Anything else starting with `/`
     // is just text someone typed, and is sent as written.
-    const command = resolveSlash(text)
+    const command = resolveSlash(text, projectCommands)
     if (command) {
       run(command)
       return
