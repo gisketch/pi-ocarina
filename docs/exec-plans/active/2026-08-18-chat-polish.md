@@ -5,7 +5,7 @@ Mockup: `docs/reference/design/PiOcarina Polish.dc.html` §03–04.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## C1 — the follow-state machine — `todo`
+## C1 — the follow-state machine — `done`
 
 > Pure logic first: pinned, paused, unseen count, re-arm. No DOM.
 
