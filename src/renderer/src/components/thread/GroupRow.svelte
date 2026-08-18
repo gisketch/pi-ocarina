@@ -94,18 +94,9 @@
     z-index: 5;
   }
   /* Centred on the ledger's spine, the same way a row's node is. */
+  /* Geometry from `tokens.css`; only the colour is this row's own. */
   .node {
-    position: absolute;
-    left: -23px;
-    top: 6px;
-    width: 13px;
-    height: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
     color: var(--fg-dimmer);
-    background: var(--bg);
   }
   .group.live .node {
     color: var(--accent);

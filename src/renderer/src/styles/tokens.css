@@ -6,6 +6,11 @@
   --bg-panel: #141417;
   --bg-deep: #0a0a0c;
   --bg-raise: rgba(255, 255, 255, 0.015);
+  /** The colour a thread column actually is: `--bg-raise` is translucent, and
+   *  a column paints it over the app's own ground. Anything that needs to sit
+   *  *on top of* something inside a column — a ledger node covering the spine
+   *  — has to paint this, not `--bg`, or it reads as a slightly darker patch. */
+  --bg-column: color-mix(in srgb, #ffffff 1.5%, var(--bg));
   --bg-raise-2: rgba(255, 255, 255, 0.02);
   --bg-raise-3: rgba(255, 255, 255, 0.025);
   --bg-hover: rgba(255, 255, 255, 0.03);
@@ -160,4 +165,47 @@
 }
 .node.dim {
   color: var(--fg-dimmest);
+}
+
+/* The ledger's spine, and the nodes that sit on it.
+ *
+ * One geometry, three components: the ledger, a group's summary and a
+ * reasoning row all draw a spine and a node, and three copies would drift the
+ * first time an icon changed size.
+ *
+ * The numbers are related, not arbitrary. The spine sits at 7px inside a 20px
+ * padding box; a node is 13px wide and centred on it, which puts its left edge
+ * at 1px — inside the padding box, which is what paint containment clips to. A
+ * node centred on the old 3.5px spine hung three pixels outside it and came
+ * out visibly shaved down one side.
+ *
+ * A node paints `--bg-column` and sits above the spine. An icon is mostly
+ * empty space, so a line running behind one shows through the glyph and reads
+ * as a strike through it. `--bg-column`, not `--bg`: the column's ground is a
+ * translucent layer over the app's, and painting the app's colour here is the
+ * slightly-darker patch that made every icon look boxed. */
+.ledger {
+  position: relative;
+  padding-left: 20px;
+}
+.ledger::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-mid);
+}
+.ledger .node {
+  position: absolute;
+  left: -19px;
+  top: 6px;
+  width: 13px;
+  height: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: var(--bg-column);
 }

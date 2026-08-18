@@ -54,36 +54,14 @@
 <style>
   /* The ledger's own spine, so a reasoning row lines up with the tool rows
      above and below it rather than sitting in its own margin. */
-  .ledger {
-    position: relative;
-    padding-left: 20px;
-  }
-  .ledger::before {
-    content: '';
-    position: absolute;
-    left: 3px;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--line-mid);
-  }
   .entry {
     position: relative;
     contain: layout style;
   }
 
+  /* Geometry from `tokens.css`; only the colour is this row's own. */
   .node {
-    position: absolute;
-    left: -23px;
-    top: 6px;
-    width: 13px;
-    height: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
     color: var(--fg-dimmer);
-    background: var(--bg);
   }
   .node.pulse {
     animation: pulse 1.1s ease-in-out infinite;

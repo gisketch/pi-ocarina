@@ -186,9 +186,9 @@
      the padding leaves room for the node dots that sit on it. Scrollback
      virtualization gives every block paint containment, which clips to the
      padding box — a dot centred on a border-left would be sliced in half. */
+  /* Position, padding and the spine itself live in `tokens.css`: three
+     components draw this and they must not drift. */
   .ledger {
-    position: relative;
-    padding-left: 20px;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -203,16 +203,6 @@
     contain: none;
     z-index: 5;
   }
-  .ledger::before {
-    content: '';
-    position: absolute;
-    left: 3px;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--line-mid);
-  }
-
   .entry {
     position: relative;
     transition: opacity 0.12s ease;
@@ -246,23 +236,6 @@
 
   /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the
      dot's left edge exactly on the ledger's padding edge and nothing overflows. */
-  /* The node is the tool's own icon now, in the tone its status earned. Wider
-     than the square it replaces and pulled left to stay centred on the spine:
-     a 7px dot and an 12px glyph do not share a centre line. */
-  .node {
-    position: absolute;
-    left: -23px;
-    top: 6px;
-    width: 13px;
-    height: 13px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    /* The spine runs behind it, so the icon needs its own ground to sit on or
-       the line cuts through the glyph. */
-    background: var(--bg);
-  }
   .node.pulse {
     animation: pulse 1.1s ease-in-out infinite;
   }
@@ -330,8 +303,9 @@
     display: flex;
     flex-direction: column;
   }
+  /* Centred on the children's own rule the same way, and a size smaller. */
   .children .node {
-    left: -21px;
+    left: -19px;
     top: 5px;
     width: 11px;
     height: 11px;
