@@ -72,7 +72,7 @@
   .kbd {
     font-size: 9.5px;
     color: var(--fg-dimmer);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    padding: 1px 6px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
   }
 </style>

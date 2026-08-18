@@ -5,8 +5,8 @@
    *  it and the textarea's own glyphs are painted transparent on top. The
    *  caret, the selection and every keystroke still belong to the real field.
    *
-   *  **Decorate, never re-flow.** Every rule here is colour, `background` or
-   *  `outline` — nothing that occupies space. A single pixel of padding on a
+   *  **Decorate, never re-flow.** Every rule here is colour or `background` —
+   *  nothing that occupies space. A single pixel of padding on a
    *  chip would shift every glyph after it and the caret would sit in the wrong
    *  place for the rest of the message. The metrics live in one class shared
    *  with the textarea, so they cannot drift apart. */
@@ -108,16 +108,12 @@
   .mention {
     --chip-ink: oklch(0.76 0.14 var(--accent-hue));
     color: var(--accent);
-    background: oklch(0.76 0.14 var(--accent-hue) / 0.13);
-    outline: 1px solid oklch(0.76 0.14 var(--accent-hue) / 0.3);
-    outline-offset: -1px;
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.18);
   }
   .fold {
     --chip-ink: var(--fg-dim);
     color: var(--fg-dim);
-    background: var(--bg-hover);
-    outline: 1px solid var(--line-strong);
-    outline-offset: -1px;
+    background: var(--bg-hover-2);
   }
 
   /* A skill. Its own colour rather than the accent, because it is a different
@@ -125,9 +121,7 @@
      agent should go about it. */
   .skill {
     color: var(--warn);
-    background: oklch(0.84 0.12 85 / 0.13);
-    outline: 1px solid oklch(0.84 0.12 85 / 0.32);
-    outline-offset: -1px;
+    background: oklch(0.84 0.12 85 / 0.18);
   }
 
   /* The mark stands on the chip's own first characters — the space in front of

@@ -33,8 +33,7 @@
   .peek {
     max-width: var(--column-w);
     margin: 0 auto 6px;
-    border: 1px solid var(--line-strong);
-    background: var(--bg-raise-2);
+    background: var(--bg-raise-3);
   }
 
   .head {
@@ -42,7 +41,7 @@
     align-items: baseline;
     gap: 10px;
     padding: 6px 10px;
-    border-bottom: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-family: var(--font-chrome);
     font-size: 9.5px;
     letter-spacing: 0.1em;
@@ -68,7 +67,7 @@
 
   .more {
     padding: 5px 10px;
-    border-top: 1px solid var(--bg-chip);
+    background: var(--bg-header);
     font-size: 10px;
     color: var(--fg-dimmest);
   }

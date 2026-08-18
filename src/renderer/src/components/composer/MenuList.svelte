@@ -60,7 +60,6 @@
 
 <style>
   .menu {
-    border-bottom: 1px solid var(--line-mid);
     background: var(--bg-panel);
     animation: rise 0.15s ease;
     /* Eight rows, then scroll. Enough to choose from without the menu

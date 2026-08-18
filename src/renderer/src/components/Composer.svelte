@@ -301,16 +301,13 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    border-top: 1px solid var(--line-mid);
-    background: var(--bg-raise-3);
+    background: rgba(255, 255, 255, 0.025);
     padding: 10px 13px;
-    transition:
-      border-color 0.2s,
-      background-color 0.2s;
+    transition: background 0.2s;
   }
+  /* Typing brightens the whole field rather than lighting a rule above it. */
   .composer.insert {
-    border-top-color: var(--accent);
-    background: var(--bg-raise-2);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .caret {
@@ -327,7 +324,7 @@
     line-height: 1.5;
   }
   .kbd {
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    padding: 1px 5px;
+    background: var(--bg-chip);
+    padding: 2px 6px;
   }
 </style>
