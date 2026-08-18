@@ -145,13 +145,12 @@
   left: calc(-1 * var(--pad-column));
   right: calc(-1 * var(--pad-column));
   background: var(--band);
-  /* Behind the row's own text, and behind the spine, which is drawn on the
-     ledger rather than on the row. */
-  z-index: 0;
-}
-.ledger .entry.lit > * {
-  position: relative;
-  z-index: 1;
+  /* Behind the row's own content, and behind the spine the ledger draws.
+     `z-index: -1` and not a stacking rule on the children: `.lit > *` is one
+     specificity step above the rule that makes a node absolute, so it won and
+     dropped every focused row's node back into flow — measured at 13px of
+     reflow, which is the one thing the band may not do. */
+  z-index: -1;
 }
 
 /* A ledger node's colour, by the status its row ended in.

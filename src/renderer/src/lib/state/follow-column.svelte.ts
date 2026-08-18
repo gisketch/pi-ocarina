@@ -6,6 +6,7 @@
  *  per token — and because the column was over its line budget with it inline.
  */
 
+import { registerColumnBody } from './columns'
 import { following } from './following.svelte'
 import { threads } from './threads.svelte'
 
@@ -18,6 +19,17 @@ export function followColumn(
   threadId: () => string,
   element: () => HTMLElement | null,
 ): ColumnFollow {
+  // The column's scroller, published for everything that has to move it:
+  // revealing a focused block, the jump, the leap overlay's coordinates, the
+  // block menu's placement, half-page scrolling. This moved here with the rest
+  // of the element wiring; left behind in the component it was simply deleted,
+  // and every one of those went quietly dead.
+  $effect(() => {
+    const box = element()
+    if (!box) return
+    return registerColumnBody(threadId(), box)
+  })
+
   // What the stream landed. Read from the model rather than from the DOM:
   // measuring the scroll height to notice growth would force layout on every
   // delta, which is what the column's virtualization exists to avoid.

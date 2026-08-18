@@ -2,7 +2,6 @@
   import type { Snippet } from 'svelte'
   import Icon from '../Icon.svelte'
   import { app } from '$lib/state/app.svelte'
-  import { registerColumnBody } from '$lib/state/columns'
   import LeapOverlay from '../thread/LeapOverlay.svelte'
   import { leap } from '$lib/state/leap.svelte'
   import type { Thread } from '$lib/types'
