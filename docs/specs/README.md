@@ -76,6 +76,16 @@ settle. Ordered by the ranking in
   instead of restoring over the top of the work.
 - [2026-08-16-keymap-and-hooks.md](2026-08-16-keymap-and-hooks.md) — rebindable
   keys, lifecycle hooks, and authored approval policy. One configuration seam.
+- [2026-08-18-tool-row-grouping.md](2026-08-18-tool-row-grouping.md) — runs of
+  similar tool calls collapse to one expandable summary row, and the
+  language-server rows get a denser vocabulary led by `lsp`.
+- [2026-08-18-chat-polish.md](2026-08-18-chat-polish.md) — the transcript
+  follows the stream with a jump-back affordance, sent chips flow inline with
+  the text, and a read screenshot draws its thumbnail.
+- [2026-08-18-reasoning.md](2026-08-18-reasoning.md) — pi's thinking rendered
+  muted and collapsible instead of thrown away, with a global toggle.
+- [2026-08-18-icons.md](2026-08-18-icons.md) — replace unicode glyph
+  iconography with one real SVG icon set; candidates surveyed, choice open.
 
 ## Deferred
 
