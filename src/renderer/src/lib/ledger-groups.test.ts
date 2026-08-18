@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupRows, groupShown, rowsOf, type LedgerItem } from './ledger-groups'
+import { countedAs, groupRows, groupShown, rowsOf, type LedgerItem } from './ledger-groups'
 import type { ToolKind, ToolRow, ToolStatus } from './thread'
 
 let next = 0
@@ -189,5 +189,30 @@ describe('who decides whether a group is open', () => {
     // one is still in flight, and collapsing then hides the only live call.
     const [group] = groupRows([row('lsp', 'a', { status: 'running' }), row('lsp', 'b')])
     expect(group.kind === 'group' && group.live).toBe(true)
+  })
+})
+
+describe('what a group counts', () => {
+  it('names what the calls acted on', () => {
+    expect(countedAs('read', 4)).toBe('4 files')
+    expect(countedAs('edit', 2)).toBe('2 files')
+    expect(countedAs('lsp', 3)).toBe('3 lookups')
+  })
+
+  it('pluralises words that do not take a bare s', () => {
+    // `2 searchs` reached the ledger and was caught by eye, not by a test.
+    expect(countedAs('grep', 2)).toBe('2 searches')
+    expect(countedAs('grep', 1)).toBe('1 search')
+  })
+
+  it('counts calls for a kind with nothing better to say', () => {
+    expect(countedAs('bash', 3)).toBe('3 calls')
+    expect(countedAs('bash', 1)).toBe('1 call')
+  })
+
+  it('never says "1 files"', () => {
+    for (const kind of ['read', 'edit', 'write', 'grep', 'lsp', 'anything']) {
+      expect(countedAs(kind, 1).endsWith('s')).toBe(false)
+    }
   })
 })

@@ -27,18 +27,24 @@ export const NAMED_TARGETS = 3
  *
  *  The mockup says `read · 4 files`, not `4 calls`: a reader knows what four
  *  reads act on, and the word that says it costs nothing. Anything not named
- *  here counts calls, which is always true if never as good. */
-const COUNTED: Readonly<Record<string, string>> = {
-  read: 'file',
-  edit: 'file',
-  write: 'file',
-  grep: 'search',
-  lsp: 'lookup',
+ *  here counts calls, which is always true if never as good.
+ *
+ *  Both forms are written out. English does not pluralise by rule — `search`
+ *  takes `es`, and appending `s` to it produced `2 searchs` in the ledger,
+ *  which is the same mistake `TENSES` in `tool-label.ts` exists to avoid. */
+const COUNTED: Readonly<Record<string, { one: string; many: string }>> = {
+  read: { one: 'file', many: 'files' },
+  edit: { one: 'file', many: 'files' },
+  write: { one: 'file', many: 'files' },
+  grep: { one: 'search', many: 'searches' },
+  lsp: { one: 'lookup', many: 'lookups' },
 }
 
+const CALLS = { one: 'call', many: 'calls' }
+
 export function countedAs(kind: string, n: number): string {
-  const noun = COUNTED[kind] ?? 'call'
-  return `${n} ${noun}${n === 1 ? '' : 's'}`
+  const noun = COUNTED[kind] ?? CALLS
+  return `${n} ${n === 1 ? noun.one : noun.many}`
 }
 
 export interface RowGroup {
