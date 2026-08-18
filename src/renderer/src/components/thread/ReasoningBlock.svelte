@@ -1,17 +1,21 @@
 <script lang="ts">
   /** What the model thought, drawn as the tool call it effectively is.
    *
-   *  Same grammar as every other row in the transcript — node, gutter word,
-   *  target, meta, chevron — because thinking is another thing the agent did
-   *  on the way to an answer, and a reader should not have to learn a second
-   *  shape to skim past it. Collapsed it shows the latest line; expanded it
-   *  shows the whole thought.
+   *  Same grammar as every other row in the transcript — icon on the spine,
+   *  gutter word, target, meta — because thinking is another thing the agent
+   *  did on the way to an answer, and a reader should not have to learn a
+   *  second shape to skim past it.
    *
-   *  Muted a step below a tool row, and markdown-rendered but smaller: a model
-   *  writes `**this**` and backticks in its reasoning, and showing the
-   *  asterisks is showing it raw. */
+   *  No chevron: the row is the control, the way every other expandable row in
+   *  this ledger is, and a second affordance saying the same thing is one more
+   *  thing to look at. Collapsed shows nothing at all — a tail line under a
+   *  collapsed row is the row not being collapsed.
+   *
+   *  Markdown-rendered but quieter: a model writes `**this**` and backticks
+   *  while it thinks, and showing the asterisks is showing it raw. */
   import Icon from '../Icon.svelte'
   import Inline from './md/Inline.svelte'
+  import { toolIcon } from '$lib/icons'
   import { parseInline } from '$lib/markdown-inline'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
 
@@ -26,31 +30,23 @@
   const { id, text, streaming = false, ms, threadId = '' }: Props = $props()
 
   const open = $derived(reasoningOpen.isOpen(threadId, id))
-
-  /** The tail, not the head. What the model is thinking now is the part worth
-   *  a line; what it thought first is one expand away. */
-  const tail = $derived(text.trim().split('\n').filter(Boolean).at(-1) ?? '')
-
   const took = $derived(ms === undefined || ms < 100 ? '' : `${(ms / 1000).toFixed(1)}s`)
 </script>
 
 <div class="ledger">
   <div class="entry">
-    <span class="node" class:pulse={streaming}></span>
+    <span class="node" class:pulse={streaming}><Icon name={toolIcon('think')} /></span>
     <button class="row" onclick={() => reasoningOpen.toggle(threadId, id)}>
       <span class="kind">think</span>
       <span class="target">{streaming ? 'thinking…' : 'reasoning'}</span>
-      <span class="meta">
-        {took}<span class="chev"
-          ><Icon name={open ? 'chevron-down' : 'chevron-right'} /></span
-        >
-      </span>
+      <span class="meta">{took}</span>
     </button>
 
-    {#if open}
+    {#if open || streaming}
+      <!-- While it streams the thought is the point: hiding it behind a click
+           would mean the transcript looks stalled during the one part of a
+           turn that is visibly happening. -->
       <div class="body"><Inline parts={parseInline(text)} /></div>
-    {:else if tail}
-      <div class="body one"><Inline parts={parseInline(tail)} /></div>
     {/if}
   </div>
 </div>
@@ -78,11 +74,16 @@
 
   .node {
     position: absolute;
-    left: -20px;
-    top: 9px;
-    width: 7px;
-    height: 7px;
-    background: var(--fg-dimmer);
+    left: -23px;
+    top: 6px;
+    width: 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--fg-dimmer);
+    background: var(--bg);
   }
   .node.pulse {
     animation: pulse 1.1s ease-in-out infinite;
@@ -122,29 +123,19 @@
     white-space: nowrap;
     color: var(--fg-dimmest);
   }
-  .chev {
-    margin-left: 4px;
-  }
 
-  /* Indented under the row the way a tool body is, and smaller — the answer
-     stays the loudest thing on the screen. */
+  /* Straight under the row, with no rule of its own. The ledger already draws
+     one spine; a second one beside the thought made the block look like a
+     ledger inside a ledger. */
   .body {
-    margin: 0 0 4px 14px;
-    border-left: 1px solid var(--line-soft, rgb(255 255 255 / 0.06));
-    padding: 2px 0 2px 14px;
+    margin: 0 0 6px 6px;
+    padding: 2px 0;
     font-size: 11px;
     line-height: 1.7;
     color: var(--fg-dimmest);
     white-space: pre-wrap;
   }
-  .body.one {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  /* Markdown, but quieter: a model writes `**this**` in its reasoning and the
-     asterisks are not what it meant. Bold lifts one step, never to full
-     strength. */
+  /* Markdown, but quieter: bold lifts one step, never to full strength. */
   .body :global(.b) {
     color: var(--fg-dim);
   }

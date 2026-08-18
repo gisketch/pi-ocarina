@@ -45,6 +45,19 @@ import arrowDown from '@vscode/codicons/src/icons/arrow-down.svg?raw'
 import circleFilled from '@vscode/codicons/src/icons/circle-filled.svg?raw'
 import warning from '@vscode/codicons/src/icons/warning.svg?raw'
 import info from '@vscode/codicons/src/icons/info.svg?raw'
+// One per tool kind: a row's node says what kind of thing happened, which a
+// coloured square could only ever say by being learned.
+import search from '@vscode/codicons/src/icons/search.svg?raw'
+import newFile from '@vscode/codicons/src/icons/new-file.svg?raw'
+import edit from '@vscode/codicons/src/icons/edit.svg?raw'
+import terminal from '@vscode/codicons/src/icons/terminal.svg?raw'
+import symbolNamespace from '@vscode/codicons/src/icons/symbol-namespace.svg?raw'
+import globe from '@vscode/codicons/src/icons/globe.svg?raw'
+import checklist from '@vscode/codicons/src/icons/checklist.svg?raw'
+import book from '@vscode/codicons/src/icons/book.svg?raw'
+import robot from '@vscode/codicons/src/icons/robot.svg?raw'
+import tools from '@vscode/codicons/src/icons/tools.svg?raw'
+import sparkle from '@vscode/codicons/src/icons/sparkle.svg?raw'
 // Phosphor, for the gap named at `box` below.
 import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
 import squareChecked from '@phosphor-icons/core/assets/fill/check-square-fill.svg?raw'
@@ -74,6 +87,22 @@ export const ICONS = {
   'box-done': squareFilled,
   'box-checked': squareChecked,
   dot: circleFilled,
+
+  // The tool kinds. Named `tool-*` so a glance at a component says which
+  // vocabulary an icon came from, and so the map below cannot silently pick
+  // up an unrelated entry.
+  'tool-read': file,
+  'tool-grep': search,
+  'tool-write': newFile,
+  'tool-edit': edit,
+  'tool-bash': terminal,
+  'tool-lsp': symbolNamespace,
+  'tool-fetch': globe,
+  'tool-todo': checklist,
+  'tool-skill': book,
+  'tool-agent': robot,
+  'tool-raw': tools,
+  'tool-think': sparkle,
 } as const
 
 export type IconName = keyof typeof ICONS
@@ -86,4 +115,15 @@ export function iconSvg(name: IconName): string {
  *  labels from data, and a typo there should draw nothing rather than throw. */
 export function isIcon(name: string): name is IconName {
   return name in ICONS
+}
+
+/** The icon a tool row wears in place of its node.
+ *
+ *  A coloured square said "something happened, and it went like this"; the
+ *  colour still says the second half, and the shape now says the first without
+ *  the reader having to learn it. `raw` is the honest fallback for a tool this
+ *  app has no row for — a wrench, rather than a guess at what it did. */
+export function toolIcon(kind: string): IconName {
+  const name = `tool-${kind}`
+  return isIcon(name) ? name : 'tool-raw'
 }

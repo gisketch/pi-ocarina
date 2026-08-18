@@ -45,7 +45,14 @@
   let expandedFor = $state<string | null>(null)
   const marker = $derived(cut > 0 ? (blocks[cut]?.id ?? null) : null)
   const hidden = $derived(marker !== null && expandedFor !== marker ? cut : 0)
-  const shown = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
+  const drawn = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
+  // `o` takes reasoning out of the transcript, not merely out of view: a block
+  // left in place with its contents hidden still holds the gap it stood in,
+  // and a reader who asked for the thinking to be gone gets a column of empty
+  // space where it was.
+  const shown = $derived(
+    reasoningOpen.shown ? drawn : drawn.filter((block) => block.kind !== 'reasoning'),
+  )
 
   // Which blocks open a turn's worth of agent work. pi splits one turn across
   // several messages and interleaves tool calls between them, so the name is
@@ -123,7 +130,18 @@
          it is always the quiet half of the contrast. -->
     <div class="turn" class:dim={dimming && i !== litLabel}><AgentLabel /></div>
   {/if}
-  {#if block.kind === 'ledger'}
+  {#if block.kind === 'reasoning'}
+    <!-- Its own branch, outside the `.nav` wrapper: it draws its own row on
+         the ledger's spine, and the wrapper's gap around it would push it away
+         from the calls it belongs beside. -->
+    <ReasoningBlock
+      id={block.id}
+      text={block.text}
+      streaming={block.streaming}
+      ms={block.ms}
+      {threadId}
+    />
+  {:else if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws
          its own rings, so the wrapper below would only dim the whole spine. -->
     <Ledger
@@ -169,18 +187,6 @@
           focusedNav={focused}
           dimmed={dimming}
         />
-      {:else if block.kind === 'reasoning'}
-        <!-- `o` hides them all: a reader who does not want to watch the model
-             think does not want a row per thought either. -->
-        {#if reasoningOpen.shown}
-          <ReasoningBlock
-            id={block.id}
-            text={block.text}
-            streaming={block.streaming}
-            ms={block.ms}
-            {threadId}
-          />
-        {/if}
       {:else if block.kind === 'ask'}
         <AskCard
           askId={block.id}

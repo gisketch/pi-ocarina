@@ -1,6 +1,7 @@
 <script lang="ts">
   import { chevron, metaSegments } from '$lib/ledger'
   import { groupNavId } from '$lib/blocks'
+  import { toolIcon } from '$lib/icons'
   import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import Icon from '../Icon.svelte'
@@ -46,7 +47,7 @@
   class:lit={focusedNav === navId}
   use:navTarget={{ threadId, navId }}
 >
-  <span class="node" class:pulse={group.live}></span>
+  <span class="node" class:pulse={group.live}><Icon name={toolIcon(group.tool)} /></span>
   <button class="row" onclick={() => toolOpen.toggle(threadId, navId, false)}>
     <!-- The bare kind, never a tense. A group is a category of call, not one
          call that happened: `edited 2 calls` claims a single edit and reads as
@@ -78,14 +79,19 @@
   /* Centred on the ledger's spine, the same way a row's node is. */
   .node {
     position: absolute;
-    left: -20px;
-    top: 9px;
-    width: 7px;
-    height: 7px;
-    background: var(--fg-dimmer);
+    left: -23px;
+    top: 6px;
+    width: 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--fg-dimmer);
+    background: var(--bg);
   }
   .group.live .node {
-    background: var(--accent);
+    color: var(--accent);
   }
   .node.pulse {
     animation: pulse 1.1s ease-in-out infinite;

@@ -136,3 +136,28 @@
   --err-text: var(--fg-dimmer);
   --warn: var(--fg-dimmer);
 }
+
+/* A ledger node's colour, by the status its row ended in.
+ *
+ * One mapping, shared: the ledger, a group's summary and a reasoning row all
+ * draw a node, and three copies of this would drift the first time a status
+ * gained a colour. The shape comes from the tool's own icon; this is only
+ * which colour it is drawn in. */
+.node.accent {
+  color: var(--accent);
+}
+.node.ok {
+  color: var(--ok);
+}
+.node.err {
+  color: var(--err);
+}
+.node.warn {
+  color: var(--warn);
+}
+.node.muted {
+  color: var(--fg-dimmer);
+}
+.node.dim {
+  color: var(--fg-dimmest);
+}

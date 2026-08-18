@@ -31,9 +31,14 @@ class BlockNav {
    *  cached: a keypress is not a hot path, and a stale list would point at
    *  blocks a restore has taken away. */
   #list(threadId = app.thread.id): ReturnType<typeof navBlocks> {
-    return navBlocks(threads.get(threadId).blocks, (navId) =>
-      toolOpen.isOpen(threadId, navId, false),
-    )
+    const blocks = threads.get(threadId).blocks
+    // A hidden reasoning block is not drawn, so it is not somewhere `j` can
+    // go: a ring on nothing is a key that appears to do nothing.
+    const visible = reasoningOpen.shown
+      ? blocks
+      : blocks.filter((block) => block.kind !== 'reasoning')
+
+    return navBlocks(visible, (navId) => toolOpen.isOpen(threadId, navId, false))
   }
 
   /** `esc` out of READ. The ring goes; the dim goes with it. */

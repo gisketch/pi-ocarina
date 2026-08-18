@@ -4,6 +4,7 @@
   import EarlierCalls from './EarlierCalls.svelte'
   import ToolBody from './ToolBody.svelte'
   import { chevron, initialOpenState, isExpandable, metaSegments, metaTone, nodeTone } from '$lib/ledger'
+  import { toolIcon } from '$lib/icons'
   import BlockMenu from './BlockMenu.svelte'
   import { navTarget } from '$lib/state/block-focus.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
@@ -100,7 +101,9 @@
     {#if points && menuOn(navIdOf(row))}
       <BlockMenu />
     {/if}
-    <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}></span>
+    <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}
+      ><Icon name={toolIcon(row.kind)} /></span
+    >
 
     <svelte:element
       this={isExpandable(row) ? 'button' : 'div'}
@@ -243,34 +246,28 @@
 
   /* Centred on the spine at 3.5px: the row starts 20px in, so -20px puts the
      dot's left edge exactly on the ledger's padding edge and nothing overflows. */
+  /* The node is the tool's own icon now, in the tone its status earned. Wider
+     than the square it replaces and pulled left to stay centred on the spine:
+     a 7px dot and an 12px glyph do not share a centre line. */
   .node {
     position: absolute;
-    left: -20px;
-    top: 9px;
-    width: 7px;
-    height: 7px;
+    left: -23px;
+    top: 6px;
+    width: 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    /* The spine runs behind it, so the icon needs its own ground to sit on or
+       the line cuts through the glyph. */
+    background: var(--bg);
   }
   .node.pulse {
     animation: pulse 1.1s ease-in-out infinite;
   }
-  .node.accent {
-    background: var(--accent);
-  }
-  .node.ok {
-    background: var(--ok);
-  }
-  .node.err {
-    background: var(--err);
-  }
-  .node.warn {
-    background: var(--warn);
-  }
-  .node.muted {
-    background: var(--fg-dimmer);
-  }
-  .node.dim {
-    background: var(--fg-dimmest);
-  }
+  /* The tones a node wears live in `tokens.css`: they are one mapping from
+     status to colour, and three components now draw a node. */
 
   .row {
     display: flex;
@@ -334,10 +331,11 @@
     flex-direction: column;
   }
   .children .node {
-    left: -17px;
-    top: 8px;
-    width: 5px;
-    height: 5px;
+    left: -21px;
+    top: 5px;
+    width: 11px;
+    height: 11px;
+    font-size: 10px;
   }
   .row.nested {
     padding: 3px 6px;
