@@ -1,6 +1,8 @@
 # Tool rows that group, and language-server rows that read cleanly
 
-Status: **NEED GRILLING.** High-level. Not an approved contract.
+Status: **Approved 2026-08-18.** Decisions settled in the Polish mockup
+(`docs/reference/design/PiOcarina Polish.dc.html`, sections 01–02). Tickets in
+[2026-08-18-tool-grouping.md](../exec-plans/active/2026-08-18-tool-grouping.md).
 
 ## Problem
 
@@ -84,14 +86,30 @@ summarized away; expansion state **persists** once opened.
 - A browser pass over a replayed busy turn, screenshotted collapsed and
   expanded.
 
-## Questions the grill must answer
+## Decisions (settled by the mockup, 2026-08-18)
 
-1. What breaks a run besides a kind change — a failure, an agent message, a
-   time gap, a target in a different directory?
-2. Does a finished group collapse automatically, or only new calls arriving
-   after it is already summarized?
-3. The exact lsp vocabulary: `lsp · refs draw · Ledger.svelte`? `lsp refs
-   draw`? Does the verb live in the gutter or the target?
-4. Do lsp calls group with each other across different verbs (`outline`,
-   `refs`) or only within one verb?
-5. How does leap address a row inside a collapsed group?
+1. **What groups**: consecutive same-kind calls of read, grep, and lsp. Edits
+   group too, but a member row keeps its diff one more expand away — a diff is
+   never summarized out of reach.
+2. **What never groups**: singles, failures, and anything that needed
+   approval. Those stay full rows; a group forms at two or more clean calls.
+3. **Live behavior**: an open group streams — the current call and its
+   progress are visible; the group collapses to its summary when the run
+   finishes.
+4. **Summary grammar**: chevron · kind · count ("read · 4 files") · a
+   truncated preview of targets ("worker.ts · retry.ts · queue.ts +1") ·
+   aggregate meta right-aligned (total lines read, `+41 −12`).
+5. **Keys**: `j`/`k` move between rows, `⏎`/`l` expand, `h` collapse — the
+   same vocabulary the rest of the app uses.
+6. **lsp row grammar**: gutter word `lsp`; then the SUBJECT (file or symbol)
+   at full strength; then the operation word muted (`outline`, `references`,
+   `definition`, `diagnostics`); result meta right-aligned (`14 symbols`,
+   `6 refs · 3 files`, `worker.ts:12`, `2 errors 5 warns`). A diagnostics row
+   with errors colors its gutter word. Same grammar as read/grep rows.
+7. **lsp grouping**: lsp rows group with each other as one kind, across
+   operations — the summary counts calls, the expansion shows each operation.
+
+## Open questions (small, settle in implementation)
+
+- How leap addresses a row inside a collapsed group — proposal: leap match
+  expands the group and focuses the row; record what ships in the plan doc.

@@ -1,6 +1,8 @@
 # Chat polish: follow the stream, chips in the sentence
 
-Status: **NEED GRILLING.** High-level. Not an approved contract.
+Status: **Approved 2026-08-18.** Decisions settled in the Polish mockup
+(`docs/reference/design/PiOcarina Polish.dc.html`, sections 03–04). Tickets in
+[2026-08-18-chat-polish.md](../exec-plans/active/2026-08-18-chat-polish.md).
 
 ## Problem
 
@@ -93,12 +95,28 @@ is visible as an image.
 - A browser pass: stream a long turn, release mid-stream, jump back, send.
 - A live pass where pi reads a pasted screenshot and the thumbnail draws.
 
-## Questions the grill must answer
+## Decisions (settled by the mockup, 2026-08-18)
 
-1. Arrow or pill — and does it show a count of what arrived while released?
-2. Which key jumps to live, and does `G` (end of thread) also re-pin?
-3. Does an expanded inline chip stay expanded in the transcript, and is the
-   expansion per-chip or one-at-a-time?
-4. Does the staged-image fix allowlist the staging directory in `imageBody`,
-   or stage into the workspace, or something else the grill finds?
-5. Does release survive a thread switch — is pin state per column?
+1. **Follow mode**: follow is on while the view is within ~48px of the
+   bottom; new content keeps it pinned. Any upward scroll breaks it
+   instantly — the stream never moves the view while the reader reads.
+2. **The pill**: appears only when paused *and* new content exists. It reads
+   `↓ N new · jump to latest · G` — a count, not just an arrow. Click or `G`
+   re-follows; scrolling back to the bottom re-arms follow silently with no
+   button needed.
+3. **The status line mirrors the state**: a dot plus FOLLOWING (pulsing) or
+   PAUSED — always visible, zero surprise.
+4. **Inline chips**: chips flow inside the sentence, never a separate row.
+   Activating a chip expands a card directly below the message — image, name,
+   dimensions, `expanded from chip`, `open ↗`. Expansion is per-chip and the
+   card stays until toggled closed.
+5. **Read thumbnails**: a `read` of an image carries a real thumbnail nested
+   under the row — "what pi saw" — click to zoom. The staged-screenshot fix
+   allowlists this app's own staging directory in `imageBody`; the general
+   workspace containment stays exactly as strict as it is.
+6. **Pin state is per column** — each thread remembers its own follow state.
+
+## Open questions (small, settle in implementation)
+
+- Whether `G` at the true bottom is a no-op or still snaps — record in the
+  plan doc.

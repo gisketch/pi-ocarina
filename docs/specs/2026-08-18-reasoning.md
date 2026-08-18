@@ -1,6 +1,8 @@
 # Reasoning, visible
 
-Status: **NEED GRILLING.** High-level. Not an approved contract.
+Status: **Approved 2026-08-18.** Decisions settled in the Polish mockup
+(`docs/reference/design/PiOcarina Polish.dc.html`, section 05). Tickets in
+[2026-08-18-reasoning.md](../exec-plans/active/2026-08-18-reasoning.md).
 
 ## Problem
 
@@ -77,13 +79,25 @@ hung; expansion is **cheap and local**.
 - Projection tests for the collapse state machine.
 - A browser pass with a thinking model: live stream, collapse, `o`, replay.
 
-## Questions the grill must answer
+## Decisions (settled by the mockup, 2026-08-18)
 
-1. Does the collapsed header show duration ("thought for 12s"), a first line,
-   or just the word — and where does duration come from?
-2. Is `o` per-block on focus and `O` global, or one global toggle only?
-3. Do `j`/`k` stop on collapsed reasoning blocks, or skip them?
-4. During live streaming, does the full reasoning stream by default, or only
-   the latest line with expansion opt-in?
-5. Does pi 0.84.x deliver thinking deltas during streaming, or only complete
-   thinking parts at message end — and what does that force on the live form?
+1. **Shape**: a 2px left rule and the darkest gray text — margin notes, not
+   content. No markdown rendering inside reasoning; plain muted text keeps it
+   visually below tool rows.
+2. **Collapsed shows the tail**: one quiet line with the *latest* thought,
+   ellipsized from the left — a glance says where pi's head is. The header
+   reads `▸ REASONING · 4.2s` collapsed and adds token count expanded
+   (`4.2s · 812 tok`). Duration is measured wall-clock between the first and
+   last thinking delta; tokens come from pi's usage if present, else omitted.
+3. **Streaming**: the header shows a blinking mark and `streaming…`; the tail
+   line updates live with a caret. Full text streams only when expanded.
+4. **Toggle**: click (or `⏎` on the focused block) toggles one block; `o`
+   toggles globally. Per-block state persists per thread; the global default
+   persists in preferences.
+5. **Traversal**: `j`/`k` stop on reasoning blocks like any block, collapsed
+   or not.
+
+## Open questions (small, settle in implementation)
+
+- Whether pi 0.84.x delivers thinking deltas or whole parts decides how live
+  the tail line is — verify against the events first, record in the plan doc.

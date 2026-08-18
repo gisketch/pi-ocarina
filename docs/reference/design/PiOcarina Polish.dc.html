@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'Departure Mono';src:url('https://cdn.jsdelivr.net/npm/departure-mono/assets/DepartureMono-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+html,body{margin:0;padding:0;background:#0d0d10}
+a{color:#9ae6c3;text-decoration:none}a:hover{color:#c2f5dd;text-decoration:underline}
+@keyframes caret{0%,45%{opacity:1}50%,95%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes blinkpx{0%,100%{opacity:.12}50%{opacity:.45}}
+@keyframes pixelshift{from{background-position:0 0}to{background-position:120px 0}}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+*{box-sizing:border-box}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#0d0d10;color:#d6d6d2;font-family:'Departure Mono','JetBrains Mono',ui-monospace,monospace;font-size:12px;padding:52px 60px 80px">
+  <div style="max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:52px">
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:22px;color:#efefea">PI<span style="color:#6c6c74">OCARINA</span> <span style="color:#4a4a52">/</span> POLISH</div>
+      <div style="color:#8d8d93;font-size:11px;font-family:'JetBrains Mono',monospace">Spec mockups: tool-call grouping · lsp rows · auto-scroll · inline attachments · reasoning · icon pack. Live demos where it matters.</div>
+    </div>
+
+    <!-- 01 tool call grouping -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">01 · TOOL CALL GROUPING — collapse runs of same-type calls into one summary line (Claude Code / Codex pattern) · click to expand</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:8px;width:620px">
+          <span style="font-size:9.5px;color:#5c5c64">grouped ledger — summary rows, expand for detail · live group streams progress</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:22px 26px;font-family:'JetBrains Mono',monospace;display:flex;flex-direction:column;gap:2px">
+            <!-- group: read (collapsed/expandable) -->
+            <div>
+              <div onClick="{{ tg1 }}" style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;cursor:pointer;font-size:12px;user-select:none" style-hover="background:rgba(255,255,255,.03)">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">{{ ch1 }}</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">read</span>
+                <span style="color:#d6d6d2">4 files</span>
+                <span style="color:#5c5c64;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">worker.ts · retry.ts · queue.ts +1</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10.5px;flex:none">412L</span>
+              </div>
+              <sc-if value="{{ g1 }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-left:17px;border-left:1px solid rgba(255,255,255,.08);padding-left:14px;display:flex;flex-direction:column;animation:rise .15s ease">
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">src/sync/worker.ts<span style="margin-left:auto;color:#5c5c64;font-size:10.5px">142L</span></div>
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">src/sync/retry.ts<span style="margin-left:auto;color:#5c5c64;font-size:10.5px">38L</span></div>
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">src/queue/heap.ts<span style="margin-left:auto;color:#5c5c64;font-size:10.5px">201L</span></div>
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">src/sync/types.ts<span style="margin-left:auto;color:#5c5c64;font-size:10.5px">31L</span></div>
+                </div>
+              </sc-if>
+            </div>
+            <!-- group: edit -->
+            <div>
+              <div onClick="{{ tg2 }}" style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;cursor:pointer;font-size:12px;user-select:none" style-hover="background:rgba(255,255,255,.03)">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">{{ ch2 }}</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};flex:none">edit</span>
+                <span style="color:#d6d6d2">3 files</span>
+                <span style="margin-left:auto;font-size:10.5px;flex:none"><span style="color:#7fd7a4">+41</span> <span style="color:#e07a6b">−12</span></span>
+              </div>
+              <sc-if value="{{ g2 }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:17px;border-left:1px solid rgba(255,255,255,.08);padding-left:14px;display:flex;flex-direction:column;animation:rise .15s ease">
+                  <div onClick="{{ tg2d }}" style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93;cursor:pointer" style-hover="background:rgba(255,255,255,.03)">src/sync/worker.ts<span style="margin-left:auto;font-size:10.5px"><span style="color:#7fd7a4">+14</span> <span style="color:#e07a6b">−3</span> <span style="color:#5c5c64">{{ ch2d }}</span></span></div>
+                  <sc-if value="{{ g2d }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin:2px 6px 6px;font-size:11.5px;line-height:1.75;background:#0a0a0c;border:1px solid rgba(255,255,255,.03)">
+                      <div style="padding:2px 12px;color:#e8a49a;background:rgba(224,122,107,.08)">- const res = await push(job.changes)</div>
+                      <div style="padding:2px 12px;color:#a5e5c2;background:rgba(127,215,164,.07)">+ const res = await withRetry(() =&gt; push(job.changes))</div>
+                    </div>
+                  </sc-if>
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">src/sync/retry.ts<span style="margin-left:auto;font-size:10.5px;color:#7fd7a4">+22</span></div>
+                  <div style="display:flex;gap:8px;padding:3px 6px;font-size:11.5px;color:#8d8d93">sync/retry.spec.ts<span style="margin-left:auto;font-size:10.5px"><span style="color:#7fd7a4">+5</span> <span style="color:#e07a6b">−9</span></span></div>
+                </div>
+              </sc-if>
+            </div>
+            <!-- group: bash single (never grouped when n=1) -->
+            <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+              <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▸</span>
+              <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">bash</span>
+              <span style="color:#d6d6d2">pnpm test sync</span>
+              <span style="margin-left:auto;color:#7fd7a4;font-size:10.5px;flex:none">exit 0 · 3.2s</span>
+            </div>
+            <!-- group: live streaming -->
+            <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px;background:rgba(255,255,255,.02)">
+              <span style="width:7px;height:7px;background:{{ accent }};animation:pulse 1.1s ease-in-out infinite;flex:none;align-self:center"></span>
+              <span style="font-family:'Departure Mono',monospace;font-size:10px;color:{{ accent }};flex:none">grep</span>
+              <span style="color:#d6d6d2">searching…</span>
+              <span style="color:#5c5c64;font-size:11px">2/3 patterns · "backoff" in src/**</span>
+              <span style="margin-left:auto;width:56px;height:7px;background:repeating-linear-gradient(90deg,oklch(0.76 0.14 152 / 0.5) 0 6px,rgba(255,255,255,.05) 6px 12px);background-size:120px 100%;animation:pixelshift .9s steps(10) infinite;flex:none;align-self:center"></span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:420px">
+          <span style="font-size:9.5px;color:#5c5c64">grouping rules</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:18px 22px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:#8d8d93;line-height:1.6;font-family:'JetBrains Mono',monospace">
+            <div><span style="color:#efefea">group</span> consecutive same-type calls (read/grep/lsp) into one summary row</div>
+            <div><span style="color:#efefea">never group</span> edits' diffs away — edit groups expand per-file, diff one more click</div>
+            <div><span style="color:#efefea">never group</span> singles, failures, or anything needing approval — those stay full rows</div>
+            <div><span style="color:#efefea">while live</span> the group is open showing current item + progress; it collapses to summary on finish</div>
+            <div><span style="color:#efefea">keys</span> — j/k move between rows · ⏎/l expand · h collapse</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 lsp rows -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">02 · LSP ROWS — replaces "asked outline of …"</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px">
+        <div style="display:flex;flex-direction:column;gap:8px;width:560px">
+          <span style="font-size:9.5px;color:#5c5c64">before → after</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:22px 26px;font-family:'JetBrains Mono',monospace;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px;opacity:.45;text-decoration:line-through">
+              <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">asked</span>
+              <span style="color:#d6d6d2">outline of src/sync/worker.ts</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▸</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">lsp</span>
+                <span style="color:#d6d6d2">worker.ts</span>
+                <span style="color:#5c5c64;font-size:11px">outline</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10.5px">14 symbols</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▸</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">lsp</span>
+                <span style="color:#d6d6d2">withRetry</span>
+                <span style="color:#5c5c64;font-size:11px">references</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10.5px">6 refs · 3 files</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▸</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">lsp</span>
+                <span style="color:#d6d6d2">runSync()</span>
+                <span style="color:#5c5c64;font-size:11px">definition</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10.5px">worker.ts:12</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▸</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#e07a6b;flex:none">lsp</span>
+                <span style="color:#d6d6d2">diagnostics</span>
+                <span style="color:#5c5c64;font-size:11px">workspace</span>
+                <span style="margin-left:auto;font-size:10.5px"><span style="color:#e07a6b">2 errors</span> <span style="color:#e9c46a">5 warns</span></span>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#5c5c64;font-family:'Departure Mono',monospace">pattern: lsp · SUBJECT · operation (muted) · result meta right-aligned — same grammar as read/grep rows</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 auto-scroll -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">03 · AUTO-SCROLL — live demo: streams below · scroll up to break follow · pill or G re-follows</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:8px;width:620px">
+          <span style="font-size:9.5px;color:#5c5c64">follow mode — the thread sticks to bottom while pi streams; your scroll-up pauses it, never fights you</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);position:relative">
+            <div sc-ref="autos" onScroll="{{ onScroll }}" style="height:300px;overflow-y:auto;padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.8;scrollbar-width:thin;scrollbar-color:#2c2c33 transparent">
+              <sc-for list="{{ lines }}" as="ln" hint-placeholder-count="8">
+                <div style="display:flex;gap:9px;color:{{ ln.c }};padding:1px 0"><span style="font-family:'Departure Mono',monospace;font-size:9.5px;color:#4a4a52;width:34px;flex:none;padding-top:2px">{{ ln.tag }}</span><span>{{ ln.t }}</span></div>
+              </sc-for>
+              <div style="display:flex;gap:9px;padding:1px 0"><span style="width:34px;flex:none"></span><span style="display:inline-block;width:7px;height:13px;background:{{ accent }};animation:caret 1s step-end infinite"></span></div>
+            </div>
+            <!-- jump pill -->
+            <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ jump }}" style="position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;background:#141417;border:1px solid {{ accentBorder }};padding:7px 14px;cursor:pointer;font-size:10.5px;color:#c9c9c4;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:rise .18s ease;white-space:nowrap" style-hover="border-color:{{ accent }}">
+                <span style="color:{{ accent }}">↓ {{ newCount }} new</span> jump to latest
+                <span style="border:1px solid rgba(255,255,255,.11);padding:0 5px;color:#8d8d93;font-size:9.5px">G</span>
+              </div>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.035);font-size:9.5px;letter-spacing:.1em;color:#5c5c64">
+              <span style="width:6px;height:6px;background:{{ followDot }};animation:{{ followAnim }}"></span>{{ followLabel }}
+              <span style="margin-left:auto;color:#4a4a52">scroll up inside the box to try it</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:420px">
+          <span style="font-size:9.5px;color:#5c5c64">rules (best-practice setup)</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:18px 22px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:#8d8d93;line-height:1.6;font-family:'JetBrains Mono',monospace">
+            <div><span style="color:#efefea">follow</span> is on while you're within ~48px of the bottom — new tokens keep the view pinned</div>
+            <div><span style="color:#efefea">any upward scroll breaks it instantly</span> — the stream never yanks the view while you read</div>
+            <div><span style="color:#efefea">pill</span> appears only when paused AND new content exists — shows unseen count, click or <span style="color:#efefea">G</span> re-follows</div>
+            <div><span style="color:#efefea">scrolling back to bottom</span> re-arms follow silently — no button needed</div>
+            <div><span style="color:#efefea">statusline dot</span> mirrors the state: FOLLOWING (pulsing) / PAUSED — always visible, zero surprise</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 inline attachments + thumbnails -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">04 · INLINE ATTACHMENTS &amp; THUMBNAILS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:8px;width:560px">
+          <span style="font-size:9.5px;color:#5c5c64">chips flow inside the sentence — never a separate row · click a chip to expand below the message</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:22px 26px;display:flex;flex-direction:column;gap:12px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+            <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+            <div style="color:#e8e8e3;line-height:2.1">In <span onClick="{{ tchip }}" style="display:inline-flex;align-items:center;gap:6px;border:1px solid {{ chipBorder }};background:rgba(255,255,255,.03);padding:2px 8px;font-size:11.5px;cursor:pointer;vertical-align:baseline" style-hover="border-color:rgba(255,255,255,.25)"><span style="color:#7fd7a4;font-size:10px">▤</span>before.png</span> the palette clips at 8 rows, but <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);padding:2px 8px;font-size:11.5px;cursor:pointer;vertical-align:baseline" style-hover="border-color:rgba(255,255,255,.25)"><span style="color:#7fd7a4;font-size:10px">▤</span>after.png</span> fits fine — <span style="display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);padding:2px 8px;font-size:11.5px;cursor:pointer;vertical-align:baseline" style-hover="border-color:rgba(255,255,255,.25)"><span style="color:#8d8d93;font-size:10px">▤</span>error.txt</span> has the overflow warning.</div>
+            <sc-if value="{{ chipOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid rgba(255,255,255,.05);background:#0a0a0c;animation:rise .18s ease">
+                <img src="uploads/file-0e59be3ce80ee00a461a8532f73ae6bd.png" style="display:block;width:100%;max-height:240px;object-fit:cover;object-position:top;opacity:.9">
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid rgba(255,255,255,.04);font-size:10px;color:#5c5c64;font-family:'Departure Mono',monospace"><span style="color:#7fd7a4">▤</span>before.png · 1190×296 · expanded from chip<span style="margin-left:auto;color:#8d8d93;cursor:pointer" style-hover="color:#efefea">open ↗</span></div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:560px">
+          <span style="font-size:9.5px;color:#5c5c64">pi reading an image — read row carries a real thumbnail, so you see what pi saw</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:22px 26px;font-family:'JetBrains Mono',monospace">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:baseline;gap:9px;padding:6px 8px;font-size:12px">
+                <span style="color:#5c5c64;font-size:9px;width:9px;flex:none">▾</span>
+                <span style="font-family:'Departure Mono',monospace;font-size:10px;color:#8d8d93;flex:none">read</span>
+                <span style="color:#d6d6d2">screenshot.png</span>
+                <span style="margin-left:auto;color:#5c5c64;font-size:10.5px">image · 1078×822</span>
+              </div>
+              <div style="margin-left:17px;border-left:1px solid rgba(255,255,255,.08);padding-left:14px">
+                <div style="border:1px solid rgba(255,255,255,.05);background:#0a0a0c;width:280px">
+                  <img src="uploads/file-aa699b344cc69dd1d63e2f4cac288082.png" style="display:block;width:100%;max-height:170px;object-fit:cover;object-position:top;opacity:.9">
+                  <div style="padding:5px 10px;font-size:9.5px;color:#5c5c64;font-family:'Departure Mono',monospace">what pi saw · click to zoom</div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+              <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+              <div style="color:#c9c9c4;line-height:1.7;font-size:12.5px">The palette in <span style="display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);padding:1px 7px;font-size:11px;cursor:pointer;vertical-align:baseline"><span style="color:#7fd7a4;font-size:9.5px">▤</span>screenshot.png</span> clips because the list has a fixed 8-row height — the container needs <code style="background:rgba(255,255,255,.07);padding:1px 5px;font-size:11.5px">max-height</code> + scroll.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 reasoning -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">05 · REASONING — muted, collapsed by default · press O (or click) to toggle</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:8px;width:620px">
+          <span style="font-size:9.5px;color:#5c5c64">collapsed = one quiet line with the latest thought · expanded = full muted block · O toggles globally</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:22px 26px;display:flex;flex-direction:column;gap:16px;font-family:'JetBrains Mono',monospace;font-size:12.5px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8d93">YOU</div>
+              <div style="color:#e8e8e3;line-height:1.65">Why does the queue drain slowly under load?</div>
+            </div>
+            <!-- reasoning block -->
+            <div onClick="{{ treason }}" style="border-left:2px solid rgba(255,255,255,.09);padding:2px 0 2px 12px;cursor:pointer;user-select:none">
+              <div style="display:flex;align-items:center;gap:9px;font-size:10px;font-family:'Departure Mono',monospace;color:#5c5c64">
+                <span style="color:#6c6c74">{{ rchev }} REASONING</span>
+                <span>{{ rmeta }}</span>
+                <span style="margin-left:auto;border:1px solid rgba(255,255,255,.09);padding:0 5px;color:#5c5c64;font-size:9.5px">o</span>
+              </div>
+              <sc-if value="{{ rOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="color:#6c6c74;line-height:1.75;font-size:11.5px;padding-top:8px;animation:rise .15s ease">The dequeue path takes the global lock per item — under load that serializes workers. Batch sizes are fixed at 1. Two candidate causes: lock contention (likely, given the p95 spike shape) or the heap rebalance on every pop. I should measure lock wait time first before touching the heap.</div>
+              </sc-if>
+              <sc-if value="{{ rClosed }}" hint-placeholder-val="{{ true }}">
+                <div style="color:#5c5c64;line-height:1.7;font-size:11.5px;padding-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">…measure lock wait time first before touching the heap.</div>
+              </sc-if>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-family:'Departure Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ accent }}">■ PI</div>
+              <div style="color:#c9c9c4;line-height:1.7">It's lock contention in the dequeue path — every worker serializes on one mutex. I'll measure lock wait to confirm, then batch pops.</div>
+            </div>
+            <!-- streaming reasoning -->
+            <div style="border-left:2px solid rgba(255,255,255,.09);padding:2px 0 2px 12px">
+              <div style="display:flex;align-items:center;gap:9px;font-size:10px;font-family:'Departure Mono',monospace;color:#5c5c64">
+                <span style="width:6px;height:6px;background:#6c6c74;animation:blinkpx .9s steps(2) infinite"></span>
+                <span style="color:#6c6c74">REASONING</span><span>streaming…</span>
+              </div>
+              <div style="color:#5c5c64;line-height:1.7;font-size:11.5px;padding-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">…the spec says acks are idempotent, so batching pops is safe if<span style="display:inline-block;width:6px;height:12px;background:#5c5c64;margin-left:4px;vertical-align:text-bottom;animation:caret 1s step-end infinite"></span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:420px">
+          <span style="font-size:9.5px;color:#5c5c64">why this shape</span>
+          <div style="border:1px solid rgba(255,255,255,.035);background:rgba(255,255,255,.015);padding:18px 22px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:#8d8d93;line-height:1.6;font-family:'JetBrains Mono',monospace">
+            <div><span style="color:#efefea">always visible, never loud</span> — a 2px left rule + darkest gray text; it reads as margin-notes, not content</div>
+            <div><span style="color:#efefea">collapsed shows the tail</span> — the latest thought line, so you can glance at where pi's head is mid-stream</div>
+            <div><span style="color:#efefea">O toggles globally</span>, click toggles one block — state persists per thread</div>
+            <div><span style="color:#efefea">no markdown</span> in reasoning — plain muted text keeps it visually below tool rows</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 icon pack -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#8d8d93;border-bottom:1px solid rgba(255,255,255,.035);padding-bottom:8px">06 · ICON PACK CANDIDATES — replace unicode glyphs · svelte-ready · nerd-font feel</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px">
+        <sc-for list="{{ packs }}" as="pk" hint-placeholder-count="4">
+          <div style="width:440px;border:1px solid {{ pk.border }};background:rgba(255,255,255,.015);padding:18px 22px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span style="font-size:13px;color:#efefea">{{ pk.name }}</span>
+              <span style="font-size:10px;color:{{ pk.tagColor }}">{{ pk.tag }}</span>
+              <span style="margin-left:auto;font-size:10px;color:#5c5c64">{{ pk.count }}</span>
+            </div>
+            <div style="display:flex;gap:14px;align-items:center;color:#c9c9c4;background:#0a0a0c;border:1px solid rgba(255,255,255,.03);padding:12px 16px">{{ pk.icons }}</div>
+            <div style="font-size:10.5px;color:#8d8d93;line-height:1.6;font-family:'JetBrains Mono',monospace">{{ pk.notes }}</div>
+            <div style="font-size:10px;color:#5c5c64;font-family:'JetBrains Mono',monospace">{{ pk.pkg }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02);padding:14px 20px;font-size:11px;color:#8d8d93;line-height:1.7;font-family:'JetBrains Mono',monospace;max-width:920px"><span style="color:#efefea">verdict:</span> <span style="color:{{ accent }}">Codicons</span> for the chrome (statusbar, tool labels, git) — it's literally the VS Code terminal vocabulary, sharpest nerd-font match, and every symbol we use (branch, diff, terminal, symbol-kinds for lsp) exists. Fall back to <span style="color:#efefea">Phosphor (light weight)</span> for anything Codicons lacks — 9,000+ icons, 6 weights, first-class svelte package. Lucide/Tabler are safe but read "modern SaaS", not terminal.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1480, &quot;height&quot;: 1000}}">
+class Component extends DCLogic {
+  state = { g1: false, g2: true, g2d: false, chipOpen: true, rOpen: false, lines: 10, paused: false, newCount: 0 };
+  POOL = [
+    { tag: 'pi', t: 'Reading the dequeue path to find the contention point…', c: '#c9c9c4' },
+    { tag: 'read', t: 'src/queue/heap.ts · 201L', c: '#8d8d93' },
+    { tag: 'pi', t: 'The pop() rebalances the full heap each call — O(log n) but with a global lock held.', c: '#c9c9c4' },
+    { tag: 'bash', t: 'pnpm bench queue — p95 dequeue 41ms', c: '#8d8d93' },
+    { tag: 'pi', t: 'Lock wait accounts for 78% of that. Batching pops 16 at a time should cut it hard.', c: '#c9c9c4' },
+    { tag: 'edit', t: 'src/queue/heap.ts +18 −4', c: '#8d8d93' },
+    { tag: 'bash', t: 'pnpm bench queue — p95 dequeue 6ms', c: '#8d8d93' },
+    { tag: 'pi', t: 'p95 down from 41ms to 6ms. Running the full suite to check nothing regressed…', c: '#c9c9c4' },
+  ];
+  componentDidMount() {
+    this.iv = setInterval(() => {
+      this.setState(s => ({ lines: s.lines + 1, newCount: s.paused ? s.newCount + 1 : 0 }));
+    }, 1300);
+    this.kd = (e) => {
+      if (e.key === 'o') this.setState(s => ({ rOpen: !s.rOpen }));
+      if (e.key === 'g' || e.key === 'G') this.jump();
+    };
+    window.addEventListener('keydown', this.kd);
+    this.pin = setInterval(() => {
+      const el = this.refs?.autos;
+      if (el && !this.state.paused && el.scrollTop + el.clientHeight < el.scrollHeight - 4) {
+        this.suppress = true;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 120);
+  }
+  componentWillUnmount() { clearInterval(this.iv); clearInterval(this.pin); window.removeEventListener('keydown', this.kd); }
+  jump() {
+    const el = this.refs?.autos;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    this.setState({ paused: false, newCount: 0 });
+  }
+  icon(paths, opts) {
+    const o = opts || {};
+    return React.createElement('svg', { width: 18, height: 18, viewBox: o.vb || '0 0 24 24', fill: o.fill ? 'currentColor' : 'none', stroke: o.fill ? 'none' : 'currentColor', strokeWidth: o.sw || 2, strokeLinecap: o.cap || 'round', strokeLinejoin: 'round', style: { flex: 'none' } },
+      paths.map((d, i) => React.createElement('path', { key: i, d })));
+  }
+  renderVals() {
+    const s = this.state;
+    const accent = 'oklch(0.76 0.14 152)';
+    const lines = [];
+    for (let i = 0; i < s.lines; i++) lines.push(this.POOL[i % this.POOL.length]);
+    const strip = (mk) => React.createElement('span', { style: { display: 'flex', gap: '16px', alignItems: 'center' } }, mk);
+    const lucide = strip([
+      this.icon(['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6']),
+      this.icon(['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z']),
+      this.icon(['M6 3v12', 'M6 15a3 3 0 1 0 3 3', 'M18 9a3 3 0 1 0-3-3', 'M18 9a9 9 0 0 1-9 9']),
+      this.icon(['M4 17l6-6-6-6', 'M12 19h8']),
+      this.icon(['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.3-4.3']),
+      this.icon(['M20 6L9 17l-5-5']),
+    ]);
+    const phosphor = strip([
+      this.icon(['M14 2H6a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z', 'M14 2v5h5'], { sw: 1.5 }),
+      this.icon(['M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z'], { sw: 1.5 }),
+      this.icon(['M6 4v13', 'M6 17a2.5 2.5 0 1 0 2.5 2.5', 'M18 9.5A2.5 2.5 0 1 0 15.5 7', 'M18 9.5a9 9 0 0 1-9 9'], { sw: 1.5 }),
+      this.icon(['M4 17l6-6-6-6', 'M12 19h8'], { sw: 1.5 }),
+      this.icon(['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.5-4.5'], { sw: 1.5 }),
+      this.icon(['M20 6L9 17l-5-5'], { sw: 1.5 }),
+    ]);
+    const tabler = strip([
+      this.icon(['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z']),
+      this.icon(['M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2']),
+      this.icon(['M7 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0', 'M7 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0', 'M17 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0', 'M7 8v8', 'M17 8a4 4 0 0 1-4 4h-2']),
+      this.icon(['M5 7l5 5-5 5', 'M12 19h7']),
+      this.icon(['M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'M21 21l-6-6']),
+      this.icon(['M5 12l5 5L20 7']),
+    ]);
+    const codicon = strip([
+      this.icon(['M13.5 1H4v14h9v-1H5V2h8l2 2v3h1V3.5zM14 4h-1.5V2.5z', 'M10 16h6v-6h-6zm1-5h4v4h-4z'], { vb: '0 0 16 16', fill: true }),
+      this.icon(['M14.5 3H7.7L6.6 1.9 6.2 1.8H1.5l-.5.5v11.4l.5.5h13l.5-.5V3.5zM14 13H2V3h3.9l1.1 1.1.4.2H14z'], { vb: '0 0 16 16', fill: true }),
+      this.icon(['M11.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-1 2.9a2.5 2.5 0 1 0-1 0v.35A2.75 2.75 0 0 1 6.75 10H5.9a3.5 3.5 0 0 0-1.4.3V6.9a2.5 2.5 0 1 0-1 0v2.2a2.5 2.5 0 1 0 1.1.06A2.5 2.5 0 0 1 5.9 11h.85a3.75 3.75 0 0 0 3.75-3.75zM4 5.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm1.5 6a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z'], { vb: '0 0 16 16', fill: true }),
+      this.icon(['M3.7 4l4 4-4 4 .7.7L9.1 8 4.4 3.3zM8 12h6v1H8z'], { vb: '0 0 16 16', fill: true }),
+      this.icon(['M12.3 11.6a6 6 0 1 0-.7.7l3 3 .7-.7zM2 7a5 5 0 1 1 10 0A5 5 0 0 1 2 7z'], { vb: '0 0 16 16', fill: true }),
+      this.icon(['M14.4 3.7L5.8 12.3 1.6 8.1l.7-.7 3.5 3.5 7.9-7.9z'], { vb: '0 0 16 16', fill: true }),
+    ]);
+    return {
+      accent,
+      accentBorder: 'oklch(0.76 0.14 152 / 0.35)',
+      g1: s.g1, g2: s.g2, g2d: s.g2d,
+      ch1: s.g1 ? '▾' : '▸', ch2: s.g2 ? '▾' : '▸', ch2d: s.g2d ? '▾' : '▸',
+      tg1: () => this.setState({ g1: !s.g1 }),
+      tg2: () => this.setState({ g2: !s.g2 }),
+      tg2d: (e) => { e.stopPropagation(); this.setState({ g2d: !s.g2d }); },
+      lines,
+      paused: s.paused && s.newCount > 0,
+      newCount: s.newCount,
+      onScroll: (e) => {
+        if (this.suppress) { this.suppress = false; return; }
+        const el = e.target;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 48;
+        if (atBottom && this.state.paused) this.setState({ paused: false, newCount: 0 });
+        else if (!atBottom && !this.state.paused) this.setState({ paused: true });
+      },
+      jump: () => this.jump(),
+      followDot: s.paused ? '#e9c46a' : accent,
+      followAnim: s.paused ? 'none' : 'pulse 1.1s ease-in-out infinite',
+      followLabel: s.paused ? 'PAUSED — reading history' : 'FOLLOWING',
+      chipOpen: s.chipOpen,
+      chipBorder: s.chipOpen ? 'oklch(0.76 0.14 152 / 0.45)' : 'rgba(255,255,255,0.09)',
+      tchip: () => this.setState({ chipOpen: !s.chipOpen }),
+      rOpen: s.rOpen, rClosed: !s.rOpen,
+      rchev: s.rOpen ? '▾' : '▸',
+      rmeta: s.rOpen ? '4.2s · 812 tok' : '4.2s',
+      treason: () => this.setState({ rOpen: !s.rOpen }),
+      packs: [
+        { name: 'Codicons', tag: 'recommended · chrome', tagColor: accent, count: '~470 · 16px filled', icons: codicon, border: 'oklch(0.76 0.14 152 / 0.3)', notes: 'VS Code’s own set — sharp, pixel-hinted at 16px, has every code-native symbol: branch, diff, symbol-kinds (for lsp rows), terminal, debug. Closest thing to nerd-font as real SVG.', pkg: '@vscode/codicons · svg sprite or via unplugin-icons (iconify: codicon)' },
+        { name: 'Phosphor', tag: 'recommended · fallback / body', tagColor: accent, count: '9,000+ · 6 weights', icons: phosphor, border: 'rgba(255,255,255,0.035)', notes: 'Biggest coverage, light weight (1.5px) sits closest to our thin-line aesthetic. Use where Codicons runs out: files, media, arrows, misc.', pkg: 'phosphor-svelte · tree-shakable, weight prop per icon' },
+        { name: 'Lucide', tag: 'safe default', tagColor: '#8d8d93', count: '1,600+ · 2px stroke', icons: lucide, border: 'rgba(255,255,255,0.035)', notes: 'The shadcn default — extremely consistent, but rounded joins read "modern SaaS" more than terminal. Fine, not distinctive.', pkg: '@lucide/svelte · official, tree-shakable' },
+        { name: 'Tabler', tag: 'volume option', tagColor: '#8d8d93', count: '5,900+ · 2px stroke', icons: tabler, border: 'rgba(255,255,255,0.035)', notes: 'Huge set, dashboard-native. Slightly less refined per icon; duplicate concepts. Good bench, weakest identity match.', pkg: '@tabler/icons-svelte · official' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

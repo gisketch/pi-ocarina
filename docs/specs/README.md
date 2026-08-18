@@ -63,6 +63,23 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   workspace and a new thread, and a workspace screen with its own key.
   **Approved 2026-08-18.** Tickets in
   [2026-08-18-permissions-and-defaults.md](../exec-plans/active/2026-08-18-permissions-and-defaults.md).
+- [2026-08-18-tool-row-grouping.md](2026-08-18-tool-row-grouping.md) — runs of
+  similar tool calls collapse to one expandable summary row; lsp rows get the
+  `lsp · subject · operation` grammar. **Approved 2026-08-18** (Polish mockup).
+  Tickets in
+  [2026-08-18-tool-grouping.md](../exec-plans/active/2026-08-18-tool-grouping.md).
+- [2026-08-18-chat-polish.md](2026-08-18-chat-polish.md) — follow-the-stream
+  with the jump pill, chips inline in sent messages, read screenshots drawn.
+  **Approved 2026-08-18** (Polish mockup). Tickets in
+  [2026-08-18-chat-polish.md](../exec-plans/active/2026-08-18-chat-polish.md).
+- [2026-08-18-reasoning.md](2026-08-18-reasoning.md) — pi's thinking rendered
+  muted and collapsible, `o` toggles. **Approved 2026-08-18** (Polish mockup).
+  Tickets in
+  [2026-08-18-reasoning.md](../exec-plans/active/2026-08-18-reasoning.md).
+- [2026-08-18-icons.md](2026-08-18-icons.md) — Codicons for the chrome,
+  Phosphor light fallback, one Icon seam. **Approved 2026-08-18** (owner
+  decision). Tickets in
+  [2026-08-18-icons.md](../exec-plans/active/2026-08-18-icons.md).
 
 ## Need grilling
 

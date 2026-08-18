@@ -12,6 +12,12 @@ design gained the §14 selectors and the shell's settings/model overlays).
   every building block (identity, primitives, type, messages, tool ledger,
   composer/statusbar, overlays, skeletons, model controls, composer extras,
   agent flow, navigation, git & shell, selectors & settings).
+- `PiOcarina Polish.dc.html` — the polish mockups (exported 2026-08-18): tool
+  call grouping, the lsp row grammar, auto-scroll follow mode with the jump
+  pill, inline attachment chips and read thumbnails, the reasoning block, and
+  the icon pack candidates with the Codicons + Phosphor verdict. The two
+  `uploads/*.png` images it references are not exported (binary, design-side
+  only); the mockup reads fine without them.
 - `support.js` — Claude Design's preview runtime (React-based `.dc.html`
   renderer). Reference only; never shipped. `.dc.html` templates use `{{ prop }}`
   bindings, `sc-if`/`sc-for` directives, and a `DCLogic` class in a
