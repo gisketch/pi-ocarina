@@ -55,10 +55,6 @@ class Attachments {
     this.list = [...this.list, attachment]
   }
 
-  remove(path: string): void {
-    this.list = this.list.filter((attachment) => attachment.path !== path)
-  }
-
   clear(): void {
     this.list = []
   }
@@ -66,11 +62,51 @@ class Attachments {
   /** Drops files whose names the reader deleted from the composer.
    *
    *  A chip is the file: deleting the name is how a staged file is unstaged,
-   *  the same way deleting a fold's token drops the paste. Without this a file
-   *  the reader removed from their sentence would still travel with it. */
+   *  the same way deleting a fold's token drops the paste.
+   *
+   *  Each file claims one *occurrence*, longest name first, and an occurrence
+   *  claimed is spent. A plain `includes` got both of these wrong and silently:
+   *  `shot.png` stayed staged because `screenshot.png` contains it, and two
+   *  files called `notes.md` could never be reduced to one. A file still
+   *  travelling with a prompt that shows no chip for it is the worst kind of
+   *  wrong, because nothing on screen says so. */
   prune(text: string): void {
-    const kept = this.list.filter((attachment) => text.includes(attachment.name))
-    if (kept.length !== this.list.length) this.list = kept
+    const claimed: { start: number; end: number }[] = []
+    const free = (at: number, name: string): boolean =>
+      !claimed.some((span) => at < span.end && at + name.length > span.start)
+
+    const kept = [...this.list]
+      .sort((a, b) => b.name.length - a.name.length)
+      .filter((attachment) => {
+        for (let at = text.indexOf(attachment.name); at !== -1; ) {
+          if (free(at, attachment.name)) {
+            claimed.push({ start: at, end: at + attachment.name.length })
+            return true
+          }
+          at = text.indexOf(attachment.name, at + 1)
+        }
+        return false
+      })
+
+    if (kept.length === this.list.length) return
+    // Back into the order they were staged in: the sort above is a detail of
+    // the matching, not a change to what the reader attached.
+    this.list = this.list.filter((attachment) => kept.includes(attachment))
+  }
+
+  /** Deletes the whole name the caret is standing at the end of.
+   *
+   *  A chip is one thing. One backspace inside `before.png` left `before.pn`
+   *  in the sentence and unstaged the file, so the reader was looking at
+   *  wreckage of a chip that no longer meant anything — exactly the bug folds
+   *  were given `backspace` for. */
+  backspace(text: string, caret: number): { text: string; caret: number } | null {
+    for (const attachment of [...this.list].sort((a, b) => b.name.length - a.name.length)) {
+      const at = caret - attachment.name.length
+      if (at < 0 || text.slice(at, caret) !== attachment.name) continue
+      return { text: text.slice(0, at) + text.slice(caret), caret: at }
+    }
+    return null
   }
 
   /** The names the composer draws as chips. */

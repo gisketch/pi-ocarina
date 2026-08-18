@@ -164,6 +164,22 @@ export function groupRows(rows: readonly ToolRow[]): LedgerItem[] {
   return items
 }
 
+/** Whether a group draws its members.
+ *
+ *  One function, because two things ask: the component that renders them and
+ *  the stop list that decides where `j` can land. They disagreed once — a live
+ *  group drew four rows that navigation could not reach, and leap could focus
+ *  one, which left the ring on an id the list did not contain and threw it to
+ *  the top of the thread on the next keystroke.
+ *
+ *  `live` is the *default*, not an override: while a run is in flight its
+ *  group is open unless the reader shut it, and a reader who shuts one is
+ *  obeyed. When the run ends the default goes back to closed, which is the
+ *  collapse-on-finish the spec asks for. */
+export function groupShown(group: RowGroup, chosen: (fallback: boolean) => boolean): boolean {
+  return chosen(group.live)
+}
+
 /** The rows an item holds, in order — a group's members, or the one row. */
 export function rowsOf(item: LedgerItem): ToolRow[] {
   return item.kind === 'group' ? item.rows : [item.row]

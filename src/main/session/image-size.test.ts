@@ -71,3 +71,25 @@ describe('reading a size from a header', () => {
     expect(imageSize(jpeg(10, 10).subarray(0, 9))).toBeNull()
   })
 })
+
+describe('a JPEG that is not textbook', () => {
+  it('walks past the fill bytes real encoders emit', () => {
+    // 0xff padding before a marker code is legal and common.
+    const sof = Buffer.from([0xff, 0xff, 0xff, 0xc0, 0x00, 0x08, 0x08, 0x01, 0x2c, 0x01, 0x90])
+    const bytes = Buffer.concat([Buffer.from([0xff, 0xd8]), sof])
+
+    expect(imageSize(bytes)).toEqual({ width: 400, height: 300 })
+  })
+
+  it('says nothing rather than throwing on a frame header cut short', () => {
+    const whole = jpeg(1440, 900)
+    for (let cut = 2; cut < whole.length; cut += 1) {
+      expect(() => imageSize(whole.subarray(0, cut))).not.toThrow()
+    }
+  })
+
+  it('gives up when the walk falls into compressed data', () => {
+    // 0xff00 is a stuffed byte, not a marker: the chain is not what it seems.
+    expect(imageSize(Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01, 0x02]))).toBeNull()
+  })
+})

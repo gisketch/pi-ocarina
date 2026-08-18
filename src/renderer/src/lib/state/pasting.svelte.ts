@@ -174,7 +174,11 @@ export function nameAt(
   const after = text.slice(end)
   const said = names.join(' ')
   const lead = before === '' || /\s$/.test(before) ? '' : ' '
-  const trail = after === '' || /^\s/.test(after) ? ' ' : ' '
+  // Always one trailing space: the caret lands after it, so the reader keeps
+  // typing their sentence rather than running into the name they just
+  // inserted. When what follows is already whitespace this would be two, so
+  // it is only added when it is not.
+  const trail = /^\s/.test(after) ? '' : ' '
 
   const inserted = `${lead}${said}${trail}`
   return { text: before + inserted + after, caret: at + inserted.length }

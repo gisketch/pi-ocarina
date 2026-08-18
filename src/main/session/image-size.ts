@@ -64,32 +64,48 @@ function jpeg(bytes: Buffer): Size | null {
   // that states the size. Every other segment states its own length, so this
   // is a walk rather than a search — a scan for the marker bytes would find
   // them inside compressed data.
+  //
+  // Every read is bounds-checked at the point of the read. A truncated file is
+  // the ordinary case here, not the exotic one: this runs on whatever a tool
+  // handed back, and an exception thrown while drawing a caption would take
+  // the row with it.
   let at = 2
-  while (at + 9 < bytes.length) {
+  while (at + 1 < bytes.length) {
     if (bytes[at] !== 0xff) return null
+
     // A marker may be padded with any number of 0xff fill bytes before its
     // code. Real encoders emit them, and refusing meant giving up on files
     // that are perfectly valid.
     let code = at + 1
     while (code < bytes.length && bytes[code] === 0xff) code += 1
-    if (code + 3 >= bytes.length) return null
-    at = code - 1
+    if (code >= bytes.length) return null
+
     const marker = bytes[code]
+    // 0xff00 is a stuffed byte inside entropy-coded data, not a marker: the
+    // walk has left the segment chain and is reading compressed bytes.
+    if (marker === 0x00) return null
+
     // Standalone markers carry no length.
     if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
-      at += 2
+      at = code + 1
       continue
     }
-    // 0xff00 is a stuffed byte inside entropy-coded data, not a marker; if the
-    // walk reaches one the chain is not what this thinks it is.
-    if (marker === 0x00) return null
-    const length = bytes.readUInt16BE(at + 2)
-    // SOF0–SOF15, minus the two that are not frame headers.
-    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-      return { width: bytes.readUInt16BE(at + 7), height: bytes.readUInt16BE(at + 5) }
+
+    // SOF0–SOF15, minus the three that are not frame headers.
+    const isFrame =
+      marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc
+    if (isFrame) {
+      // length(2) precision(1) height(2) width(2) — the last byte read is
+      // `code + 7`, so eight bytes past the code must exist.
+      if (code + 8 > bytes.length) return null
+      return { width: bytes.readUInt16BE(code + 6), height: bytes.readUInt16BE(code + 4) }
     }
+
+    if (code + 3 > bytes.length) return null
+    const length = bytes.readUInt16BE(code + 1)
     if (length < 2) return null
-    at += 2 + length
+    at = code + 1 + length
   }
   return null
 }
+

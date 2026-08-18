@@ -164,10 +164,13 @@
     // A chip is one thing. Taking a character out of the middle of a token
     // dropped the paste and left its characters behind as literal text.
     if (event.key === 'Backspace' && input?.selectionStart === input?.selectionEnd) {
-      const cut = pasting.backspace(text, input?.selectionStart ?? 0)
+      const caret = input?.selectionStart ?? 0
+      const cut = pasting.backspace(text, caret) ?? attachments.backspace(text, caret)
       if (cut) {
         event.preventDefault()
         void applyToField(cut)
+        // The name is gone, so the file goes with it.
+        attachments.prune(cut.text)
         return
       }
     }

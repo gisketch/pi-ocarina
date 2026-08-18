@@ -28,8 +28,10 @@
  *  - `⏎`, `⌘` and the rest of the key caps — a key legend is the glyph
  *    printed on the key, not a symbol for it
  *
- *  Also staying: the ledger's `■` status nodes, which are drawn as coloured
- *  squares by the design and are a shape rather than an icon.
+ *  The ledger's status nodes are *not* an exception any more: they were
+ *  coloured squares, and each is now the icon of the tool whose row it marks —
+ *  the `tool-*` entries below. Only the `■ PI` identity mark stays a glyph,
+ *  because it is the app's own signature rather than a symbol for something.
  */
 
 import chevronDown from '@vscode/codicons/src/icons/chevron-down.svg?raw'

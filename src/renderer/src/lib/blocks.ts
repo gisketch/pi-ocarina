@@ -12,7 +12,7 @@
 import { parseMarkdown } from './markdown'
 import { segmentText, segmentsOf } from './markdown-segments'
 import { pointableRows } from './ledger-rows'
-import { groupRows, type RowGroup } from './ledger-groups'
+import { countedAs, groupRows, type RowGroup } from './ledger-groups'
 import type { Block, ToolRow } from './thread'
 
 export interface NavBlock {
@@ -85,7 +85,7 @@ function groupEntry(blockId: string, group: RowGroup): NavBlock {
     kind: 'tool',
     blockId,
     rowId: `group:${group.id}`,
-    label: short(`${group.tool} ${group.rows.length} calls · ${group.preview}`),
+    label: short(`${group.tool} ${countedAs(group.tool, group.rows.length)} · ${group.preview}`),
     text: group.preview,
   }
 }
@@ -167,10 +167,13 @@ export function navBlocks(
   blocks: Block[],
   /** Whether a group is expanded. A collapsed group's members are not drawn,
    *  so they are not stops: `j` landing on a row nobody can see is a key that
-   *  appears to do nothing, and a ring on it is a ring on nothing. Absent
-   *  (the demo catalog, tests) treats every group as collapsed, which is the
-   *  default a group is born in. */
-  groupOpen: (navId: string) => boolean = () => false,
+   *  appears to do nothing, and a ring on it is a ring on nothing.
+   *
+   *  Takes the group, not just its id, because a live group draws its members
+   *  whatever the reader last chose — and a stop list that did not know that
+   *  went blind for the whole of every sweep. Absent (the demo catalog, tests)
+   *  falls back to the group's own default. */
+  groupOpen: (navId: string, group: RowGroup) => boolean = (_navId, group) => group.live,
 ): NavBlock[] {
   const list: NavBlock[] = []
   /** A checkpoint waiting for the message that comes after it. */
@@ -201,7 +204,7 @@ export function navBlocks(
         const rows = item.kind === 'group' ? item.rows : [item.row]
         if (item.kind === 'group') {
           list.push(groupEntry(block.id, item))
-          if (!groupOpen(groupNavId(block.id, item))) continue
+          if (!groupOpen(groupNavId(block.id, item), item)) continue
         }
         for (const row of rows) {
           list.push(toolEntry(block.id, row))

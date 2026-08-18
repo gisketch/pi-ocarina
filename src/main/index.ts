@@ -113,16 +113,23 @@ function registerWindowControls(): void {
 
 /** The only way a folder path enters the app: a person picking one. */
 function registerDialogs(): void {
-  /** Hands a staged file to the operating system.
+  /** A staged picture, as bytes the renderer may draw.
    *
-   *  Only a real path, and never a URL: this exists so the reader can look at a
-   *  screenshot they pasted, not so anything on screen can make the app open
-   *  something. */
+   *  The renderer cannot show `file://` — the app's CSP is `img-src 'self'
+   *  data:`, which is what stops anything on screen reaching the disk by
+   *  writing an `<img>` tag — so a picture the reader staged has to arrive
+   *  this way. Returns null for anything that is not an image small enough to
+   *  draw, so this is a picture window and not a file reader. */
   ipcMain.handle('files:image', async (_event, path: unknown) => {
     if (typeof path !== 'string' || path === '') return null
     return readImageUri(path)
   })
 
+  /** Hands a staged file to the operating system.
+   *
+   *  Only a real path, and never a URL: this exists so the reader can look at
+   *  a screenshot they pasted, not so anything on screen can make the app open
+   *  something. */
   ipcMain.handle('files:open', async (_event, path: unknown) => {
     if (typeof path !== 'string' || path === '') return
     await shell.openPath(path)

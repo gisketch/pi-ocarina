@@ -17,6 +17,7 @@
   import Inline from './md/Inline.svelte'
   import { toolIcon } from '$lib/icons'
   import { parseInline } from '$lib/markdown-inline'
+  import { navTarget } from '$lib/state/block-focus.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
 
   interface Props {
@@ -25,16 +26,35 @@
     streaming?: boolean
     ms?: number
     threadId?: string
+    /** The focused nav id anywhere in this thread, and whether anything is
+     *  focused at all — the ring and the dim, exactly as a ledger row gets
+     *  them. Without registering, `j` set focus to an id with no element and
+     *  the column dimmed around a ring nobody could see. */
+    focusedNav?: string | null
+    dimmed?: boolean
   }
 
-  const { id, text, streaming = false, ms, threadId = '' }: Props = $props()
+  const {
+    id,
+    text,
+    streaming = false,
+    ms,
+    threadId = '',
+    focusedNav = null,
+    dimmed = false,
+  }: Props = $props()
 
   const open = $derived(reasoningOpen.isOpen(threadId, id))
   const took = $derived(ms === undefined || ms < 100 ? '' : `${(ms / 1000).toFixed(1)}s`)
 </script>
 
 <div class="ledger">
-  <div class="entry">
+  <div
+    class="entry"
+    class:dim={dimmed && focusedNav !== id}
+    class:lit={focusedNav === id}
+    use:navTarget={{ threadId, navId: threadId ? id : null }}
+  >
     <span class="node" class:pulse={streaming}><Icon name={toolIcon('think')} /></span>
     <button class="row" onclick={() => reasoningOpen.toggle(threadId, id)}>
       <span class="kind">think</span>

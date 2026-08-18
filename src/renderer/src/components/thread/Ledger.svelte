@@ -14,7 +14,7 @@
   import { widestLabel } from '$lib/tool-label'
   import GroupRow from './GroupRow.svelte'
   import Icon from '../Icon.svelte'
-  import { groupRows, type RowGroup } from '$lib/ledger-groups'
+  import { groupRows, groupShown, type RowGroup } from '$lib/ledger-groups'
   import { groupNavId } from '$lib/blocks'
 
   interface Props {
@@ -80,7 +80,9 @@
   // is shut its members are not stops at all (see `navBlocks`), so nothing can
   // focus a row the transcript is not drawing.
   const groupOpen = (group: RowGroup): boolean =>
-    toolOpen.isOpen(threadId, groupNavId(blockId, group), false)
+    groupShown(group, (fallback) =>
+      toolOpen.isOpen(threadId, groupNavId(blockId, group), fallback),
+    )
 </script>
 
 {#snippet entry(row: ToolRow, nested: boolean)}

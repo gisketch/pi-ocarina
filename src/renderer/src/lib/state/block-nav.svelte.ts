@@ -6,6 +6,7 @@
  *  owns what happens inside one column once the key has arrived. */
 
 import { navBlocks } from '../blocks'
+import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
@@ -38,7 +39,23 @@ class BlockNav {
       ? blocks
       : blocks.filter((block) => block.kind !== 'reasoning')
 
-    return navBlocks(visible, (navId) => toolOpen.isOpen(threadId, navId, false))
+    return navBlocks(visible, (navId, group) =>
+      groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
+    )
+  }
+
+  /** Moves the ring off a block that is no longer there.
+   *
+   *  Called when something takes blocks out of the transcript under it — `o`
+   *  hiding every thought, today. A ring left on a missing id is not merely
+   *  invisible: the next `j` cannot find it in the list and starts over from
+   *  the top of the thread. */
+  settleFocus(threadId = app.thread.id): void {
+    const navId = blockFocus.idOf(threadId)
+    if (navId === null) return
+    if (this.#list(threadId).some((entry) => entry.id === navId)) return
+
+    blockFocus.clear(threadId)
   }
 
   /** `esc` out of READ. The ring goes; the dim goes with it. */

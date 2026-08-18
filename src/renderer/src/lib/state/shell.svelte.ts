@@ -297,6 +297,10 @@ class ShellState {
         break
       case 'toggleReasoning':
         reasoningOpen.toggleAll()
+        // The ring may have been standing on a thought that is now gone. Left
+        // there it points at nothing, and the next `j` starts over from the
+        // top of the thread.
+        blockNav.settleFocus()
         break
       case 'termEscape':
         termMode.escape()

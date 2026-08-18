@@ -104,6 +104,9 @@ export function splitAttachments(prompt: string): { text: string; names: string[
   }
 
   return {
+    // A message that was nothing but files still happened: the reader dropped
+    // something and sent it without typing. `from === 0` gives an empty text
+    // and the chips carry the whole message, which is what they saw.
     text: parts.slice(0, from).join('\n\n'),
     names: names.map((name) => name.trim()).filter((name) => name !== ''),
   }

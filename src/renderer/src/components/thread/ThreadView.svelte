@@ -11,6 +11,8 @@
   import BlockMenu from './BlockMenu.svelte'
   import ReasoningBlock from './ReasoningBlock.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
+  import { groupShown } from '$lib/ledger-groups'
+  import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import { leap } from '$lib/state/leap.svelte'
@@ -78,8 +80,15 @@
   // and `shown` changes on every token of a streaming turn: without the guard
   // a five-thousand-block thread rebuilds five thousand entries per token, to
   // answer a question nobody is asking while nothing is focused.
+  // The same expansion rule the ledger draws with. Built with every group
+  // collapsed, this could not find a row inside an open one — so the ring was
+  // lit on the row while the turn's own label dimmed around it.
   const focusedBlock = $derived(
-    focused === null ? null : (navBlocks(shown).find((entry) => entry.id === focused)?.blockId ?? null),
+    focused === null
+      ? null
+      : (navBlocks(shown, (navId, group) =>
+          groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
+        ).find((entry) => entry.id === focused)?.blockId ?? null),
   )
 
   // The agent name that introduces the focused block, so it stays lit with it.
@@ -140,6 +149,8 @@
       streaming={block.streaming}
       ms={block.ms}
       {threadId}
+      focusedNav={focused}
+      dimmed={dimming}
     />
   {:else if block.kind === 'ledger'}
     <!-- A ledger is not one thing to point at: each of its rows is. It draws

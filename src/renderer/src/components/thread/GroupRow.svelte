@@ -40,10 +40,10 @@
     blockMenu.open && blockMenu.threadId === threadId && blockMenu.block?.id === navId,
   )
 
-  // A live group draws open whatever the reader last chose: while a sweep is
-  // running, the call in flight is the one thing they cannot be asked to
-  // expand for. It collapses to its summary when the run ends.
-  const shown = $derived(open || group.live)
+  // `open` already carries the rule — `live` is its fallback, so a running
+  // sweep draws itself and a reader who shuts one is obeyed. Computing it here
+  // as well is how the stop list and the render came to disagree.
+  const shown = $derived(open)
 </script>
 
 <div
@@ -60,7 +60,7 @@
     <BlockMenu />
   {/if}
   <span class="node" class:pulse={group.live}><Icon name={toolIcon(group.tool)} /></span>
-  <button class="row" onclick={() => toolOpen.toggle(threadId, navId, false)}>
+  <button class="row" onclick={() => toolOpen.toggle(threadId, navId, group.live)}>
     <!-- The bare kind, never a tense. A group is a category of call, not one
          call that happened: `edited 2 calls` claims a single edit and reads as
          a grammatical mistake beside `read 4 calls`. -->

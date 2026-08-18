@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupRows, rowsOf, type LedgerItem } from './ledger-groups'
+import { groupRows, groupShown, rowsOf, type LedgerItem } from './ledger-groups'
 import type { ToolKind, ToolRow, ToolStatus } from './thread'
 
 let next = 0
@@ -165,5 +165,29 @@ describe('what the projection may never do', () => {
 
   it('survives an empty ledger', () => {
     expect(groupRows([])).toEqual([])
+  })
+})
+
+describe('who decides whether a group is open', () => {
+  it('is live by default while a member is still running', () => {
+    const [group] = groupRows([row('lsp', 'a'), row('lsp', 'b', { status: 'running' })])
+    expect(group.kind === 'group' && groupShown(group, (fallback) => fallback)).toBe(true)
+  })
+
+  it('is closed by default once the run finishes', () => {
+    const [group] = groupRows([row('lsp', 'a'), row('lsp', 'b')])
+    expect(group.kind === 'group' && groupShown(group, (fallback) => fallback)).toBe(false)
+  })
+
+  it('obeys a reader who shut a live one', () => {
+    const [group] = groupRows([row('read', 'a'), row('read', 'b', { status: 'running' })])
+    expect(group.kind === 'group' && groupShown(group, () => false)).toBe(false)
+  })
+
+  it('is live while any member runs, not only the newest', () => {
+    // Tools run in parallel: a run can settle its last call while an earlier
+    // one is still in flight, and collapsing then hides the only live call.
+    const [group] = groupRows([row('lsp', 'a', { status: 'running' }), row('lsp', 'b')])
+    expect(group.kind === 'group' && group.live).toBe(true)
   })
 })
