@@ -11,14 +11,50 @@
     flow,
     question,
     onpick,
-  }: { flow: Flow; question: AskQuestion; onpick: (index: number) => void } = $props()
+    focused = false,
+  }: {
+    flow: Flow
+    question: AskQuestion
+    onpick: (index: number) => void
+    /** Whether this card is the one holding the keys. Only then does a field
+     *  take the caret — a card in the history must not steal it. */
+    focused?: boolean
+  } = $props()
 
   /** A key typed into a field is the field's, and the strip behind it must not
-   *  see it: `j` in a branch name is a letter, not a cursor move. `esc` still
-   *  travels, because leaving is the shell's to decide. */
+   *  see it: `j` in a branch name is a letter, not a cursor move.
+   *
+   *  Two exceptions, and both are about leaving: `esc` backs out, and `⏎`
+   *  sends. Without the second, an answer typed into the field could only be
+   *  sent by escaping the field first — the reader had finished, pressed the
+   *  key that means "done" everywhere, and nothing happened. */
   function held(event: KeyboardEvent): void {
-    if (event.key !== 'Escape') event.stopPropagation()
+    if (event.key === 'Escape') return
+    if (event.key === 'Enter' && !event.shiftKey) {
+      // Not `preventDefault`: the shell answers it, and a field that swallowed
+      // it would leave the reader pressing it twice.
+      return
+    }
+    event.stopPropagation()
   }
+
+  /** The field a text question is, once it exists. */
+  let field = $state<HTMLInputElement | null>(null)
+
+  /** A question whose only answer is typed puts the caret in its field.
+   *
+   *  Without this the card was focused, the keys were the card's, and the one
+   *  thing the reader could do — type — needed a click first. A real input
+   *  focused is also the only way to draw a real caret. */
+  $effect(() => {
+    if (focused && question.kind === 'text') field?.focus()
+  })
+
+  /** The free-text row of a choice question, when the reader steps onto it and
+   *  starts typing. Same rule, one row down. */
+  $effect(() => {
+    if (focused && flow.typing && flow.cursor === -1) field?.focus()
+  })
 
   const picked = $derived(flow.picked[question.id] ?? [])
   const typed = $derived(flow.typed[question.id] ?? '')
@@ -29,6 +65,7 @@
        still answer. Focusing it tells the flow the caret is here, which is what
        keeps `j` from moving a cursor underneath it. -->
   <input
+    bind:this={field}
     class="field"
     value={typed}
     placeholder="type your answer"
@@ -64,6 +101,7 @@
         <span class="body">
           <span class="title">Something else</span>
           <input
+            bind:this={field}
             class="field inline"
             value={typed}
             placeholder="…"
@@ -103,9 +141,16 @@
     background: var(--bg-hover);
   }
   /* Where the cursor is, and what has been picked, are two different facts and
-     read as two different marks. */
+     read as two different marks. The cursor gets a tint as well as an outline:
+     a 1px line the same colour as the card's own rules was easy to lose, and
+     the row a reader is standing on is the one thing on this card they must
+     never have to hunt for. */
   .option.on {
-    border-color: var(--accent-soft);
+    border-color: oklch(0.76 0.14 var(--accent-hue) / 0.34);
+    background: var(--accent-soft);
+  }
+  .option.on:hover {
+    background: var(--accent-soft);
   }
   .option.picked {
     color: var(--fg-bright);

@@ -212,3 +212,26 @@ describe('answering with the keys', () => {
     expect(app.threadIndex).toBe(0)
   })
 })
+
+/** What `isEditable` reads. No DOM here — the predicate is structural, which
+ *  is what lets it be tested at all. */
+const FIELD = { tagName: 'INPUT' }
+
+describe('answering from inside the field', () => {
+  it('sends on enter, without escaping the field first', () => {
+    // The reported bug: a reader typed their answer, pressed the key that
+    // means "done" everywhere, and nothing happened — the field swallowed it
+    // and the card never saw it.
+    expect(askKeys.handleKey({ key: 'Enter', target: FIELD })).toBe(true)
+  })
+
+  it('still leaves every ordinary key to the field', () => {
+    for (const key of ['j', 'k', 'o', ' ', 'i', 'a']) {
+      expect(askKeys.handleKey({ key, target: FIELD }), `${key} was taken`).toBe(false)
+    }
+  })
+
+  it('leaves shift-enter to the field, which is a newline', () => {
+    expect(askKeys.handleKey({ key: 'Enter', shiftKey: true, target: FIELD })).toBe(false)
+  })
+})

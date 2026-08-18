@@ -39,7 +39,8 @@ export function followColumn(
   // so a count never changes mid-turn, and the view froze at the first line of
   // exactly the turns worth following. This changes on every delta.
   const arrivals = $derived.by(() => {
-    const blocks = threads.get(threadId()).blocks
+    const model = threads.get(threadId())
+    const blocks = model.blocks
     const last = blocks[blocks.length - 1]
     const grown =
       last === undefined
@@ -49,7 +50,14 @@ export function followColumn(
           : 'text' in last
             ? last.text.length
             : 0
-    return { blocks: blocks.length, grown }
+    // The turn's footer is drawn under the last block and is not one of them:
+    // it appears when a turn starts and changes when it ends. Left out, a
+    // reader who sent a message was pinned to the bottom of the *blocks* with
+    // `working for …` below the fold, and had to scroll to see that anything
+    // was happening at all.
+    const turn = model.turn
+    const footer = turn === undefined ? '' : `${turn.startedAt}:${turn.endedAt ?? ''}:${turn.outcome ?? ''}`
+    return { blocks: blocks.length, grown, footer }
   })
 
   /** How many blocks this column had last time it looked. Not reactive: it is
@@ -76,6 +84,7 @@ export function followColumn(
     // Both, so the pin follows a block being added *and* one growing.
     void arrivals.blocks
     void arrivals.grown
+    void arrivals.footer
 
     const box = element()
     if (!box || !following.of(threadId()).following) return

@@ -27,7 +27,7 @@
 
   const said = $derived(
     running
-      ? `working… ${took}`
+      ? `working for ${took}`
       : turn.outcome === 'failed'
         ? `stopped after ${took}`
         : turn.outcome === 'stopped'

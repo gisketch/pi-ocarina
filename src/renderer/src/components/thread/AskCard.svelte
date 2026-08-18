@@ -101,7 +101,7 @@
           <div class="note">{question.description}</div>
         {/if}
 
-        <AskChoices {flow} {question} onpick={pick} />
+        <AskChoices {flow} {question} onpick={pick} {focused} />
       </div>
     {/if}
 

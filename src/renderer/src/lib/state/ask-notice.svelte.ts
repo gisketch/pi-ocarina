@@ -14,13 +14,9 @@ import { revealBlock } from './block-focus.svelte'
 import { app } from './app.svelte'
 import { askKeys } from './ask-keys.svelte'
 import { catalog } from './catalog.svelte'
-import { columnBody, scrollRest } from './columns'
+import { drafts } from './drafts.svelte'
+import { following } from './following.svelte'
 import { toasts } from './toasts.svelte'
-
-/** How near the bottom counts as "following the thread" rather than reading
- *  back through it. One question's worth of slack, so a reader who is a line or
- *  two off the end is still taken to it. */
-const NEAR_BOTTOM = 120
 
 class AskNotice {
   /** Threads whose pending question is below the reader's view. What the
@@ -35,13 +31,22 @@ class AskNotice {
   /** A question has just arrived in a thread. */
   arrived(threadId: ThreadId, askId: string): void {
     const focused = app.thread.id === threadId
-    const body = columnBody(threadId)
 
-    if (focused && (body === undefined || scrollRest(body) <= NEAR_BOTTOM)) {
+    // Whether the reader is following, not where the scroll happens to be.
+    // The ask block was added in this same batch, so the column has grown and
+    // the pin has not run yet: the old position measured a long way from a
+    // bottom that had just moved, and a reader who had sent a message and was
+    // waiting for the answer got "a question below" instead of the question.
+    if (focused && following.of(threadId).following) {
       // Following the thread: bring the question into view with its label
       // above it, the same reveal walking the transcript uses.
       revealBlock(threadId, askId, 'nearest')
       this.#clearBelow(threadId)
+      // And the keys. A question arriving over an empty composer is one the
+      // reader is waiting for; leaving them in INSERT made them click the card
+      // before they could answer it. A half-typed message still wins — that is
+      // what the composer's rank is for.
+      if (app.mode === 'INSERT' && drafts.get(threadId).trim() === '') app.mode = 'NORMAL'
     } else if (focused) {
       // Reading history. Nothing moves — that is the complaint the whole
       // reveal rule exists to avoid — and the bar carries it instead.

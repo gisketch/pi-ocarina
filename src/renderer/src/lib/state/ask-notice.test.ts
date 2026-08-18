@@ -25,6 +25,7 @@ const { catalog } = await import('./catalog.svelte')
 const { replayThread } = await import('../thread-reducer')
 const { applyAskEffects, threads } = await import('./threads.svelte')
 const { toasts } = await import('./toasts.svelte')
+const { following } = await import('./following.svelte')
 
 const QUESTIONS: AskQuestion[] = [{ id: 'q', kind: 'text', prompt: 'when?' }]
 
@@ -70,6 +71,7 @@ beforeEach(() => {
   for (const id of ['s1', 's2', 's3']) {
     threads.seed(id, replayThread([]))
     askNotice.settled(id)
+    following.forget(id)
   }
 })
 
@@ -84,7 +86,11 @@ describe('where the reader is standing', () => {
   })
 
   it('moves nothing when they are reading back through it', () => {
-    rest.mockReturnValue(900)
+    // The follow state, not the scroll position. The ask block is added in the
+    // same batch, so the column has already grown and the old position measures
+    // a long way from a bottom that has just moved — which made a reader who
+    // sent a message and waited get "a question below" instead of the question.
+    following.of('s1').scrolled({ top: 0, height: 500, total: 2000 })
 
     ask('s1')
 

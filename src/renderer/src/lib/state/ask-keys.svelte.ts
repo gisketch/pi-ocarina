@@ -110,12 +110,16 @@ class AskKeys {
     // included. Their keys are already the browser's to handle, and taking
     // them here would type every character twice.
     //
-    // `esc` is the exception, and has to be: the field is the one place a
-    // reader can be stuck, and the key that means "out of here" everywhere
-    // else was the one key the field swallowed.
+    // Two exceptions, and both are about leaving. `esc` backs out: the field
+    // is the one place a reader can be stuck, and the key that means "out of
+    // here" everywhere else was the one key the field swallowed. `⏎` sends:
+    // an answer typed into the field could otherwise only be sent by escaping
+    // the field first, so the reader finished, pressed the key that means
+    // "done", and nothing happened.
     if (isEditable(event.target)) {
-      if (event.key !== 'Escape') return false
-      ;(event.target as { blur?: () => void }).blur?.()
+      const leaving = event.key === 'Escape' || (event.key === 'Enter' && event.shiftKey !== true)
+      if (!leaving) return false
+      if (event.key === 'Escape') (event.target as { blur?: () => void }).blur?.()
     }
 
     // Never while the composer has the caret. Every other modal in the shell is
