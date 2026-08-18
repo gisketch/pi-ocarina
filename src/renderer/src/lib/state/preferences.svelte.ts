@@ -1,4 +1,7 @@
 import type { PermissionLevel } from '../../../../shared/permissions'
+import type { ModelChoice } from '../../../../shared/preferences'
+import type { ReasoningLevel } from '../../../../shared/vocabulary'
+import { REASONING_ORDER } from '../../../../shared/vocabulary'
 import {
   DEFAULT_PREFERENCES,
   LEADER_TIMEOUT_RANGE,
@@ -17,6 +20,10 @@ class PreferencesState {
   /** What a workspace with no level of its own runs at. Held here because the
    *  settings screen sets it; main is still the only thing that enforces it. */
   defaultPermission = $state<PermissionLevel>(DEFAULT_PREFERENCES.defaultPermission)
+  /** What a new thread opens on. Absent means pi's choice, which is a value the
+   *  reader can pick rather than a gap. */
+  defaultModel = $state<ModelChoice | undefined>(undefined)
+  defaultReasoning = $state<ReasoningLevel | undefined>(undefined)
 
   /** The stored shape, for writing back. */
   get stored(): Preferences {
@@ -25,6 +32,8 @@ class PreferencesState {
       motion: this.motion,
       leaderTimeoutMs: this.leaderTimeoutMs,
       defaultPermission: this.defaultPermission,
+      ...(this.defaultModel ? { defaultModel: this.defaultModel } : {}),
+      ...(this.defaultReasoning ? { defaultReasoning: this.defaultReasoning } : {}),
     }
   }
 
@@ -33,6 +42,39 @@ class PreferencesState {
     this.motion = preferences.motion
     this.leaderTimeoutMs = preferences.leaderTimeoutMs
     this.defaultPermission = preferences.defaultPermission
+    this.defaultModel = preferences.defaultModel
+    this.defaultReasoning = preferences.defaultReasoning
+  }
+
+  /** The label the settings row shows for the default model. */
+  get defaultModelLabel(): string {
+    return this.defaultModel ? this.defaultModel.id : "pi's choice"
+  }
+
+  get defaultReasoningLabel(): string {
+    return this.defaultReasoning ?? 'model default'
+  }
+
+  /** Records what a new thread should open on.
+   *
+   *  A null reasoning level means the model cannot reason, so there is nothing
+   *  to store — not that the reader wants the model's default. */
+  setDefaultModel(model: { provider: string; id: string }, reasoning: ReasoningLevel | null): void {
+    this.defaultModel = { provider: model.provider, id: model.id }
+    if (reasoning) this.defaultReasoning = reasoning
+  }
+
+  /** Steps the default reasoning level, starting from the model's own default
+   *  the first time. Walks off the end into "model default" rather than
+   *  sticking, so a reader can undo the choice with the same key. */
+  nudgeDefaultReasoning(direction: 1 | -1): void {
+    if (this.defaultReasoning === undefined) {
+      this.defaultReasoning = direction === 1 ? REASONING_ORDER[0] : REASONING_ORDER.at(-1)
+      return
+    }
+
+    const next = REASONING_ORDER.indexOf(this.defaultReasoning) + direction
+    this.defaultReasoning = REASONING_ORDER[next]
   }
 
   toggleGrain(): void {

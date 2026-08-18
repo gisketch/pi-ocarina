@@ -10,9 +10,19 @@
     onclose: () => void
     onpick: (model: ModelSummary, reasoning: ReasoningLevel | null) => void
     current?: { provider: string; id: string }
+    /** Choosing for every new thread rather than for the open one. */
+    forDefault?: boolean
+    /** Which thread it is about to change, so the reader is never guessing. */
+    threadLabel?: string
   }
 
-  const { onclose, onpick, current }: Props = $props()
+  const { onclose, onpick, current, forDefault = false, threadLabel }: Props = $props()
+
+  /** Says whose model this is. A picker that named nothing was answerable only
+   *  by remembering which column had focus. */
+  const scope = $derived(
+    forDefault ? 'NEW THREADS' : threadLabel ? `THREAD ${threadLabel}` : 'MODEL',
+  )
 
   let query = $state('')
   let chosen = $state<ModelSummary | null>(null)
@@ -72,7 +82,7 @@
   {onclose}
   z={52}
   label="Model selector"
-  prefix={step === 'model' ? 'MODEL' : 'REASONING'}
+  prefix={step === 'model' ? scope : 'REASONING'}
   placeholder={step === 'model' ? 'select model…' : 'select reasoning…'}
   bind:value={query}
   {onkeydown}

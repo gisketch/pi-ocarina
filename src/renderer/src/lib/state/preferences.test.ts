@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_PREFERENCES, LEADER_TIMEOUT_RANGE } from '../../../../shared/preferences'
+import { REASONING_ORDER } from '../../../../shared/vocabulary'
 import { preferences } from './preferences.svelte'
 
 beforeEach(() => {
@@ -61,5 +62,38 @@ describe('what gets stored', () => {
     preferences.apply(saved)
 
     expect(preferences.stored).toEqual(saved)
+  })
+})
+
+describe('defaults for a new thread', () => {
+  it('says pi chooses until the reader picks one', () => {
+    expect(preferences.defaultModelLabel).toBe("pi's choice")
+    expect(preferences.defaultReasoningLabel).toBe('model default')
+  })
+
+  it('records a picked model, and its reasoning level with it', () => {
+    preferences.setDefaultModel({ provider: 'anthropic', id: 'claude-opus-5' }, 'high')
+
+    expect(preferences.defaultModel).toEqual({ provider: 'anthropic', id: 'claude-opus-5' })
+    expect(preferences.defaultReasoning).toBe('high')
+    expect(preferences.stored.defaultModel).toEqual({
+      provider: 'anthropic',
+      id: 'claude-opus-5',
+    })
+  })
+
+  it('stores nothing for a model that cannot reason', () => {
+    preferences.setDefaultModel({ provider: 'x', id: 'y' }, null)
+    expect(preferences.defaultReasoning).toBeUndefined()
+  })
+
+  it('walks the reasoning levels, and off the end back to the model default', () => {
+    preferences.setDefaultModel({ provider: 'x', id: 'y' }, null)
+    preferences.nudgeDefaultReasoning(1)
+    expect(preferences.defaultReasoning).toBe(REASONING_ORDER[0])
+
+    preferences.nudgeDefaultReasoning(-1)
+    expect(preferences.defaultReasoning).toBeUndefined()
+    expect(preferences.defaultReasoningLabel).toBe('model default')
   })
 })

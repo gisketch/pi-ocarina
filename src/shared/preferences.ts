@@ -6,6 +6,14 @@
  *  overlay imported a default. */
 
 import { DEFAULT_PERMISSION, isPermissionLevel, type PermissionLevel } from './permissions'
+import { REASONING_ORDER, type ReasoningLevel } from './vocabulary'
+
+/** A model, named the way pi names one. Absent means pi's own choice, which is
+ *  a value a reader can pick and not a gap in the settings. */
+export interface ModelChoice {
+  provider: string
+  id: string
+}
 
 export interface Preferences {
   grain: boolean
@@ -14,6 +22,10 @@ export interface Preferences {
   leaderTimeoutMs: number
   /** What a workspace with no permission level of its own runs at. */
   defaultPermission: PermissionLevel
+  /** What a new thread opens on. Absent means pi's choice. */
+  defaultModel?: ModelChoice
+  /** How hard a new thread thinks. Absent means the model's own default. */
+  defaultReasoning?: ReasoningLevel
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
@@ -21,6 +33,16 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   motion: true,
   leaderTimeoutMs: 2600,
   defaultPermission: DEFAULT_PERMISSION,
+}
+
+function parseModel(value: unknown): ModelChoice | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const record = value as Record<string, unknown>
+  const provider = record.provider
+  const id = record.id
+  if (typeof provider !== 'string' || typeof id !== 'string') return undefined
+  if (provider === '' || id === '') return undefined
+  return { provider, id }
 }
 
 /** Guard rails for the leader timeout, so a corrupt file cannot leave the chord
@@ -51,5 +73,9 @@ export function parsePreferences(value: unknown): Preferences {
     defaultPermission: isPermissionLevel(record.defaultPermission)
       ? record.defaultPermission
       : DEFAULT_PREFERENCES.defaultPermission,
+    ...(parseModel(record.defaultModel) ? { defaultModel: parseModel(record.defaultModel) } : {}),
+    ...(REASONING_ORDER.includes(record.defaultReasoning as ReasoningLevel)
+      ? { defaultReasoning: record.defaultReasoning as ReasoningLevel }
+      : {}),
   }
 }

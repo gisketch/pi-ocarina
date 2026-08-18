@@ -41,7 +41,7 @@
     watchPinnedGit,
   } from '$lib/state/wiring.svelte'
   import type { CommandId } from '$lib/commands'
-  import { REASONING_ORDER } from '../../shared/vocabulary'
+  import { preferences } from '$lib/state/preferences.svelte'
 
   // The demo columns belong to the browser harness alone — it has no backend
   // to pin against, so demo data is the only thing it can draw. The desktop app
@@ -122,17 +122,6 @@
     if (reopened !== -1) app.focusThread(reopened)
   }
 
-  /** Moves the focused thread's reasoning one level. pi clamps it to what the
-   *  model supports and reports back what it landed on. */
-  function stepReasoning(direction: 1 | -1): void {
-    const current = threads.get(app.thread.id).model?.reasoning
-    if (!current) return
-
-    const at = REASONING_ORDER.indexOf(current)
-    const next = REASONING_ORDER[Math.min(REASONING_ORDER.length - 1, Math.max(0, at + direction))]
-    if (next !== current) threads.setReasoning(app.thread.id, next)
-  }
-
   function runCommand(id: CommandId): void {
     switch (id) {
       case 'jump-workspace':
@@ -166,7 +155,7 @@
   <div class="tint"></div>
   <div class="grain"></div>
 
-  <Titlebar onmodel={() => shell.openOverlay('model')} />
+  <Titlebar onmodel={() => shell.openModelFor('thread')} />
 
   <ConnectivityBanner />
 
@@ -237,13 +226,11 @@
     <SettingsOverlay
       onclose={() => shell.closeOverlay()}
       onkeymap={() => shell.openOverlay('keymap')}
-      onmodel={() => shell.openOverlay('model')}
+      onmodel={() => shell.openModelFor('default')}
       onroles={() => shell.openOverlay('roles')}
-      model={threads.get(app.thread.id).model?.name ?? 'pi default'}
-      reasoning={threads.get(app.thread.id).model?.reasoning}
-      onreasoning={threads.get(app.thread.id).model
-        ? (direction) => stepReasoning(direction)
-        : undefined}
+      model={preferences.defaultModelLabel}
+      reasoning={preferences.defaultReasoningLabel}
+      onreasoning={(direction) => preferences.nudgeDefaultReasoning(direction)}
     />
   {:else if shell.overlay === 'roles'}
     <RolesOverlay onclose={() => shell.closeOverlay()} />
@@ -252,9 +239,14 @@
   {:else if shell.overlay === 'model'}
     <ModelOverlay
       onclose={() => shell.closeOverlay()}
-      current={threads.get(app.thread.id).model}
+      forDefault={shell.modelFor === 'default'}
+      threadLabel={app.threadLabel}
+      current={shell.modelFor === 'default'
+        ? preferences.defaultModel
+        : threads.get(app.thread.id).model}
       onpick={(model, reasoning) => {
-        threads.setModel(app.thread.id, model, reasoning)
+        if (shell.modelFor === 'default') preferences.setDefaultModel(model, reasoning)
+        else threads.setModel(app.thread.id, model, reasoning)
         shell.closeOverlay()
       }}
     />

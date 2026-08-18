@@ -82,6 +82,17 @@ class ShellState {
    *  expensive keystroke. Nothing is announced — the status bar already names
    *  the level, and a toast for something already on screen trains the reader
    *  to ignore the corner. */
+  /** Whether the model picker is choosing for this thread or for new threads.
+   *
+   *  A flag rather than a second overlay: the two screens would be identical,
+   *  and an overlay that exists twice is two places for the list to drift. */
+  modelFor = $state<'thread' | 'default'>('thread')
+
+  openModelFor(target: 'thread' | 'default'): void {
+    this.modelFor = target
+    this.openOverlay('model')
+  }
+
   async cyclePermission(): Promise<void> {
     const next = permission.pendingThread
     if (next === 'full') {

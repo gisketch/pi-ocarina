@@ -99,14 +99,14 @@ export class PiDriver implements SessionDriver {
     switch (name) {
       case 'createThread': {
         const { workspaceId, worktree } = params as CommandParams<'createThread'>
-        return {
-          threadId: await startThread(
-            { workspaces: this.#workspaces, sessions: this.#sessions },
-            workspaceId,
-            worktree,
-            (session, cwd, branch) => this.#adopt(session, cwd, branch),
-          ),
-        } as CommandResult<N>
+        const threadId = await startThread(
+          { workspaces: this.#workspaces, sessions: this.#sessions },
+          workspaceId,
+          worktree,
+          (session, cwd, branch) => this.#adopt(session, cwd, branch),
+        )
+        await this.#applyDefaults(threadId)
+        return { threadId } as CommandResult<N>
       }
 
       case 'openThread': {
@@ -308,6 +308,32 @@ export class PiDriver implements SessionDriver {
    *  driver's own collaborators, gathered once. */
   async #openThread(threadId: string): Promise<void> {
     await openThread(this.#opening(), threadId)
+  }
+
+  /** Puts a new thread on the model and reasoning level the reader chose.
+   *
+   *  At creation and never afterwards: a default that reapplied itself would
+   *  undo the choice a reader made for one thread, which is the opposite of
+   *  what a default is for. A model pi no longer has is not an error worth
+   *  failing a new thread over — the thread opens on pi's own choice and the
+   *  reader sees which one in the title bar.
+   */
+  async #applyDefaults(threadId: string): Promise<void> {
+    const { defaultModel, defaultReasoning } = this.#catalog.snapshot().preferences
+    const thread = this.#threads.find(threadId)
+    if (!thread) return
+
+    if (defaultModel) {
+      try {
+        await this.#models.set(thread.session, defaultModel.provider, defaultModel.id)
+      } catch {
+        // Named in settings, gone from pi's config. Nothing to do about it here.
+      }
+    }
+    if (defaultReasoning) this.#models.setReasoning(thread.session, defaultReasoning)
+    if (defaultModel || defaultReasoning) {
+      this.#models.announce(threadId, thread.session, this.#emit)
+    }
   }
 
   #adopt(session: AgentSession, cwd: string, branch: string | null = null): string {
