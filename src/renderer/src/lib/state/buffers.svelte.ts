@@ -7,6 +7,7 @@
  *  handle. */
 
 import { app } from './app.svelte'
+import { bridge } from '../bridge'
 import { catalog } from './catalog.svelte'
 import { describe } from './catalog-build'
 import { session } from '../session'
@@ -17,6 +18,10 @@ import type { EditorHandle } from '../editor/editor'
 /** What the column's notice line shows for a `:q` on unsaved work. The
  *  stale-write refusal comes from the backend with the same shape. */
 export const UNSAVED_QUIT = 'unsaved changes — :q! to discard'
+
+/** What a dirty buffer says while the disk moves under it (spec D7). */
+export const CHANGED_ON_DISK = 'file changed on disk'
+export const DELETED_ON_DISK = 'file deleted on disk — :w recreates it'
 
 export interface BufferEntry {
   columnId: string
@@ -37,6 +42,17 @@ class Buffers {
   /** The live editors, registered by the mounted columns. Not state: a
    *  handle is a capability, and nothing renders from it. */
   #handles = new Map<string, EditorHandle>()
+  #watching = false
+
+  /** Subscribed on the first open rather than at import, so the module costs
+   *  nothing in a session that never opens a file. */
+  #ensureWatching(): void {
+    if (this.#watching || !bridge) return
+    this.#watching = true
+    bridge.files.onChanged(({ workspaceId, path, mtimeMs }) => {
+      this.changed(fileColumnId(workspaceId, path), mtimeMs)
+    })
+  }
 
   get(columnId: string): BufferEntry | undefined {
     return this.#entries[columnId]
@@ -75,6 +91,8 @@ class Buffers {
         meta: '',
         file: path,
       })
+      this.#ensureWatching()
+      void bridge?.files.watch(workspaceId, path)
       return this.#focus(workspaceId, columnId)
     } catch (cause) {
       toasts.push({ tone: 'error', text: describe(cause) })
@@ -151,9 +169,50 @@ class Buffers {
     for (const entry of Object.values(this.#entries)) this.quit(entry.columnId, force)
   }
 
+  /** The disk moved under an open buffer (spec D7). A clean buffer follows
+   *  it — the reader watches pi's edits land; a dirty one holds what they
+   *  typed and says so. A write of our own also wakes the watcher, and the
+   *  mtime it reports is the one `save` already recorded — nothing to do. */
+  async changed(columnId: string, mtimeMs: number | null): Promise<void> {
+    const entry = this.#entries[columnId]
+    if (!entry) return
+    if (mtimeMs !== null && mtimeMs === entry.mtimeMs) return
+
+    if (mtimeMs === null) {
+      this.#patch(columnId, { notice: DELETED_ON_DISK })
+      return
+    }
+
+    if (entry.dirty) {
+      // The stale anchor stays where the buffer loaded: `:w` must still
+      // refuse, or the reader silently overwrites what pi just wrote.
+      this.#patch(columnId, { notice: CHANGED_ON_DISK })
+      return
+    }
+
+    try {
+      const read = await session.invoke('readFile', {
+        workspaceId: entry.workspaceId,
+        path: entry.path,
+      })
+      if ('missing' in read) {
+        this.#patch(columnId, { notice: DELETED_ON_DISK })
+        return
+      }
+      this.#handles.get(columnId)?.setText(read.text)
+      this.#patch(columnId, { mtimeMs: read.mtimeMs, text: read.text, dirty: false, notice: null })
+    } catch {
+      // The next change event tries again; a reload that failed is a notice,
+      // not a crash.
+      this.#patch(columnId, { notice: CHANGED_ON_DISK })
+    }
+  }
+
   /** Takes the column away and forgets the buffer. The strip owns focus
    *  reconciliation; the mode goes back to the strip with it. */
   close(columnId: string): void {
+    const entry = this.#entries[columnId]
+    if (entry) void bridge?.files.unwatch(entry.workspaceId, entry.path)
     const { [columnId]: _gone, ...rest } = this.#entries
     this.#entries = rest
     this.#handles.delete(columnId)

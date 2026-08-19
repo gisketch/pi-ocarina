@@ -57,6 +57,22 @@ const api = {
      *  decides whether there is one to give. Needed because the app's CSP
      *  forbids `file://` in an `<img>`, deliberately. */
     image: (path: string): Promise<string | null> => ipcRenderer.invoke('files:image', path),
+    /** The buffer columns' watchers. Watching is per workspace-relative path;
+     *  every change lands on one channel with a fresh stat attached. */
+    watch: (workspaceId: string, path: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('files:watch', workspaceId, path),
+    unwatch: (workspaceId: string, path: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('files:unwatch', workspaceId, path),
+    onChanged: (
+      listener: (message: { workspaceId: string; path: string; mtimeMs: number | null }) => void,
+    ): (() => void) => {
+      const handler = (
+        _event: unknown,
+        message: { workspaceId: string; path: string; mtimeMs: number | null },
+      ): void => listener(message)
+      ipcRenderer.on('files:changed', handler)
+      return () => ipcRenderer.off('files:changed', handler)
+    },
   },
   dialog: {
     /** Native folder picker; null when the user cancels. The renderer never

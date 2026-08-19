@@ -11,6 +11,7 @@ import {
 import type { CatalogStore } from '../catalog-store'
 import { createFinishNotifier } from '../lifecycle'
 import { EventBatcher } from './batcher'
+import { FileWatchService } from './file-watch'
 import { PiDriver } from './pi-driver'
 import { StubDriver } from './stub-driver'
 import { TerminalService } from './terminal'
@@ -64,6 +65,36 @@ function registerTerminals(catalog: CatalogStore): TerminalService {
   return terminals
 }
 
+/** The buffer columns' watchers (spec D7). Not the session's channel: a file
+ *  change is workspace state, and threading it through the per-thread event
+ *  batcher would force it to borrow a thread id it does not have. */
+function registerFileWatch(catalog: CatalogStore): FileWatchService {
+  const watchers = new FileWatchService({
+    emit: (message) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed()) continue
+        win.webContents.send('files:changed', message)
+      }
+    },
+    cwdOf: (workspaceId) => {
+      const workspace = catalog.workspace(workspaceId)
+      if (!workspace) throw new Error(`unknown workspace: ${workspaceId}`)
+      return workspace.path
+    },
+  })
+
+  ipcMain.handle('files:watch', (_event, workspaceId: string, path: string) => {
+    watchers.watch(workspaceId, path)
+    return { ok: true as const }
+  })
+  ipcMain.handle('files:unwatch', (_event, workspaceId: string, path: string) => {
+    watchers.unwatch(workspaceId, path)
+    return { ok: true as const }
+  })
+
+  return watchers
+}
+
 /** What the app wants told when a workspace goes away. Kept as a hook rather
  *  than an import so the session backend stays ignorant of git. */
 export interface SessionHooks {
@@ -87,6 +118,7 @@ export function registerSession(
   }
 
   const terminals = registerTerminals(catalog)
+  registerFileWatch(catalog)
 
   // The stub stays available for seam work and demos; pi is the real backend.
   const driver: SessionDriver =

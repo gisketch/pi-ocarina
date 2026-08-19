@@ -191,7 +191,9 @@ Blocked by: nothing (parallel).
 
 ## T7 — the buffer column
 
-Status: todo
+Status: done. Deviation from step 5: the enter keys joined no registry —
+`Enter` stays fixed (like the welcome screen's), and `i` already rides the
+`compose.insert` binding, so remapping `i` moves both meanings together.
 
 Behavior: picking a file in `␣f` (or an already-open path) opens a buffer
 column right of the focused column. Enter/`i` from OCARINA drop into vim

@@ -6,12 +6,17 @@ vi.mock('../bridge', () => ({
   bridge: {
     dialog: { pickDirectory: () => Promise.resolve(null) },
     session: { invoke: () => Promise.resolve({ ok: true }), onEvents: () => () => {} },
+    files: {
+      watch: () => Promise.resolve({ ok: true }),
+      unwatch: () => Promise.resolve({ ok: true }),
+      onChanged: () => () => {},
+    },
   },
   isDesktop: true,
 }))
 
 import { app } from './app.svelte'
-import { buffers, UNSAVED_QUIT } from './buffers.svelte'
+import { buffers, CHANGED_ON_DISK, DELETED_ON_DISK, UNSAVED_QUIT } from './buffers.svelte'
 import { catalog } from './catalog.svelte'
 import { toasts } from './toasts.svelte'
 import { fileColumnId } from '../types'
@@ -235,5 +240,50 @@ describe('the mode mirror', () => {
     app.focusThread(0)
     buffers.mirrorMode(COLUMN, 'insert')
     expect(app.mode).toBe('NORMAL')
+  })
+})
+
+describe('the disk moving under an open buffer', () => {
+  it('reloads a clean buffer and remembers the new mtime', async () => {
+    await opened()
+    const texts: string[] = []
+    const handle = { ...fakeHandle(), setText: (text: string) => texts.push(text) }
+    buffers.register(COLUMN, handle)
+    vi.spyOn(session, 'invoke').mockResolvedValue({ text: 'pi wrote this', mtimeMs: 500 } as never)
+
+    await buffers.changed(COLUMN, 500)
+
+    expect(texts).toEqual(['pi wrote this'])
+    expect(buffers.get(COLUMN)).toMatchObject({ mtimeMs: 500, dirty: false, notice: null })
+  })
+
+  it('holds a dirty buffer, warns, and keeps the stale anchor', async () => {
+    await opened()
+    buffers.setDirty(COLUMN, true)
+    const invoke = vi.spyOn(session, 'invoke')
+
+    await buffers.changed(COLUMN, 500)
+
+    expect(invoke).not.toHaveBeenCalled()
+    expect(buffers.get(COLUMN)).toMatchObject({ mtimeMs: 100, notice: CHANGED_ON_DISK })
+  })
+
+  it('ignores the echo of its own save', async () => {
+    await opened()
+    const invoke = vi.spyOn(session, 'invoke')
+
+    await buffers.changed(COLUMN, 100)
+
+    expect(invoke).not.toHaveBeenCalled()
+    expect(buffers.get(COLUMN)?.notice).toBe(null)
+  })
+
+  it('says a deleted file is gone and how :w brings it back', async () => {
+    await opened()
+
+    await buffers.changed(COLUMN, null)
+
+    expect(buffers.get(COLUMN)?.notice).toBe(DELETED_ON_DISK)
+    expect(buffers.get(COLUMN)).toBeDefined()
   })
 })
