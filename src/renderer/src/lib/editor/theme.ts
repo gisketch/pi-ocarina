@@ -4,6 +4,8 @@
  *  theme, so the buffer cannot drift off-palette when the accent moves. */
 
 import { EditorView } from '@codemirror/view'
+import { HighlightStyle } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
 
 export const ocarinaTheme = EditorView.theme(
   {
@@ -59,4 +61,33 @@ export const ocarinaTheme = EditorView.theme(
     },
   },
   { dark: true },
+)
+
+/** Syntax colours from the same tokens the rest of the app paints with — the
+ *  accent hue leads, the two derived tones carry names and types, and the
+ *  status colours (`--ok`, `--warn`, `--err`) keep the meanings they have
+ *  everywhere else: strings are ok-green, numbers warn-amber, invalid is err. */
+export const ocarinaHighlight = HighlightStyle.define(
+  [
+    { tag: [tags.keyword, tags.moduleKeyword, tags.controlKeyword], color: 'var(--accent)' },
+    { tag: [tags.operator, tags.operatorKeyword, tags.definitionKeyword], color: 'var(--accent)' },
+    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: 'var(--ok-text)' },
+    { tag: [tags.number, tags.bool, tags.atom, tags.null, tags.escape], color: 'var(--warn)' },
+    { tag: [tags.comment, tags.docComment], color: 'var(--fg-dimmest)', fontStyle: 'italic' },
+    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: 'var(--tone-2)' },
+    { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--tone-3)' },
+    { tag: [tags.propertyName, tags.attributeName, tags.labelName], color: 'var(--fg-body)' },
+    { tag: [tags.variableName, tags.definition(tags.variableName)], color: 'var(--fg)' },
+    { tag: [tags.tagName, tags.macroName, tags.annotation], color: 'var(--tone-2)' },
+    { tag: [tags.meta, tags.punctuation, tags.separator, tags.bracket], color: 'var(--fg-dim)' },
+    { tag: [tags.heading], color: 'var(--fg-bright)', fontWeight: 'bold' },
+    { tag: [tags.emphasis], fontStyle: 'italic' },
+    { tag: [tags.strong], fontWeight: 'bold' },
+    { tag: [tags.link, tags.url], color: 'var(--tone-3)', textDecoration: 'underline' },
+    { tag: [tags.inserted], color: 'var(--ok)' },
+    { tag: [tags.deleted, tags.invalid], color: 'var(--err-text)' },
+  ],
+  // Concrete CSS variables, so themeType matching is irrelevant: this style
+  // applies whatever CodeMirror thinks the theme's darkness is.
+  { themeType: undefined },
 )

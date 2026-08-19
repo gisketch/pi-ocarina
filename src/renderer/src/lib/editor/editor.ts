@@ -11,11 +11,11 @@
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { bracketMatching, defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { Vim, getCM, vim, type CodeMirror } from '@replit/codemirror-vim'
 import { EX_COMMANDS, isForced, type ExBag } from './ex-commands'
-import { ocarinaTheme } from './theme'
+import { ocarinaHighlight, ocarinaTheme } from './theme'
 
 export interface EditorOptions {
   text: string
@@ -102,7 +102,7 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         lineNumbers(),
         history(),
         bracketMatching(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(ocarinaHighlight),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         language.of([]),
         ocarinaTheme,
