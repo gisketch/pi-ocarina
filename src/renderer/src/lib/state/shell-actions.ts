@@ -62,7 +62,7 @@ export function runAction(shell: ShellHost, action: Action): void {
       // not changed any. Both would open a modal viewer over nothing, and a
       // modal owns every key — so the mode goes straight back instead.
       const changed = app.threadId
-      if (changed === null) app.mode = 'NORMAL'
+      if (changed === null) app.mode = 'OCARINA'
       else void changes.show(changed)
       break
     }

@@ -158,7 +158,7 @@ class BlockMenu {
       void forkAtCheckpoint(threadId, checkpointId).then((column) => {
         if (column === null) return
         app.focusThread(column)
-        app.mode = 'INSERT'
+        app.mode = 'CHAT'
         shell.focusComposer()
       })
       return

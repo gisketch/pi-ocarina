@@ -104,7 +104,7 @@ Blocked by: T1 (shell), T2 (readFile for the preview).
 
 ## T4 — diff viewer wears the shell
 
-Status: todo
+Status: done
 
 Behavior: the changes viewer draws inside the same shell as the finders
 (D6). Every DIFF key does exactly what it did.

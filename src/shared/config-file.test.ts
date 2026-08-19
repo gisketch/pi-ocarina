@@ -26,10 +26,18 @@ describe('a file that cannot be read at all', () => {
 describe('keys', () => {
   it('reads a well-formed binding', () => {
     const { config, problems } = of({
+      keys: [{ mode: 'OCARINA', key: 'x', action: 'nextThread' }],
+    })
+    expect(problems).toEqual([])
+    expect(config.keys).toEqual([{ mode: 'OCARINA', key: 'x', action: 'nextThread' }])
+  })
+
+  it('reads the old NORMAL as OCARINA, so pre-rename configs keep working', () => {
+    const { config, problems } = of({
       keys: [{ mode: 'NORMAL', key: 'x', action: 'nextThread' }],
     })
     expect(problems).toEqual([])
-    expect(config.keys).toEqual([{ mode: 'NORMAL', key: 'x', action: 'nextThread' }])
+    expect(config.keys[0].mode).toBe('OCARINA')
   })
 
   it('drops one bad binding and keeps its neighbours', () => {
@@ -83,8 +91,8 @@ describe('keys', () => {
   })
 
   it('reads the mode case-insensitively', () => {
-    expect(of({ keys: [{ mode: 'normal', key: 'x', action: 'a' }] }).config.keys[0].mode).toBe(
-      'NORMAL',
+    expect(of({ keys: [{ mode: 'ocarina', key: 'x', action: 'a' }] }).config.keys[0].mode).toBe(
+      'OCARINA',
     )
   })
 

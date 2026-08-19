@@ -27,33 +27,33 @@ export interface ShippedKey {
  *  fixed, digits are positional, arrows are fixed synonyms for hjkl, and
  *  `Enter` only acts on the empty welcome screen. Everything else is here. */
 export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
-  'thread.prev': { mode: 'NORMAL', key: 'h', label: 'previous thread', group: 'navigate' },
-  'thread.next': { mode: 'NORMAL', key: 'l', label: 'next thread', group: 'navigate' },
-  'read.down': { mode: 'NORMAL', key: 'j', label: 'enter read · block down', group: 'navigate' },
-  'read.up': { mode: 'NORMAL', key: 'k', label: 'enter read · block up', group: 'navigate' },
-  'scroll.down': { mode: 'NORMAL', key: 'C-d', label: 'half page down', group: 'navigate' },
-  'scroll.up': { mode: 'NORMAL', key: 'C-u', label: 'half page up', group: 'navigate' },
-  'column.left': { mode: 'NORMAL', key: 'H', label: 'move column left', group: 'navigate' },
-  'column.right': { mode: 'NORMAL', key: 'L', label: 'move column right', group: 'navigate' },
-  'thread.jumpLive': { mode: 'NORMAL', key: 'G', label: 'jump to latest', group: 'navigate' },
-  'terminal.open': { mode: 'NORMAL', key: 't', label: 'terminal column', group: 'navigate' },
-  'thread.rename': { mode: 'NORMAL', key: 'R', label: 'rename thread', group: 'navigate' },
-  'leader.start': { mode: 'NORMAL', key: ' ', label: 'leader chord', group: 'navigate' },
-  'compose.insert': { mode: 'NORMAL', key: 'i', label: 'compose (insert)', group: 'navigate' },
-  'yank.code': { mode: 'NORMAL', key: 'y', label: 'yank last code', group: 'navigate' },
-  'reasoning.toggle': { mode: 'NORMAL', key: 'o', label: 'toggle reasoning', group: 'navigate' },
-  'block.menu': { mode: 'NORMAL', key: 'a', label: 'block actions', group: 'navigate' },
-  'leap.start': { mode: 'NORMAL', key: 's', label: 'leap to block', group: 'navigate' },
-  'thread.worktree': { mode: 'NORMAL', key: 'b', label: 'worktree thread (dashboard)', group: 'navigate' },
+  'thread.prev': { mode: 'OCARINA', key: 'h', label: 'previous thread', group: 'navigate' },
+  'thread.next': { mode: 'OCARINA', key: 'l', label: 'next thread', group: 'navigate' },
+  'read.down': { mode: 'OCARINA', key: 'j', label: 'enter read · block down', group: 'navigate' },
+  'read.up': { mode: 'OCARINA', key: 'k', label: 'enter read · block up', group: 'navigate' },
+  'scroll.down': { mode: 'OCARINA', key: 'C-d', label: 'half page down', group: 'navigate' },
+  'scroll.up': { mode: 'OCARINA', key: 'C-u', label: 'half page up', group: 'navigate' },
+  'column.left': { mode: 'OCARINA', key: 'H', label: 'move column left', group: 'navigate' },
+  'column.right': { mode: 'OCARINA', key: 'L', label: 'move column right', group: 'navigate' },
+  'thread.jumpLive': { mode: 'OCARINA', key: 'G', label: 'jump to latest', group: 'navigate' },
+  'terminal.open': { mode: 'OCARINA', key: 't', label: 'terminal column', group: 'navigate' },
+  'thread.rename': { mode: 'OCARINA', key: 'R', label: 'rename thread', group: 'navigate' },
+  'leader.start': { mode: 'OCARINA', key: ' ', label: 'leader chord', group: 'navigate' },
+  'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose (insert)', group: 'navigate' },
+  'yank.code': { mode: 'OCARINA', key: 'y', label: 'yank last code', group: 'navigate' },
+  'reasoning.toggle': { mode: 'OCARINA', key: 'o', label: 'toggle reasoning', group: 'navigate' },
+  'block.menu': { mode: 'OCARINA', key: 'a', label: 'block actions', group: 'navigate' },
+  'leap.start': { mode: 'OCARINA', key: 's', label: 'leap to block', group: 'navigate' },
+  'thread.worktree': { mode: 'OCARINA', key: 'b', label: 'worktree thread (dashboard)', group: 'navigate' },
 
-  'changes.open': { mode: 'NORMAL', key: 'd', label: 'change viewer', group: 'screens' },
-  'switcher.open': { mode: 'NORMAL', key: 'w', label: 'thread switcher', group: 'screens' },
-  'keymap.open': { mode: 'NORMAL', key: '?', label: 'keymap sheet', group: 'screens' },
-  'settings.open': { mode: 'NORMAL', key: ',', label: 'settings', group: 'screens' },
-  'workspace.settings': { mode: 'NORMAL', key: '<', label: 'workspace settings', group: 'screens' },
-  'model.open': { mode: 'NORMAL', key: 'm', label: 'model picker', group: 'screens' },
-  'mode.pick': { mode: 'NORMAL', key: 'M', label: 'voice picker', group: 'screens' },
-  'search.open': { mode: 'NORMAL', key: '/', label: 'search threads', group: 'screens' },
+  'changes.open': { mode: 'OCARINA', key: 'd', label: 'change viewer', group: 'screens' },
+  'switcher.open': { mode: 'OCARINA', key: 'w', label: 'thread switcher', group: 'screens' },
+  'keymap.open': { mode: 'OCARINA', key: '?', label: 'keymap sheet', group: 'screens' },
+  'settings.open': { mode: 'OCARINA', key: ',', label: 'settings', group: 'screens' },
+  'workspace.settings': { mode: 'OCARINA', key: '<', label: 'workspace settings', group: 'screens' },
+  'model.open': { mode: 'OCARINA', key: 'm', label: 'model picker', group: 'screens' },
+  'mode.pick': { mode: 'OCARINA', key: 'M', label: 'voice picker', group: 'screens' },
+  'search.open': { mode: 'OCARINA', key: '/', label: 'search threads', group: 'screens' },
 
   'block.down': { mode: 'READ', key: 'j', label: 'block down', group: 'read' },
   'block.up': { mode: 'READ', key: 'k', label: 'block up', group: 'read' },
@@ -193,7 +193,7 @@ export function effectiveKey(keymap: Keymap, mode: string, key: string): string 
   const own = keymap.translate.get(slot(mode, key))
   if (own !== undefined) return own
   if (mode === 'READ' && !READ_OWNS.has(key)) {
-    return keymap.translate.get(slot('NORMAL', key)) ?? key
+    return keymap.translate.get(slot('OCARINA', key)) ?? key
   }
   return key
 }

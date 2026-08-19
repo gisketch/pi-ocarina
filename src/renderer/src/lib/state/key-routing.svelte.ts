@@ -96,7 +96,7 @@ export function routeToSurface(
   // A question waiting in this column owns the choice keys — below everything
   // the reader put on screen, above ordinary column keys. `enter` from NORMAL
   // takes them back after an `esc` released them.
-  if (event.key === 'Enter' && mode === 'NORMAL' && askKeys.resume()) return true
+  if (event.key === 'Enter' && mode === 'OCARINA' && askKeys.resume()) return true
   if (askKeys.handleKey(event)) return true
 
   // The peek, and the keys that reach it. Below the question, which is asked;

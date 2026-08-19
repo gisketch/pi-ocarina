@@ -14,8 +14,10 @@
  *  keyboard's business, not this file's — the parser checks shape, and the
  *  keymap checks meaning. */
 export interface KeyBinding {
-  /** The mode it applies in. */
-  mode: 'NORMAL' | 'READ' | 'DIFF' | 'LEADER'
+  /** The mode it applies in. `NORMAL` is accepted in the file as the old
+   *  name for `OCARINA` — configs written before the rename keep working —
+   *  but is normalized away here, so nothing downstream sees it. */
+  mode: 'OCARINA' | 'READ' | 'DIFF' | 'LEADER'
   key: string
   action: string
 }
@@ -84,7 +86,12 @@ export interface ConfigLoad {
   problems: ConfigProblem[]
 }
 
-const MODES = new Set(['NORMAL', 'READ', 'DIFF', 'LEADER'])
+const MODES = new Set(['OCARINA', 'READ', 'DIFF', 'LEADER'])
+
+/** Old names for modes that were renamed, still honoured in the file.
+ *  vim's NORMAL/INSERT are not addressable here (spec D10) — a file saying
+ *  NORMAL predates the rename and always meant the strip. */
+const MODE_ALIASES: Readonly<Record<string, string>> = { NORMAL: 'OCARINA' }
 
 /** Keys that cannot be rebound.
  *
@@ -117,7 +124,8 @@ function readKeys(value: unknown, problems: ConfigProblem[]): KeyBinding[] {
   value.forEach((raw, index) => {
     const where = `keys[${index}]`
     const entry = (raw ?? {}) as Record<string, unknown>
-    const mode = str(entry.mode).toUpperCase()
+    const spelled = str(entry.mode).toUpperCase()
+    const mode = MODE_ALIASES[spelled] ?? spelled
     const key = typeof entry.key === 'string' ? entry.key : ''
     const action = str(entry.action)
 

@@ -44,7 +44,7 @@ beforeEach(() => {
   catalog.error = null
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
 })
 
 describe('the recent list', () => {
@@ -96,7 +96,7 @@ describe('the recent list', () => {
     expect(dashboardRecent.selected('w1')).toBe(2)
     for (let i = 0; i < 9; i += 1) shell.handleKey({ key: 'j' })
     expect(dashboardRecent.selected('w1')).toBe(4)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 
   it('opens the picked row in the dashboard column itself', async () => {
@@ -144,7 +144,7 @@ describe('a leap over the dashboard', () => {
     off()
 
     expect(leap.active).toBe(false)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
     expect(blockFocus.idOf(columnId)).toBeNull()
     expect(dashboardRecent.selected('w1')).toBe(1)
     expect(app.thread.fresh).toBe(true)

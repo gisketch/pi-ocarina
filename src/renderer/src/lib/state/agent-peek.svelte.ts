@@ -122,7 +122,7 @@ class AgentPeek {
     // The composer's keys are the composer's: `x` in a sentence is a letter.
     // LEADER's are the chord's: `␣ x` closes a column and `␣ h` moves a thread,
     // and a peek that ate them would stop a child instead. Found in review.
-    if (mode === 'INSERT' || mode === 'LEADER') return false
+    if (mode === 'CHAT' || mode === 'LEADER') return false
 
     // A peek belongs to the column it was opened in. When the reader moves to
     // another thread it has nothing to show them, and leaving it open would

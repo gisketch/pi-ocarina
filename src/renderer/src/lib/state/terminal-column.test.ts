@@ -47,7 +47,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.pendingClose = null
 })
 
@@ -67,7 +67,7 @@ describe('opening the terminal column', () => {
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
     termMode.open()
     app.focusThread(0)
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     create.mockClear()
 
     termMode.open()
@@ -80,7 +80,7 @@ describe('opening the terminal column', () => {
   it('revives a shell the user exited, without closing the column first', () => {
     const create = vi.spyOn(terminals, 'create').mockResolvedValue()
     termMode.open()
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     create.mockClear()
 
     // The column outlives its pty; `create` is a no-op while one is running.
@@ -155,7 +155,7 @@ describe('esc esc through the real key path', () => {
 
     now.mockReturnValue(1000)
     shell.handleKey({ key: 'Escape' })
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
 
     now.mockReturnValue(1100)
     shell.handleKey({ key: 'Escape' })
@@ -174,7 +174,7 @@ describe('esc esc through the real key path', () => {
     shell.handleKey({ key: 'Escape' })
 
     expect(write).not.toHaveBeenCalled()
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 
   it('does not fire on a thread column, however fast the presses', () => {

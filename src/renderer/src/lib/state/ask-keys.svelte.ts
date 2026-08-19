@@ -55,7 +55,7 @@ class AskKeys {
    *  so the bar, the card and the key path cannot disagree about who has the
    *  keyboard. */
   get owning(): string | null {
-    if (app.mode !== 'NORMAL' && app.mode !== 'READ') return null
+    if (app.mode !== 'OCARINA' && app.mode !== 'READ') return null
     return this.holding
   }
 
@@ -126,7 +126,7 @@ class AskKeys {
     // opened by the reader, so outranking INSERT is what they are for; a
     // question arrives on its own, and taking the keys from someone mid-sentence
     // would be the app typing over them.
-    if (app.mode === 'INSERT') return false
+    if (app.mode === 'CHAT') return false
 
     // A modifier is not an answer, and never a choice key: ⌘k belongs to the
     // command palette, not to a cursor.

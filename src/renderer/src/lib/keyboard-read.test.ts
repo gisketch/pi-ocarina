@@ -38,28 +38,28 @@ describe('READ, the transcript mode', () => {
     expect(closed.state.overlay).toBeNull()
     expect(closed.state.mode).toBe('READ')
 
-    expect(press(closed.state, 'Escape').state.mode).toBe('NORMAL')
+    expect(press(closed.state, 'Escape').state.mode).toBe('OCARINA')
   })
 
   it('hands the caret back when esc closes an overlay opened while typing', () => {
     // ⌘K from INSERT: the palette took the caret. Closing it without giving
     // the caret back leaves a mode that says INSERT and a keyboard that does
     // nothing at all.
-    const typing: KeyState = { ...initialKeyState, mode: 'INSERT' }
+    const typing: KeyState = { ...initialKeyState, mode: 'CHAT' }
     const open = press(typing, { key: 'k', metaKey: true })
     expect(open.state.overlay).toBe('palette')
 
     const closed = press(open.state, 'Escape')
 
     expect(closed.state.overlay).toBeNull()
-    expect(closed.state.mode).toBe('INSERT')
+    expect(closed.state.mode).toBe('CHAT')
     expect(closed.actions).toEqual([{ type: 'focusComposer' }])
   })
 
   it('goes back to the strip on esc, which is where h and l work again', () => {
     const { state } = press(READ, 'Escape')
 
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(press(state, 'l').actions).toEqual([{ type: 'moveThread', delta: 1 }])
   })
 
@@ -75,6 +75,6 @@ describe('READ, the transcript mode', () => {
     expect(press(READ, 'y').actions).toEqual([{ type: 'yank' }])
     expect(press(READ, '2').actions).toEqual([{ type: 'goWorkspace', index: 1 }])
     expect(press(READ, ' ').state.mode).toBe('LEADER')
-    expect(press(READ, 'i').state.mode).toBe('INSERT')
+    expect(press(READ, 'i').state.mode).toBe('CHAT')
   })
 })

@@ -27,7 +27,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.pendingClose = null
   leap.end()
   blockFocus.forget('s1')
@@ -85,7 +85,7 @@ describe('the transcript through the real key path', () => {
     shell.handleKey({ key: 'i' })
 
     expect(blockFocus.idOf('s1')).toBeNull()
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
   })
 })
 
@@ -105,7 +105,7 @@ describe('READ through the real key path', () => {
   beforeEach(() => {
     threads.seed('s1', { blocks, status: 'idle', runState: 'idle' })
     toolOpen.forget('s1')
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
   })
 
   it('is entered by j, and left by esc', () => {
@@ -113,7 +113,7 @@ describe('READ through the real key path', () => {
     expect(app.mode).toBe('READ')
 
     shell.handleKey({ key: 'Escape' })
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
     expect(blockFocus.idOf('s1')).toBeNull()
   })
 
@@ -157,13 +157,13 @@ describe('READ through the real key path', () => {
     shell.handleKey({ key: 'l' })
 
     expect(app.focus[0]).toBe(1)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
     app.focusThread(0)
   })
 
   it('clears a stranded ring on esc, whatever mode it was left in', () => {
     shell.handleKey({ key: 'j' })
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
 
     shell.handleKey({ key: 'Escape' })
 
@@ -265,7 +265,7 @@ describe('a leap through the real key path', () => {
       status: 'idle',
       runState: 'idle',
     })
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
   })
 
   it('keeps READ while the reader is still choosing', () => {
@@ -308,7 +308,7 @@ describe('a leap through the real key path', () => {
     // Reconciled by the same keystroke that ended it. Waiting for the next one
     // would read that one as READ — `l` would expand nothing instead of
     // moving a column, and the reader would lose a keypress.
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 
   it('reads the very next key as NORMAL after a pattern that found nothing', () => {
@@ -320,7 +320,7 @@ describe('a leap through the real key path', () => {
     shell.handleKey({ key: 'q' })
 
     expect(leap.active).toBe(false)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
 
     shell.handleKey({ key: 'l' })
     expect(app.focus[0]).toBe(1)

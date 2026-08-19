@@ -25,7 +25,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.pendingClose = null
   commit.close()
   leap.end()

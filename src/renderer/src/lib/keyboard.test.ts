@@ -8,7 +8,7 @@ const press = (state: KeyState, ...keys: (string | KeyEventLike)[]) =>
   pressWith(ctx, state, ...keys)
 
 const NORMAL = initialKeyState
-const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
+const INSERT: KeyState = { ...initialKeyState, mode: 'CHAT' }
 const READ: KeyState = { ...initialKeyState, mode: 'READ' }
 
 describe('the welcome screen', () => {
@@ -57,7 +57,7 @@ describe('NORMAL bindings', () => {
     const shellCtx = { workspaceCount: 3, terminalColumn: true }
     const result = reduceKey(NORMAL, { key: 'j' }, shellCtx)
 
-    expect(result.state.mode).toBe('NORMAL')
+    expect(result.state.mode).toBe('OCARINA')
     expect(result.actions).toEqual([{ type: 'moveBlock', delta: 1 }])
   })
 
@@ -75,7 +75,7 @@ describe('NORMAL bindings', () => {
     // the rest. A reader who has not asked to point at anything gets a scroll.
     for (const key of ['d', 'u']) {
       const { state, actions } = press(NORMAL, { key, ctrlKey: true })
-      expect(state.mode).toBe('NORMAL')
+      expect(state.mode).toBe('OCARINA')
       expect(actions.every((action) => action.type === 'scroll')).toBe(true)
     }
   })
@@ -108,7 +108,7 @@ describe('NORMAL bindings', () => {
 
   it('enters INSERT on i and focuses the composer', () => {
     const { state, actions } = press(NORMAL, 'i')
-    expect(state.mode).toBe('INSERT')
+    expect(state.mode).toBe('CHAT')
     expect(actions).toEqual([{ type: 'focusComposer' }])
   })
 
@@ -173,7 +173,7 @@ describe('LEADER chords', () => {
     ]
     for (const [key, expectedState, expectedActions] of cases) {
       const { state, actions, last } = press(NORMAL, ' ', key)
-      expect(state.mode, `chord ${key} must leave LEADER`).toBe('NORMAL')
+      expect(state.mode, `chord ${key} must leave LEADER`).toBe('OCARINA')
       expect(actions).toEqual(expectedActions)
       expect(last.timer).toBe('clear')
       for (const [k, v] of Object.entries(expectedState)) {
@@ -184,13 +184,13 @@ describe('LEADER chords', () => {
 
   it('cancels on an unknown key without acting', () => {
     const { state, actions } = press(NORMAL, ' ', 'z')
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(actions).toEqual([])
   })
 
   it('cancels on escape', () => {
     const { state, last } = press(NORMAL, ' ', 'Escape')
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(last.timer).toBe('clear')
   })
 })

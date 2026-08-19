@@ -175,7 +175,7 @@
       {:else if block.kind === 'ask'}
         <AskCard
           askId={block.id}
-          focused={app.mode !== 'INSERT' && askKeys.focused(threadId, block.id)}
+          focused={app.mode !== 'CHAT' && askKeys.focused(threadId, block.id)}
           questions={block.questions}
           outcome={block.outcome}
           answers={block.answers}

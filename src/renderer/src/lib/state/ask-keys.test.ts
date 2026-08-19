@@ -56,7 +56,7 @@ beforeEach(() => {
   catalog.workspaces = [structuredClone(WORKSPACE)]
   catalog.source = 'live'
   app.goWorkspace(0)
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   history = []
   asks.forget('ask-1')
   asks.forget('ask-2')
@@ -80,7 +80,7 @@ describe('who has the keys', () => {
     expect(press('k')).toBe(true)
     expect(flow.cursor).toBe(0)
     // The blocks were not walked: a question is not a transcript.
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 
   it('hands them back on esc, with the question still pending', () => {
@@ -199,7 +199,7 @@ describe('answering with the keys', () => {
 
   it('never takes the caret from the composer', () => {
     const flow = asks.flow('ask-1', QUESTIONS)
-    app.mode = 'INSERT'
+    app.mode = 'CHAT'
 
     // The key belongs to the field the reader is typing in. The card does not
     // consume it, and the cursor does not move.

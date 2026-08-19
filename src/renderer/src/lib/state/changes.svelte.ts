@@ -54,7 +54,7 @@ class Changes {
   filter = $state('')
   /** The mode the viewer was opened from, so `esc` gives it back. A reader who
    *  was walking blocks in READ and looked at the change is still reading. */
-  #from: 'NORMAL' | 'READ' = 'NORMAL'
+  #from: 'OCARINA' | 'READ' = 'OCARINA'
   /** Whether the filter is taking keys. Held apart from the text: `/` then
    *  backspace leaves an empty filter that is still listening, and a filter
    *  that stopped listening the moment it was emptied would be unusable. */
@@ -80,7 +80,7 @@ class Changes {
   /** Opens on a thread, optionally at a file — which is what `a` on a capped
    *  row does. */
   async show(threadId: ThreadId, path?: string): Promise<void> {
-    this.#from = app.mode === 'READ' ? 'READ' : 'NORMAL'
+    this.#from = app.mode === 'READ' ? 'READ' : 'OCARINA'
     this.threadId = threadId
     this.loading = true
     this.error = null
@@ -117,7 +117,7 @@ class Changes {
 
   close(): void {
     this.threadId = null
-    this.#from = 'NORMAL'
+    this.#from = 'OCARINA'
     this.files = []
     this.error = null
     // The pane goes back too. A viewer reopened into whichever pane the last

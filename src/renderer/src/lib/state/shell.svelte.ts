@@ -102,7 +102,7 @@ class ShellState {
     // only puts the bar back on top for the launcher that is about to show.
     dashboardRecent.resetBar(app.workspace.id)
     app.focusThread(column)
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
   }
 
   /** Closes the focused thread, asking first if a turn is running.
@@ -277,7 +277,7 @@ class ShellState {
   private startLeaderTimer(): void {
     this.clearLeaderTimer()
     this.leaderTimer = setTimeout(() => {
-      if (app.mode === 'LEADER') app.mode = 'NORMAL'
+      if (app.mode === 'LEADER') app.mode = 'OCARINA'
       this.leaderTimer = null
     }, preferences.leaderTimeoutMs)
   }

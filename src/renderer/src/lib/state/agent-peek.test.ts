@@ -84,44 +84,44 @@ describe('the keys the peek owns', () => {
   it('descends on `l` only when an agent row is focused', () => {
     seed([agentRow('c1')])
     blockFocus.set('t1', 'led-1:c1')
-    expect(agentPeek.handleKey(key('l'), 'NORMAL', 't1' as ThreadId)).toBe(true)
+    expect(agentPeek.handleKey(key('l'), 'OCARINA', 't1' as ThreadId)).toBe(true)
     expect(agentPeek.open).toBe(true)
   })
 
   it('leaves `l` alone in front of an ordinary row', () => {
     seed([{ id: 'r1', kind: 'read', target: 'a.ts', status: 'ok' }])
     blockFocus.set('t1', 'led-1:r1')
-    expect(agentPeek.handleKey(key('l'), 'NORMAL', 't1' as ThreadId)).toBe(false)
+    expect(agentPeek.handleKey(key('l'), 'OCARINA', 't1' as ThreadId)).toBe(false)
   })
 
   it('closes on `h` and on escape', () => {
     seed([agentRow('c1')])
     agentPeek.openAt('t1' as ThreadId, 'led-1:c1')
-    expect(agentPeek.handleKey(key('h'), 'NORMAL', 't1' as ThreadId)).toBe(true)
+    expect(agentPeek.handleKey(key('h'), 'OCARINA', 't1' as ThreadId)).toBe(true)
     expect(agentPeek.open).toBe(false)
 
     agentPeek.openAt('t1' as ThreadId, 'led-1:c1')
-    expect(agentPeek.handleKey(key('Escape'), 'NORMAL', 't1' as ThreadId)).toBe(true)
+    expect(agentPeek.handleKey(key('Escape'), 'OCARINA', 't1' as ThreadId)).toBe(true)
     expect(agentPeek.open).toBe(false)
   })
 
   it('lets every other key through, so the peek is not a mode', () => {
     seed([agentRow('c1')])
     agentPeek.openAt('t1' as ThreadId, 'led-1:c1')
-    expect(agentPeek.handleKey(key('j'), 'NORMAL', 't1' as ThreadId)).toBe(false)
+    expect(agentPeek.handleKey(key('j'), 'OCARINA', 't1' as ThreadId)).toBe(false)
     expect(agentPeek.open).toBe(true)
   })
 
   it('keeps its hands off the composer', () => {
     seed([agentRow('c1')])
     blockFocus.set('t1', 'led-1:c1')
-    expect(agentPeek.handleKey(key('l'), 'INSERT', 't1' as ThreadId)).toBe(false)
+    expect(agentPeek.handleKey(key('l'), 'CHAT', 't1' as ThreadId)).toBe(false)
   })
 
   it('ignores a modified key, so ⌘L is not a descent', () => {
     seed([agentRow('c1')])
     blockFocus.set('t1', 'led-1:c1')
-    expect(agentPeek.handleKey({ key: 'l', metaKey: true }, 'NORMAL', 't1' as ThreadId)).toBe(false)
+    expect(agentPeek.handleKey({ key: 'l', metaKey: true }, 'OCARINA', 't1' as ThreadId)).toBe(false)
   })
 })
 

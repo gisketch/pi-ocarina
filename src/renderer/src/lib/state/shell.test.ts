@@ -23,7 +23,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.targets.composer = null
 })
 
@@ -121,7 +121,7 @@ describe('leader n', () => {
     shell.newThread()
 
     expect(app.thread.fresh).toBe(true)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
     expect(create).not.toHaveBeenCalled()
   })
 
@@ -143,7 +143,7 @@ describe('Tab', () => {
     // would walk the browser's ring over buttons the reader never navigates
     // with, and two indicators disagreeing about where they are is worse than
     // either alone.
-    for (const mode of ['NORMAL', 'READ', 'INSERT'] as const) {
+    for (const mode of ['OCARINA', 'READ', 'CHAT'] as const) {
       app.mode = mode
       // Shift+Tab is the same key here: the app's key vocabulary carries the
       // modifiers it binds, and shift is not one of them.
@@ -152,7 +152,7 @@ describe('Tab', () => {
   })
 
   it('leaves the keys the app does answer alone', () => {
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     // A sanity check that swallowing Tab did not swallow the rest: `q` is
     // bound to nothing, and an unbound key still reports itself unhandled.
     expect(shell.handleKey({ key: 'q' })).toBe(false)

@@ -16,7 +16,7 @@ const press = (state: KeyState, ...keys: (string | KeyEventLike)[]) =>
   pressWith(ctx, state, ...keys)
 
 const NORMAL = initialKeyState
-const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
+const INSERT: KeyState = { ...initialKeyState, mode: 'CHAT' }
 
 describe('typing guards', () => {
   it('swallows NORMAL letter bindings while in INSERT', () => {
@@ -24,7 +24,7 @@ describe('typing guards', () => {
       const { state, actions, last } = press(INSERT, key)
       expect(actions, `key ${key} must not act while typing`).toEqual([])
       expect(last.preventDefault, `key ${key} must reach the input`).toBe(false)
-      expect(state.mode).toBe('INSERT')
+      expect(state.mode).toBe('CHAT')
     }
   })
 
@@ -60,7 +60,7 @@ describe('typing guards', () => {
 
   it('escape leaves INSERT and blurs the composer', () => {
     const { state, actions } = press(INSERT, 'Escape')
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(actions).toEqual([{ type: 'blurComposer' }])
   })
 })
@@ -116,7 +116,7 @@ describe('settings', () => {
   it('opens on the leader s chord', () => {
     const { state, last } = press(NORMAL, ' ', 's')
     expect(state.overlay).toBe('settings')
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(last.timer).toBe('clear')
   })
 

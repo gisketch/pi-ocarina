@@ -70,7 +70,7 @@ class BlockNav {
    *  same thing: the reader has stopped reading, so the transcript gets its
    *  plain look back rather than sitting half-dimmed behind a live caret. */
   startTyping(): void {
-    app.mode = 'INSERT'
+    app.mode = 'CHAT'
     this.release()
   }
 
@@ -85,7 +85,7 @@ class BlockNav {
     // A leap is READ without a ring yet: the reader is choosing where it will
     // go. Reconciling mid-leap would drop the mode the leap is running in.
     if (leap.active) return
-    if (app.thread.terminal || blockFocus.idOf(app.thread.id) === null) app.mode = 'NORMAL'
+    if (app.thread.terminal || blockFocus.idOf(app.thread.id) === null) app.mode = 'OCARINA'
   }
 
   /** Everything a closed column was remembering. */
@@ -95,7 +95,7 @@ class BlockNav {
     // gone, it would swallow the keyboard with nothing behind it to act on.
     if (changes.threadId === threadId) {
       changes.close()
-      app.mode = 'NORMAL'
+      app.mode = 'OCARINA'
     }
     blockFocus.forget(threadId)
     drafts.forget(threadId)

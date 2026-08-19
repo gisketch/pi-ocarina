@@ -33,7 +33,7 @@ beforeEach(() => {
   catalog.error = null
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
 })
 
 /** What `␣n` is for: a launcher, not a thread. The backend hears nothing. */
@@ -47,7 +47,7 @@ describe('opening a dashboard', () => {
     expect(threads).toHaveLength(2)
     expect(threads[1].fresh).toBe(true)
     expect(app.threadIndex).toBe(1)
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
     // The launcher reads history for its recent rows; it must write nothing.
     expect(invoke).not.toHaveBeenCalledWith('createThread', expect.anything())
   })

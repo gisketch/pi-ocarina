@@ -40,7 +40,7 @@ const NO_THREAD: Thread = Object.freeze({
  *  so real data becomes a drop-in replacement for the mock catalog. */
 class AppState {
   workspaceIndex = $state(0)
-  mode = $state<Mode>('NORMAL')
+  mode = $state<Mode>('OCARINA')
 
   /** Focused thread per workspace — the design's `f` array. Sparse on purpose:
    *  a workspace not in it has never been visited, and starts at column 0. */
@@ -96,7 +96,7 @@ class AppState {
   get accented(): boolean {
     // Every mode that takes the keyboard away from the strip says so. NORMAL
     // is the only one that does not, because it is the one you return to.
-    return this.mode !== 'NORMAL'
+    return this.mode !== 'OCARINA'
   }
 
   /** What a column header should show. The live model wins as soon as the

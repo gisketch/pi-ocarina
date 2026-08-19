@@ -2,12 +2,20 @@ import type { ThreadId } from '../../../shared/thread-id'
 import type { GitStatus } from '../../../shared/protocol'
 import type { ThreadRunState } from '../../../shared/vocabulary'
 
-/** `TERM` is `INSERT` for the terminal column: the pty owns every key while it
- *  is on, and `esc` is the one key the shell keeps for itself. */
-/** READ is the transcript: a ring on one block, and h/j/k/l belonging to the
- *  block rather than to the strip. It exists so that walking a conversation
- *  cannot move a column by accident — `esc` first, then the column keys. */
-export type Mode = 'NORMAL' | 'READ' | 'INSERT' | 'LEADER' | 'TERM' | 'DIFF'
+/** The modes, by what owns the keyboard (spec D3):
+ *
+ *  `OCARINA` is the strip — h/l between columns, j/k into the transcript,
+ *  space the leader. It is the mode you return to, and the only one the
+ *  status bar does not accent.
+ *  `CHAT` is the composer's caret: typing to pi.
+ *  `READ` is the transcript: a ring on one block, h/j/k/l belonging to the
+ *  block rather than to the strip, so walking a conversation cannot move a
+ *  column by accident.
+ *  `TERM` is `CHAT` for the terminal column: the pty owns every key while it
+ *  is on, and `esc` is the one key the shell keeps for itself.
+ *  Vim's own `NORMAL` and `INSERT` arrive with the buffer column (T7); until
+ *  a buffer exists nothing enters them. */
+export type Mode = 'OCARINA' | 'READ' | 'CHAT' | 'LEADER' | 'TERM' | 'DIFF'
 
 /** The column header speaks the same status the reducer produces, so a live
  *  thread and a listed one cannot disagree about what a thread is doing. */

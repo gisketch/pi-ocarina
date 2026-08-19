@@ -42,7 +42,7 @@ beforeEach(() => {
   catalog.error = null
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   toasts.items = []
   drafts.forget('forked')
 })

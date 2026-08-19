@@ -25,9 +25,9 @@ describe('opening the change viewer', () => {
   })
 
   it('leaves d alone while typing', () => {
-    const insert: KeyState = { ...initialKeyState, mode: 'INSERT' }
+    const insert: KeyState = { ...initialKeyState, mode: 'CHAT' }
     expect(press(insert, 'd').actions).toEqual([])
-    expect(press(insert, 'd').state.mode).toBe('INSERT')
+    expect(press(insert, 'd').state.mode).toBe('CHAT')
   })
 
   it('leaves d alone in a shell, where the pty owns every key', () => {

@@ -51,7 +51,7 @@ class TermMode {
       catalog.failColumn(terminalId(workspaceId), cause)
       // Checked on the mode, not the column: the column has just been taken
       // away, so asking whether a terminal is focused always says no.
-      if (app.mode === 'TERM') app.mode = 'NORMAL'
+      if (app.mode === 'TERM') app.mode = 'OCARINA'
     })
 
     const column = app.workspace.threads.findIndex((thread) => thread.id === id)

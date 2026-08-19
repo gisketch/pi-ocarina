@@ -46,7 +46,7 @@ class AskNotice {
       // reader is waiting for; leaving them in INSERT made them click the card
       // before they could answer it. A half-typed message still wins — that is
       // what the composer's rank is for.
-      if (app.mode === 'INSERT' && drafts.get(threadId).trim() === '') app.mode = 'NORMAL'
+      if (app.mode === 'CHAT' && drafts.get(threadId).trim() === '') app.mode = 'OCARINA'
     } else if (focused) {
       // Reading history. Nothing moves — that is the complaint the whole
       // reveal rule exists to avoid — and the bar carries it instead.

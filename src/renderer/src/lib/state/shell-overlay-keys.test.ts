@@ -38,7 +38,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0, 0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.overlay = null
   shell.pendingClose = null
 })
@@ -82,7 +82,7 @@ describe('a key pressed under an open screen', () => {
 
     // READ dims the column and moves a ring in it — both invisible under a
     // dialog, and both still there when the dialog closes.
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 
   it('does not change workspaces on a digit', () => {

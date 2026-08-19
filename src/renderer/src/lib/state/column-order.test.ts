@@ -48,7 +48,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   shell.pendingClose = null
 })
 
@@ -87,7 +87,7 @@ describe('closing the terminal column', () => {
   beforeEach(() => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
     termMode.open()
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
   })
 
   it('kills the shell and takes the column away when nothing is running', async () => {
@@ -136,7 +136,7 @@ describe('when the shell cannot start', () => {
 
     expect(app.workspace.threads.some((thread) => thread.terminal)).toBe(false)
     expect(catalog.error).toBe('node-pty ABI mismatch')
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 })
 
@@ -179,7 +179,7 @@ describe('typing at a focused shell', () => {
   it('sends `i` to TERM rather than to a composer that is not there', () => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
     termMode.open()
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     const focus = vi.spyOn(shell, 'focusComposer').mockImplementation(() => {})
 
     shell.handleKey({ key: 'i' })
@@ -194,7 +194,7 @@ describe('typing at a focused shell', () => {
 
     shell.handleKey({ key: 'i' })
 
-    expect(app.mode).toBe('INSERT')
+    expect(app.mode).toBe('CHAT')
     expect(focus).toHaveBeenCalled()
   })
 })

@@ -11,7 +11,7 @@ export function reduceLeader(state: KeyState, key: string, ctx: KeyContext): Key
   // cancelled the chord before the capital arrived: `␣S` and `␣M` were untypable.
   if (MODIFIER_KEYS.has(key)) return result(state, [], false)
 
-  const done: KeyState = { ...state, mode: 'NORMAL' }
+  const done: KeyState = { ...state, mode: 'OCARINA' }
 
   const index = digitFor(key, ctx.workspaceCount)
   if (index !== null) {

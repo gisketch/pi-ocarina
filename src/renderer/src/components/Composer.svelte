@@ -67,7 +67,7 @@
     }
   })
 
-  const insert = $derived(focused && app.mode === 'INSERT')
+  const insert = $derived(focused && app.mode === 'CHAT')
 
   /** The skill names this workspace loaded. Two things ask "is this a
    *  skill?": the field's chips, and the swap into pi's syntax on the way
@@ -288,7 +288,7 @@
       }}
       onfocus={() => blockNav.startTyping()}
       onblur={() => {
-        if (app.mode === 'INSERT') app.mode = 'NORMAL'
+        if (app.mode === 'CHAT') app.mode = 'OCARINA'
       }}
     />
     <span class="hints">

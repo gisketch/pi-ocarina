@@ -67,7 +67,7 @@ beforeEach(() => {
   catalog.source = 'live'
   app.goWorkspace(0)
   app.focus = [0]
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
   threads.seed('s1', {
     blocks: [
       { kind: 'user', id: 'u1', text: 'hello' },
@@ -184,7 +184,7 @@ describe('the ring while paging in READ', () => {
     clock.run(16)
     expect(view.seen()).toBe(-200)
 
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     vi.unstubAllGlobals()
     view.release()
   })
@@ -202,7 +202,7 @@ describe('the ring while paging in READ', () => {
     expect(blockFocus.idOf('s1')).toBe('l1:r1')
     clock.run(16)
 
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     vi.unstubAllGlobals()
     view.release()
   })
@@ -210,7 +210,7 @@ describe('the ring while paging in READ', () => {
   it('leaves the ring alone from NORMAL — skimming is not pointing', () => {
     const view = column(400)
     view.body.scrollTop = 1000
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     const clock = frames()
 
     shell.handleKey({ key: 'd', ctrlKey: true })

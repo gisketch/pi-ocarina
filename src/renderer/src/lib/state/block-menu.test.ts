@@ -151,7 +151,7 @@ describe('the menu', () => {
     ]
     app.goWorkspace(0)
     app.focus = [0]
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
 
     blockMenu.openOn('t1' as ThreadId, message)
     blockMenu.handleKey({ key: 'j' })
@@ -161,7 +161,7 @@ describe('the menu', () => {
     await Promise.resolve()
 
     expect(app.threadIndex).toBe(1)
-    expect(app.mode).toBe('INSERT')
+    expect(app.mode).toBe('CHAT')
   })
 
   it('takes back the question when the highlight moves off it', () => {

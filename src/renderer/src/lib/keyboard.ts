@@ -21,7 +21,7 @@ export * from './keyboard-types'
 
 /** Selecting a workspace always dismisses overlays and leaves the leader chord. */
 function goWorkspace(state: KeyState, index: number): KeyResult {
-  return result({ ...state, overlay: null, mode: state.mode === 'LEADER' ? 'NORMAL' : state.mode }, [
+  return result({ ...state, overlay: null, mode: state.mode === 'LEADER' ? 'OCARINA' : state.mode }, [
     { type: 'goWorkspace', index },
   ])
 }
@@ -86,7 +86,7 @@ function enterRead(state: KeyState, ctx: KeyContext, actions: Action[]): KeyResu
 /** Whether something on screen owns the caret. Everything the shell would
  *  otherwise read as a binding must reach it untouched. */
 function isTyping(state: KeyState): boolean {
-  return state.mode === 'INSERT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
+  return state.mode === 'CHAT' || (state.overlay !== null && TYPING_OVERLAYS.has(state.overlay))
 }
 
 /** Whether anything is drawn on top of the strip.
@@ -118,7 +118,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // needs a clock the shell has and this reducer deliberately does not.
   if (state.mode === 'TERM') {
     if (key === 'Escape') {
-      return result({ ...state, mode: 'NORMAL' }, [{ type: 'termEscape' }], true, 'clear')
+      return result({ ...state, mode: 'OCARINA' }, [{ type: 'termEscape' }], true, 'clear')
     }
     return result(state, [], false)
   }
@@ -133,7 +133,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       // The overlay took the caret from the composer. Giving it back is what
       // makes INSERT true again — without it the mode says one thing and
       // every keystroke goes nowhere.
-      const back: Action[] = state.mode === 'INSERT' ? [{ type: 'focusComposer' }] : []
+      const back: Action[] = state.mode === 'CHAT' ? [{ type: 'focusComposer' }] : []
       return result({ ...state, overlay: null }, back, true, 'clear')
     }
 
@@ -142,8 +142,8 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     // "is a shell even focused" question, so this always reports the press and
     // lets it decide — everywhere else it is a no-op.
     return result(
-      { ...state, mode: 'NORMAL' },
-      state.mode === 'INSERT' ? [{ type: 'blurComposer' }] : [{ type: 'termEscape' }],
+      { ...state, mode: 'OCARINA' },
+      state.mode === 'CHAT' ? [{ type: 'blurComposer' }] : [{ type: 'termEscape' }],
       true,
       'clear',
     )
@@ -152,7 +152,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   if (mod && key.toLowerCase() === 'k') {
     const opening = state.overlay !== 'palette'
     return result(
-      { ...state, overlay: opening ? 'palette' : null, mode: state.mode === 'LEADER' ? 'NORMAL' : state.mode },
+      { ...state, overlay: opening ? 'palette' : null, mode: state.mode === 'LEADER' ? 'OCARINA' : state.mode },
       opening ? [{ type: 'focusPalette' }] : [],
       true,
       'clear',
@@ -216,7 +216,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // The change viewer, from either mode that has a thread under it. Resolved
   // above the NORMAL bindings so READ reaches it too — a reader who has just
   // read the edit in the ledger is the one most likely to want all of it.
-  if (key === 'd' && (state.mode === 'NORMAL' || state.mode === 'READ')) {
+  if (key === 'd' && (state.mode === 'OCARINA' || state.mode === 'READ')) {
     return result({ ...state, mode: 'DIFF' }, [{ type: 'openChanges' }])
   }
 
@@ -276,7 +276,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     case 'o':
       return result(state, [{ type: 'toggleReasoning' }])
     case 'i':
-      return result({ ...state, mode: 'INSERT' }, [{ type: 'focusComposer' }])
+      return result({ ...state, mode: 'CHAT' }, [{ type: 'focusComposer' }])
     case 'a':
       // The reducer does not know whether a block is focused; the shell drops
       // the action when there is nothing to act on.

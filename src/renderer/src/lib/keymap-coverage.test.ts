@@ -33,12 +33,12 @@ function consumed(mode: KeyState['mode'], before: KeyState, event: { key: string
   const after = reduceKey(before, event, ctx)
   if (after.actions.length > 0) return true
   if (after.state.overlay !== before.overlay) return true
-  if (mode === 'LEADER') return after.state.mode !== 'NORMAL' && after.state.mode !== mode
+  if (mode === 'LEADER') return after.state.mode !== 'OCARINA' && after.state.mode !== mode
   return after.state.mode !== mode
 }
 
 describe('every consumed key is a registered action', () => {
-  for (const mode of ['NORMAL', 'LEADER'] as const) {
+  for (const mode of ['OCARINA', 'LEADER'] as const) {
     it(`in ${mode}`, () => {
       const before: KeyState = { ...initialKeyState, mode }
       const naked: string[] = []
@@ -46,8 +46,8 @@ describe('every consumed key is a registered action', () => {
         const press = encodePress(event)
         if (FIXED.has(press)) continue
         // The scroll chords act in every mode, above the mode branches; their
-        // one registration is the NORMAL one, so any mode may resolve to it.
-        const known = registered.has(`${mode} ${press}`) || registered.has(`NORMAL ${press}`)
+        // one registration is the OCARINA one, so any mode may resolve to it.
+        const known = registered.has(`${mode} ${press}`) || registered.has(`OCARINA ${press}`)
         if (consumed(mode, before, event) && !known) {
           naked.push(press)
         }

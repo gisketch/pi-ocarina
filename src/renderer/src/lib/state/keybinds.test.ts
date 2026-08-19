@@ -31,12 +31,12 @@ describe('the merge', () => {
   })
 
   it('drops a UI rebind when the hand bound the same action — hand wins', () => {
-    const hand: KeyBinding[] = [{ mode: 'NORMAL', key: 'x', action: 'thread.next' }]
+    const hand: KeyBinding[] = [{ mode: 'OCARINA', key: 'x', action: 'thread.next' }]
     expect(mergeBindings({ 'thread.next': ';' }, hand)).toEqual(hand)
   })
 
   it('puts the hand after the UI, so a shared slot resolves to the hand', () => {
-    const hand: KeyBinding[] = [{ mode: 'NORMAL', key: 'x', action: 'thread.prev' }]
+    const hand: KeyBinding[] = [{ mode: 'OCARINA', key: 'x', action: 'thread.prev' }]
     const merged = mergeBindings({ 'thread.next': 'x' }, hand)
     expect(merged[merged.length - 1]).toEqual(hand[0])
   })
@@ -50,7 +50,7 @@ describe('rebinding from the screen', () => {
   it('applies on the very next keypress, and saves the whole file', async () => {
     await keybinds.set('thread.next', ';')
 
-    expect(effectiveKey(shell.keymap, 'NORMAL', ';')).toBe('l')
+    expect(effectiveKey(shell.keymap, 'OCARINA', ';')).toBe('l')
     expect(saved).toHaveBeenCalledWith({ 'thread.next': ';' })
   })
 
@@ -59,7 +59,7 @@ describe('rebinding from the screen', () => {
     await keybinds.set('thread.prev', ';')
 
     expect(keybinds.keys).toEqual({ 'thread.prev': ';' })
-    expect(effectiveKey(shell.keymap, 'NORMAL', ';')).toBe('h')
+    expect(effectiveKey(shell.keymap, 'OCARINA', ';')).toBe('h')
   })
 
   it('never unbinds across modes — the same letter is two different slots', async () => {
@@ -81,7 +81,7 @@ describe('rebinding from the screen', () => {
     await keybinds.reset('thread.next')
 
     expect(keybinds.keys).toEqual({})
-    expect(effectiveKey(shell.keymap, 'NORMAL', ';')).toBe(';')
+    expect(effectiveKey(shell.keymap, 'OCARINA', ';')).toBe(';')
   })
 
   it('reset all empties the file', async () => {
@@ -109,7 +109,7 @@ describe('recording a press', () => {
     expect(keybinds.handleRecordKey({ key: ';' })).toBe(true)
 
     expect(keybinds.recording).toBeNull()
-    expect(effectiveKey(shell.keymap, 'NORMAL', ';')).toBe('l')
+    expect(effectiveKey(shell.keymap, 'OCARINA', ';')).toBe('l')
   })
 
   it('spells a control chord the way the reducer reads it', () => {
@@ -142,7 +142,7 @@ describe('recording a press', () => {
 
 describe('what a row shows', () => {
   it('gives the UI press, then the hand press, then the shipped default', async () => {
-    handKeys.push({ mode: 'NORMAL', key: 'x', action: 'thread.prev' })
+    handKeys.push({ mode: 'OCARINA', key: 'x', action: 'thread.prev' })
     await keybinds.set('thread.next', ';')
 
     expect(keybinds.pressOf('thread.next')).toBe(';')
@@ -151,7 +151,7 @@ describe('what a row shows', () => {
   })
 
   it('marks the hand-bound action locked', () => {
-    handKeys.push({ mode: 'NORMAL', key: 'x', action: 'thread.prev' })
+    handKeys.push({ mode: 'OCARINA', key: 'x', action: 'thread.prev' })
     expect(keybinds.lockedBy('thread.prev')).toBe(true)
     expect(keybinds.lockedBy('thread.next')).toBe(false)
   })
@@ -176,7 +176,7 @@ describe('loading what was saved last time', () => {
 
     await keybinds.load()
 
-    expect(effectiveKey(shell.keymap, 'NORMAL', ';')).toBe('l')
+    expect(effectiveKey(shell.keymap, 'OCARINA', ';')).toBe('l')
     expect(keybinds.problems.some((one) => one.message.includes('thread.nxet'))).toBe(true)
   })
 })

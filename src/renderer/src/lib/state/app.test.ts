@@ -8,7 +8,7 @@ import { stripOffset } from '../strip'
 beforeEach(() => {
   app.goWorkspace(0)
   app.focus = app.workspaces.map(() => 0)
-  app.mode = 'NORMAL'
+  app.mode = 'OCARINA'
 })
 
 describe('workspace navigation', () => {
@@ -75,11 +75,11 @@ describe('thread focus', () => {
 describe('mode', () => {
   it('accents the chrome only in INSERT and LEADER', () => {
     expect(app.accented).toBe(false)
-    app.mode = 'INSERT'
+    app.mode = 'CHAT'
     expect(app.accented).toBe(true)
     app.mode = 'LEADER'
     expect(app.accented).toBe(true)
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     expect(app.accented).toBe(false)
   })
 })

@@ -111,5 +111,5 @@ export const LEADER_TIMEOUT_MS = 2600
  *  block instead, so this is the pty's step only. */
 export const SCROLL_STEP = 100
 
-export const initialKeyState: KeyState = { mode: 'NORMAL', overlay: null }
+export const initialKeyState: KeyState = { mode: 'OCARINA', overlay: null }
 

@@ -4,7 +4,7 @@ import type { ChangedFile } from '../../../../shared/protocol'
 import { buildKeymap } from '../keymap'
 
 vi.mock('../session', () => ({ session: { invoke: vi.fn() } }))
-vi.mock('./app.svelte', () => ({ app: { mode: 'NORMAL' } }))
+vi.mock('./app.svelte', () => ({ app: { mode: 'OCARINA' } }))
 
 const { changes } = await import('./changes.svelte')
 
@@ -331,11 +331,11 @@ describe('leaving the viewer', () => {
     const { session } = await import('../session')
     vi.mocked(session.invoke).mockResolvedValueOnce({ files: [] } as never)
 
-    app.mode = 'NORMAL'
+    app.mode = 'OCARINA'
     await changes.show('t1' as ThreadId)
     changes.handleKey({ key: 'Escape' })
 
-    expect(app.mode).toBe('NORMAL')
+    expect(app.mode).toBe('OCARINA')
   })
 })
 

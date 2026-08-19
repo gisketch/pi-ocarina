@@ -19,7 +19,7 @@ const bind = (mode: KeyBinding['mode'], key: string, action: string): KeyBinding
 
 describe('a reader who changed nothing', () => {
   it('gets exactly the shipped keys', () => {
-    expect(effectiveKey(EMPTY_KEYMAP, 'NORMAL', 'l')).toBe('l')
+    expect(effectiveKey(EMPTY_KEYMAP, 'OCARINA', 'l')).toBe('l')
     expect(effectiveKey(buildKeymap([]), 'READ', 'j')).toBe('j')
   })
 })
@@ -28,28 +28,28 @@ describe('a rebound key', () => {
   it('is translated to the key the reducer already knows', () => {
     // A remap, not a rewrite: the reducer keeps one meaning for `l`, and the
     // two can never disagree about what it does.
-    const keymap = buildKeymap([bind('NORMAL', 'x', 'thread.next')])
-    expect(effectiveKey(keymap, 'NORMAL', 'x')).toBe('l')
+    const keymap = buildKeymap([bind('OCARINA', 'x', 'thread.next')])
+    expect(effectiveKey(keymap, 'OCARINA', 'x')).toBe('l')
   })
 
   it('leaves every other key alone', () => {
-    const keymap = buildKeymap([bind('NORMAL', 'x', 'thread.next')])
-    expect(effectiveKey(keymap, 'NORMAL', 'h')).toBe('h')
-    expect(effectiveKey(keymap, 'NORMAL', 'l')).toBe('l')
+    const keymap = buildKeymap([bind('OCARINA', 'x', 'thread.next')])
+    expect(effectiveKey(keymap, 'OCARINA', 'h')).toBe('h')
+    expect(effectiveKey(keymap, 'OCARINA', 'l')).toBe('l')
   })
 
   it('applies only in the mode it was written for', () => {
     const keymap = buildKeymap([bind('READ', 'n', 'block.down')])
     expect(effectiveKey(keymap, 'READ', 'n')).toBe('j')
-    expect(effectiveKey(keymap, 'NORMAL', 'n')).toBe('n')
+    expect(effectiveKey(keymap, 'OCARINA', 'n')).toBe('n')
   })
 
   it('is ignored when its mode is not where the action lives', () => {
     // `block.down` is a READ action. Bound in NORMAL it is a binding for
     // something that does not exist there, and quietly relocating it would
     // surprise.
-    const keymap = buildKeymap([bind('NORMAL', 'n', 'block.down')])
-    expect(effectiveKey(keymap, 'NORMAL', 'n')).toBe('n')
+    const keymap = buildKeymap([bind('OCARINA', 'n', 'block.down')])
+    expect(effectiveKey(keymap, 'OCARINA', 'n')).toBe('n')
   })
 
   it('can move a leader chord', () => {
@@ -60,7 +60,7 @@ describe('a rebound key', () => {
 
 describe('an action the app does not have', () => {
   it('is reported rather than silently doing nothing', () => {
-    const bindings = [bind('NORMAL', 'x', 'thread.nxet'), bind('NORMAL', 'y', 'thread.next')]
+    const bindings = [bind('OCARINA', 'x', 'thread.nxet'), bind('OCARINA', 'y', 'thread.next')]
     expect(keymapProblems(bindings).map((one) => one.binding.key)).toEqual(['x'])
   })
 
@@ -73,12 +73,12 @@ describe('an action the app does not have', () => {
   })
 
   it('says nothing about a binding it will honour', () => {
-    expect(keymapProblems([bind('NORMAL', 'x', 'thread.next')])).toEqual([])
+    expect(keymapProblems([bind('OCARINA', 'x', 'thread.next')])).toEqual([])
   })
 
   it('binds nothing', () => {
-    const keymap = buildKeymap([bind('NORMAL', 'x', 'thread.nxet')])
-    expect(effectiveKey(keymap, 'NORMAL', 'x')).toBe('x')
+    const keymap = buildKeymap([bind('OCARINA', 'x', 'thread.nxet')])
+    expect(effectiveKey(keymap, 'OCARINA', 'x')).toBe('x')
   })
 })
 
@@ -96,8 +96,8 @@ describe('a press with control held', () => {
   })
 
   it('can be rebound: a plain key can mean the half-page scroll', () => {
-    const keymap = buildKeymap([bind('NORMAL', 'z', 'scroll.down')])
-    expect(effectiveKey(keymap, 'NORMAL', 'z')).toBe('C-d')
+    const keymap = buildKeymap([bind('OCARINA', 'z', 'scroll.down')])
+    expect(effectiveKey(keymap, 'OCARINA', 'z')).toBe('C-d')
   })
 })
 
@@ -105,19 +105,19 @@ describe('a NORMAL binding pressed in READ', () => {
   it('falls through, because the NORMAL keys themselves fall through', () => {
     // `y` yanks from READ too. A reader who moved `y` to `c` expects `c` to
     // yank from READ, the same way `y` did.
-    const keymap = buildKeymap([bind('NORMAL', 'x', 'thread.next')])
+    const keymap = buildKeymap([bind('OCARINA', 'x', 'thread.next')])
     expect(effectiveKey(keymap, 'READ', 'x')).toBe('l')
   })
 
   it("never shadows a key READ owns itself", () => {
     // Stealing NORMAL `h` must not take READ's collapse with it.
-    const keymap = buildKeymap([bind('NORMAL', 'h', 'thread.rename')])
+    const keymap = buildKeymap([bind('OCARINA', 'h', 'thread.rename')])
     expect(effectiveKey(keymap, 'READ', 'h')).toBe('h')
   })
 
   it('loses to an explicit READ binding on the same key', () => {
     const keymap = buildKeymap([
-      bind('NORMAL', 'x', 'thread.next'),
+      bind('OCARINA', 'x', 'thread.next'),
       bind('READ', 'x', 'block.down'),
     ])
     expect(effectiveKey(keymap, 'READ', 'x')).toBe('j')

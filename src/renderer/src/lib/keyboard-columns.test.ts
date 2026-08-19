@@ -15,7 +15,7 @@ const press = (state: KeyState, ...keys: (string | KeyEventLike)[]) =>
   pressWith(ctx, state, ...keys)
 
 const NORMAL = initialKeyState
-const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
+const INSERT: KeyState = { ...initialKeyState, mode: 'CHAT' }
 const READ: KeyState = { ...initialKeyState, mode: 'READ' }
 
 describe('TERM mode', () => {
@@ -35,7 +35,7 @@ describe('TERM mode', () => {
   it('keeps escape for itself, and reports it', () => {
     const { state, actions, last } = press(TERM, 'Escape')
 
-    expect(state.mode).toBe('NORMAL')
+    expect(state.mode).toBe('OCARINA')
     expect(actions).toEqual([{ type: 'termEscape' }])
     expect(last.preventDefault).toBe(true)
   })
