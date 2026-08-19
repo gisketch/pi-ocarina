@@ -77,10 +77,11 @@ const OVERLAY_KEYS: ReadonlyMap<string, Overlay> = new Map<string, Overlay>([
   ['/', 'search'],
 ])
 
-/** Reaching into the transcript. A shell has no blocks to reach into, so it
- *  keeps the old behaviour and stays in NORMAL. */
+/** Reaching into the transcript. A shell has no blocks to reach into, and
+ *  neither does a buffer — both keep the old behaviour and stay put. */
 function enterRead(state: KeyState, ctx: KeyContext, actions: Action[]): KeyResult {
-  return result(ctx.terminalColumn ? state : { ...state, mode: 'READ' }, actions)
+  const stays = ctx.terminalColumn || ctx.bufferColumn
+  return result(stays ? state : { ...state, mode: 'READ' }, actions)
 }
 
 /** Whether something on screen owns the caret. Everything the shell would
@@ -119,6 +120,20 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   if (state.mode === 'TERM') {
     if (key === 'Escape') {
       return result({ ...state, mode: 'OCARINA' }, [{ type: 'termEscape' }], true, 'clear')
+    }
+    return result(state, [], false)
+  }
+
+  // Vim owns the buffer the way the pty owns the shell. In INSERT even
+  // Escape is vim's — leaving insert is vim's own exit, and the mirror
+  // (`onModeChange`) is what moves the app's mode back to NORMAL. That is
+  // the double-escape ladder: the first escape is vim's, the second is ours.
+  if (state.mode === 'INSERT') {
+    return result(state, [], false)
+  }
+  if (state.mode === 'NORMAL') {
+    if (key === 'Escape') {
+      return result({ ...state, mode: 'OCARINA' }, [{ type: 'bufferBlur' }], true, 'clear')
     }
     return result(state, [], false)
   }
@@ -246,6 +261,19 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     // global content search on purpose: on a launcher, "search" means "find
     // me a thread" — the content search is still one column away.
     if (key === '/') return result({ ...state, overlay: 'threads' })
+  }
+
+  // Into the buffer (spec D3). ⏎ gives motions without typing; `i` keeps
+  // meaning "start typing here" on every column kind — composer on a chat
+  // column, insert on a buffer. Above the switch, whose own `i` would take
+  // the key to a composer this column does not have.
+  if (ctx.bufferColumn) {
+    if (key === 'Enter') {
+      return result({ ...state, mode: 'NORMAL' }, [{ type: 'bufferEnter', insert: false }])
+    }
+    if (key === 'i') {
+      return result({ ...state, mode: 'INSERT' }, [{ type: 'bufferEnter', insert: true }])
+    }
   }
 
   // Opening a screen, from NORMAL or from READ. Above the switch because the

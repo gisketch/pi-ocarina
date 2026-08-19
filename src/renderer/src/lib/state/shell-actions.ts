@@ -17,6 +17,7 @@ import { askKeys } from './ask-keys.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
 import { branchField } from './branch-field.svelte'
+import { buffers } from './buffers.svelte'
 import { dashboardRecent } from './dashboard-recent.svelte'
 import { catalog } from './catalog.svelte'
 import { changes } from './changes.svelte'
@@ -150,6 +151,12 @@ export function runAction(shell: ShellHost, action: Action): void {
       break
     case 'termEscape':
       termMode.escape()
+      break
+    case 'bufferEnter':
+      buffers.enter(app.thread.id, action.insert)
+      break
+    case 'bufferBlur':
+      buffers.blur(app.thread.id)
       break
     case 'moveColumn':
       shell.moveColumn(action.delta)

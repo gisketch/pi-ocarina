@@ -36,6 +36,8 @@ export interface EditorHandle {
   markClean(): void
   isDirty(): boolean
   focus(): void
+  /** The strip takes the keyboard back; vim keeps whatever mode it was in. */
+  blur(): void
   enterNormal(): void
   enterInsert(): void
   /** A one-line message on vim's own notice line, for `:w` refusals. */
@@ -132,6 +134,7 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
     markClean: () => setDirty(false),
     isDirty: () => dirty,
     focus: () => view.focus(),
+    blur: () => view.contentDOM.blur(),
     enterNormal: () => {
       const adapter = getCM(view)
       if (adapter) Vim.exitInsertMode(adapter as never)

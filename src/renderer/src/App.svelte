@@ -40,7 +40,7 @@
   import { attachments } from '$lib/state/attachments.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { threads } from '$lib/state/threads.svelte'
-  import { toasts } from '$lib/state/toasts.svelte'
+  import { buffers } from '$lib/state/buffers.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import {
     answerQuitConfirm,
@@ -252,8 +252,7 @@
       onclose={() => shell.closeOverlay()}
       onpick={(path) => {
         shell.closeOverlay()
-        // Until the buffer column lands (T7), a pick proves itself out loud.
-        toasts.push({ tone: 'info', text: path })
+        void buffers.open(app.workspace.id, path)
       }}
     />
   {:else if shell.overlay === 'search'}

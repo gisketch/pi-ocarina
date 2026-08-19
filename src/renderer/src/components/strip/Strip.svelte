@@ -4,6 +4,7 @@
   import Dashboard from './Dashboard.svelte'
   import LiveThread from './LiveThread.svelte'
   import TerminalColumn from './TerminalColumn.svelte'
+  import FileColumn from './FileColumn.svelte'
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { COLUMN_GAP, stripOffset } from '$lib/strip'
@@ -38,6 +39,12 @@
         {@const live = threadOf(thread)}
         {#if thread.fresh}
           <Dashboard {workspace} columnId={thread.id} focused={i === app.threadIndex} {onmodel} {oncommit} />
+        {:else if thread.file !== undefined}
+          <FileColumn
+            columnId={thread.id}
+            focused={i === app.threadIndex}
+            onfocus={() => focusColumn(i)}
+          />
         {:else if thread.terminal}
           <TerminalColumn
             workspaceId={workspace.id}

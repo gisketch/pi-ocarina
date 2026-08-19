@@ -13,9 +13,9 @@ import type { ThreadRunState } from '../../../shared/vocabulary'
  *  column by accident.
  *  `TERM` is `CHAT` for the terminal column: the pty owns every key while it
  *  is on, and `esc` is the one key the shell keeps for itself.
- *  Vim's own `NORMAL` and `INSERT` arrive with the buffer column (T7); until
- *  a buffer exists nothing enters them. */
-export type Mode = 'OCARINA' | 'READ' | 'CHAT' | 'LEADER' | 'TERM' | 'DIFF'
+ *  `NORMAL` and `INSERT` are vim's, inside a focused buffer column — the app
+ *  mirrors what the editor's vim engine says, it never decides for it. */
+export type Mode = 'OCARINA' | 'READ' | 'CHAT' | 'LEADER' | 'TERM' | 'DIFF' | 'NORMAL' | 'INSERT'
 
 /** The column header speaks the same status the reducer produces, so a live
  *  thread and a listed one cannot disagree about what a thread is doing. */
@@ -41,6 +41,8 @@ export interface Thread {
   fresh?: boolean
   /** The workspace's shell. Exactly one per workspace, created on demand. */
   terminal?: boolean
+  /** A buffer column: the workspace-relative path it is editing. */
+  file?: string
   /** The branch of the worktree this thread runs in, or null when it runs in
    *  the workspace's own directory. Carried on the thread rather than derived,
    *  so a column reopened after a restart still says it is isolated. */
@@ -55,8 +57,15 @@ export interface Thread {
  *  through here, so a column that has no session cannot reach the backend at
  *  all — which is what stops main being asked about `fresh:<workspace>`. */
 export function threadOf(column: Thread): ThreadId | null {
-  if (column.fresh === true || column.terminal === true || column.id === '') return null
+  if (column.fresh === true || column.terminal === true || column.file !== undefined) return null
+  if (column.id === '') return null
   return column.id as ThreadId
+}
+
+/** The id a workspace's buffer column for one file always has. Derived, so
+ *  opening the same file twice cannot mint a second column. */
+export function fileColumnId(workspaceId: string, path: string): string {
+  return `file:${workspaceId}:${path}`
 }
 
 /** The id a workspace's terminal column always has. Derived rather than stored,

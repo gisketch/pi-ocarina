@@ -17,6 +17,7 @@ import { following } from './following.svelte'
 import { reasoningOpen } from './reasoning.svelte'
 import { agentPeek } from './agent-peek.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
+import { buffers } from './buffers.svelte'
 import { blockNav } from './block-nav.svelte'
 import { changes } from './changes.svelte'
 import { permission } from './permission.svelte'
@@ -120,6 +121,13 @@ class ShellState {
     if (thread.fresh) {
       blockNav.forget(thread.id)
       catalog.closeColumn(thread.id)
+      return
+    }
+
+    // A buffer answers `␣x` the way it answers `:q`: unsaved work refuses
+    // and says why on its own notice line; a clean buffer just goes.
+    if (thread.file !== undefined) {
+      buffers.quit(thread.id, false)
       return
     }
 
@@ -248,6 +256,7 @@ class ShellState {
         workspaceCount: app.workspaces.length,
         terminalColumn: app.thread.terminal === true,
         dashboardColumn: app.thread.fresh === true,
+        bufferColumn: app.thread.file !== undefined,
       },
     )
 

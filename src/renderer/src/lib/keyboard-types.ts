@@ -55,6 +55,10 @@ export type Action =
   /** Show or hide what the model thought, everywhere. */
   | { type: 'toggleReasoning' }
   | { type: 'termEscape' }
+  /** Focus the buffer column's editor, in vim normal or straight into insert. */
+  | { type: 'bufferEnter'; insert: boolean }
+  /** Escape from vim NORMAL: the editor gives the keyboard back to the strip. */
+  | { type: 'bufferBlur' }
   | { type: 'moveColumn'; delta: number }
   | { type: 'pinWorkspace' }
   | { type: 'compact' }
@@ -84,6 +88,9 @@ export interface KeyContext {
   /** Whether the focused column is a dashboard. Its rows take j/k and enter;
    *  READ is never entered — there is no transcript to dim. */
   dashboardColumn?: boolean
+  /** Whether the focused column is a buffer. Enter and `i` drop into vim,
+   *  and READ is never entered — the editor is the transcript. */
+  bufferColumn?: boolean
 }
 
 export interface KeyResult {

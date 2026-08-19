@@ -157,7 +157,7 @@ Blocked by: nothing (parallel to T1–T4).
 
 ## T6 — the editor seam
 
-Status: todo
+Status: done
 
 Behavior: one module owns CodeMirror. It can be created headless-tested
 around: the vim `:` commands and the dirty/stale logic are pure callbacks.
