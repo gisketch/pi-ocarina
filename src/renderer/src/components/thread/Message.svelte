@@ -317,6 +317,6 @@
     background: var(--accent);
     margin-left: 5px;
     vertical-align: text-bottom;
-    animation: caret 1s step-end infinite;
+    animation: caret 1.1s ease-in-out infinite;
   }
 </style>
