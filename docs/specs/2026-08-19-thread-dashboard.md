@@ -44,6 +44,9 @@ abandoned `␣n` leaves an orphan thread. The fresh-thread placeholder and
   thread as a strip column; `Esc` returns to the dashboard. The picker
   (input + list + preview slot) is one reusable component; thread
   search is its first user. Scope: this workspace's threads.
+  Implementation note: `/` on the dashboard shadows the global content
+  search on purpose — on a launcher, "search" means "find a thread".
+  The content search keeps `/` on every other column, and `␣f`.
 - D7: The preview never blocks input. On highlight change the pane
   responds on the same frame: a cached thread renders at once; an
   uncached one shows a skeleton loader while its replay runs in the
