@@ -6,16 +6,19 @@ the same code and would otherwise be fixed against each other.
 
 Status legend: `todo` · `in-progress` · `done`.
 
-## T1 — paging carries the ring in READ — `todo`
+## T1 — paging carries the ring in READ — `done`
 
 > The graze the spec covers. Independent of the other two: it decides where the
 > ring lands, and never moves the view.
 
-- `block-nav.svelte.ts` — `scroll()` already knows the anchor and the clamped
-  distance. In READ, and only in READ, it also picks the block that will be
-  topmost once that distance is travelled and calls `blockFocus.set` with it.
-  Never `move`, which reveals — that is what made the old ring paging fight
-  itself.
+- New `paging.ts` — `scroll()` grew past what `block-nav.svelte.ts` could hold
+  (360 lines against a 350 ceiling), and the seam was already there: what a
+  *page* does to a column is a different question from what a *key* does to the
+  transcript. `pageColumn(threadId, list, delta, ring)` owns the distance, the
+  anchor and where the ring lands; `blockNav.scroll` is one line.
+- In READ, and only in READ, it picks the block that will be topmost once the
+  clamped distance is travelled and calls `blockFocus.set`. Never `move`, which
+  reveals — that is what made the old ring paging fight itself.
 - The pick reads the layout as it stands, before the scroll: the first block
   whose head sits at or below `viewportTop + distance`. Falls back to the block
   covering that line when a fence is taller than the column.
@@ -25,8 +28,9 @@ Status legend: `todo` · `in-progress` · `done`.
   on a block on screen and the view where the third press put it; `j` then
   moves one block from what is lit without dragging the view back. From NORMAL
   neither chord lights anything.
-- Validation: `block-paging.test.ts` extends to assert the lit id alongside the
-  travel, driven frame by frame with a block measured mid-scroll.
+- Validation: `block-paging.test.ts` asserts the lit id alongside the travel —
+  the topmost block, the end when a page will not fit, and nothing lit from
+  NORMAL.
 
 ## T2 — `G` reaches the true end in one press — `done`
 
@@ -74,3 +78,20 @@ Status legend: `todo` · `in-progress` · `done`.
   (about 144ms, a cut), 20 after (320ms, the ceiling). The short case stays
   pinned by the existing scroll tests. How it *looks* is still an eye test, and
   in the real app rather than `dev:web`, which does not paint.
+
+## T4 — `G` was instant because the pin took the animation — `done`
+
+> Found while answering the report that T3 had not fixed it. Not a tuning
+> problem: the jump had never animated.
+
+- `follow-column.svelte.ts` — the pin reads `following.of(…).following` inside
+  its effect, which makes the flag a dependency. `jump()` sets that flag true as
+  its first act, so pressing `G` re-ran the pin on the same tick: `stopScroll`
+  and a straight write to the bottom, killing the curve the jump had just
+  started. Read untracked now. The pin belongs to arrivals; a reader saying
+  where they want to be is not an arrival.
+- **Not covered by a test.** An `$effect.root` harness was written and deleted:
+  no effect ran under it — `registerColumnBody` never registered — so the
+  regression test passed while proving nothing. No `$effect` behaviour in this
+  codebase is covered by tests today. Worth its own ticket; not worth a test
+  that lies.

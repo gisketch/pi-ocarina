@@ -6,7 +6,7 @@ import { app } from './app.svelte'
 import { WORKSPACE } from './fixtures'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
-import { registerBlock } from './block-focus.svelte'
+import { blockFocus, registerBlock } from './block-focus.svelte'
 import { registerColumnBody } from './columns'
 import { threads } from './threads.svelte'
 
@@ -44,6 +44,7 @@ function column(viewport: number) {
     registerColumnBody('s1', body as unknown as HTMLElement),
     registerBlock('s1', 'u1', at(0, false) as unknown as HTMLElement),
     registerBlock('s1', 'a1', anchor as unknown as HTMLElement),
+    registerBlock('s1', 'l1:r1', at(1200, true) as unknown as HTMLElement),
   ]
 
   return {
@@ -71,10 +72,12 @@ beforeEach(() => {
     blocks: [
       { kind: 'user', id: 'u1', text: 'hello' },
       { kind: 'agent', id: 'a1', text: 'sure' },
+      { kind: 'user', id: 'l1:r1', text: 'and again' },
     ],
     status: 'idle',
     runState: 'idle',
   })
+  blockFocus.forget('s1')
 })
 
 /** Drives frames one at a time, the way a browser does.
@@ -157,6 +160,62 @@ describe('ctrl-d and ctrl-u', () => {
     const back = seen.filter((at, i) => i > 0 && at > seen[i - 1])
     expect(back).toEqual([])
     expect(seen[seen.length - 1]).toBe(-200)
+
+    vi.unstubAllGlobals()
+    view.release()
+  })
+})
+
+// The spec: in READ the chord carries the ring, and the ring never scrolls.
+describe('the ring while paging in READ', () => {
+  it('lands on the topmost block once the view has travelled', () => {
+    const view = column(400)
+    view.body.scrollTop = 1000
+    app.mode = 'READ'
+    blockFocus.set('s1', 'a1')
+    const clock = frames()
+
+    // 200px of travel puts the block at 1200 on the top line, and it is the
+    // first whose head is at or below it.
+    shell.handleKey({ key: 'd', ctrlKey: true })
+    expect(blockFocus.idOf('s1')).toBe('l1:r1')
+
+    // The band moved in the same frame as the key, before any frame ran.
+    clock.run(16)
+    expect(view.seen()).toBe(-200)
+
+    app.mode = 'NORMAL'
+    vi.unstubAllGlobals()
+    view.release()
+  })
+
+  it('takes the end it is heading for when the view cannot cover a page', () => {
+    const view = column(400)
+    // 100px short of a page from the bottom of the content.
+    view.body.scrollHeight = 1500
+    view.body.scrollTop = 1000
+    app.mode = 'READ'
+    blockFocus.set('s1', 'u1')
+    const clock = frames()
+
+    shell.handleKey({ key: 'd', ctrlKey: true })
+    expect(blockFocus.idOf('s1')).toBe('l1:r1')
+    clock.run(16)
+
+    app.mode = 'NORMAL'
+    vi.unstubAllGlobals()
+    view.release()
+  })
+
+  it('leaves the ring alone from NORMAL — skimming is not pointing', () => {
+    const view = column(400)
+    view.body.scrollTop = 1000
+    app.mode = 'NORMAL'
+    const clock = frames()
+
+    shell.handleKey({ key: 'd', ctrlKey: true })
+    expect(blockFocus.idOf('s1')).toBeNull()
+    clock.run(16)
 
     vi.unstubAllGlobals()
     view.release()

@@ -14,7 +14,8 @@ import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { columnBody, scrollColumn, scrollRest, smoothScrollAiming } from './columns'
+import { scrollColumn } from './columns'
+import { pageColumn } from './paging'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { drafts } from './drafts.svelte'
@@ -23,7 +24,6 @@ import { reasoningOpen } from './reasoning.svelte'
 
 /** How many `j` presses a half-page press is worth to a column that scrolls by
  *  a step rather than to a block. */
-const PAGE_MULTIPLE = 5
 
 class BlockNav {
   get leaping(): boolean {
@@ -268,42 +268,7 @@ class BlockNav {
    *  A shell's buffer belongs to xterm and is not DOM overflow, so it keeps
    *  its own scroller and a fixed step — there is no height here to halve. */
   scroll(delta: number): void {
-    const threadId = app.thread.id
-    const body = columnBody(threadId)
-    if (!body) {
-      scrollColumn(threadId, delta * SCROLL_STEP * PAGE_MULTIPLE)
-      return
-    }
-
-    const distance = (delta * body.clientHeight) / 2
-    const anchor = this.#onScreen(threadId, body)
-    if (!anchor) {
-      // Nothing painted to measure against. A pixel target is all there is.
-      scrollColumn(threadId, distance)
-      return
-    }
-
-    const offset = (): number =>
-      anchor.getBoundingClientRect().top - body.getBoundingClientRect().top
-    // Where the anchor is headed once everything already asked for has landed,
-    // so a second press adds a second half-column instead of half of one.
-    const pending = scrollRest(body) - body.scrollTop
-    const wanted = offset() - pending - distance
-
-    smoothScrollAiming(body, () => body.scrollTop + (offset() - wanted))
-  }
-
-  /** The first block on screen: what a page is measured against. */
-  #onScreen(threadId: string, body: HTMLElement): HTMLElement | null {
-    const box = body.getBoundingClientRect()
-    for (const entry of this.#list()) {
-      const el = blockElement(threadId, entry.id)
-      if (!el) continue
-
-      const rect = el.getBoundingClientRect()
-      if (rect.bottom > box.top && rect.top < box.bottom) return el
-    }
-    return null
+    pageColumn(app.thread.id, this.#list(), delta, app.mode === 'READ')
   }
 }
 

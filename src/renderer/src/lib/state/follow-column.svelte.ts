@@ -6,6 +6,8 @@
  *  per token — and because the column was over its line budget with it inline.
  */
 
+import { untrack } from 'svelte'
+
 import { registerColumnBody, stopScroll } from './columns'
 import { following } from './following.svelte'
 import { threads } from './threads.svelte'
@@ -87,13 +89,20 @@ export function followColumn(
     void arrivals.footer
 
     const box = element()
-    if (!box || !following.of(threadId()).following) return
+    // Untracked, and this is the whole of why `G` was instant. Read plainly,
+    // the follow flag is a dependency of this effect — and `jump()` sets it
+    // true as its first act, so pressing `G` re-ran the pin on the same tick,
+    // which stopped the animation the jump had just started and wrote the
+    // bottom straight. The pin belongs to arrivals. Turning following on is
+    // not an arrival; it is a reader saying where they want to be, and how
+    // they get there is the jump's business.
+    if (!box || !untrack(() => following.of(threadId()).following)) return
     // A programmatic scroll still travelling is aimed at a bottom that has
-    // moved: the jump that re-follows on send is a 130ms curve toward the
-    // height the column had before the message landed. Left running, its next
-    // frame overwrites this line and drags the view back up — the reader sends
-    // and watches the transcript refuse to arrive. Following is the live
-    // authority over this element, so it takes it.
+    // moved: the jump that re-follows on send is a curve toward the height the
+    // column had before the message landed. Left running, its next frame
+    // overwrites this line and drags the view back up — the reader sends and
+    // watches the transcript refuse to arrive. Following is the live authority
+    // over this element while something is *arriving*, so it takes it.
     stopScroll(box)
     box.scrollTop = box.scrollHeight
 
