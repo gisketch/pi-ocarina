@@ -49,14 +49,13 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
-    const list: unknown[] = step === 'model' ? rows : tiles
-
-    // Number keys address the list as drawn, which is what the chips show.
+    // Digits address the reasoning tiles only. On the model step they filter
+    // like any other character — model names are full of digits ("gpt-5.6"),
+    // and a quick-pick there meant typing one chose a model mid-search.
     const digit = Number(event.key)
-    if (Number.isInteger(digit) && digit >= 1 && digit <= list.length) {
+    if (step === 'reasoning' && Number.isInteger(digit) && digit >= 1 && digit <= tiles.length) {
       event.preventDefault()
-      if (step === 'model') pickModel(rows[digit - 1])
-      else pickReasoning(tiles[digit - 1])
+      pickReasoning(tiles[digit - 1])
       return
     }
 
@@ -90,7 +89,7 @@
   <div class="panel">
     {#if step === 'model'}
       <div class="rows">
-        {#each rows as model, i (`${model.provider}/${model.id}`)}
+        {#each rows as model (`${model.provider}/${model.id}`)}
           <button
             type="button"
             class="row"
@@ -105,7 +104,6 @@
             <span class="name">{model.name}</span>
             <span class="provider">{model.provider}</span>
             <span class="meta">{ctxLabel(model.contextWindow)} · {costTier(model.costPerMTok)}</span>
-            {#if i < 9}<span class="chip">{i + 1}</span>{/if}
           </button>
         {:else}
           <div class="empty">
@@ -113,7 +111,7 @@
           </div>
         {/each}
       </div>
-      <div class="foot">1–9 or ⏎ pick model · then reasoning · esc cancel</div>
+      <div class="foot">type to filter · ⏎ picks the top hit · then reasoning · esc cancel</div>
     {:else}
       <div class="tiles">
         {#each tiles as level, i (level)}

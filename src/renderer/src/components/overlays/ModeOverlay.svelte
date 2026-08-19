@@ -39,14 +39,11 @@
     onclose()
   }
 
+  // No digit shortcuts here, deliberately. This is a search field: `1` must
+  // filter like any other character. The old 1–9 quick-pick meant typing a
+  // digit chose a voice and closed the picker — and the digits after it fell
+  // into NORMAL mode and switched workspaces.
   function onkeydown(event: KeyboardEvent): void {
-    const digit = Number(event.key)
-    if (Number.isInteger(digit) && digit >= 1 && digit <= rows.length) {
-      event.preventDefault()
-      pick(rows[digit - 1].id)
-      return
-    }
-
     if (event.key === 'Enter') {
       event.preventDefault()
       if (rows.length > 0) pick(rows[0].id)
@@ -77,7 +74,7 @@
         </button>
       {/if}
 
-      {#each rows as mode, i (mode.id)}
+      {#each rows as mode (mode.id)}
         <button
           type="button"
           class="row"
@@ -86,13 +83,12 @@
         >
           <span class="name">{mode.name}</span>
           <span class="what">{mode.instructions}</span>
-          {#if i < 9}<span class="chip">{i + 1}</span>{/if}
         </button>
       {:else}
         <div class="empty">no voices yet — write one in settings</div>
       {/each}
     </div>
-    <div class="foot">1–9 or ⏎ pick · esc cancel</div>
+    <div class="foot">type to filter · ⏎ picks the top hit · esc cancel</div>
   </div>
 </Spotlight>
 
@@ -141,11 +137,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .chip {
-    font-size: 10px;
-    color: var(--fg-dim);
   }
 
   .empty,
