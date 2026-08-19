@@ -28,12 +28,12 @@ export function withTerminal(workspace: Workspace): Workspace {
   const id = terminalId(workspace.id)
   if (workspace.threads.some((thread) => thread.id === id)) return workspace
 
+  // The dashboard stays. It used to be filtered out here, when `fresh` only
+  // meant "this workspace has nothing yet" — but a dashboard is a column the
+  // reader asked for, and opening a terminal is not an answer to it.
   return {
     ...workspace,
-    threads: [
-      ...workspace.threads.filter((thread) => !thread.fresh),
-      { id, title: 'zsh', status: 'idle', meta: '', terminal: true },
-    ],
+    threads: [...workspace.threads, { id, title: 'zsh', status: 'idle', meta: '', terminal: true }],
   }
 }
 

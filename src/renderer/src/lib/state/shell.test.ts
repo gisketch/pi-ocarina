@@ -1,4 +1,3 @@
-import { threadIdForTest } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
@@ -7,7 +6,6 @@ import { threads } from './threads.svelte'
 import { EMPTY_THREAD } from '../thread'
 
 /** Waits for the promise chain and the queued microtask the focus handoff uses. */
-const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
 const WORKSPACE = {
   id: 'w1',
@@ -117,23 +115,14 @@ describe('leader x', () => {
 })
 
 describe('leader n', () => {
-  it('focuses the new column and hands it the caret', async () => {
-    const composer = { focus: vi.fn(), blur: vi.fn() } as unknown as HTMLElement
-    shell.targets.composer = composer
-    vi.spyOn(catalog, 'newThread').mockImplementation(async () => {
-      catalog.workspaces = [
-        { ...WORKSPACE, threads: [...WORKSPACE.threads, { id: 's2', title: 'new thread', status: 'idle', meta: '' }] },
-      ]
-      return threadIdForTest('s2')
-    })
+  it('opens a dashboard column and asks the backend for nothing', () => {
+    const create = vi.spyOn(catalog, 'newThread')
 
     shell.newThread()
-    await settle()
 
-    expect(app.threadIndex).toBe(1)
-    expect(app.thread.id).toBe('s2')
-    expect(app.mode).toBe('INSERT')
-    expect(composer.focus).toHaveBeenCalled()
+    expect(app.thread.fresh).toBe(true)
+    expect(app.mode).toBe('NORMAL')
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('pins a folder instead when there is no live workspace', () => {
@@ -145,32 +134,6 @@ describe('leader n', () => {
 
     expect(pin).toHaveBeenCalled()
     expect(create).not.toHaveBeenCalled()
-  })
-
-  it('leaves focus alone when the thread could not be created', async () => {
-    vi.spyOn(catalog, 'newThread').mockResolvedValue(null)
-
-    shell.newThread()
-    await settle()
-
-    expect(app.threadIndex).toBe(0)
-    expect(app.mode).toBe('NORMAL')
-  })
-
-  it('does not steal the caret back if the person moved on', async () => {
-    catalog.workspaces = [WORKSPACE, { ...WORKSPACE, id: 'w2', name: 'other' }]
-    app.focus = [0, 0]
-    vi.spyOn(catalog, 'newThread').mockImplementation(async () => {
-      // The person switched workspace while the backend was working.
-      app.goWorkspace(1)
-      return threadIdForTest('s2')
-    })
-
-    shell.newThread()
-    await settle()
-
-    expect(app.workspaceIndex).toBe(1)
-    expect(app.mode).toBe('NORMAL')
   })
 })
 

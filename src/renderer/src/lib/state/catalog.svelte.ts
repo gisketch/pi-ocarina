@@ -187,6 +187,28 @@ class Catalog {
     app.reconcile()
   }
 
+  /** Puts a dashboard column on the workspace's strip and returns its index.
+   *
+   *  Creates nothing in the backend: the dashboard is where a thread is
+   *  chosen, not a thread. One per workspace — the column's id is minted from
+   *  the workspace's, so a second `␣n` finds the first dashboard and focuses
+   *  it rather than lining up a row of launchers. */
+  addDashboard(workspaceId: string): number {
+    const workspace = this.workspaces.find((candidate) => candidate.id === workspaceId)
+    if (!workspace) return -1
+
+    const present = workspace.threads.findIndex((thread) => thread.fresh)
+    if (present !== -1) return present
+
+    this.workspaces = this.workspaces.map((candidate) =>
+      candidate.id === workspaceId
+        ? { ...candidate, threads: [...candidate.threads, freshThread(candidate)] }
+        : candidate,
+    )
+    app.reconcile()
+    return this.workspaces.find((candidate) => candidate.id === workspaceId)!.threads.length - 1
+  }
+
   /** Takes a thread off the strip. Its session file is untouched: closing hides
    *  a column, so history search still finds the thread and `reopen` brings it
    *  back. A workspace left with no threads gets its fresh column again, rather
@@ -230,33 +252,34 @@ class Catalog {
       ?.threads.findIndex((thread) => thread.id === threadId) ?? -1
   }
 
-  /** Puts a just-created thread on the end of its workspace's strip. The fresh
-   *  placeholder is replaced, not kept beside it: it stands for "this workspace
-   *  has no thread yet", which has stopped being true. */
+  /** Puts a just-created thread on its workspace's strip. A dashboard column
+   *  is replaced *at its own position* — the launcher becomes the thread it
+   *  launched, and the strip gains exactly one column where the reader was
+   *  already looking. Without a dashboard the thread goes on the end. */
   #insert(
     workspaceId: string,
     threadId: ThreadId,
     title = PLACEHOLDER_TITLE,
     branch: string | null = null,
   ): void {
-    this.workspaces = this.workspaces.map((workspace) =>
-      workspace.id === workspaceId
-        ? {
-            ...workspace,
-            threads: [
-              ...workspace.threads.filter(
-                (thread) => !thread.fresh && thread.id !== threadId,
-              ),
-              // The branch comes with the creation. Nothing re-lists the
-              // workspace afterwards, so a column built without it would be a
-              // column that does not know it is isolated until the app
-              // restarts — and everything that reads `branch` would be wrong
-              // in the meantime, the sweep's "a thread is open here" included.
-              { id: threadId, title, status: 'idle' as const, meta: '', branch },
-            ],
-          }
-        : workspace,
-    )
+    // The branch comes with the creation. Nothing re-lists the workspace
+    // afterwards, so a column built without it would be a column that does
+    // not know it is isolated until the app restarts — and everything that
+    // reads `branch` would be wrong in the meantime, the sweep's "a thread
+    // is open here" included.
+    const made = { id: threadId, title, status: 'idle' as const, meta: '', branch }
+
+    this.workspaces = this.workspaces.map((workspace) => {
+      if (workspace.id !== workspaceId) return workspace
+
+      const kept = workspace.threads.filter((thread) => thread.id !== threadId)
+      const dashboard = kept.findIndex((thread) => thread.fresh)
+      const threads =
+        dashboard === -1
+          ? [...kept, made]
+          : kept.map((thread, i) => (i === dashboard ? made : thread))
+      return { ...workspace, threads }
+    })
   }
 
   async #listWorkspaces(): Promise<WorkspaceSummary[]> {

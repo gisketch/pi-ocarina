@@ -1,6 +1,9 @@
 <script lang="ts">
   import Chip from '../../Chip.svelte'
+  import Icon from '../../Icon.svelte'
+  import { bridge } from '$lib/bridge'
   import { fileIcon } from '$lib/icons'
+  import { mergeLinks } from '$lib/markdown-inline'
   import type { InlineSegment } from '$lib/thread'
 
   /** `onattachment` is what makes a file chip a button. Absent — an agent's
@@ -11,13 +14,21 @@
     parts,
     onattachment,
   }: { parts: InlineSegment[]; onattachment?: (name: string) => void } = $props()
+
+  // A link is one chip, so a label the marks split is folded back first.
+  const merged = $derived(mergeLinks(parts))
 </script>
 
-{#each parts as part, i (i)}{#if part.href}<a
+{#each merged as part, i (i)}{#if part.href}<a
+    class="inline-chip accent"
     href={part.href}
     target="_blank"
-    rel="noreferrer noopener">{part.text}</a
-  >{:else if part.attachment !== undefined}<Chip
+    rel="noreferrer noopener"><Icon name="open" /><span class="label">{part.text}</span></a
+  >{:else if part.file !== undefined}<Chip
+    icon={fileIcon(part.text)}
+    label={part.text}
+    onclick={bridge ? () => void bridge?.files.open(part.file ?? '') : undefined}
+  />{:else if part.attachment !== undefined}<Chip
     icon={fileIcon(part.text)}
     label={part.text}
     onclick={onattachment && (() => onattachment(part.attachment ?? ''))}
@@ -70,15 +81,22 @@
 
   /* Links open outside the app. The window itself never navigates — main
      refuses that — so this is the only place a URL can go. */
-  /* A link's underline is the link, not a rule between two things — it is
-     drawn by the text itself so it follows the glyphs and wraps with them. */
+  /* Drawn as the same chip every other reference gets — a skill, a file — with
+     the link icon saying where it goes. The chip is the link, so no underline. */
   a {
-    color: var(--tone-2);
-    text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, var(--tone-2) 40%, transparent);
-    text-underline-offset: 2px;
+    text-decoration: none;
+    cursor: pointer;
+    max-width: 100%;
+  }
+  /* A bare URL is its own label, and can be a hundred characters. The chip
+     stays one line; the middle of the address is what the reader least needs. */
+  a > .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 48ch;
   }
   a:hover {
-    text-decoration-color: var(--tone-2);
+    background: oklch(0.76 0.14 var(--accent-hue) / 0.26);
   }
 </style>

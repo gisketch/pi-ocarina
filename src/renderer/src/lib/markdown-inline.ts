@@ -28,6 +28,11 @@ export interface InlineSegment {
    *  so a mention looks the same before and after it is sent, which is what
    *  makes it recognisable as the same thing. */
   mention?: boolean
+  /** A link to a file on this machine — pi's `sandbox:` links, or `file:`.
+   *
+   *  Carries the absolute path; the text is the label the agent wrote. Drawn
+   *  as a file chip, and opened with the OS rather than followed as a URL. */
+  file?: string
   /** A file attached to this message, named in its text.
    *
    *  Drawn as the same chip a mention gets, because it is the same thing to a
@@ -50,6 +55,29 @@ export function safeHref(url: string): string | null {
   // resolves to another, and a reader has no way to see which.
   if (/^www\./i.test(trimmed) && !trimmed.split('/')[0].includes('@')) {
     return `https://${trimmed}`
+  }
+  return null
+}
+
+/** The absolute path a link names on this machine, or null.
+ *
+ *  Two spellings arrive: pi writes `sandbox:/abs/path` for a file an agent
+ *  produced, and agents sometimes write `file://` URLs. Neither is a URL the
+ *  window may follow — the path is handed to the OS instead, behind a click.
+ *  Only absolute paths count; a relative one has no working directory here. */
+export function fileHref(url: string): string | null {
+  const trimmed = url.trim()
+  if (/^sandbox:/i.test(trimmed)) {
+    const path = trimmed.slice('sandbox:'.length)
+    return path.startsWith('/') ? path : null
+  }
+  if (/^file:\/\//i.test(trimmed)) {
+    try {
+      const path = decodeURIComponent(new URL(trimmed).pathname)
+      return path.startsWith('/') ? path : null
+    } catch {
+      return null
+    }
   }
   return null
 }
@@ -138,12 +166,13 @@ class Seek {
   }
 }
 
-/** Reads `[label](url)` at `at`, or null. */
+/** Reads `[label](url)` at `at`, or null. A web link carries `href`; a link
+ *  to a local file carries `file` instead. */
 function linkAt(
   text: string,
   at: number,
   seek: Seek,
-): { label: string; href: string; end: number } | null {
+): { label: string; href?: string; file?: string; end: number } | null {
   if (text[at] !== '[') return null
 
   const close = seek.from(text, '](', at)
@@ -152,10 +181,16 @@ function linkAt(
   const end = seek.from(text, ')', close + 2)
   if (end === -1 || end - close > LOOK_AHEAD) return null
 
-  const href = safeHref(text.slice(close + 2, end))
-  if (href === null) return null
+  const label = text.slice(at + 1, close)
+  const target = text.slice(close + 2, end)
 
-  return { label: text.slice(at + 1, close), href, end: end + 1 }
+  const href = safeHref(target)
+  if (href !== null) return { label, href, end: end + 1 }
+
+  const file = fileHref(target)
+  if (file !== null) return { label, file, end: end + 1 }
+
+  return null
 }
 
 export function parseInline(text: string): InlineSegment[] {
@@ -186,9 +221,14 @@ export function parseInline(text: string): InlineSegment[] {
     const link = open.href === undefined ? linkAt(text, at, seek) : null
     if (link) {
       push()
-      // The label is parsed too, so a bold word inside a link keeps its weight.
-      for (const part of parseInline(link.label)) {
-        segments.push({ ...part, ...open, href: link.href })
+      if (link.file !== undefined) {
+        // A file chip is one run: the label is a name, not prose to style.
+        segments.push({ text: link.label, code, ...open, file: link.file })
+      } else if (link.href !== undefined) {
+        // The label is parsed too, so a bold word inside a link keeps its weight.
+        for (const part of parseInline(link.label)) {
+          segments.push({ ...part, ...open, href: link.href })
+        }
       }
       at = link.end - 1
       continue
@@ -235,4 +275,22 @@ export function parseInline(text: string): InlineSegment[] {
 
   push()
   return segments
+}
+
+/** Consecutive runs of one link folded back into one segment.
+ *
+ *  A link renders as a single chip, so a label the marks split — `[**bold**
+ *  link](…)` is two runs sharing an href — must come back together before the
+ *  chip is drawn, or one link draws as two chips. */
+export function mergeLinks(segments: readonly InlineSegment[]): InlineSegment[] {
+  const merged: InlineSegment[] = []
+  for (const segment of segments) {
+    const last = merged[merged.length - 1]
+    if (segment.href !== undefined && last?.href === segment.href) {
+      merged[merged.length - 1] = { ...last, text: last.text + segment.text }
+      continue
+    }
+    merged.push(segment)
+  }
+  return merged
 }

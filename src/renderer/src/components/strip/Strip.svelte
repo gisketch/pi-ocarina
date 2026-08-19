@@ -1,7 +1,7 @@
 <script lang="ts">
   import { threadOf } from '$lib/types'
   import ThreadColumn from './ThreadColumn.svelte'
-  import FreshThread from './FreshThread.svelte'
+  import Dashboard from './Dashboard.svelte'
   import LiveThread from './LiveThread.svelte'
   import TerminalColumn from './TerminalColumn.svelte'
   import { app } from '$lib/state/app.svelte'
@@ -37,7 +37,7 @@
              have no session to speak to. -->
         {@const live = threadOf(thread)}
         {#if thread.fresh}
-          <FreshThread {workspace} columnId={thread.id} focused={i === app.threadIndex} {onmodel} {oncommit} />
+          <Dashboard {workspace} columnId={thread.id} focused={i === app.threadIndex} {onmodel} {oncommit} />
         {:else if thread.terminal}
           <TerminalColumn
             workspaceId={workspace.id}

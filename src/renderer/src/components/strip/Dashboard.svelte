@@ -16,6 +16,14 @@
     onmodel: () => void
     oncommit: () => void
   } = $props()
+
+  // The launcher's choices. `b` and `/` are drawn before they act — their
+  // tickets land next — so a reader learns the column's shape once.
+  const actions = [
+    { key: 'i', label: 'new thread' },
+    { key: 'b', label: 'new worktree thread' },
+    { key: '/', label: 'search history' },
+  ]
 </script>
 
 <div class="hero" class:focused>
@@ -25,10 +33,13 @@
     <div class="sub">
       fresh thread — no history yet · <span class="note">♪ {workspace.note}</span>
     </div>
-    <div class="hints">
-      <span><span class="kbd">i</span> compose</span>
-      <span><span class="kbd">␣</span> leader</span>
-      <span><span class="kbd">⌘K</span> commands</span>
+    <div class="actions">
+      {#each actions as action (action.key)}
+        <div class="action">
+          <span class="kbd">{action.key}</span>
+          <span class="label">{action.label}</span>
+        </div>
+      {/each}
     </div>
   </div>
 
@@ -77,16 +88,27 @@
     color: var(--accent);
   }
 
-  .hints {
+  .actions {
     display: flex;
-    gap: 14px;
-    color: var(--fg-dimmest);
-    font-size: 10.5px;
-    margin-top: 4px;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11.5px;
+  }
+  .label {
+    color: var(--fg-dim);
   }
   .kbd {
     background: var(--bg-chip);
     padding: 2px 6px;
     color: var(--fg-muted);
+    font-size: 10.5px;
+    min-width: 10px;
+    text-align: center;
   }
 </style>

@@ -5,7 +5,6 @@ import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { askKeys } from './ask-keys.svelte'
-import { createThread } from './new-thread'
 import { routeToOverlay, routeToSurface } from './key-routing.svelte'
 import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
@@ -77,11 +76,6 @@ class ShellState {
     queueMicrotask(() => this.targets.composer?.focus())
   }
 
-  /** Creates a thread and hands it the caret, so leader-n leaves the person
-   *  ready to type rather than looking at a new column they must still reach.
-   *
-   *  With nothing pinned there is no workspace to create it in, so the same
-   *  keystroke starts the pin flow — the destination either way. */
   /** Whether the model picker is choosing for this thread or for new threads.
    *
    *  A flag rather than a second overlay: the two screens would be identical,
@@ -99,22 +93,13 @@ class ShellState {
       return
     }
 
-    const workspaceId = app.workspace.id
-    // The question comes before the column, and only in a repository. Its
-    // default answer is the thread this app has always made.
-    void createThread(workspaceId).then((threadId) => {
-      if (!threadId) return
-      // The person may have moved on while the backend was working. The thread
-      // is theirs either way, but stealing the caret back would be rude.
-      if (app.workspace.id !== workspaceId) return
-
-      const column = app.workspace.threads.findIndex((thread) => thread.id === threadId)
-      if (column === -1) return
-
-      app.focusThread(column)
-      app.mode = 'INSERT'
-      this.focusComposer()
-    })
+    // A dashboard, not a thread. Nothing reaches the backend until the reader
+    // chooses on the column itself — so an abandoned `␣n` leaves no orphan
+    // session behind, which the old immediate creation always did.
+    const column = catalog.addDashboard(app.workspace.id)
+    if (column === -1) return
+    app.focusThread(column)
+    app.mode = 'NORMAL'
   }
 
   /** Closes the focused thread, asking first if a turn is running.
@@ -124,8 +109,16 @@ class ShellState {
    *  lose, so it closes at once. */
   requestClose(): void {
     const thread = app.thread
-    // The fresh placeholder is not a thread; there is nothing to close.
-    if (thread.fresh || thread.id === '') return
+    if (thread.id === '') return
+    // The dashboard is not a thread — closing it is only taking the column
+    // away, and it made nothing that needs telling. A lone dashboard comes
+    // straight back (the workspace must keep one column), which reads as the
+    // no-op it is.
+    if (thread.fresh) {
+      blockNav.forget(thread.id)
+      catalog.closeColumn(thread.id)
+      return
+    }
 
     if (thread.terminal) {
       // Closing kills the shell, so a command still running is worth one

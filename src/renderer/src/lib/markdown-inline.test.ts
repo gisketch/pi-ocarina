@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseInline, safeHref } from './markdown-inline'
+import { mergeLinks, parseInline, safeHref } from './markdown-inline'
 
 describe('what a link may be', () => {
   it('follows only the schemes a reader could have meant', () => {
@@ -68,6 +68,45 @@ describe('links', () => {
     expect(parseInline('`https://example.com`')).toEqual([
       { text: 'https://example.com', code: true },
     ])
+  })
+})
+
+describe('a link to a file on this machine', () => {
+  it('reads a sandbox link as a file chip carrying the path', () => {
+    expect(parseInline('[Download report.docx](sandbox:/Users/me/out/report.docx)')).toEqual([
+      { text: 'Download report.docx', code: false, file: '/Users/me/out/report.docx' },
+    ])
+  })
+
+  it('reads a file url the same way', () => {
+    expect(parseInline('[log](file:///var/log/pi%20run.log)')).toEqual([
+      { text: 'log', code: false, file: '/var/log/pi run.log' },
+    ])
+  })
+
+  it('refuses a sandbox link that is not an absolute path', () => {
+    expect(parseInline('[x](sandbox:relative/place)')).toEqual([
+      { text: '[x](sandbox:relative/place)', code: false },
+    ])
+  })
+})
+
+describe('one chip per link', () => {
+  it('folds a label the marks split back into one run', () => {
+    const merged = mergeLinks(parseInline('[**bold** link](https://example.com)'))
+    expect(merged).toEqual([
+      { text: 'bold link', code: false, bold: true, href: 'https://example.com' },
+    ])
+  })
+
+  it('keeps two different links apart', () => {
+    const merged = mergeLinks(parseInline('[a](https://a.test)[b](https://b.test)'))
+    expect(merged.map((part) => part.href)).toEqual(['https://a.test', 'https://b.test'])
+  })
+
+  it('leaves plain runs alone', () => {
+    const parts = parseInline('just **words** here')
+    expect(mergeLinks(parts)).toEqual(parts)
   })
 })
 

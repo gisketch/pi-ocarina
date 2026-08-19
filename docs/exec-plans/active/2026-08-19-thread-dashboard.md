@@ -2,7 +2,7 @@
 
 Spec: [2026-08-19-thread-dashboard.md](../../specs/2026-08-19-thread-dashboard.md)
 
-## T0 — prefactor: split the two oversized files this plan touches — `todo`
+## T0 — prefactor: split the two oversized files this plan touches — `done`
 
 Split `src/renderer/src/lib/keyboard.ts` (357) and
 `src/renderer/src/lib/state/catalog.svelte.ts` (357) at real seams,
@@ -11,7 +11,7 @@ each under 350. No behavior change.
 - Validation: full vitest green; `check-sonata` clean for these two.
 - Blocked by: nothing.
 
-## T1 — dashboard column, deferred creation — `todo`
+## T1 — dashboard column, deferred creation — `done`
 
 `␣n` spawns a dashboard column and calls no backend. FreshThread and
 `␣n` render the same dashboard component. Rows drawn: `i` compose, `b`
