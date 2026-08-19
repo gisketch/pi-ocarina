@@ -264,7 +264,9 @@ Blocked by: T7.
 
 ## T9 — file chips in prose
 
-Status: todo
+Status: done. Deviation: chips render in every prose message, not assistant
+prose alone — a path the reader typed resolves the same way, and the guard
+would have cost a role flag threaded through four components.
 
 Behavior: an inline code span in assistant prose whose text resolves in
 the workspace file index renders as a chip; Enter/click opens the buffer
