@@ -268,6 +268,22 @@ class BlockNav {
     blockFocus.move(app.thread.id, this.#list(), delta)
   }
 
+  /** `G`'s second half: the ring lands on the newest block, so the next `j`
+   *  or `k` continues from where the jump left the reader — not from a block
+   *  they were on screens ago, which the reveal would yank the view back to.
+   *
+   *  Only when a ring is out. A reader who never started navigating gets the
+   *  jump and nothing else; the first `j`/`k` already starts from the view. */
+  focusLatest(): void {
+    const threadId = app.thread.id
+    if (app.thread.terminal) return
+    if (blockFocus.idOf(threadId) === null) return
+
+    const list = this.#list(threadId)
+    const last = list[list.length - 1]
+    if (last) blockFocus.set(threadId, last.id)
+  }
+
   /** `ctrl-d` and `ctrl-u`. Moves the view and nothing else: no ring, no dim,
    *  no mode, in any mode. Skimming is not navigating.
    *

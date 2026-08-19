@@ -141,6 +141,9 @@ export function runAction(shell: ShellHost, action: Action): void {
       break
     case 'jumpToLive':
       following.jump(app.thread.id)
+      // The ring rides along when one is out, so navigation resumes from the
+      // newest block rather than from wherever the reader left it.
+      blockNav.focusLatest()
       break
     case 'toggleReasoning':
       reasoningOpen.toggleAll()
