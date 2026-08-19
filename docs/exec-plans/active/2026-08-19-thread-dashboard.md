@@ -53,7 +53,7 @@ row. Leap selects; `Enter` opens.
 
 - Blocked by: T3.
 
-## T5 — telescope picker, `/` search — `todo`
+## T5 — telescope picker, `/` search — `done`
 
 Reusable floating picker: left pane fzf input + list, right pane a
 slot. `/` opens it over the workspace's full thread history. Input

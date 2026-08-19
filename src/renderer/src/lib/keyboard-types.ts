@@ -16,6 +16,8 @@ export type Overlay =
   | 'mode'
   | 'modes'
   | 'search'
+  /** The dashboard's thread picker: fzf over the workspace's history. */
+  | 'threads'
   | 'roles'
   | 'workspace'
   | 'keybinds'

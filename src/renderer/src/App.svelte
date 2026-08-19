@@ -29,6 +29,7 @@
   import ModesOverlay from './components/overlays/ModesOverlay.svelte'
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
+  import ThreadPicker from './components/overlays/ThreadPicker.svelte'
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
@@ -242,6 +243,8 @@
     <ModesOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'mode'}
     <ModeOverlay onclose={() => shell.closeOverlay()} threadLabel={app.threadLabel} />
+  {:else if shell.overlay === 'threads'}
+    <ThreadPicker onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'search'}
     <SearchOverlay
       onclose={() => shell.closeOverlay()}

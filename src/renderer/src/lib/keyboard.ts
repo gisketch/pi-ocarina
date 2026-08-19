@@ -34,6 +34,9 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   'switcher',
   'model',
   'search',
+  // The thread picker is an fzf input with a preview; every letter is a
+  // filter character while it is up.
+  'threads',
   // The roles form has a name field, an instructions field and a model field.
   // Without this, typing a role called "scout" moved thread focus, opened the
   // terminal and closed a column. Found in review.
@@ -238,6 +241,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     // A leap over rows, not into a transcript: the mode stays NORMAL, and
     // landing moves the selection bar instead of a block ring.
     if (key === 's') return result(state, [{ type: 'leap' }])
+    // The whole history, where the five recent rows run out. This shadows the
+    // global content search on purpose: on a launcher, "search" means "find
+    // me a thread" — the content search is still one column away.
+    if (key === '/') return result({ ...state, overlay: 'threads' })
   }
 
   // Opening a screen, from NORMAL or from READ. Above the switch because the

@@ -330,3 +330,34 @@ describe('a leap over the dashboard', () => {
     expect(app.thread.fresh).toBe(true)
   })
 })
+
+describe('the thread picker', () => {
+  it('opens on / only from the dashboard; elsewhere / is content search', () => {
+    shell.handleKey({ key: '/' })
+    expect(shell.overlay).toBe('search')
+    shell.handleKey({ key: 'Escape' })
+
+    shell.newThread()
+    shell.handleKey({ key: '/' })
+    expect(shell.overlay).toBe('threads')
+    shell.handleKey({ key: 'Escape' })
+    expect(shell.overlay).toBeNull()
+  })
+
+  it('lists the whole history, not just five', async () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      id: `h${i}`,
+      title: `thread ${i}`,
+      modified: `2026-08-0${i + 1}T00:00:00Z`,
+      messageCount: 1,
+    }))
+    vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) =>
+      Promise.resolve((name === 'listThreads' ? { threads: many } : { ok: true }) as never),
+    )
+    await dashboardRecent.load('w1')
+
+    expect(dashboardRecent.rows('w1')).toHaveLength(5)
+    expect(dashboardRecent.all('w1')).toHaveLength(9)
+    expect(dashboardRecent.all('w1')[0].id).toBe('h8')
+  })
+})

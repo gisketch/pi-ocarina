@@ -35,8 +35,8 @@ class DashboardRecent {
     }
   }
 
-  /** The five newest closed threads, newest first. */
-  rows(workspaceId: string): ThreadSummary[] {
+  /** Every closed thread, newest first. The picker's list. */
+  all(workspaceId: string): ThreadSummary[] {
     const listed = this.#listed[workspaceId] ?? []
     const open = new Set(
       catalog.workspaces
@@ -46,7 +46,18 @@ class DashboardRecent {
     return listed
       .filter((summary) => !open.has(summary.id))
       .sort((a, b) => b.modified.localeCompare(a.modified))
-      .slice(0, RECENT_ROWS)
+  }
+
+  /** The five newest closed threads, newest first. */
+  rows(workspaceId: string): ThreadSummary[] {
+    return this.all(workspaceId).slice(0, RECENT_ROWS)
+  }
+
+  /** Opens one listed thread in the dashboard's place. The picker's pick. */
+  async openThread(workspaceId: string, summary: ThreadSummary): Promise<void> {
+    const column = await catalog.reopen(workspaceId, summary.id, summary.title, summary.branch ?? null)
+    if (column === -1 || app.workspace.id !== workspaceId) return
+    app.focusThread(column)
   }
 
   selected(workspaceId: string): number {
@@ -77,9 +88,7 @@ class DashboardRecent {
   async open(workspaceId: string): Promise<void> {
     const row = this.rows(workspaceId)[this.selected(workspaceId)]
     if (!row) return
-    const column = await catalog.reopen(workspaceId, row.id, row.title, row.branch ?? null)
-    if (column === -1 || app.workspace.id !== workspaceId) return
-    app.focusThread(column)
+    await this.openThread(workspaceId, row)
   }
 }
 
