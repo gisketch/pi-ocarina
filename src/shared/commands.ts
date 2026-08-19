@@ -188,6 +188,24 @@ export interface SessionCommands {
   compact: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Paths the @-mention picker offers, relative to the workspace. */
   listFiles: { params: { workspaceId: string }; result: { files: string[] } }
+  /** One workspace file, for the finder's preview and the buffer column.
+   *  `path` is workspace-relative; a path that escapes the root is refused. */
+  readFile: {
+    params: { workspaceId: string; path: string }
+    result: { text: string; mtimeMs: number } | { missing: true }
+  }
+  /** Writes a buffer back. `expectMtimeMs` is the mtime the buffer loaded —
+   *  when the file on disk has moved past it the write refuses, and `:w!`
+   *  passes null to force. The refusal message is the one the editor shows. */
+  writeFile: {
+    params: { workspaceId: string; path: string; text: string; expectMtimeMs: number | null }
+    result: { mtimeMs: number }
+  }
+  /** The staleness probe behind the buffer's `:w` guard. */
+  statFile: {
+    params: { workspaceId: string; path: string }
+    result: { mtimeMs: number } | { missing: true }
+  }
   /** Searches thread titles and transcripts. `complete` is false when the time
    *  budget ran out — the result then says so rather than implying it saw
    *  every thread. */

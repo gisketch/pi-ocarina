@@ -2,13 +2,15 @@ import type { CommandName, CommandParams } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
 import type { ModelControl } from './model-control'
 import { searchThreads } from './search'
+import { readWorkspaceFile, statWorkspaceFile, writeWorkspaceFile } from './workspace-files'
 import type { WorkspaceService } from './workspaces'
 
-/** Read-only commands about a workspace, rather than about a thread.
+/** Commands about a workspace, rather than about a thread.
  *
  *  These need no open session, so they answer before the driver's thread
  *  dispatch is reached — and keeping them here leaves that dispatch about the
- *  thing it is actually for. */
+ *  thing it is actually for. Mostly reads; the one write (`writeFile`) is
+ *  the buffer column's `:w`, which is exactly as workspace-scoped. */
 export class WorkspaceQueries {
   readonly #workspaces: WorkspaceService
   readonly #catalog: CatalogStore
@@ -62,6 +64,28 @@ export class WorkspaceQueries {
       case 'listFiles': {
         const { workspaceId } = params as CommandParams<'listFiles'>
         return { result: { files: await this.#workspaces.listFiles(workspaceId) } }
+      }
+
+      case 'readFile': {
+        const { workspaceId, path } = params as CommandParams<'readFile'>
+        return { result: await readWorkspaceFile(this.#workspaces.pathOf(workspaceId), path) }
+      }
+
+      case 'writeFile': {
+        const { workspaceId, path, text, expectMtimeMs } = params as CommandParams<'writeFile'>
+        return {
+          result: await writeWorkspaceFile(
+            this.#workspaces.pathOf(workspaceId),
+            path,
+            text,
+            expectMtimeMs,
+          ),
+        }
+      }
+
+      case 'statFile': {
+        const { workspaceId, path } = params as CommandParams<'statFile'>
+        return { result: await statWorkspaceFile(this.#workspaces.pathOf(workspaceId), path) }
       }
 
       case 'searchThreads': {

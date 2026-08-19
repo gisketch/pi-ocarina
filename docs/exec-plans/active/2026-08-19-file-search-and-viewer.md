@@ -8,7 +8,7 @@ they can be worked in parallel up to there.
 
 ## T1 — the telescopic shell
 
-Status: todo
+Status: done
 
 Behavior: the thread picker looks exactly as it does today, but its frame —
 backdrop, sheet, two panes, header — lives in one shared shell component
