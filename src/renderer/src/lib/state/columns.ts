@@ -17,7 +17,7 @@ export function registerColumnScroller(id: string, scroll: (top: number) => void
  *  buffer belongs to xterm and is not DOM overflow. */
 const bodies = new Map<string, HTMLElement>()
 
-/** How long a programmatic scroll takes.
+/** How long a programmatic scroll takes, at its shortest.
  *
  *  The browser's own `behavior: 'smooth'` runs about 400ms and eases at both
  *  ends, which reads as sluggish under a keyboard: the key is instant, so the
@@ -25,14 +25,28 @@ const bodies = new Map<string, HTMLElement>()
  *  only, keeps the move readable without making the reader wait through it. */
 const SCROLL_MS = 130
 
-/** How many extra frames a landed scroll is allowed to correct itself.
+/** And at its longest. A jump to the end of a thread crosses thousands of
+ *  pixels, and 130ms of that is not a scroll a reader can follow — it is a cut,
+ *  with the transcript in a different place on the other side of it. The
+ *  duration rises with the distance so that a long travel has frames enough to
+ *  read as travel, and stops rising before it becomes a wait. */
+const SCROLL_MS_MAX = 320
+
+/** How much distance buys a millisecond. A page of about 500px comes out near
+ *  the floor; a jump reaches the ceiling and stays there. */
+const MS_PER_PX = 1 / 12
+
+/** How many frames a landed scroll may spend chasing a target that is still
+ *  moving.
  *
  *  A column virtualizes its blocks, so the height of everything below the fold
  *  is an estimate until it is measured. Scrolling is what causes that
- *  measurement, which moves the very thing the scroll was aiming at — under a
- *  fence or a table, by thousands of pixels. Re-aiming each frame handles the
- *  travel; these passes handle a block that settles a frame or two late. */
-const SETTLE_PASSES = 3
+ *  measurement, and each newly measured block moves the end of the thread
+ *  further away — which is why a jump to the end used to arrive short, and take
+ *  two or three presses to converge. The scroll keeps closing the gap until the
+ *  target holds still. The cap is only a stop against a thread that grows
+ *  forever, which a live turn can do. */
+const SETTLE_FRAMES = 40
 
 /** Scrolls in flight, by the element they are moving. `to` is where the scroll
  *  is going, which is what a second keypress must add to — adding to the live
@@ -91,6 +105,7 @@ export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
     return
   }
 
+  const span = Math.min(SCROLL_MS_MAX, SCROLL_MS + Math.abs(first - el.scrollTop) * MS_PER_PX)
   const start = performance.now()
   let previous = start
   let settles = 0
@@ -99,35 +114,44 @@ export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
   // asked for. A frame that finds a different record has been superseded — and
   // registering after scheduling would lose every frame under a synchronous
   // `requestAnimationFrame`, which is how the tests drive this.
-  const running = {
-    frame: 0,
-    timer: setTimeout(() => {
-      if (inflight.get(el) !== running) return
-      stopScroll(el)
-      el.scrollTop = clampTop(el, aim())
-    }, SCROLL_MS * 4),
-    to: first,
-  }
+  const running = { frame: 0, timer: 0 as unknown as ReturnType<typeof setTimeout>, to: first }
 
   const land = (to: number): void => {
     el.scrollTop = to
     stopScroll(el)
   }
 
+  // Re-armed by every frame, so it measures a drought rather than the whole
+  // move: `requestAnimationFrame` suspends in an occluded or busy window, and a
+  // jump to the latest is the one scroll that must never be lost. A scroll that
+  // is legitimately still travelling keeps pushing it back.
+  const watch = (): void => {
+    clearTimeout(running.timer)
+    running.timer = setTimeout(() => {
+      if (inflight.get(el) !== running) return
+      land(clampTop(el, aim()))
+    }, SCROLL_MS_MAX)
+  }
+
   const step = (now: number): void => {
     if (inflight.get(el) !== running) return
 
     const to = clampTop(el, aim())
+    // Whether the target itself moved since the last frame, which is a block
+    // being measured for the first time. Distinct from the gap: a scroll can
+    // be a pixel from a target that is still running away from it.
+    const holding = Math.abs(to - running.to) < 1
     running.to = to
+    watch()
 
     const gap = to - el.scrollTop
-    if (Math.abs(gap) < 1) {
+    if (holding && Math.abs(gap) < 1) {
       land(to)
       return
     }
 
-    const before = Math.min(1, (previous - start) / SCROLL_MS)
-    const after = Math.min(1, (now - start) / SCROLL_MS)
+    const before = Math.min(1, (previous - start) / span)
+    const after = Math.min(1, (now - start) / span)
     previous = now
 
     if (after < 1) {
@@ -144,7 +168,7 @@ export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
     // Past the curve and still short: the target moved late, which is a block
     // measured after the scroll had all but arrived. Closed by halves rather
     // than written, so a correction reads as the tail of the same move.
-    if (settles >= SETTLE_PASSES) {
+    if (settles >= SETTLE_FRAMES) {
       land(to)
       return
     }
@@ -154,6 +178,7 @@ export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
   }
 
   inflight.set(el, running)
+  watch()
   running.frame = requestAnimationFrame(step)
 }
 

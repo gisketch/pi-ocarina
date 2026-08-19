@@ -63,6 +63,9 @@ Name specs `YYYY-MM-DD-short-slug.md`. Keep them proportional to risk and ambigu
   workspace and a new thread, and a workspace screen with its own key.
   **Approved 2026-08-18.** Tickets in
   [2026-08-18-permissions-and-defaults.md](../exec-plans/active/2026-08-18-permissions-and-defaults.md).
+- [2026-08-18-read-paging.md](2026-08-18-read-paging.md) — in READ, `ctrl-d`
+  and `ctrl-u` carry the block ring with the view instead of leaving it behind,
+  landing it on the topmost block on screen without scrolling again.
 - [2026-08-18-borderless-chrome.md](2026-08-18-borderless-chrome.md) — every
   separator becomes a background step: no border or outline is used as an edge
   anywhere in the renderer, and focus is a brighter surface rather than a line.

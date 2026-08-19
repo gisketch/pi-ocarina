@@ -58,6 +58,9 @@ export const WORKSPACES: Workspace[] = [
       // looked at. docs-site cannot hold it — its single thread is what the
       // thread-clamp test switches into.
       { id: 'markdown-showcase', title: 'markdown shapes', status: 'idle', meta: 'idle' },
+      // Long enough that most of it is never measured, which is the only way
+      // the jump to the end can be seen stopping short.
+      { id: 'long-thread', title: 'long thread', status: 'idle', meta: 'idle' },
     ],
   },
   {
