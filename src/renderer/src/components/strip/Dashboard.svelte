@@ -2,6 +2,7 @@
   import Identicon from '../Identicon.svelte'
   import Composer from '../Composer.svelte'
   import { branchField } from '$lib/state/branch-field.svelte'
+  import { ago, dashboardRecent } from '$lib/state/dashboard-recent.svelte'
   import type { Workspace } from '$lib/types'
 
   const {
@@ -31,6 +32,15 @@
   const naming = $derived(branchField.columnId === columnId)
   const problem = $derived(branchField.problem)
   const failure = $derived(branchField.failure)
+
+  // What this workspace closed. Loaded when the launcher comes up; what is
+  // *open* is filtered at read time, so a thread opened elsewhere disappears
+  // from here without a re-list.
+  $effect(() => {
+    void dashboardRecent.load(workspace.id)
+  })
+  const recent = $derived(dashboardRecent.rows(workspace.id))
+  const selected = $derived(dashboardRecent.selected(workspace.id))
 </script>
 
 <div class="hero" class:focused>
@@ -63,6 +73,28 @@
           </div>
         {/each}
       </div>
+
+      {#if recent.length > 0}
+        <div class="recent">
+          <div class="heading">recent</div>
+          {#each recent as row, index (row.id)}
+            <button
+              type="button"
+              class="row"
+              class:picked={focused && index === selected}
+              onclick={() => {
+                dashboardRecent.select(workspace.id, row.id)
+                void dashboardRecent.open(workspace.id)
+              }}
+            >
+              <span class="dot"></span>
+              <span class="title">{row.title}</span>
+              <span class="when">{ago(row.modified)}</span>
+            </button>
+          {/each}
+          <div class="hint"><span class="kbd">j</span><span class="kbd">k</span> pick · <span class="kbd">⏎</span> open</div>
+        </div>
+      {/if}
     {/if}
   </div>
 
@@ -133,6 +165,63 @@
     font-size: 10.5px;
     min-width: 10px;
     text-align: center;
+  }
+
+  .recent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 14px;
+    width: min(320px, 85%);
+  }
+  .heading {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--fg-dimmest);
+    margin-bottom: 4px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    font-size: 11.5px;
+    color: var(--fg-dim);
+    text-align: left;
+    cursor: pointer;
+    background: none;
+  }
+  /* Full-bleed selection, visual-line style: the picked row is a band. */
+  .row.picked {
+    background: var(--seg-strong);
+    color: var(--fg-bright);
+  }
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--fg-dimmest);
+    flex: none;
+  }
+  .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .when {
+    flex: none;
+    font-size: 10px;
+    color: var(--fg-dimmest);
+  }
+  .hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--fg-dimmest);
   }
 
   .branch {

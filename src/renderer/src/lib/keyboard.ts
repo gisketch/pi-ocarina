@@ -228,6 +228,15 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     return result(state, [{ type: 'pinWorkspace' }])
   }
 
+  // The dashboard's recent rows. j/k walk them and ⏎ opens one — without
+  // entering READ, because a launcher has no transcript to dim. Above the
+  // NORMAL switch, whose j/k would otherwise take the keys there.
+  if (ctx.dashboardColumn) {
+    if (key === 'j' || key === 'ArrowDown') return result(state, [{ type: 'dashboardMove', delta: 1 }])
+    if (key === 'k' || key === 'ArrowUp') return result(state, [{ type: 'dashboardMove', delta: -1 }])
+    if (key === 'Enter') return result(state, [{ type: 'dashboardOpen' }])
+  }
+
   // Opening a screen, from NORMAL or from READ. Above the switch because the
   // same map decides which keys survive once one is open.
   const overlay = OVERLAY_KEYS.get(key)

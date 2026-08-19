@@ -34,7 +34,7 @@ First send stops asking. `WorktreeAsk.svelte` and its wiring deleted.
   WorktreeAsk remains.
 - Blocked by: T1.
 
-## T3 — recent list + reopen in place — `todo`
+## T3 — recent list + reopen in place — `done`
 
 Dashboard loads `listThreads`, filters out strip-open threads, shows
 the 5 newest: title, relative time, status dot. `j`/`k` move the bar,

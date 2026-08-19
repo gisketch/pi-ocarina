@@ -38,6 +38,10 @@ export type Action =
   | { type: 'newThread' }
   /** Open the worktree branch field on the focused dashboard column. */
   | { type: 'worktreeThread' }
+  /** Move the dashboard's recent-thread selection bar. */
+  | { type: 'dashboardMove'; delta: number }
+  /** Open the dashboard's selected recent thread. */
+  | { type: 'dashboardOpen' }
   | { type: 'closeThread' }
   /** Open the rename dialog on the focused thread. */
   | { type: 'renameThread' }
@@ -73,6 +77,9 @@ export interface KeyContext {
   /** Whether the focused column is a shell. A shell has no blocks, so the
    *  transcript keys stay a scroll and READ is never entered. */
   terminalColumn: boolean
+  /** Whether the focused column is a dashboard. Its rows take j/k and enter;
+   *  READ is never entered — there is no transcript to dim. */
+  dashboardColumn?: boolean
 }
 
 export interface KeyResult {

@@ -17,6 +17,7 @@ import { askKeys } from './ask-keys.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
 import { branchField } from './branch-field.svelte'
+import { dashboardRecent } from './dashboard-recent.svelte'
 import { catalog } from './catalog.svelte'
 import { changes } from './changes.svelte'
 import { commit } from './commit.svelte'
@@ -114,6 +115,12 @@ export function runAction(shell: ShellHost, action: Action): void {
     }
     case 'newThread':
       shell.newThread()
+      break
+    case 'dashboardMove':
+      dashboardRecent.move(app.workspace.id, action.delta)
+      break
+    case 'dashboardOpen':
+      void dashboardRecent.open(app.workspace.id)
       break
     case 'worktreeThread': {
       // Only the dashboard has the field, and only a live catalog has a git

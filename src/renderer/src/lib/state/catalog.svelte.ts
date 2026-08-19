@@ -235,7 +235,12 @@ class Catalog {
 
   /** Brings a closed thread back onto its workspace's strip, and returns its
    *  column. Used when a search hit lands on a thread the user had closed. */
-  async reopen(workspaceId: string, threadId: ThreadId, title: string): Promise<number> {
+  async reopen(
+    workspaceId: string,
+    threadId: ThreadId,
+    title: string,
+    branch: string | null = null,
+  ): Promise<number> {
     this.error = null
 
     try {
@@ -246,7 +251,7 @@ class Catalog {
     }
 
     threads.follow(threadId)
-    this.#insert(workspaceId, threadId, title)
+    this.#insert(workspaceId, threadId, title, branch)
     return this.workspaces
       .find((workspace) => workspace.id === workspaceId)
       ?.threads.findIndex((thread) => thread.id === threadId) ?? -1

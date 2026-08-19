@@ -2,6 +2,7 @@ import { app } from './app.svelte'
 import { decodePress, effectiveKey, EMPTY_KEYMAP, encodePress, type Keymap } from '../keymap'
 import { runAction } from './shell-actions'
 import { catalog } from './catalog.svelte'
+import { dashboardRecent } from './dashboard-recent.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { askKeys } from './ask-keys.svelte'
@@ -97,6 +98,8 @@ class ShellState {
     // session behind, which the old immediate creation always did.
     const column = catalog.addDashboard(app.workspace.id)
     if (column === -1) return
+    dashboardRecent.resetBar(app.workspace.id)
+    void dashboardRecent.load(app.workspace.id)
     app.focusThread(column)
     app.mode = 'NORMAL'
   }
@@ -243,6 +246,7 @@ class ShellState {
       {
         workspaceCount: app.workspaces.length,
         terminalColumn: app.thread.terminal === true,
+        dashboardColumn: app.thread.fresh === true,
       },
     )
 
