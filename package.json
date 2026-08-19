@@ -22,6 +22,7 @@
     "electron": "^38.2.2",
     "electron-vite": "^4.0.1",
     "happy-dom": "^20.11.2",
+    "jsdom": "^30.0.1",
     "simple-icons": "^16.28.0",
     "svelte": "^5.42.2",
     "svelte-check": "^4.3.3",

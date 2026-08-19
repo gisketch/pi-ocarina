@@ -50,6 +50,7 @@ function fakeHandle(text = 'edited'): EditorHandle & { cleaned: number } {
     blur: () => {},
     enterNormal: () => {},
     enterInsert: () => {},
+    enterLeap: () => {},
     notify: () => {},
     revealLine: () => {},
     setRelativeNumbers: () => {},

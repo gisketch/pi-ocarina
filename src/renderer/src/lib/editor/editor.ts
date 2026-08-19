@@ -15,7 +15,7 @@ import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
 import { languageFor } from './language'
 import { Vim, getCM, vim, type CodeMirror } from '@replit/codemirror-vim'
 import { EX_COMMANDS, isForced, type ExBag } from './ex-commands'
-import { leapExtension } from './leap'
+import { beginLeap, leapExtension } from './leap'
 import { ocarinaHighlight, ocarinaTheme } from './theme'
 
 export interface EditorOptions {
@@ -44,6 +44,8 @@ export interface EditorHandle {
   blur(): void
   enterNormal(): void
   enterInsert(): void
+  /** Focus in vim NORMAL with a leap already listening — `s` from the strip. */
+  enterLeap(): void
   /** A one-line message on vim's own notice line, for `:w` refusals. */
   notify(message: string): void
   /** Puts the cursor on a 1-based line and scrolls it into the middle —
@@ -171,6 +173,12 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
       const adapter = getCM(view)
       if (adapter) Vim.exitInsertMode(adapter as never)
       view.focus()
+    },
+    enterLeap: () => {
+      const adapter = getCM(view)
+      if (adapter) Vim.exitInsertMode(adapter as never)
+      view.focus()
+      beginLeap(view)
     },
     enterInsert: () => {
       const adapter = getCM(view)

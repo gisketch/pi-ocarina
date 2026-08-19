@@ -135,6 +135,11 @@ class Buffers {
     else handle.enterNormal()
   }
 
+  /** `s` from the strip: into vim NORMAL with a leap already listening. */
+  leap(columnId: string): void {
+    this.#handles.get(columnId)?.enterLeap()
+  }
+
   /** Escape from vim NORMAL: the strip takes the keyboard back. */
   blur(columnId: string): void {
     this.#handles.get(columnId)?.blur()

@@ -158,6 +158,9 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'bufferEnter':
       buffers.enter(app.thread.id, action.insert)
       break
+    case 'bufferLeap':
+      buffers.leap(app.thread.id)
+      break
     case 'bufferBlur':
       buffers.blur(app.thread.id)
       break

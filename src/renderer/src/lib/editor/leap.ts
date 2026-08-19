@@ -35,6 +35,14 @@ class LabelWidget extends WidgetType {
 
 const setLabels = StateEffect.define<number[] | null>()
 
+/** An external way in: `s` from the strip enters the buffer already leaping.
+ *  The effect reaches the closure below through its update listener. */
+const leapBegin = StateEffect.define<{ forward: boolean }>()
+
+export function beginLeap(view: EditorView, forward = true): void {
+  view.dispatch({ effects: leapBegin.of({ forward }) })
+}
+
 const labelField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(value, tr) {
@@ -177,6 +185,17 @@ export function leapExtension(): Extension {
   return [
     labelField,
     leapTheme,
+    // The strip's way in (`beginLeap`): the effect lands here because the
+    // session is closure state the effect cannot reach on its own.
+    EditorView.updateListener.of((update) => {
+      for (const tr of update.transactions) {
+        for (const effect of tr.effects) {
+          if (effect.is(leapBegin)) {
+            session = { forward: effect.value.forward, chars: '', targets: [] }
+          }
+        }
+      }
+    }),
     Prec.highest(
       EditorView.domEventHandlers({
         keydown,

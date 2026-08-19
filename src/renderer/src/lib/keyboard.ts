@@ -274,6 +274,12 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     if (key === 'i') {
       return result({ ...state, mode: 'INSERT' }, [{ type: 'bufferEnter', insert: true }])
     }
+    // `s` leaps here too — into the buffer's leap, not the transcript's,
+    // which a buffer column does not have. Without this the block leap
+    // started over nothing and swallowed the keyboard until Escape.
+    if (key === 's') {
+      return result({ ...state, mode: 'NORMAL' }, [{ type: 'bufferLeap' }])
+    }
   }
 
   // Opening a screen, from NORMAL or from READ. Above the switch because the

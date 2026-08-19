@@ -59,6 +59,8 @@ export type Action =
   | { type: 'termEscape' }
   /** Focus the buffer column's editor, in vim normal or straight into insert. */
   | { type: 'bufferEnter'; insert: boolean }
+  /** `s` on a buffer column: into vim NORMAL with a leap already listening. */
+  | { type: 'bufferLeap' }
   /** Escape from vim NORMAL: the editor gives the keyboard back to the strip. */
   | { type: 'bufferBlur' }
   | { type: 'moveColumn'; delta: number }

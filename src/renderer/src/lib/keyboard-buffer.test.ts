@@ -35,6 +35,12 @@ describe('entering the buffer from OCARINA', () => {
     expect(actions).toEqual([{ type: 'focusComposer' }])
   })
 
+  it('s leaps inside the buffer, not over blocks it does not have', () => {
+    const { state, actions } = pressWith(buffer, OCARINA, 's')
+    expect(state.mode).toBe('NORMAL')
+    expect(actions).toEqual([{ type: 'bufferLeap' }])
+  })
+
   it('j does not enter READ on a buffer — the editor is the transcript', () => {
     const { state } = pressWith(buffer, OCARINA, 'j')
     expect(state.mode).toBe('OCARINA')
