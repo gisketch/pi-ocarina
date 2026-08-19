@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { COLUMN_GAP, COLUMN_STEP, COLUMN_WIDTH, clampThread, stripOffset } from './strip'
+import {
+  ATTACHED_GROUP_MIN_WIDTH,
+  ATTACHED_GROUP_WIDTH,
+  COLUMN_GAP,
+  COLUMN_STEP,
+  COLUMN_WIDTH,
+  clampThread,
+  paneGroupIsNarrow,
+  paneGroupWidth,
+  stripGroupOffset,
+  stripOffset,
+} from './strip'
 
 describe('strip geometry', () => {
   it('uses the reference column metrics', () => {
@@ -19,6 +30,22 @@ describe('strip geometry', () => {
     for (let i = 0; i < 6; i++) {
       expect(stripOffset(i + 1) - stripOffset(i)).toBe(-COLUMN_STEP)
     }
+  })
+
+  it('centres the whole attached group among ordinary columns', () => {
+    const widths = [COLUMN_WIDTH, ATTACHED_GROUP_WIDTH, COLUMN_WIDTH]
+    expect(stripGroupOffset(widths, 0)).toBe(-390)
+    expect(stripGroupOffset(widths, 1)).toBe(-(780 + 22 + 585))
+    expect(stripGroupOffset(widths, 2)).toBe(-(780 + 22 + 1170 + 22 + 390))
+  })
+
+  it('keeps the 2:1 group until its usable minimum, then swaps one full column', () => {
+    expect(paneGroupWidth(true, 1400)).toBe(ATTACHED_GROUP_WIDTH)
+    expect(paneGroupWidth(true, 1000)).toBe(1000)
+    expect(paneGroupWidth(true, ATTACHED_GROUP_MIN_WIDTH)).toBe(960)
+    expect(paneGroupWidth(true, 959)).toBe(COLUMN_WIDTH)
+    expect(paneGroupIsNarrow(959)).toBe(true)
+    expect(paneGroupIsNarrow(960)).toBe(false)
   })
 })
 
