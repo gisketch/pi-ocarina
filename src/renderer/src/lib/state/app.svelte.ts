@@ -94,7 +94,7 @@ class AppState {
   }
 
   get accented(): boolean {
-    // Every mode that takes the keyboard away from the strip says so. NORMAL
+    // Every mode that takes the keyboard away from the strip says so. OCARINA
     // is the only one that does not, because it is the one you return to.
     return this.mode !== 'OCARINA'
   }

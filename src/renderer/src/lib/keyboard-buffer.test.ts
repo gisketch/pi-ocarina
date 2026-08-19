@@ -64,6 +64,16 @@ describe('inside vim', () => {
     expect(last.preventDefault).toBe(false)
   })
 
+  it('VISUAL leaves every key to vim, Escape included — its exit is vim\'s own', () => {
+    const VISUAL: KeyState = { ...initialKeyState, mode: 'VISUAL' }
+    for (const key of ['Escape', 'j', 'y', 'd', 'o']) {
+      const { state, actions, last } = pressWith(buffer, VISUAL, key)
+      expect(state.mode).toBe('VISUAL')
+      expect(actions).toEqual([])
+      expect(last.preventDefault).toBe(false)
+    }
+  })
+
   it('no overlay opens over vim: the keys are content, not bindings', () => {
     for (const key of ['w', '/', ',', '?']) {
       expect(pressWith(buffer, NORMAL, key).state.overlay).toBe(null)

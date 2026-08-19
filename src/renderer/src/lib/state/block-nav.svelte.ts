@@ -9,6 +9,7 @@ import { navBlocks } from '../blocks'
 import { hasSomething, withoutThinking } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
+import { isVimMode } from '../types'
 import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { dashboardRecent } from './dashboard-recent.svelte'
@@ -85,7 +86,7 @@ class BlockNav {
     // elsewhere leaves NORMAL/INSERT pointing at nothing — every key then
     // goes to an editor that no longer has them, which reads as a dead
     // keyboard. The strip takes the mode back with the focus.
-    if ((app.mode === 'NORMAL' || app.mode === 'INSERT') && app.thread.file === undefined) {
+    if (isVimMode(app.mode) && app.thread.file === undefined) {
       app.mode = 'OCARINA'
       return
     }

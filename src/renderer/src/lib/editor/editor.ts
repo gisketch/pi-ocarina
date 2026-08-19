@@ -94,8 +94,11 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
     state: EditorState.create({
       doc: options.text,
       extensions: [
-        // vim first: it must see keys before the default keymap does.
-        vim({ status: true }),
+        // vim first: it must see keys before the default keymap does. No
+        // persistent status panel — the app's own status bar is the buffer's
+        // status bar; the plugin still raises a transient panel for `:`, `/`
+        // and notifications.
+        vim({ status: false }),
         lineNumbers(),
         history(),
         bracketMatching(),

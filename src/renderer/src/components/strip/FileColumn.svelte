@@ -5,6 +5,7 @@
   import { onMount } from 'svelte'
   import { app } from '$lib/state/app.svelte'
   import { buffers } from '$lib/state/buffers.svelte'
+  import { isVimMode } from '$lib/types'
   import { mountEditor, type EditorHandle } from '$lib/editor/editor'
 
   const { columnId, focused, onfocus }: {
@@ -46,7 +47,7 @@
    *  follows, and the mode mirrors vim rather than staying on the strip. */
   function claimed(): void {
     onfocus?.()
-    if (app.mode !== 'NORMAL' && app.mode !== 'INSERT') app.mode = 'NORMAL'
+    if (!isVimMode(app.mode)) app.mode = 'NORMAL'
   }
 </script>
 

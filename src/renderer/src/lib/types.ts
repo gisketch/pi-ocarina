@@ -13,9 +13,25 @@ import type { ThreadRunState } from '../../../shared/vocabulary'
  *  column by accident.
  *  `TERM` is `CHAT` for the terminal column: the pty owns every key while it
  *  is on, and `esc` is the one key the shell keeps for itself.
- *  `NORMAL` and `INSERT` are vim's, inside a focused buffer column — the app
- *  mirrors what the editor's vim engine says, it never decides for it. */
-export type Mode = 'OCARINA' | 'READ' | 'CHAT' | 'LEADER' | 'TERM' | 'DIFF' | 'NORMAL' | 'INSERT'
+ *  `NORMAL`, `INSERT` and `VISUAL` are vim's, inside a focused buffer column —
+ *  the app mirrors what the editor's vim engine says, it never decides for
+ *  it. The one status bar the app has is the one that shows them. */
+export type Mode =
+  | 'OCARINA'
+  | 'READ'
+  | 'CHAT'
+  | 'LEADER'
+  | 'TERM'
+  | 'DIFF'
+  | 'NORMAL'
+  | 'INSERT'
+  | 'VISUAL'
+
+/** Whether a mode is vim's — the modes a buffer column owns and the strip
+ *  must take back when focus leaves the buffer. */
+export function isVimMode(mode: Mode): boolean {
+  return mode === 'NORMAL' || mode === 'INSERT' || mode === 'VISUAL'
+}
 
 /** The column header speaks the same status the reducer produces, so a live
  *  thread and a listed one cannot disagree about what a thread is doing. */

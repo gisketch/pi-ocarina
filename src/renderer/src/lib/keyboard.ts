@@ -128,7 +128,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   // Escape is vim's — leaving insert is vim's own exit, and the mirror
   // (`onModeChange`) is what moves the app's mode back to NORMAL. That is
   // the double-escape ladder: the first escape is vim's, the second is ours.
-  if (state.mode === 'INSERT') {
+  if (state.mode === 'INSERT' || state.mode === 'VISUAL') {
     return result(state, [], false)
   }
   if (state.mode === 'NORMAL') {

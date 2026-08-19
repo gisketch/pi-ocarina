@@ -12,7 +12,7 @@ import { catalog } from './catalog.svelte'
 import { describe } from './catalog-build'
 import { session } from '../session'
 import { toasts } from './toasts.svelte'
-import { fileColumnId } from '../types'
+import { fileColumnId, isVimMode } from '../types'
 import type { EditorHandle } from '../editor/editor'
 
 /** What the column's notice line shows for a `:q` on unsaved work. The
@@ -143,8 +143,12 @@ class Buffers {
   /** What vim says the mode is, mirrored while this column is focused. */
   mirrorMode(columnId: string, vimMode: string): void {
     if (app.thread.id !== columnId) return
-    if (app.mode !== 'NORMAL' && app.mode !== 'INSERT') return
-    app.mode = vimMode === 'insert' ? 'INSERT' : 'NORMAL'
+    if (!isVimMode(app.mode)) return
+    // Replace mode types over what is there — insert-shaped, so Escape stays
+    // vim's own exit the way it is in INSERT.
+    if (vimMode === 'insert' || vimMode === 'replace') app.mode = 'INSERT'
+    else if (vimMode === 'visual') app.mode = 'VISUAL'
+    else app.mode = 'NORMAL'
   }
 
   setDirty(columnId: string, dirty: boolean): void {
@@ -238,7 +242,7 @@ class Buffers {
     this.#entries = rest
     this.#handles.delete(columnId)
     catalog.closeColumn(columnId)
-    if (app.mode === 'NORMAL' || app.mode === 'INSERT') app.mode = 'OCARINA'
+    if (isVimMode(app.mode)) app.mode = 'OCARINA'
   }
 
   #patch(columnId: string, patch: Partial<BufferEntry>): void {
