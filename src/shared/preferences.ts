@@ -33,6 +33,9 @@ export interface Preferences {
    *  it is remembered: a reader who does not want to watch the model think
    *  does not want to say so again every time the app starts. */
   showReasoning: boolean
+  /** Whether a buffer column's gutter counts from the cursor, the way vim's
+   *  relativenumber does. The cursor's own line stays absolute. */
+  bufferRelativeNumbers: boolean
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
@@ -41,6 +44,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   leaderTimeoutMs: 2600,
   defaultPermission: DEFAULT_PERMISSION,
   showReasoning: true,
+  bufferRelativeNumbers: true,
 }
 
 function parseModel(value: unknown): ModelChoice | undefined {
@@ -77,6 +81,7 @@ export function parsePreferences(value: unknown): Preferences {
     motion: flag('motion', DEFAULT_PREFERENCES.motion),
     leaderTimeoutMs: timeout,
     showReasoning: flag('showReasoning', DEFAULT_PREFERENCES.showReasoning),
+    bufferRelativeNumbers: flag('bufferRelativeNumbers', DEFAULT_PREFERENCES.bufferRelativeNumbers),
     // A level we cannot read is the default, never the most trusting one: a
     // corrupt file must not be a way to reach `full`.
     defaultPermission: isPermissionLevel(record.defaultPermission)

@@ -55,6 +55,7 @@ describe('what gets stored', () => {
       leaderTimeoutMs: DEFAULT_PREFERENCES.leaderTimeoutMs,
       defaultPermission: DEFAULT_PREFERENCES.defaultPermission,
       showReasoning: true,
+      bufferRelativeNumbers: true,
     })
   })
 
@@ -65,6 +66,7 @@ describe('what gets stored', () => {
       leaderTimeoutMs: 1800,
       defaultPermission: 'ask' as const,
       showReasoning: false,
+      bufferRelativeNumbers: false,
     }
     preferences.apply(saved)
 

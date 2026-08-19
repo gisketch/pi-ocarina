@@ -23,6 +23,8 @@ export type Overlay =
   | 'roles'
   | 'workspace'
   | 'keybinds'
+  /** Buffer settings: relative numbers, and where buffer keys are rebound. */
+  | 'buffer'
 
 export interface KeyState {
   mode: Mode

@@ -6,6 +6,7 @@
   import { app } from '$lib/state/app.svelte'
   import { buffers } from '$lib/state/buffers.svelte'
   import { isVimMode } from '$lib/types'
+  import { preferences } from '$lib/state/preferences.svelte'
   import { mountEditor, type EditorHandle } from '$lib/editor/editor'
 
   const { columnId, focused, onfocus }: {
@@ -17,7 +18,12 @@
   const entry = $derived(buffers.get(columnId))
 
   let host = $state<HTMLDivElement | null>(null)
-  let handle: EditorHandle | null = null
+  let handle = $state<EditorHandle | null>(null)
+
+  // The settings toggle reaches every open buffer live.
+  $effect(() => {
+    handle?.setRelativeNumbers(preferences.bufferRelativeNumbers)
+  })
 
   onMount(() => {
     const opened = buffers.get(columnId)
@@ -33,6 +39,7 @@
       },
       onModeChange: (mode) => buffers.mirrorMode(columnId, mode),
       onDirtyChange: (dirty) => buffers.setDirty(columnId, dirty),
+      relativeNumbers: preferences.bufferRelativeNumbers,
     })
     const unregister = buffers.register(columnId, handle)
 

@@ -25,6 +25,9 @@ export interface EditorOptions {
   /** vim's own mode word: `normal`, `insert`, `visual`, `replace`. */
   onModeChange?: (mode: string) => void
   onDirtyChange?: (dirty: boolean) => void
+  /** Gutter counts from the cursor, vim's relativenumber. Off by default;
+   *  the buffer settings screen flips it through `setRelativeNumbers`. */
+  relativeNumbers?: boolean
 }
 
 export interface EditorHandle {
@@ -45,6 +48,8 @@ export interface EditorHandle {
   /** Puts the cursor on a 1-based line and scrolls it into the middle —
    *  how a `path:12` chip lands where it pointed. */
   revealLine(line: number): void
+  /** Relative numbering on or off, live — the settings toggle. */
+  setRelativeNumbers(on: boolean): void
   destroy(): void
 }
 
@@ -89,6 +94,24 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
   // reconfigure; plain text in the meantime is correct, only unpainted.
   const language = new Compartment()
 
+  // The gutter lives in a compartment too: relative numbers depend on the
+  // cursor line, and reconfiguring is the only lever that makes CodeMirror
+  // re-ask formatNumber for lines it has already drawn. The cursor's own
+  // line stays absolute, the way vim's number+relativenumber hybrid reads.
+  let relative = options.relativeNumbers ?? false
+  const numbers = new Compartment()
+  const numberGutter = (): Extension =>
+    lineNumbers({
+      formatNumber: (lineNo, state) => {
+        if (!relative) return String(lineNo)
+        const cursor = state.doc.lineAt(state.selection.main.head).number
+        return lineNo === cursor ? String(lineNo) : String(Math.abs(lineNo - cursor))
+      },
+    })
+  const renumber = (): void => {
+    view.dispatch({ effects: numbers.reconfigure(numberGutter()) })
+  }
+
   const view = new EditorView({
     parent: host,
     state: EditorState.create({
@@ -99,7 +122,7 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         // status bar; the plugin still raises a transient panel for `:`, `/`
         // and notifications.
         vim({ status: false }),
-        lineNumbers(),
+        numbers.of(numberGutter()),
         history(),
         bracketMatching(),
         syntaxHighlighting(ocarinaHighlight),
@@ -108,6 +131,12 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         ocarinaTheme,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) setDirty(true)
+          // Deferred: a dispatch inside an update is an error by contract.
+          if (update.selectionSet && relative) {
+            queueMicrotask(() => {
+              if (update.view.dom.isConnected) renumber()
+            })
+          }
         }),
       ],
     }),
@@ -159,6 +188,11 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
       ;(adapter as unknown as { openNotification?: (html: Node) => void })?.openNotification?.(
         document.createTextNode(message),
       )
+    },
+    setRelativeNumbers: (on) => {
+      if (on === relative) return
+      relative = on
+      renumber()
     },
     revealLine: (line) => {
       const target = view.state.doc.line(Math.max(1, Math.min(line, view.state.doc.lines)))

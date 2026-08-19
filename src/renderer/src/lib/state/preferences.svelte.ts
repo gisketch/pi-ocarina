@@ -26,6 +26,8 @@ class PreferencesState {
   defaultReasoning = $state<ReasoningLevel | undefined>(undefined)
   /** Whether the transcript draws what the model thought. `o` flips it. */
   showReasoning = $state(DEFAULT_PREFERENCES.showReasoning)
+  /** Whether buffer gutters count from the cursor, vim's relativenumber. */
+  bufferRelativeNumbers = $state(DEFAULT_PREFERENCES.bufferRelativeNumbers)
 
   /** The stored shape, for writing back. */
   get stored(): Preferences {
@@ -35,6 +37,7 @@ class PreferencesState {
       leaderTimeoutMs: this.leaderTimeoutMs,
       defaultPermission: this.defaultPermission,
       showReasoning: this.showReasoning,
+      bufferRelativeNumbers: this.bufferRelativeNumbers,
       ...(this.defaultModel ? { defaultModel: this.defaultModel } : {}),
       ...(this.defaultReasoning ? { defaultReasoning: this.defaultReasoning } : {}),
     }
@@ -48,6 +51,7 @@ class PreferencesState {
     this.defaultModel = preferences.defaultModel
     this.defaultReasoning = preferences.defaultReasoning
     this.showReasoning = preferences.showReasoning
+    this.bufferRelativeNumbers = preferences.bufferRelativeNumbers
   }
 
   /** The label the settings row shows for the default model. */
@@ -79,6 +83,10 @@ class PreferencesState {
 
     const next = REASONING_ORDER.indexOf(this.defaultReasoning) + direction
     this.defaultReasoning = REASONING_ORDER[next]
+  }
+
+  toggleBufferRelativeNumbers(): void {
+    this.bufferRelativeNumbers = !this.bufferRelativeNumbers
   }
 
   toggleGrain(): void {

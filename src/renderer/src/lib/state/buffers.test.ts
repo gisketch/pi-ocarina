@@ -52,6 +52,7 @@ function fakeHandle(text = 'edited'): EditorHandle & { cleaned: number } {
     enterInsert: () => {},
     notify: () => {},
     revealLine: () => {},
+    setRelativeNumbers: () => {},
     destroy: () => {},
   }
   return handle

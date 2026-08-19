@@ -194,7 +194,14 @@ describe('writeCatalog', () => {
       namePool: ['zeus'],
       seeded: true,
       seededModes: true,
-      preferences: { grain: false, motion: false, leaderTimeoutMs: 1800, defaultPermission: 'ask', showReasoning: true },
+      preferences: {
+        grain: false,
+        motion: false,
+        leaderTimeoutMs: 1800,
+        defaultPermission: 'ask',
+        showReasoning: true,
+        bufferRelativeNumbers: true,
+      },
     }
 
     await writeCatalog(file, state)
@@ -236,7 +243,10 @@ describe('parsePreferences', () => {
       grain: false,
       motion: false,
       leaderTimeoutMs: 1200,
-      defaultPermission: 'ask', showReasoning: true,
+      defaultPermission: 'ask',
+      showReasoning: true,
+      // Absent in the stored file: an old catalog predates the setting.
+      bufferRelativeNumbers: true,
     })
   })
 

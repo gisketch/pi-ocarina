@@ -22,6 +22,7 @@
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
+  import BufferSettingsOverlay from './components/overlays/BufferSettingsOverlay.svelte'
   import RolesOverlay from './components/overlays/RolesOverlay.svelte'
   import WorkspaceOverlay from './components/overlays/WorkspaceOverlay.svelte'
   import CommitCard from './components/overlays/CommitCard.svelte'
@@ -215,9 +216,15 @@
       onmodel={() => shell.openModelFor('default')}
       onroles={() => shell.openOverlay('roles')}
       onmodes={() => shell.openOverlay('modes')}
+      onbuffer={() => shell.openOverlay('buffer')}
       model={preferences.defaultModelLabel}
       reasoning={preferences.defaultReasoningLabel}
       onreasoning={(direction) => preferences.nudgeDefaultReasoning(direction)}
+    />
+  {:else if shell.overlay === 'buffer'}
+    <BufferSettingsOverlay
+      onclose={() => shell.closeOverlay()}
+      onkeymap={() => shell.openOverlay('keybinds')}
     />
   {:else if shell.overlay === 'roles'}
     <RolesOverlay onclose={() => shell.closeOverlay()} />

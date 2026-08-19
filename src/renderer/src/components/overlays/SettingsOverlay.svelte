@@ -20,6 +20,8 @@
     onroles?: () => void
     /** Opens the voices screen: how the agent writes back. */
     onmodes?: () => void
+    /** Opens buffer settings: relative numbers, the buffer's keymaps. */
+    onbuffer?: () => void
   }
 
   const {
@@ -31,6 +33,7 @@
     onreasoning,
     onroles,
     onmodes,
+    onbuffer,
   }: Props = $props()
 
   /** A row is either a switch (`⏎`) or a range (`h`/`l`) — the hint chip tells
@@ -84,6 +87,12 @@
       value: () => 'edit',
       hint: onmodes ? 'enter' : 'none',
       enter: onmodes,
+    },
+    {
+      label: 'buffer settings',
+      value: () => 'edit',
+      hint: onbuffer ? 'enter' : 'none',
+      enter: onbuffer,
     },
     { label: 'keymaps', value: () => 'edit', hint: 'enter', enter: onkeymap },
     // A pointer, not a door. Workspace settings have a key of their own,
