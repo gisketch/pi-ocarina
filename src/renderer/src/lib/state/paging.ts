@@ -21,6 +21,7 @@ import type { NavBlock } from '../blocks'
 import { SCROLL_STEP } from '../keyboard'
 import { blockElement, blockFocus } from './block-focus.svelte'
 import { columnBody, scrollColumn, scrollRest, smoothScrollAiming } from './columns'
+import { following } from './following.svelte'
 
 /** How far a column with no height to halve moves instead — a shell, whose
  *  buffer belongs to xterm and is not DOM overflow. */
@@ -33,6 +34,10 @@ export function pageColumn(
   delta: number,
   ring: boolean,
 ): void {
+  // Paging up is the reader taking the view — the act, named at its source,
+  // never inferred from the scroll it causes. Paging down needs nothing:
+  // reaching the bottom re-arms by position.
+  if (delta < 0) following.of(threadId).take()
   const body = columnBody(threadId)
   if (!body) {
     scrollColumn(threadId, delta * SCROLL_STEP * PAGE_MULTIPLE)

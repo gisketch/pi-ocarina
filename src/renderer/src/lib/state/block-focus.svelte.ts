@@ -9,6 +9,7 @@
 
 import { type NavBlock, step } from '../blocks'
 import { columnBody, smoothScrollAiming } from './columns'
+import { following } from './following.svelte'
 
 const elements = new Map<string, Map<string, HTMLElement>>()
 
@@ -89,6 +90,13 @@ function revealTop(el: HTMLElement, body: HTMLElement): number {
 export function revealBlock(threadId: string, navId: string, place: 'nearest' | 'start' = 'nearest'): void {
   const el = blockElement(threadId, navId)
   if (!el) return
+
+  // A reveal is an attention shift: the reader (or an ask on their behalf) is
+  // being taken to a particular block, and the follow pin fighting that scroll
+  // — yanking the view back down at the next token — is the one thing follow
+  // mode promises not to do. If the block is at the bottom anyway, landing
+  // there re-arms by position.
+  following.of(threadId).take()
 
   const body = columnBody(threadId)
   if (!body) {

@@ -58,6 +58,14 @@ export function scrollRest(el: HTMLElement): number {
   return inflight.get(el)?.to ?? el.scrollTop
 }
 
+/** Whether a programmatic scroll is travelling on `el` right now. The follow
+ *  pin yields to one: a jump's curve re-aims at the live bottom every frame,
+ *  so the animation *is* the way there, and a direct write racing it is what
+ *  made a send arrive as a cut instead of the `G` glide. */
+export function scrolling(el: HTMLElement): boolean {
+  return inflight.has(el)
+}
+
 export function stopScroll(el: HTMLElement): void {
   const running = inflight.get(el)
   if (!running) return

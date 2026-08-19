@@ -16,11 +16,6 @@
  *  break the pin for no reason a reader could see. */
 export const BOTTOM_SLACK = 48
 
-/** How many intermediate positions a jump may pass through before this stops
- *  treating them as its own. Generous — a smooth scroll is a handful of frames
- *  — and finite, which is the point. */
-export const SETTLING_FRAMES = 30
-
 export interface ScrollPosition {
   /** How far down the reader has scrolled. */
   top: number
@@ -34,6 +29,16 @@ export function atBottom(at: ScrollPosition): boolean {
   return at.top + at.height >= at.total - BOTTOM_SLACK
 }
 
+/** The rule that ended the recurring follow bug: **a position can never pause
+ *  the follow — only an act can.** The machine moves the view all the time —
+ *  a jump's curve, the pin, virtualization measuring blocks, the browser's
+ *  own scroll anchoring — and every one of those arrives as a scroll event
+ *  indistinguishable from a reader. The old model guessed which was which
+ *  from positions and frame counters, and every change to any mover broke
+ *  the guess; the fix for one interaction was the regression in the next.
+ *  Now `take()` is the only way out of following, and it is wired to real
+ *  acts: the wheel, a drag, a touch, a paging key, a reveal. A position
+ *  report can only re-arm. */
 export class Follow {
   /** The transcript is pinned to the bottom. The default: a thread opens at
    *  its newest content, which is what the reader came for. */
@@ -42,37 +47,20 @@ export class Follow {
    *  while paused — following means they saw it. */
   unseen = $state(0)
 
-  /** A jump is under way, and the positions it passes through are not the
-   *  reader's. A smooth scroll to the bottom crosses every position between
-   *  here and there; without this the first frame of a jump reads as a scroll
-   *  up and pauses the follow the jump was asking for. */
-  #settling = false
-  /** Positions seen since the jump began, so a jump that never lands gives up
-   *  rather than swallowing the reader's scroll for the rest of the session. */
-  #crossed = 0
-
-  /** The reader moved the view. */
-  scrolled(at: ScrollPosition): void {
-    if (this.#settling && !atBottom(at)) {
-      // A jump that never lands — the reader grabbed the scrollbar, or new
-      // content grew the column mid-animation — would otherwise leave this set
-      // forever, and every scroll after it would be ignored. A few frames is
-      // all a jump is allowed.
-      this.#crossed += 1
-      if (this.#crossed <= SETTLING_FRAMES) return
-    }
-    this.#settling = false
-    this.#crossed = 0
-
-    if (atBottom(at)) {
-      // Back at the bottom under their own power: re-arm silently. Making them
-      // press a button they have already walked to would be a second step for
-      // a thing they have finished doing.
-      this.following = true
-      this.unseen = 0
-      return
-    }
+  /** The reader — or an attention shift on their behalf, like a reveal —
+   *  took the view. The one door out of following. */
+  take(): void {
     this.following = false
+  }
+
+  /** Where the view is now. Positions only ever re-arm: back at the bottom —
+   *  under their own power or a jump's — means following again, silently.
+   *  Making them press a button they have already walked to would be a
+   *  second step for a thing they have finished doing. */
+  scrolled(at: ScrollPosition): void {
+    if (!atBottom(at)) return
+    this.following = true
+    this.unseen = 0
   }
 
   /** New content landed. Counted only when the reader is not watching it. */
@@ -81,12 +69,10 @@ export class Follow {
     this.unseen += count
   }
 
-  /** They asked to come back — the pill, or the key. */
+  /** They asked to come back — the pill, the key, or sending a message. */
   jump(): void {
     this.following = true
     this.unseen = 0
-    this.#settling = true
-    this.#crossed = 0
   }
 
   /** Whether the affordance is drawn.

@@ -8,7 +8,8 @@
 
 import { untrack } from 'svelte'
 
-import { registerColumnBody, stopScroll } from './columns'
+import { atBottom } from '../follow.svelte'
+import { registerColumnBody, scrolling } from './columns'
 import { following } from './following.svelte'
 import { threads } from './threads.svelte'
 
@@ -30,6 +31,43 @@ export function followColumn(
     const box = element()
     if (!box) return
     return registerColumnBody(threadId(), box)
+  })
+
+  /** Whether a pointer is dragging the scrollbar. The one reader act that
+   *  arrives only as scroll events, so it is the one place a position gets to
+   *  pause — and only while the button is genuinely down. */
+  let dragging = false
+
+  // The acts that pause the follow. Only acts can: every programmatic mover
+  // produces scroll events indistinguishable from a reader's, and inferring
+  // intent from positions is the guess that made this bug recur. A wheel
+  // roll upward, a touch, a drag — each is a hand on the view.
+  $effect(() => {
+    const box = element()
+    if (!box) return
+    const id = threadId()
+
+    const wheeled = (event: WheelEvent): void => {
+      if (event.deltaY < 0) following.of(id).take()
+    }
+    const touched = (): void => following.of(id).take()
+    const pressed = (): void => {
+      dragging = true
+    }
+    const released = (): void => {
+      dragging = false
+    }
+
+    box.addEventListener('wheel', wheeled, { passive: true })
+    box.addEventListener('touchstart', touched, { passive: true })
+    box.addEventListener('mousedown', pressed, { passive: true })
+    window.addEventListener('mouseup', released, { passive: true })
+    return () => {
+      box.removeEventListener('wheel', wheeled)
+      box.removeEventListener('touchstart', touched)
+      box.removeEventListener('mousedown', pressed)
+      window.removeEventListener('mouseup', released)
+    }
   })
 
   // What the stream landed. Read from the model rather than from the DOM:
@@ -79,6 +117,51 @@ export function followColumn(
     seen = now
   })
 
+  /** How many consecutive quiet frames end the pin loop once nothing is
+   *  running. Rendering and measuring trail the model by a few frames — the
+   *  message lands, then its markdown renders, then the column measures it —
+   *  and a loop that quit on the first quiet frame left the footer below the
+   *  fold with nothing to re-pin until the next delta. */
+  const QUIET_FRAMES = 8
+
+  let quiet = 0
+
+  /** One pass of the pin loop: write the bottom, and keep coming back until
+   *  it genuinely holds still. Writing once was never enough — the write
+   *  itself makes the column measure blocks it had only estimated,
+   *  `scrollHeight` grows under the write, and a single correction still
+   *  landed short. While a turn is running the loop never quits at all:
+   *  the stream renders on its own schedule, and "quiet for a frame" is not
+   *  "done" — this is what pins the working footer the moment a send lands. */
+  const settle = (): void => {
+    settling = 0
+    const box = element()
+    // Checked live, not when scheduled: a reader who took the view in the
+    // intervening frame keeps it — yanking it back is the one thing follow
+    // mode promises never to do.
+    if (!box || !following.of(threadId()).following) return
+
+    // A jump's animation owns the travel. Its aim re-asks for the bottom
+    // every frame, so it arrives wherever the bottom has moved to — writing
+    // under it is what turned the send's glide into a cut. The loop stays
+    // scheduled as the watchdog for what the landing leaves.
+    if (scrolling(box)) {
+      quiet = 0
+      settling = requestAnimationFrame(settle)
+      return
+    }
+
+    const wanted = Math.max(0, box.scrollHeight - box.clientHeight)
+    if (Math.abs(box.scrollTop - wanted) < 1) {
+      quiet += 1
+      if (quiet > QUIET_FRAMES && threads.get(threadId()).runState !== 'running') return
+    } else {
+      quiet = 0
+      box.scrollTop = box.scrollHeight
+    }
+    settling = requestAnimationFrame(settle)
+  }
+
   // Pinned: keep the newest content in view. `scrollTop` rather than a smooth
   // scroll — a stream arriving faster than an animation settles would leave
   // the view permanently chasing itself.
@@ -97,30 +180,17 @@ export function followColumn(
     // not an arrival; it is a reader saying where they want to be, and how
     // they get there is the jump's business.
     if (!box || !untrack(() => following.of(threadId()).following)) return
-    // A programmatic scroll still travelling is aimed at a bottom that has
-    // moved: the jump that re-follows on send is a curve toward the height the
-    // column had before the message landed. Left running, its next frame
-    // overwrites this line and drags the view back up — the reader sends and
-    // watches the transcript refuse to arrive. Following is the live authority
-    // over this element while something is *arriving*, so it takes it.
-    stopScroll(box)
-    box.scrollTop = box.scrollHeight
+    // A jump still travelling keeps the wheel: its aim is the live bottom,
+    // asked again every frame, so the arrival that just landed is already
+    // where it is going — smoothly, the same glide `G` has. The pin writes
+    // directly only when nothing is in flight, which is what a stream is
+    // once the jump has landed.
+    if (!scrolling(box)) box.scrollTop = box.scrollHeight
 
-    // And again after the browser has laid the new text out. The line above
-    // reads a `scrollHeight` that does not yet include the token that caused
-    // it, so following always stopped a line or two short of the bottom — the
-    // faster the stream, the further short.
-    if (settling !== 0) return
-    settling = requestAnimationFrame(() => {
-      settling = 0
-      // Checked now rather than when this was scheduled: a reader who scrolled
-      // up in the intervening frame has taken the view, and yanking it back
-      // would be the one thing follow mode promises not to do.
-      const now = element()
-      if (!now || !following.of(threadId()).following) return
-      stopScroll(now)
-      now.scrollTop = now.scrollHeight
-    })
+    // And again until the browser has laid everything out and the bottom
+    // genuinely holds still.
+    quiet = 0
+    if (settling === 0) settling = requestAnimationFrame(settle)
   })
 
   $effect(() => () => {
@@ -131,11 +201,16 @@ export function followColumn(
     scrolled: () => {
       const box = element()
       if (!box) return
-      following.of(threadId()).scrolled({
+      const at = {
         top: box.scrollTop,
         height: box.clientHeight,
         total: box.scrollHeight,
-      })
+      }
+      // A scrollbar drag is the one reader act that arrives only as scroll
+      // events. Gated on the button being genuinely down — never inferred
+      // from the position alone.
+      if (dragging && !atBottom(at)) following.of(threadId()).take()
+      following.of(threadId()).scrolled(at)
     },
   }
 }
