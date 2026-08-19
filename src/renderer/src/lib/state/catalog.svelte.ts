@@ -1,6 +1,6 @@
 import type { ThreadId } from '../../../../shared/thread-id'
 import type { ThreadSummary, WorkspaceSummary } from '../../../../shared/protocol'
-import { describe, freshThread, toThread, withTerminal } from './catalog-build'
+import { describe, freshThread, toThread, withTerminal, withThreadAfter } from './catalog-build'
 import { bridge } from '../bridge'
 import { blocksFor, MOCK_THREADS } from '../mock/threads'
 import { WORKSPACES } from '../mock/workspaces'
@@ -104,6 +104,13 @@ class Catalog {
       if (!worktree) toasts.push({ tone: 'error', text: describe(cause) })
       return null
     }
+  }
+
+  /** Puts a column directly right of another's — how a fork lands beside its
+   *  parent. The building is `withThreadAfter`'s; this is the state write. */
+  placeAfter(workspaceId: string, afterId: string, made: Thread): void {
+    this.workspaces = withThreadAfter(this.workspaces, workspaceId, afterId, made)
+    app.reconcile()
   }
 
   /** Renames one thread's column, wherever it is. Driven by the `titled`

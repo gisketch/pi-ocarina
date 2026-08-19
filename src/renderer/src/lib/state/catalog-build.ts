@@ -47,6 +47,28 @@ export function freshThread(workspace: { id: string; name: string }): Thread {
   }
 }
 
+/** The workspaces with `made` placed directly right of `afterId`'s column.
+ *
+ *  A parent that is no longer on the strip means the anchor is gone, not the
+ *  intent — the column goes on the end. A `made.id` already present is moved,
+ *  not duplicated: the strip never shows one thread twice. */
+export function withThreadAfter(
+  workspaces: readonly Workspace[],
+  workspaceId: string,
+  afterId: string,
+  made: Thread,
+): Workspace[] {
+  return workspaces.map((workspace) => {
+    if (workspace.id !== workspaceId) return workspace
+
+    const kept = workspace.threads.filter((thread) => thread.id !== made.id)
+    const anchor = kept.findIndex((thread) => thread.id === afterId)
+    const threads =
+      anchor === -1 ? [...kept, made] : [...kept.slice(0, anchor + 1), made, ...kept.slice(anchor + 1)]
+    return { ...workspace, threads }
+  })
+}
+
 /** "14:02" from an ISO timestamp; the column header has room for little else. */
 function timeOf(modified: string): string {
   const at = new Date(modified)
