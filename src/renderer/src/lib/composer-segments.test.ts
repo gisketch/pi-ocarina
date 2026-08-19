@@ -16,10 +16,11 @@ describe('segmenting', () => {
 
   it('finds a mention', () => {
     expect(segment('why is @src/app.ts slow')).toEqual([
-      { kind: 'plain', text: 'why is' },
-      // The space travels with the chip: it is the cell the mark stands on,
-      // and the `@` after it becomes the gap before the name.
-      { kind: 'mention', text: ' @src/app.ts', lead: 2 },
+      // The space stays plain: it is the reader's, not the chip's. The `@` is
+      // the one cell the mark stands on — the same one cell everywhere, which
+      // is what keeps every mark the same size.
+      { kind: 'plain', text: 'why is ' },
+      { kind: 'mention', text: '@src/app.ts', lead: 1 },
       { kind: 'plain', text: ' slow' },
     ])
   })
@@ -101,41 +102,39 @@ describe('what the caret depends on', () => {
   })
 })
 
-describe('what a chip may sacrifice to its mark', () => {
-  it('never a letter of a file name — only the space in front, when there is one', () => {
-    // The reported bug: a staged file at position 0 has no space, the default
-    // lead hid its first letter, and `pasted-1.png` read `asted-1.png`.
+describe('a chip is exactly its token', () => {
+  it('a file chip is the name — the space in front stays the reader’s text', () => {
+    // The reported bug: a chip that absorbed the space before it read as the
+    // composer deleting the reader's space. Chips are elements with icons of
+    // their own now; they claim no cell from the text.
     expect(segment('pasted-1.png ok', [], ['pasted-1.png'])[0]).toEqual({
       kind: 'file',
       text: 'pasted-1.png',
       lead: 0,
     })
-    expect(segment('see pasted-1.png', [], ['pasted-1.png'])[1]).toEqual({
-      kind: 'file',
-      text: ' pasted-1.png',
-      lead: 1,
-    })
+    expect(segment('see pasted-1.png', [], ['pasted-1.png'])).toEqual([
+      { kind: 'plain', text: 'see ' },
+      { kind: 'file', text: 'pasted-1.png', lead: 0 },
+    ])
   })
 
-  it('a skill gives its space and its slash, which is what earns the full-size mark', () => {
-    expect(segment('do /humanizer', [], [], ['humanizer'])[1]).toEqual({
-      kind: 'skill',
-      text: ' /humanizer',
-      lead: 2,
-    })
+  it('a skill chip is slash and name; the space before it stays the reader’s', () => {
+    expect(segment('do /humanizer', [], [], ['humanizer'])).toEqual([
+      { kind: 'plain', text: 'do ' },
+      { kind: 'skill', text: '/humanizer', lead: 1 },
+    ])
   })
 })
 
 describe('the standard insert flow, end to end', () => {
-  it('a skill chip then a pasted file: both marks full size, one plain gap between', () => {
-    // What `applySlash` and `nameAt` together produce: the skill pads two
-    // trailing spaces, the paste adds two of its own. The file claims two for
-    // its mark and the rest stay plain — the visible gap the chips sit apart by.
-    const text = ' /skill-creator    pasted-1.png  '
+  it('a skill chip then a pasted file, apart by exactly the typed space', () => {
+    // What `applySlash` and `nameAt` now produce: exactly the name and exactly
+    // the file names — every space in the text is one the reader typed.
+    const text = '/skill-creator pasted-1.png'
     const parts = segment(text, [], ['pasted-1.png'], ['skill-creator'])
 
-    expect(parts[0]).toEqual({ kind: 'skill', text: ' /skill-creator', lead: 2 })
-    expect(parts[1]).toEqual({ kind: 'plain', text: '  ' })
-    expect(parts[2]).toEqual({ kind: 'file', text: '  pasted-1.png', lead: 2 })
+    expect(parts[0]).toEqual({ kind: 'skill', text: '/skill-creator', lead: 1 })
+    expect(parts[1]).toEqual({ kind: 'plain', text: ' ' })
+    expect(parts[2]).toEqual({ kind: 'file', text: 'pasted-1.png', lead: 0 })
   })
 })

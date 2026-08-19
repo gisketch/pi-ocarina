@@ -9,6 +9,7 @@
  *  — and because the component is already the longest thing in the renderer. */
 
 import { applyPaste, foldAt, foldsIn, spliceFolds, type Fold } from '../paste'
+import type { CaretField } from '../chip-field'
 import { attachments } from './attachments.svelte'
 import { session } from '../session'
 
@@ -73,7 +74,7 @@ class Pasting {
   async fromEvent(
     event: ClipboardEvent,
     text: string,
-    field: HTMLTextAreaElement | null,
+    field: CaretField | null,
   ): Promise<{ text: string; caret: number } | null> {
     const data = event.clipboardData
     if (!data) return null
@@ -127,24 +128,9 @@ class Pasting {
     return foldAt(text, caret, this.folds)
   }
 
-  /** Deletes the whole token the caret is standing at the end of.
-   *
-   *  Backspace inside a chip used to take one character, which broke the token
-   *  — so `prune` dropped the paste and left the remaining characters sitting
-   *  in the composer as literal text the reader then had to clear by hand. A
-   *  chip is one thing; deleting it deletes all of it. */
-  backspace(text: string, caret: number): { text: string; caret: number } | null {
-    const fold = foldAt(text, caret, this.folds)
-    if (!fold) return null
-
-    const at = text.lastIndexOf(fold.token, caret)
-    if (at === -1 || caret <= at) return null
-
-    this.folds = this.folds.filter((one) => one !== fold)
-    return { text: text.slice(0, at) + text.slice(at + fold.token.length), caret: at }
-  }
-
-  /** Drops folds whose tokens the reader deleted. Called on every edit. */
+  /** Drops folds whose tokens the reader deleted. Called on every edit.
+   *  Whole-chip deletion needs no rule of its own: a chip is a non-editable
+   *  element the browser deletes whole, and this notices the token gone. */
   prune(text: string): void {
     const kept = foldsIn(text, this.folds)
     if (kept.length !== this.folds.length) this.folds = kept
@@ -164,7 +150,7 @@ class Pasting {
  *  words rather than running into what is already there. */
 export function nameAt(
   text: string,
-  field: HTMLTextAreaElement | null,
+  field: CaretField | null,
   names: readonly string[],
 ): { text: string; caret: number } {
   const at = field?.selectionStart ?? text.length
@@ -172,19 +158,11 @@ export function nameAt(
 
   const before = text.slice(0, at)
   const after = text.slice(end)
-  // Two cells in front of every name, and three between names. A chip's mark
-  // has to stand on characters — the mirror may not occupy space — so the
-  // insertion provisions them: two for the mark, and where two chips meet a
-  // third stays plain, which is the gap between them. In the sent text they
-  // are spaces, and `planSend` trims the ends.
-  const said = names.join('   ')
-  const lead = '  '
-  // One trailing space, the same one this has always added: the caret lands
-  // after it so the reader keeps typing their sentence rather than running
-  // into the name. Never two — padding at the end is the reader's to type.
-  const trail = /^\s/.test(after) ? '' : ' '
-
-  const inserted = `${lead}${said}${trail}`
+  // The names and nothing else: every space around a chip is one the reader
+  // typed — injected padding was the composer editing their sentence. One
+  // space *between* two names only, because two dropped at once would
+  // otherwise fuse into a single token in the sent text.
+  const inserted = names.join(' ')
   return { text: before + inserted + after, caret: at + inserted.length }
 }
 

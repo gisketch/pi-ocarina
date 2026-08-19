@@ -34,9 +34,12 @@ describe('mentionAt', () => {
 })
 
 describe('applyMention', () => {
-  it('replaces the typed fragment with the chosen path', () => {
+  it('replaces the typed fragment with the chosen path, and nothing more', () => {
+    // No injected space: the spacing around a chip is the reader's to type.
+    // The picker not reopening on what was inserted is the menu's job now,
+    // not this string's.
     const mention = mentionAt('@src', 4)!
-    expect(applyMention('@src', mention, 'src/lib/thread.ts').text).toBe('@src/lib/thread.ts ')
+    expect(applyMention('@src', mention, 'src/lib/thread.ts').text).toBe('@src/lib/thread.ts')
   })
 
   it('leaves the rest of the message alone', () => {
@@ -44,7 +47,7 @@ describe('applyMention', () => {
     const mention = mentionAt(text.slice(0, 12), 12)!
     const next = applyMention(text, mention, 'src/thread.ts')
 
-    expect(next.text).toBe('look at @src/thread.ts  and tell me')
+    expect(next.text).toBe('look at @src/thread.ts and tell me')
   })
 
   it('puts the caret after the inserted path', () => {
@@ -52,11 +55,6 @@ describe('applyMention', () => {
     const next = applyMention('@s', mention, 'a/b.ts')
 
     expect(next.caret).toBe(next.text.length)
-  })
-
-  it('adds a trailing space so the picker does not reopen on what it inserted', () => {
-    const mention = mentionAt('@s', 2)!
-    expect(applyMention('@s', mention, 'a.ts').text.endsWith(' ')).toBe(true)
   })
 })
 

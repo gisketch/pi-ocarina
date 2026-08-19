@@ -76,19 +76,11 @@ function fileSpans(text: string, files: readonly string[]): Span[] {
     for (;;) {
       const at = text.indexOf(name, from)
       if (at === -1) break
-      // The spaces in front come with it — a file name has no sigil of its
-      // own, so spaces are the only cells its mark can stand on. Up to two,
-      // for a full-size mark; and when the run of spaces borders something
-      // else, one is always left unclaimed, because that plain cell is the
-      // visible gap between this chip and whatever sits before it. At
-      // position 0 with no spaces the honest answer is a chip with no mark,
-      // never one that eats the first letter of the name.
-      let spaces = 0
-      while (spaces < 3 && at - 1 - spaces >= 0 && text[at - 1 - spaces] === ' ') spaces += 1
-      const fromStart = at - spaces === 0
-      const lead =
-        spaces === 0 ? 0 : spaces === 1 ? 1 : fromStart ? Math.min(2, spaces) : Math.min(2, spaces - 1)
-      spans.push({ start: at - lead, end: at + name.length, lead })
+      // Exactly the name. The chip is an element with an icon of its own now,
+      // so it claims no cell from the text — the space the reader typed in
+      // front of a name stays visible text, which is the reported bug: a chip
+      // that absorbed it read as the composer deleting their space.
+      spans.push({ start: at, end: at + name.length, lead: 0 })
       from = at + name.length
     }
   }
@@ -102,11 +94,11 @@ function mentionSpans(text: string): Span[] {
   for (;;) {
     const match = MENTION.exec(text)
     if (!match) break
-    // The whitespace in front comes with the chip, so the mark has a cell of
-    // its own and the `@` becomes the gap before the name. At the very start
-    // there is no whitespace and the `@` alone carries a smaller mark.
-    const start = match.index
-    spans.push({ start, end: start + match[1].length + match[2].length, lead: match[1].length + 1 })
+    // Only the `@` carries the mark — one cell, the same one cell every chip
+    // gets, which is what keeps every mark the same size. The whitespace in
+    // front stays the reader's.
+    const start = match.index + match[1].length
+    spans.push({ start, end: start + match[2].length, lead: 1 })
   }
   return spans
 }
@@ -127,12 +119,11 @@ export function segment(
     ...mentionSpans(text).map((span) => ({ ...span, kind: 'mention' as const })),
     ...fileSpans(text, files).map((span) => ({ ...span, kind: 'file' as const })),
     ...skillSpans(text, skills).map((span) => ({
-      // Back over the whitespace in front, so the chip owns a cell for its
-      // mark and the `/` after it becomes the gap before the name.
-      start: span.start - span.lead,
+      // Only the `/` carries the mark — one cell, like every other chip.
+      start: span.start,
       end: span.end,
       kind: 'skill' as const,
-      lead: span.lead + 1,
+      lead: 1,
     })),
   ].sort((a, b) => a.start - b.start)
 

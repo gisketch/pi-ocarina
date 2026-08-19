@@ -4,7 +4,6 @@ import {
   applySlash,
   filterSlash,
   resolveSlash,
-  skillBackspace,
   skillsSaid,
   SLASH_COMMANDS,
   slashAt,
@@ -70,10 +69,18 @@ describe('writing a skill into a sentence', () => {
     const next = applySlash(text, token, SKILL)
 
     // The name, not pi's syntax: a chip should read as the thing it names.
-    // One trailing space, and it is functional — without it the next
-    // character typed lands inside the name and the chip vanishes.
-    expect(next.text).toBe('this is /humanizer  and more')
-    expect(next.text.slice(0, next.caret)).toBe('this is /humanizer ')
+    // Exactly the name: the spacing around it is the reader's to type, and
+    // injected spaces were reported as the composer editing their sentence.
+    expect(next.text).toBe('this is /humanizer and more')
+    expect(next.text.slice(0, next.caret)).toBe('this is /humanizer')
+  })
+
+  it('adds nothing around the name at the very start', () => {
+    const token = slashAt('/human', 6)!
+    const next = applySlash('/human', token, SKILL)
+
+    expect(next.text).toBe('/humanizer')
+    expect(next.caret).toBe('/humanizer'.length)
   })
 })
 
@@ -251,20 +258,5 @@ describe('a skill in the sentence, on the way out', () => {
 
   it('leaves a message with none of them untouched', () => {
     expect(skillsSaid('plain words', NAMES)).toBe('plain words')
-  })
-})
-
-describe('deleting a skill chip', () => {
-  const NAMES = ['humanizer']
-
-  it('takes the whole chip, not one character of it', () => {
-    const text = 'this is /humanizer'
-    expect(skillBackspace(text, text.length, NAMES)).toEqual({ text: 'this is ', caret: 8 })
-  })
-
-  it('does nothing when the caret is not just after one', () => {
-    const text = 'this is /humanizer more'
-    expect(skillBackspace(text, text.length, NAMES)).toBeNull()
-    expect(skillBackspace(text, 12, NAMES)).toBeNull()
   })
 })

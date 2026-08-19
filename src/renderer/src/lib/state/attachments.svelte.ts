@@ -94,20 +94,6 @@ class Attachments {
     this.list = this.list.filter((attachment) => kept.includes(attachment))
   }
 
-  /** Deletes the whole name the caret is standing at the end of.
-   *
-   *  A chip is one thing. One backspace inside `before.png` left `before.pn`
-   *  in the sentence and unstaged the file, so the reader was looking at
-   *  wreckage of a chip that no longer meant anything — exactly the bug folds
-   *  were given `backspace` for. */
-  backspace(text: string, caret: number): { text: string; caret: number } | null {
-    for (const attachment of [...this.list].sort((a, b) => b.name.length - a.name.length)) {
-      const at = caret - attachment.name.length
-      if (at < 0 || text.slice(at, caret) !== attachment.name) continue
-      return { text: text.slice(0, at) + text.slice(caret), caret: at }
-    }
-    return null
-  }
 
   /** The names the composer draws as chips. */
   get names(): string[] {

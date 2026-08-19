@@ -59,25 +59,3 @@ describe('unstaging by deleting the chip', () => {
   })
 })
 
-describe('backspace on a chip', () => {
-  it('takes the whole name, not one character of it', () => {
-    stage('before.png')
-    const text = 'see before.png'
-
-    expect(attachments.backspace(text, text.length)).toEqual({ text: 'see ', caret: 4 })
-  })
-
-  it('takes the longer name when two end at the caret', () => {
-    stage('shot.png', 'screenshot.png')
-    const text = 'a screenshot.png'
-
-    expect(attachments.backspace(text, text.length)?.text).toBe('a ')
-  })
-
-  it('does nothing when the caret is not at the end of a name', () => {
-    stage('before.png')
-
-    expect(attachments.backspace('see before.png now', 10)).toBeNull()
-    expect(attachments.backspace('plain words', 5)).toBeNull()
-  })
-})

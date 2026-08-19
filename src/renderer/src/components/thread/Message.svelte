@@ -11,6 +11,7 @@
 
   import { segmentsOf } from '$lib/markdown-segments'
   import { markNodes, unnamedIn } from '$lib/attachment-chips'
+  import { collapseSkills, markSkillNodes } from '$lib/skill-chips'
   import AttachmentCard from './AttachmentCard.svelte'
   import UnnamedChips from './UnnamedChips.svelte'
   import type { MessageAttachment } from '$lib/thread'
@@ -44,7 +45,14 @@
     attachments = [],
   }: Props = $props()
 
-  const nodes = $derived(markNodes(parseMarkdown(text), attachments))
+  // A user message may carry pi's expanded `<skill>` block where the reader
+  // typed one chip; it collapses back to a chip. Agent prose is never a skill
+  // invocation, so it skips both passes.
+  const nodes = $derived(
+    role === 'user'
+      ? markSkillNodes(markNodes(parseMarkdown(collapseSkills(text)), attachments))
+      : markNodes(parseMarkdown(text), attachments),
+  )
   /** Files the message never named. They travelled with it, so they are drawn
    *  — as chips after the text, never as a paragraph describing them. */
   const trailing = $derived(unnamedIn(text, attachments))

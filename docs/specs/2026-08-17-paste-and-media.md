@@ -34,6 +34,14 @@ the agent — the transcript shows the image.
 
 ### 1. Chips are drawn over the textarea, never inside it
 
+> **Superseded 2026-08-19.** The mirror could only give a chip what the text
+> donated: an icon had to stand on a character cell, a gap had to *be* a
+> character — so marks came out tiny, uneven, and absent at position 0, and a
+> chip visually absorbed the space before it. The composer is now a
+> `contenteditable` whose chips are real atomic elements; the invariant that
+> replaced glyph alignment is DOM-to-string serialization (`chip-field.ts`).
+> See [2026-08-19-chip-fidelity.md](../exec-plans/active/2026-08-19-chip-fidelity.md).
+
 The design draws chips inline with the text. Our composer is a real
 `<textarea>`, and it stays one: native editing, native undo, native IME. Chips
 come from a **mirror** — a div behind the textarea rendering the same string,

@@ -3,17 +3,18 @@
   import type { ThreadId } from '../../../shared/thread-id'
   import MentionMenu from './MentionMenu.svelte'
   import SlashMenu from './SlashMenu.svelte'
-  import { isSendKey, resizeField, sendHint } from '$lib/composer'
+  import { isSendKey, sendHint } from '$lib/composer'
   import { sendMessage } from '$lib/composer-send'
   import { wrapIndex } from '$lib/fuzzy'
   import { fuzzyFilter } from '$lib/fuzzy'
   import { applyMention, mentionAt } from '$lib/mention'
   import { menuKey } from '$lib/composer-menu'
-  import { skillBackspace, skillsSaid, type SlashCommand } from '$lib/slash'
+  import { skillsSaid, type SlashCommand } from '$lib/slash'
+  import type { CaretField } from '$lib/chip-field'
   import { attachments } from '$lib/state/attachments.svelte'
   import { nameAt, pasting } from '$lib/state/pasting.svelte'
   import { following } from '$lib/state/following.svelte'
-  import Field from './composer/Field.svelte'
+  import ChipField from './composer/ChipField.svelte'
   import FoldPeek from './composer/FoldPeek.svelte'
   import { files } from '$lib/state/files.svelte'
   import { app } from '$lib/state/app.svelte'
@@ -43,7 +44,10 @@
 
   const { columnId, focused, onmodel, oncommit }: Props = $props()
 
-  let input = $state<HTMLTextAreaElement | null>(null)
+  // Two doors to one field: the element for the shell's focus targeting,
+  // the handle for everything that thinks in the composer string.
+  let element = $state<HTMLElement | null>(null)
+  let field = $state<CaretField | null>(null)
   // Read once, deliberately: only the focused column draws a composer, so a
   // different column is a different instance and this id never changes.
   let text = $state(untrack(() => drafts.get(columnId)))
@@ -58,23 +62,23 @@
   // there is exactly one composer at a time, so it is always the right one.
   $effect(() => {
     if (!focused) return
-    shell.targets.composer = input
+    shell.targets.composer = element
     return () => {
-      if (shell.targets.composer === input) shell.targets.composer = null
+      if (shell.targets.composer === element) shell.targets.composer = null
     }
   })
 
   const insert = $derived(focused && app.mode === 'INSERT')
 
-  /** The skill names this workspace loaded. Three things ask "is this a
-   *  skill?": the mirror's chips, the backspace that removes one whole, and
-   *  the swap into pi's syntax on the way out. */
+  /** The skill names this workspace loaded. Two things ask "is this a
+   *  skill?": the field's chips, and the swap into pi's syntax on the way
+   *  out. */
   const skillNames = $derived(projectSurface.surface.skills.map((skill) => skill.name))
 
   const menus = completions({
     text: () => text,
     setText: (next) => (text = next),
-    field: () => input,
+    field: () => field,
     focused: () => focused,
   })
   const slash = $derived(menus.slash)
@@ -166,38 +170,42 @@
     if (!next) return
     text = next.text
     await tick()
-    input?.setSelectionRange(next.caret, next.caret)
+    field?.setSelectionRange(next.caret, next.caret)
     trackCaret()
   }
 
-  const onpaste = async (event: ClipboardEvent): Promise<void> =>
-    applyToField(await pasting.fromEvent(event, text, input))
+  /** Every paste goes through the model: the browser's own paste would drop
+   *  markup into a field whose DOM must serialize back to the string. The
+   *  clipboard and the selection are read before anything async — the event
+   *  is dead by the time the staging returns. */
+  function onpaste(event: ClipboardEvent): void {
+    event.preventDefault()
+    const plain = event.clipboardData?.getData('text/plain') ?? ''
+    const start = field?.selectionStart ?? text.length
+    const end = field?.selectionEnd ?? start
+    void (async () => {
+      const handled = await pasting.fromEvent(event, text, field)
+      if (handled) return applyToField(handled)
+      if (plain === '') return
+      return applyToField({
+        text: text.slice(0, start) + plain + text.slice(end),
+        caret: start + plain.length,
+      })
+    })()
+  }
 
   // A file dropped on the window is staged by the shell, which has no caret to
   // insert at. It leaves the names here and the composer writes them into the
   // sentence, so a drop and a paste land in the same place.
   $effect(() => {
     if (attachments.pending.length === 0) return
-    void applyToField(nameAt(text, input, attachments.takePending()))
+    void applyToField(nameAt(text, field, attachments.takePending()))
   })
 
   function onkeydown(event: KeyboardEvent): void {
-    // A chip is one thing. Taking a character out of the middle of a token
-    // dropped the paste and left its characters behind as literal text.
-    if (event.key === 'Backspace' && input?.selectionStart === input?.selectionEnd) {
-      const caret = input?.selectionStart ?? 0
-      const cut =
-        pasting.backspace(text, caret) ??
-        attachments.backspace(text, caret) ??
-        skillBackspace(text, caret, skillNames)
-      if (cut) {
-        event.preventDefault()
-        void applyToField(cut)
-        // The name is gone, so the file goes with it.
-        attachments.prune(cut.text)
-        return
-      }
-    }
+    // Chip deletion needs no rule here any more: a chip is a
+    // `contenteditable="false"` element, and the browser deletes it whole —
+    // `oninput`'s prune then drops whatever it staged.
 
     // The fold was applied by assignment, not by the browser, so there is
     // nothing in the field's own undo stack to go back to. Only handled when
@@ -214,13 +222,17 @@
     const wanted = menu === null ? null : menuKey(event, menu, active, menus.options)
     if (wanted) {
       event.preventDefault()
+      // A key the menu took is the menu's alone. The shell's window handler
+      // reads some of these too — ⌘k opens the palette, Escape leaves INSERT
+      // — and a key that both walked the list and opened a screen did two
+      // things when the reader asked for one.
+      event.stopPropagation()
       if (wanted.kind === 'move') menus.highlight(wanted.to)
       else if (wanted.kind === 'choose') choose(wanted.index)
       else if (wanted.kind === 'insert') writeIn(wanted.index)
       else {
         // A slash menu clears the word that opened it; a mention keeps what
-        // was typed. Escape must not reach the shell and leave INSERT.
-        event.stopPropagation()
+        // was typed.
         if (menu === 'slash') text = ''
         else menus.dismiss()
       }
@@ -232,10 +244,6 @@
     void send()
   }
 
-  $effect(() => {
-    void text
-    if (input) resizeField(input)
-  })
 </script>
 
 <div class="dock">
@@ -259,9 +267,10 @@
 
   <div class="composer" class:insert>
     <span class="caret">&gt;</span>
-    <Field
+    <ChipField
       bind:value={text}
-      bind:element={input}
+      bind:handle={field}
+      bind:element
       folds={pasting.folds}
       files={attachments.names}
       skills={skillNames}

@@ -10,6 +10,7 @@
  *  column, and each belongs to that column's own field. */
 
 import { applyMention, mentionAt } from '../mention'
+import type { CaretField } from '../chip-field'
 import { applySlash, filterSlash, resolveSlash, slashAt, type SlashCommand } from '../slash'
 import { fuzzyFilter, wrapIndex } from '../fuzzy'
 import { app } from './app.svelte'
@@ -19,7 +20,7 @@ import { projectSurface } from './project-surface.svelte'
 export interface CompletionDeps {
   text: () => string
   setText: (next: string) => void
-  field: () => HTMLTextAreaElement | null
+  field: () => CaretField | null
   /** Only the focused column offers completions: the others are showing a
    *  draft, not being typed into. */
   focused: () => boolean
@@ -31,7 +32,22 @@ export function completions(deps: CompletionDeps) {
   /** Where the caret is, so `@` and `/` know which word it is inside. */
   let caret = $state(0)
 
-  const token = $derived(slashAt(deps.text(), caret))
+  /** The token an insert just completed, so neither menu reopens on its own
+   *  output. Inserts add no trailing space any more — the spacing around a
+   *  chip is the reader's — so the caret lands right after a token both
+   *  finders still match. Keyed by start *and* query: editing the token makes
+   *  it a different query and the menus come back. */
+  let completed = $state<{ start: number; query: string } | null>(null)
+
+  const rawToken = $derived(slashAt(deps.text(), caret))
+  const token = $derived(
+    rawToken &&
+    completed &&
+    rawToken.start === completed.start &&
+    rawToken.query === completed.query
+      ? null
+      : rawToken,
+  )
 
   // The project's commands and skills come from the surface main already read
   // for the workspace screen. Read per focused column rather than per
@@ -68,7 +84,11 @@ export function completions(deps: CompletionDeps) {
 
   const found = $derived(mentionAt(deps.text(), caret))
   const mention = $derived(
-    !deps.focused() || (found && found.start === dismissed) ? null : found,
+    !deps.focused() ||
+    (found && found.start === dismissed) ||
+    (found && completed && found.start === completed.start && found.query === completed.query)
+      ? null
+      : found,
   )
   const paths = $derived(
     mention === null
@@ -109,6 +129,7 @@ export function completions(deps: CompletionDeps) {
 
   function insertMention(path: string): void {
     if (!mention) return
+    completed = { start: mention.start, query: path }
     write(applyMention(deps.text(), mention, path))
   }
 
@@ -117,6 +138,8 @@ export function completions(deps: CompletionDeps) {
    *  a chip and the reader sees the name they picked. */
   function insertSlash(command: SlashCommand): boolean {
     if (token === null || command.id !== 'skill') return false
+    // The query the completed token will carry: the name past its `/`.
+    completed = { start: token.start, query: command.name.slice(1) }
     write(applySlash(deps.text(), token, command))
     return true
   }
@@ -154,6 +177,7 @@ export function completions(deps: CompletionDeps) {
     /** A new query starts at the top of its own list. */
     reset(): void {
       picked = 0
+      completed = null
     },
     dismiss(): void {
       dismissed = mention?.start ?? null

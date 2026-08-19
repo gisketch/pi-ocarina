@@ -19,6 +19,9 @@ export interface InlineSegment {
   strike?: boolean
   /** Set when the run is part of a link. Already checked as safe to follow. */
   href?: string
+  /** A skill this message invoked, carrying its bare name. Drawn as a chip
+   *  the way the composer drew it — same thing before and after sending. */
+  skill?: string
   /** A file the message referred to with `@path`.
    *
    *  Drawn as a chip, the way the composer draws it while it is being typed —

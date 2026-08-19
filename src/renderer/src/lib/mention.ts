@@ -30,13 +30,14 @@ export function mentionAt(text: string, caret: number): Mention | null {
 
 /** Replaces the mention with the chosen path, leaving the caret after it.
  *
- *  A trailing space on purpose: the next thing typed is prose, and without it
- *  the picker would immediately reopen on the path just inserted. */
+ *  Exactly `@path`, no trailing space: the spacing around a chip is the
+ *  reader's to type. The picker not reopening on what was just inserted is
+ *  the menu's own job (`completions` remembers the completed token). */
 export function applyMention(text: string, mention: Mention, path: string): {
   text: string
   caret: number
 } {
-  const inserted = `@${path} `
+  const inserted = `@${path}`
   return {
     text: text.slice(0, mention.start) + inserted + text.slice(mention.end),
     caret: mention.start + inserted.length,

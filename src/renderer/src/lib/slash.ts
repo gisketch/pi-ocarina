@@ -175,9 +175,10 @@ export function slashAt(text: string, caret: number): SlashToken | null {
 
 /** Writes a skill into the sentence, leaving the caret after it.
  *
- *  A trailing space for the reason `applyMention` has one: the next thing
- *  typed is prose, and without it the picker would reopen on what was just
- *  inserted. */
+ *  Exactly the name, nothing around it. Injected spaces were reported as the
+ *  composer editing the reader's sentence — the spacing is theirs to type.
+ *  The menu not reopening on what was just inserted is the menu's own job
+ *  (`completions` remembers the completed token), not this string's. */
 export function applySlash(
   text: string,
   token: SlashToken,
@@ -186,14 +187,7 @@ export function applySlash(
   // The name, not pi's syntax. A chip should read as the thing it names, and
   // the mirror can only draw what the field holds — so `skill:` is not written
   // rather than hidden, and `skillsSaid` puts it back on the way out.
-  //
-  // One leading space at the very start, so the chip's mark has a cell there
-  // too — `planSend` trims it off the sent message. One trailing space and no
-  // more: it is functional, not padding. Without it the next character typed
-  // lands inside the name, the name stops matching a skill, and the chip the
-  // reader just inserted disappears.
-  const pad = token.start === 0 ? ' ' : ''
-  const inserted = `${pad}${command.name} `
+  const inserted = command.name
   return {
     text: text.slice(0, token.start) + inserted + text.slice(token.end),
     caret: token.start + inserted.length,
@@ -237,8 +231,8 @@ export function resolveSlash(
 export function skillSpans(
   text: string,
   names: readonly string[],
-): { start: number; end: number; name: string; lead: number }[] {
-  const spans: { start: number; end: number; name: string; lead: number }[] = []
+): { start: number; end: number; name: string }[] {
+  const spans: { start: number; end: number; name: string }[] = []
   if (names.length === 0) return spans
 
   const pattern = /(^|\s)\/([A-Za-z0-9._-]+)/g
@@ -247,12 +241,8 @@ export function skillSpans(
     if (!match) break
     if (!names.includes(match[2])) continue
 
-    // The whitespace in front comes with the chip. A mirror may not occupy
-    // space, so the only room a chip's mark can have is room the text already
-    // holds — one cell for the mark, and the `/` after it as the gap before
-    // the name.
     const start = match.index + match[1].length
-    spans.push({ start, end: start + match[2].length + 1, name: match[2], lead: match[1].length })
+    spans.push({ start, end: start + match[2].length + 1, name: match[2] })
   }
   return spans
 }
@@ -274,19 +264,4 @@ export function skillsSaid(text: string, names: readonly string[]): string {
     at = span.end
   }
   return out + text.slice(at)
-}
-
-/** Deletes a whole skill chip when the caret sits just after one.
- *
- *  A chip is one thing. Taking a character out of the middle leaves wreckage
- *  that no longer names anything — the bug folds and staged files were each
- *  given a `backspace` for. */
-export function skillBackspace(
-  text: string,
-  caret: number,
-  names: readonly string[],
-): { text: string; caret: number } | null {
-  const span = skillSpans(text, names).find((one) => one.end === caret)
-  if (!span) return null
-  return { text: text.slice(0, span.start) + text.slice(span.end), caret: span.start }
 }
