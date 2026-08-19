@@ -14,7 +14,7 @@ import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { columnBody, scrollColumn } from './columns'
+import { columnBody, scrollColumn, scrollRest, smoothScrollAiming } from './columns'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
 import { drafts } from './drafts.svelte'
@@ -252,18 +252,58 @@ class BlockNav {
   /** `ctrl-d` and `ctrl-u`. Moves the view and nothing else: no ring, no dim,
    *  no mode, in any mode. Skimming is not navigating.
    *
-   *  Half the column, on the same curve every other move rides — a press
-   *  should read as the view travelling, not as it teleporting. Repeated
-   *  presses add to where the scroll is *going*, so holding the chord covers
-   *  a screen per press rather than losing the half still in flight.
+   *  Half the column, measured against a block on screen rather than against
+   *  `scrollTop`. The two are not the same distance here. A transcript
+   *  virtualizes, so the blocks above the fold are estimates until they are
+   *  measured, and the browser's own scroll anchoring shifts `scrollTop` to
+   *  hold the visible content still while those estimates are corrected —
+   *  which is exactly the correction an absolute target overwrites. The result
+   *  was a chord that moved a third of a page one press and three pages the
+   *  next, and an up that no single down could undo.
+   *
+   *  Against a real element the arithmetic is honest: the block ends up half a
+   *  column from where it was, whatever happened to the estimates above it, so
+   *  a press up and a press down cancel exactly.
    *
    *  A shell's buffer belongs to xterm and is not DOM overflow, so it keeps
    *  its own scroller and a fixed step — there is no height here to halve. */
   scroll(delta: number): void {
     const threadId = app.thread.id
-    const height = columnBody(threadId)?.clientHeight
-    const distance = height ? height / 2 : SCROLL_STEP * PAGE_MULTIPLE
-    scrollColumn(threadId, delta * distance)
+    const body = columnBody(threadId)
+    if (!body) {
+      scrollColumn(threadId, delta * SCROLL_STEP * PAGE_MULTIPLE)
+      return
+    }
+
+    const distance = (delta * body.clientHeight) / 2
+    const anchor = this.#onScreen(threadId, body)
+    if (!anchor) {
+      // Nothing painted to measure against. A pixel target is all there is.
+      scrollColumn(threadId, distance)
+      return
+    }
+
+    const offset = (): number =>
+      anchor.getBoundingClientRect().top - body.getBoundingClientRect().top
+    // Where the anchor is headed once everything already asked for has landed,
+    // so a second press adds a second half-column instead of half of one.
+    const pending = scrollRest(body) - body.scrollTop
+    const wanted = offset() - pending - distance
+
+    smoothScrollAiming(body, () => body.scrollTop + (offset() - wanted))
+  }
+
+  /** The first block on screen: what a page is measured against. */
+  #onScreen(threadId: string, body: HTMLElement): HTMLElement | null {
+    const box = body.getBoundingClientRect()
+    for (const entry of this.#list()) {
+      const el = blockElement(threadId, entry.id)
+      if (!el) continue
+
+      const rect = el.getBoundingClientRect()
+      if (rect.bottom > box.top && rect.top < box.bottom) return el
+    }
+    return null
   }
 }
 
