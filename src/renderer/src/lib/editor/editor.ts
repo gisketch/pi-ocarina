@@ -42,6 +42,9 @@ export interface EditorHandle {
   enterInsert(): void
   /** A one-line message on vim's own notice line, for `:w` refusals. */
   notify(message: string): void
+  /** Puts the cursor on a 1-based line and scrolls it into the middle —
+   *  how a `path:12` chip lands where it pointed. */
+  revealLine(line: number): void
   destroy(): void
 }
 
@@ -150,6 +153,13 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
       ;(adapter as unknown as { openNotification?: (html: Node) => void })?.openNotification?.(
         document.createTextNode(message),
       )
+    },
+    revealLine: (line) => {
+      const target = view.state.doc.line(Math.max(1, Math.min(line, view.state.doc.lines)))
+      view.dispatch({
+        selection: { anchor: target.from },
+        effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
+      })
     },
     destroy: () => {
       const adapter = getCM(view)

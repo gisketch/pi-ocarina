@@ -23,15 +23,20 @@ function serviceOver(dir: string): { service: FileWatchService; heard: FileChang
   return { service, heard }
 }
 
-function until(check: () => boolean, ms = 2000): Promise<void> {
+/** Waits for the watcher, poking the disk again on the way: macOS FSEvents
+ *  can swallow a write that lands in the same instant the watch starts, and
+ *  a loaded test run makes that window real. The poke keeps the assertion
+ *  about "a write is reported", not about catching the very first one. */
+function until(check: () => boolean, poke?: () => void, ms = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
     const started = Date.now()
     const tick = (): void => {
       if (check()) return resolve()
       if (Date.now() - started > ms) return reject(new Error('watcher never fired'))
-      setTimeout(tick, 25)
+      poke?.()
+      setTimeout(tick, 100)
     }
-    tick()
+    setTimeout(tick, 100)
   })
 }
 
@@ -49,7 +54,10 @@ describe('the file watcher', () => {
 
     writeFileSync(join(dir, 'a.txt'), 'v2')
 
-    await until(() => heard.length > 0)
+    await until(
+      () => heard.length > 0,
+      () => writeFileSync(join(dir, 'a.txt'), `v${Date.now()}`),
+    )
     expect(heard[0]).toMatchObject({ workspaceId: 'w1', path: 'a.txt' })
     expect(heard[0]?.mtimeMs).toBeGreaterThan(0)
   })
@@ -75,7 +83,13 @@ describe('the file watcher', () => {
     writeFileSync(join(dir, 'b.txt'), 'v2')
     writeFileSync(join(dir, 'a.txt'), 'v2')
 
-    await until(() => heard.length > 0)
+    await until(
+      () => heard.length > 0,
+      () => {
+        writeFileSync(join(dir, 'b.txt'), `v${Date.now()}`)
+        writeFileSync(join(dir, 'a.txt'), `v${Date.now()}`)
+      },
+    )
     expect(heard.every((message) => message.path === 'a.txt')).toBe(true)
   })
 

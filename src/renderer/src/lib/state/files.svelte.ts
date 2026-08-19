@@ -9,9 +9,25 @@ import { session } from '../session'
 class FileIndex {
   #indexes = $state.raw<Record<string, string[]>>({})
   #loading = new Set<string>()
+  /** Keyed by the list's identity, so a swapped index drops its old Set. */
+  #sets = new WeakMap<string[], Set<string>>()
 
   files(workspaceId: string): string[] {
     return this.#indexes[workspaceId] ?? []
+  }
+
+  /** Membership, for the prose chips — a Set per workspace, rebuilt when the
+   *  index is, because asking `includes` of fifty thousand paths per code
+   *  span is how a transcript starts to lag. */
+  contains(workspaceId: string, path: string): boolean {
+    const files = this.#indexes[workspaceId]
+    if (!files) return false
+    let set = this.#sets.get(files)
+    if (!set) {
+      set = new Set(files)
+      this.#sets.set(files, set)
+    }
+    return set.has(path)
   }
 
   /** Loads the index if it is not already there. Safe to call on every render. */

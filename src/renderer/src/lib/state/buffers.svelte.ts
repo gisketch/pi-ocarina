@@ -35,6 +35,9 @@ export interface BufferEntry {
   dirty: boolean
   /** One line under the header: a refusal, or "file changed on disk". */
   notice: string | null
+  /** A `path:12` chip's landing line, held until the editor mounts and
+   *  claimed by the column when it does. */
+  revealLine: number | null
 }
 
 class Buffers {
@@ -60,13 +63,17 @@ class Buffers {
 
   /** Opens `path` as a buffer column right of the focused column, or focuses
    *  the column it already has. Entering the buffer is the caller's move —
-   *  opening shows the file, it does not take the keyboard. */
-  async open(workspaceId: string, path: string): Promise<number | null> {
+   *  opening shows the file, it does not take the keyboard. `line` is where
+   *  a `path:12` chip pointed. */
+  async open(workspaceId: string, path: string, line?: number): Promise<number | null> {
     if (catalog.source !== 'live') return null
 
     const columnId = fileColumnId(workspaceId, path)
     const already = this.#focus(workspaceId, columnId)
-    if (already !== null) return already
+    if (already !== null) {
+      if (line !== undefined) this.#reveal(columnId, line)
+      return already
+    }
 
     try {
       const read = await session.invoke('readFile', { workspaceId, path })
@@ -82,6 +89,7 @@ class Buffers {
           text: read.text,
           dirty: false,
           notice: null,
+          revealLine: line ?? null,
         },
       }
       catalog.placeAfter(workspaceId, app.thread.id, {
@@ -100,10 +108,23 @@ class Buffers {
     }
   }
 
-  /** The column's editor, while it is mounted. */
+  /** The column's editor, while it is mounted. A landing line that arrived
+   *  before the mount is claimed here. */
   register(columnId: string, handle: EditorHandle): () => void {
     this.#handles.set(columnId, handle)
+    const pending = this.#entries[columnId]?.revealLine
+    if (pending != null) {
+      handle.revealLine(pending)
+      this.#patch(columnId, { revealLine: null })
+    }
     return () => this.#handles.delete(columnId)
+  }
+
+  /** A chip pointed into a buffer that is already open. */
+  #reveal(columnId: string, line: number): void {
+    const handle = this.#handles.get(columnId)
+    if (handle) handle.revealLine(line)
+    else this.#patch(columnId, { revealLine: line })
   }
 
   /** Focus the editor: vim normal, or straight into insert. */

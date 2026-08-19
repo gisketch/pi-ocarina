@@ -51,6 +51,7 @@ function fakeHandle(text = 'edited'): EditorHandle & { cleaned: number } {
     enterNormal: () => {},
     enterInsert: () => {},
     notify: () => {},
+    revealLine: () => {},
     destroy: () => {},
   }
   return handle
@@ -285,5 +286,29 @@ describe('the disk moving under an open buffer', () => {
 
     expect(buffers.get(COLUMN)?.notice).toBe(DELETED_ON_DISK)
     expect(buffers.get(COLUMN)).toBeDefined()
+  })
+})
+
+describe('landing on a mentioned line', () => {
+  it('holds the line until the editor mounts, then claims it once', async () => {
+    backendReads()
+    await buffers.open('w1', 'src/a.ts', 42)
+
+    const landed: number[] = []
+    const handle = { ...fakeHandle(), revealLine: (line: number) => landed.push(line) }
+    buffers.register(COLUMN, handle)
+
+    expect(landed).toEqual([42])
+    expect(buffers.get(COLUMN)?.revealLine).toBe(null)
+  })
+
+  it('reveals directly in a buffer that is already open and mounted', async () => {
+    await opened()
+    const landed: number[] = []
+    buffers.register(COLUMN, { ...fakeHandle(), revealLine: (line: number) => landed.push(line) })
+
+    await buffers.open('w1', 'src/a.ts', 7)
+
+    expect(landed).toEqual([7])
   })
 })

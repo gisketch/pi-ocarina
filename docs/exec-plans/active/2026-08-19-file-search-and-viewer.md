@@ -237,7 +237,7 @@ Blocked by: T2, T3, T5, T6.
 
 ## T8 — the watcher: clean buffers follow the disk
 
-Status: todo
+Status: done
 
 Behavior: pi rewrites an open file; a clean buffer reloads and the cursor
 stays put (best effort); a dirty buffer holds and shows

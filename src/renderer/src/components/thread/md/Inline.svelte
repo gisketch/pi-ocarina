@@ -2,8 +2,12 @@
   import Chip from '../../Chip.svelte'
   import Icon from '../../Icon.svelte'
   import { bridge } from '$lib/bridge'
+  import { asFileMention } from '$lib/file-mention'
   import { fileIcon } from '$lib/icons'
   import { mergeLinks } from '$lib/markdown-inline'
+  import { app } from '$lib/state/app.svelte'
+  import { buffers } from '$lib/state/buffers.svelte'
+  import { files } from '$lib/state/files.svelte'
   import type { InlineSegment } from '$lib/thread'
 
   /** `onattachment` is what makes a file chip a button. Absent — an agent's
@@ -17,6 +21,13 @@
 
   // A link is one chip, so a label the marks split is folded back first.
   const merged = $derived(mergeLinks(parts))
+
+  /** A backticked path that resolves in the workspace opens a buffer column
+   *  (spec D9). Anything on this strip belongs to the focused workspace, so
+   *  its index is the one to resolve against; a miss stays plain code. */
+  function mentioned(code: string): { path: string; line: number | null } | null {
+    return asFileMention(code, (path) => files.contains(app.workspace.id, path))
+  }
 </script>
 
 {#each merged as part, i (i)}{#if part.href}<a
@@ -37,8 +48,11 @@
     label={part.text}
     tone="warn"
   />{:else if part.mention}<span class="mention">{part.text}</span
-  >{:else if part.code}<code class:b={part.bold}>{part.text}</code
-  >{:else}<span
+  >{:else if part.code}{@const mention = mentioned(part.text)}{#if mention}<Chip
+    icon={fileIcon(mention.path)}
+    label={part.text}
+    onclick={() => void buffers.open(app.workspace.id, mention.path, mention.line ?? undefined)}
+  />{:else}<code class:b={part.bold}>{part.text}</code>{/if}{:else}<span
     class:b={part.bold}
     class:i={part.italic}
     class:s={part.strike}>{part.text}</span
