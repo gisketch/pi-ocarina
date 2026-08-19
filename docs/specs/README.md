@@ -99,6 +99,10 @@ on one before implementing it. Each carries its own list of what the grill must
 settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
+- [2026-08-19-thread-dashboard.md](2026-08-19-thread-dashboard.md) — the
+  fresh-thread placeholder becomes a launcher: deferred creation, an inline
+  worktree flow replacing the WorktreeAsk modal, a recent-thread list, and a
+  telescope-style history picker with a live preview. **Grilled 2026-08-19.**
 - [2026-08-16-project-surface.md](2026-08-16-project-surface.md) — the commands a
   project defines, the skills it loads, and the instruction file the session
   read. **Grilled 2026-08-18.** Tickets in

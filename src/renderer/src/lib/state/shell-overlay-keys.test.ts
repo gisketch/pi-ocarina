@@ -43,6 +43,26 @@ beforeEach(() => {
   shell.pendingClose = null
 })
 
+describe('a key a surface already answered', () => {
+  it('is never read again by the shell', () => {
+    // The double-action bug: a picker's input picks on a digit in the target
+    // phase, the pick closes the overlay, and the same event bubbles to the
+    // window — where the shell, seeing no overlay, read "2" as workspace 2.
+    // The reader chose a voice and was teleported.
+    const consumed = shell.handleKey({ key: '2', defaultPrevented: true })
+
+    expect(consumed).toBe(false)
+    expect(app.workspaceIndex).toBe(0)
+    expect(routing.routeToOverlay).not.toHaveBeenCalled()
+    expect(routing.routeToSurface).not.toHaveBeenCalled()
+  })
+
+  it('still switches on the same digit when nobody answered it', () => {
+    shell.handleKey({ key: '2' })
+    expect(app.workspaceIndex).toBe(1)
+  })
+})
+
 describe('a key pressed under an open screen', () => {
   it('reaches the column surfaces only while nothing is drawn over them', () => {
     shell.handleKey({ key: 'j' })

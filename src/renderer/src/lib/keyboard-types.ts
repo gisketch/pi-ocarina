@@ -60,6 +60,9 @@ export interface KeyEventLike {
   metaKey?: boolean
   ctrlKey?: boolean
   altKey?: boolean
+  /** True when a surface answered this key in the target phase — a picker's
+   *  input, a form field. The shell never reads such a key again. */
+  defaultPrevented?: boolean
 }
 
 export interface KeyContext {

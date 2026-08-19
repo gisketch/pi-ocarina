@@ -187,6 +187,13 @@ class ShellState {
 
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
+    // A key a surface already answered is not the shell's to read again. The
+    // hole this closes: a picker's input handles a key in the target phase,
+    // the pick closes the overlay, and the same event then bubbles to the
+    // window — where the shell, seeing no overlay any more, read the digit
+    // that chose a voice as "go to that workspace".
+    if (event.defaultPrevented) return false
+
     // Everything modal answers first, in one place that owns the ranking.
     const answered = routeToOverlay(event, this.keymap)
     if (answered !== null) return answered
