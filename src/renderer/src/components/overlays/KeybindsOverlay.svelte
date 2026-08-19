@@ -27,6 +27,27 @@
   /** True after one ⇧R; the second within this armed state resets all. */
   let resetAsked = $state(false)
 
+  let list = $state<HTMLElement | null>(null)
+
+  /** vim's scrolloff: the selection never enters the outermost rows of the
+   *  viewport. The moment it comes within two rows of an edge, the list
+   *  scrolls — so what is coming next is always on screen before it is
+   *  chosen. */
+  const SCROLLOFF = 2
+  $effect(() => {
+    const holder = list
+    const row = holder?.querySelectorAll<HTMLElement>('.row')[selected]
+    if (!holder || !row) return
+
+    const margin = row.offsetHeight * SCROLLOFF
+    const top = row.offsetTop - margin
+    const bottom = row.offsetTop + row.offsetHeight + margin
+    if (top < holder.scrollTop) holder.scrollTop = top
+    else if (bottom > holder.scrollTop + holder.clientHeight) {
+      holder.scrollTop = bottom - holder.clientHeight
+    }
+  })
+
   const row = $derived(rows[selected])
   const recording = $derived(keybinds.recording !== null)
 
@@ -123,7 +144,7 @@
       <span class="note">{Object.keys(keybinds.keys).length || 'no'} rebound</span>
     </div>
 
-    <div class="rows">
+    <div class="rows" bind:this={list}>
       {#each rows as one, i (one.action)}
         {#if i === 0 || rows[i - 1].group !== one.group}
           <div class="group">{TITLES[one.group]}</div>
@@ -202,6 +223,9 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    /* The offset parent for the scrolloff arithmetic: a row's offsetTop must
+       be measured against this box, not the panel behind it. */
+    position: relative;
   }
 
   .group {
