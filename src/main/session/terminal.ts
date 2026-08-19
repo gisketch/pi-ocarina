@@ -13,7 +13,7 @@ const DEFAULT_SHELL = '/bin/zsh'
 
 export interface TerminalOptions {
   /** Where the pty's bytes go. One call per flush, already coalesced. */
-  emit: (workspaceId: string, data: string) => void
+  emit: (terminalId: string, data: string) => void
   /** The folder a workspace's shell starts in. */
   cwdOf: (workspaceId: string) => string
   /** Injected so tests never spawn a real shell. */
@@ -29,17 +29,18 @@ export type PtySpawn = (
 interface Terminal {
   pty: IPty
   shell: string
+  workspaceId: string
   pending: string
   timer: ReturnType<typeof setTimeout> | null
 }
 
-/** One login shell per workspace.
+/** Independently addressed login shells.
  *
  *  A pty is created when the user asks for one and dies when they close it or
  *  when the app does — it is not a daemon, and nothing survives a quit. */
 export class TerminalService {
   readonly #terminals = new Map<string, Terminal>()
-  /** Workspaces whose shell is being spawned right now. */
+  /** Terminal ids whose shell is being spawned right now. */
   readonly #starting = new Set<string>()
   readonly #emit: TerminalOptions['emit']
   readonly #cwdOf: TerminalOptions['cwdOf']
@@ -51,22 +52,22 @@ export class TerminalService {
     this.#spawn = spawn
   }
 
-  /** Starts the workspace's shell, or does nothing if it is already running.
+  /** Starts one terminal's shell, or does nothing if it is already running.
    *  Safe to call on every `t`, which is what makes the key idempotent. */
-  async create(workspaceId: string): Promise<void> {
-    if (this.#starting.has(workspaceId) || this.#terminals.has(workspaceId)) return
+  async create(terminalId: string, workspaceId: string): Promise<void> {
+    if (this.#starting.has(terminalId) || this.#terminals.has(terminalId)) return
     // Claimed before the await: loading the native module takes long enough
     // for a second `t` to arrive and spawn a shell nobody can reach.
-    this.#starting.add(workspaceId)
+    this.#starting.add(terminalId)
 
     try {
-      await this.#spawnInto(workspaceId)
+      await this.#spawnInto(terminalId, workspaceId)
     } finally {
-      this.#starting.delete(workspaceId)
+      this.#starting.delete(terminalId)
     }
   }
 
-  async #spawnInto(workspaceId: string): Promise<void> {
+  async #spawnInto(terminalId: string, workspaceId: string): Promise<void> {
     const spawn = this.#spawn ?? (await loadPty())
     const shell = process.env.SHELL ?? DEFAULT_SHELL
     // A login shell, so the user's aliases and PATH are the ones they expect
@@ -79,27 +80,27 @@ export class TerminalService {
       rows: 24,
     })
 
-    const terminal: Terminal = { pty, shell, pending: '', timer: null }
-    this.#terminals.set(workspaceId, terminal)
+    const terminal: Terminal = { pty, shell, workspaceId, pending: '', timer: null }
+    this.#terminals.set(terminalId, terminal)
 
-    pty.onData((data) => this.#buffer(workspaceId, terminal, data))
+    pty.onData((data) => this.#buffer(terminalId, terminal, data))
     // A shell the user exited is gone; the column stays until they close it,
     // and asking for it again spawns a fresh one. Identity is checked because
     // a dying shell's exit can land after its replacement was created — and
     // forgetting by key alone would orphan the new one.
-    pty.onExit(() => this.#forget(workspaceId, terminal))
+    pty.onExit(() => this.#forget(terminalId, terminal))
   }
 
-  write(workspaceId: string, data: string): void {
+  write(terminalId: string, data: string): void {
     // Not buffered: a keystroke delayed by a frame is a keystroke that feels
     // slow, and the volume going this direction is a person typing.
-    this.#terminals.get(workspaceId)?.pty.write(data)
+    this.#terminals.get(terminalId)?.pty.write(data)
   }
 
-  resize(workspaceId: string, cols: number, rows: number): void {
+  resize(terminalId: string, cols: number, rows: number): void {
     if (cols < 1 || rows < 1) return
     try {
-      this.#terminals.get(workspaceId)?.pty.resize(cols, rows)
+      this.#terminals.get(terminalId)?.pty.resize(cols, rows)
     } catch {
       // The pty died between the resize observer firing and this call.
     }
@@ -110,8 +111,8 @@ export class TerminalService {
    *  This is what the close confirm asks about. node-pty reports the
    *  foreground process name; when it differs from the login shell, a command
    *  is running and closing the column would kill it. */
-  busy(workspaceId: string): boolean {
-    const terminal = this.#terminals.get(workspaceId)
+  busy(terminalId: string): boolean {
+    const terminal = this.#terminals.get(terminalId)
     if (!terminal) return false
 
     try {
@@ -129,11 +130,11 @@ export class TerminalService {
     }
   }
 
-  kill(workspaceId: string): void {
-    const terminal = this.#terminals.get(workspaceId)
+  kill(terminalId: string): void {
+    const terminal = this.#terminals.get(terminalId)
     if (!terminal) return
 
-    this.#forget(workspaceId, terminal)
+    this.#forget(terminalId, terminal)
     try {
       terminal.pty.kill()
     } catch {
@@ -141,15 +142,21 @@ export class TerminalService {
     }
   }
 
-  has(workspaceId: string): boolean {
-    return this.#terminals.has(workspaceId)
+  has(terminalId: string): boolean {
+    return this.#terminals.has(terminalId)
+  }
+
+  killWorkspace(workspaceId: string): void {
+    for (const [terminalId, terminal] of this.#terminals) {
+      if (terminal.workspaceId === workspaceId) this.kill(terminalId)
+    }
   }
 
   disposeAll(): void {
-    for (const workspaceId of [...this.#terminals.keys()]) this.kill(workspaceId)
+    for (const terminalId of [...this.#terminals.keys()]) this.kill(terminalId)
   }
 
-  #buffer(workspaceId: string, terminal: Terminal, data: string): void {
+  #buffer(terminalId: string, terminal: Terminal, data: string): void {
     terminal.pending += data
     if (terminal.timer) return
 
@@ -157,14 +164,14 @@ export class TerminalService {
       terminal.timer = null
       const flushed = terminal.pending
       terminal.pending = ''
-      if (flushed) this.#emit(workspaceId, flushed)
+      if (flushed) this.#emit(terminalId, flushed)
     }, FLUSH_MS)
   }
 
-  #forget(workspaceId: string, terminal: Terminal): void {
-    if (this.#terminals.get(workspaceId) !== terminal) return
+  #forget(terminalId: string, terminal: Terminal): void {
+    if (this.#terminals.get(terminalId) !== terminal) return
     if (terminal.timer) clearTimeout(terminal.timer)
-    this.#terminals.delete(workspaceId)
+    this.#terminals.delete(terminalId)
   }
 }
 

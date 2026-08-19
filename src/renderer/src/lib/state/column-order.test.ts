@@ -97,7 +97,7 @@ describe('closing the terminal column', () => {
     shell.requestClose()
     await settle()
 
-    expect(kill).toHaveBeenCalledWith('w1')
+    expect(kill).toHaveBeenCalledWith(TERM_ID)
     expect(app.workspace.threads.some((thread) => thread.terminal)).toBe(false)
     expect(shell.pendingClose).toBeNull()
   })
@@ -149,7 +149,7 @@ describe('closing the shell named by the column', () => {
     // The id carries the workspace, so a focus change cannot redirect the kill.
     shell.closeThread(terminalId('w1'), { cancelTurn: false })
 
-    expect(kill).toHaveBeenCalledWith('w1')
+    expect(kill).toHaveBeenCalledWith(TERM_ID)
   })
 })
 

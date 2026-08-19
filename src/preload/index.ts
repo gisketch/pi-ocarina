@@ -15,6 +15,7 @@ import {
   type GitCommitResult,
   type GitStatusMessage,
   type PullRequestResult,
+  type TerminalTarget,
 } from '../shared/protocol'
 
 // The preload is a typed bridge only — no logic. The renderer must keep working
@@ -119,21 +120,21 @@ const api = {
       return () => ipcRenderer.off(GIT_STATUS_CHANNEL, handler)
     },
   },
-  /** The workspace's shell. Output has its own channel per workspace so a
+  /** User-owned shells. Output has its own channel per terminal so a
    *  noisy build cannot delay a thread's tokens. */
   terminal: {
-    create: (workspaceId: string): Promise<{ ok: true }> =>
-      ipcRenderer.invoke('terminal:create', workspaceId),
-    kill: (workspaceId: string): Promise<{ ok: true }> =>
-      ipcRenderer.invoke('terminal:kill', workspaceId),
-    write: (workspaceId: string, data: string): void =>
-      ipcRenderer.send('terminal:write', workspaceId, data),
-    resize: (workspaceId: string, cols: number, rows: number): void =>
-      ipcRenderer.send('terminal:resize', workspaceId, cols, rows),
-    busy: (workspaceId: string): Promise<{ busy: boolean }> =>
-      ipcRenderer.invoke('terminal:busy', workspaceId),
-    onData: (workspaceId: string, listener: (data: string) => void): (() => void) => {
-      const channel = ptyChannel(workspaceId)
+    create: (target: TerminalTarget): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('terminal:create', target),
+    kill: (terminalId: string): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('terminal:kill', terminalId),
+    write: (terminalId: string, data: string): void =>
+      ipcRenderer.send('terminal:write', terminalId, data),
+    resize: (terminalId: string, cols: number, rows: number): void =>
+      ipcRenderer.send('terminal:resize', terminalId, cols, rows),
+    busy: (terminalId: string): Promise<{ busy: boolean }> =>
+      ipcRenderer.invoke('terminal:busy', terminalId),
+    onData: (terminalId: string, listener: (data: string) => void): (() => void) => {
+      const channel = ptyChannel(terminalId)
       const handler = (_event: unknown, data: string): void => listener(data)
       ipcRenderer.on(channel, handler)
       return () => ipcRenderer.off(channel, handler)

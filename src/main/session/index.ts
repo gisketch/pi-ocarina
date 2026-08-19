@@ -7,6 +7,7 @@ import {
   type CommandParams,
   type EventBatch,
   type SessionDriver,
+  type TerminalTarget,
 } from '../../shared/protocol'
 import type { CatalogStore } from '../catalog-store'
 import { createFinishNotifier } from '../lifecycle'
@@ -31,10 +32,10 @@ function broadcast(batches: EventBatch[]): void {
  *  noisy build delay the tokens of every running thread. */
 function registerTerminals(catalog: CatalogStore): TerminalService {
   const terminals = new TerminalService({
-    emit: (workspaceId, data) => {
+    emit: (terminalId, data) => {
       for (const win of BrowserWindow.getAllWindows()) {
         if (win.isDestroyed()) continue
-        win.webContents.send(ptyChannel(workspaceId), data)
+        win.webContents.send(ptyChannel(terminalId), data)
       }
     },
     cwdOf: (workspaceId) => {
@@ -44,22 +45,22 @@ function registerTerminals(catalog: CatalogStore): TerminalService {
     },
   })
 
-  ipcMain.handle('terminal:create', async (_event, workspaceId: string) => {
-    await terminals.create(workspaceId)
+  ipcMain.handle('terminal:create', async (_event, target: TerminalTarget) => {
+    await terminals.create(target.id, target.workspaceId)
     return { ok: true as const }
   })
-  ipcMain.handle('terminal:kill', (_event, workspaceId: string) => {
-    terminals.kill(workspaceId)
+  ipcMain.handle('terminal:kill', (_event, terminalId: string) => {
+    terminals.kill(terminalId)
     return { ok: true as const }
   })
-  ipcMain.on('terminal:write', (_event, workspaceId: string, data: string) => {
-    terminals.write(workspaceId, data)
+  ipcMain.on('terminal:write', (_event, terminalId: string, data: string) => {
+    terminals.write(terminalId, data)
   })
-  ipcMain.on('terminal:resize', (_event, workspaceId: string, cols: number, rows: number) => {
-    terminals.resize(workspaceId, cols, rows)
+  ipcMain.on('terminal:resize', (_event, terminalId: string, cols: number, rows: number) => {
+    terminals.resize(terminalId, cols, rows)
   })
-  ipcMain.handle('terminal:busy', (_event, workspaceId: string) => ({
-    busy: terminals.busy(workspaceId),
+  ipcMain.handle('terminal:busy', (_event, terminalId: string) => ({
+    busy: terminals.busy(terminalId),
   }))
 
   return terminals
@@ -128,7 +129,7 @@ export function registerSession(
           emit,
           catalog,
           onUnpin: (id) => {
-            terminals.kill(id)
+            terminals.killWorkspace(id)
             hooks.onUnpin?.(id)
           },
         })

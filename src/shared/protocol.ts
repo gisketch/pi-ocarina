@@ -28,9 +28,15 @@ export const PROTOCOL_VERSION = 1
  *  without importing the backend it would otherwise bundle. */
 export const SESSION_COMMAND_CHANNEL = 'session:command'
 export const SESSION_EVENTS_CHANNEL = 'session:events'
-/** Pty output, one channel per workspace. Kept off the session event queue so a
+/** The stable identity and workspace context needed to create one terminal. */
+export interface TerminalTarget {
+  id: string
+  workspaceId: string
+}
+
+/** Pty output, one channel per terminal. Kept off the session event queue so a
  *  build printing thousands of lines cannot delay a thread's tokens. */
-export const ptyChannel = (workspaceId: string): string => `pty:${workspaceId}`
+export const ptyChannel = (terminalId: string): string => `pty:${terminalId}`
 /** Repository state, pushed whenever it changes. One message per workspace. */
 export const GIT_STATUS_CHANNEL = 'git:status'
 

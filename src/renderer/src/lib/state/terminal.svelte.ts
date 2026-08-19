@@ -8,31 +8,32 @@ import { bridge } from '../bridge'
  *  no-op without a bridge, so the browser harness renders the column without a
  *  pty behind it. */
 class Terminals {
-  create(workspaceId: string): Promise<void> {
-    return bridge?.terminal.create(workspaceId).then(() => undefined) ?? Promise.resolve()
+  create(terminalId: string, workspaceId: string): Promise<void> {
+    return bridge?.terminal.create({ id: terminalId, workspaceId }).then(() => undefined)
+      ?? Promise.resolve()
   }
 
-  kill(workspaceId: string): void {
-    void bridge?.terminal.kill(workspaceId)
+  kill(terminalId: string): void {
+    void bridge?.terminal.kill(terminalId)
   }
 
-  write(workspaceId: string, data: string): void {
-    bridge?.terminal.write(workspaceId, data)
+  write(terminalId: string, data: string): void {
+    bridge?.terminal.write(terminalId, data)
   }
 
-  resize(workspaceId: string, cols: number, rows: number): void {
-    bridge?.terminal.resize(workspaceId, cols, rows)
+  resize(terminalId: string, cols: number, rows: number): void {
+    bridge?.terminal.resize(terminalId, cols, rows)
   }
 
   /** Whether the shell is running something. Unknown counts as not running:
    *  a question we cannot answer must not become a confirm dialog. */
-  busy(workspaceId: string): Promise<boolean> {
-    return bridge?.terminal.busy(workspaceId).then(({ busy }) => busy).catch(() => false)
+  busy(terminalId: string): Promise<boolean> {
+    return bridge?.terminal.busy(terminalId).then(({ busy }) => busy).catch(() => false)
       ?? Promise.resolve(false)
   }
 
-  onData(workspaceId: string, listener: (data: string) => void): () => void {
-    return bridge?.terminal.onData(workspaceId, listener) ?? (() => {})
+  onData(terminalId: string, listener: (data: string) => void): () => void {
+    return bridge?.terminal.onData(terminalId, listener) ?? (() => {})
   }
 }
 

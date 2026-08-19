@@ -39,15 +39,15 @@ function service(spawns: ReturnType<typeof fakePty>[]) {
   return { terminals, emitted }
 }
 
-describe('one shell per workspace', () => {
+describe('one shell per terminal id', () => {
   it('does not spawn a second shell when t is pressed twice quickly', async () => {
     const first = fakePty()
     const second = fakePty()
     const { terminals } = service([first, second])
 
-    await Promise.all([terminals.create('w1'), terminals.create('w1')])
+    await Promise.all([terminals.create('term-1', 'w1'), terminals.create('term-1', 'w1')])
 
-    terminals.write('w1', 'hello')
+    terminals.write('term-1', 'hello')
     expect(first.pty.written).toEqual(['hello'])
     expect(second.pty.written).toEqual([])
   })
@@ -57,11 +57,11 @@ describe('one shell per workspace', () => {
     const second = fakePty()
     const { terminals } = service([first, second])
 
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
     first.handlers.exit?.()
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
-    terminals.write('w1', 'hello')
+    terminals.write('term-1', 'hello')
     expect(second.pty.written).toEqual(['hello'])
   })
 
@@ -72,13 +72,29 @@ describe('one shell per workspace', () => {
     const second = fakePty()
     const { terminals } = service([first, second])
 
-    await terminals.create('w1')
-    terminals.kill('w1')
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
+    terminals.kill('term-1')
+    await terminals.create('term-1', 'w1')
     first.handlers.exit?.()
 
-    terminals.write('w1', 'hello')
+    terminals.write('term-1', 'hello')
     expect(second.pty.written).toEqual(['hello'])
+  })
+
+  it('keeps two terminals in one workspace independent', async () => {
+    const first = fakePty()
+    const second = fakePty()
+    const { terminals } = service([first, second])
+
+    await terminals.create('term-1', 'w1')
+    await terminals.create('term-2', 'w1')
+    terminals.write('term-2', 'second only')
+    terminals.kill('term-1')
+
+    expect(first.pty.killed).toBe(true)
+    expect(second.pty.killed).toBe(false)
+    expect(first.pty.written).toEqual([])
+    expect(second.pty.written).toEqual(['second only'])
   })
 })
 
@@ -86,19 +102,19 @@ describe('whether the shell is busy', () => {
   it('is idle at its own prompt', async () => {
     const shell = fakePty('zsh')
     const { terminals } = service([shell])
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
-    expect(terminals.busy('w1')).toBe(false)
+    expect(terminals.busy('term-1')).toBe(false)
   })
 
   it('is busy while a command runs', async () => {
     const shell = fakePty('zsh')
     const { terminals } = service([shell])
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
     shell.pty._process = 'sleep'
 
-    expect(terminals.busy('w1')).toBe(true)
+    expect(terminals.busy('term-1')).toBe(true)
   })
 
   it('does not mistake sh for the zsh it is a suffix of', async () => {
@@ -106,11 +122,11 @@ describe('whether the shell is busy', () => {
     // running script idle — killing it without asking.
     const shell = fakePty('zsh')
     const { terminals } = service([shell])
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
     shell.pty._process = 'sh'
 
-    expect(terminals.busy('w1')).toBe(true)
+    expect(terminals.busy('term-1')).toBe(true)
   })
 
   it('says a workspace with no shell is not busy', () => {
@@ -125,7 +141,7 @@ describe('output', () => {
     vi.useFakeTimers()
     const shell = fakePty()
     const { terminals, emitted } = service([shell])
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
     shell.handlers.data?.('one ')
     shell.handlers.data?.('two ')
@@ -133,7 +149,7 @@ describe('output', () => {
     expect(emitted).toEqual([])
 
     vi.advanceTimersByTime(20)
-    expect(emitted).toEqual([['w1', 'one two three']])
+    expect(emitted).toEqual([['term-1', 'one two three']])
     vi.useRealTimers()
   })
 
@@ -141,10 +157,10 @@ describe('output', () => {
     vi.useFakeTimers()
     const shell = fakePty()
     const { terminals, emitted } = service([shell])
-    await terminals.create('w1')
+    await terminals.create('term-1', 'w1')
 
     shell.handlers.data?.('late output')
-    terminals.kill('w1')
+    terminals.kill('term-1')
     vi.advanceTimersByTime(50)
 
     expect(emitted).toEqual([])
@@ -156,12 +172,28 @@ describe('output', () => {
     const a = fakePty()
     const b = fakePty()
     const { terminals } = service([a, b])
-    await terminals.create('w1')
-    await terminals.create('w2')
+    await terminals.create('term-1', 'w1')
+    await terminals.create('term-2', 'w2')
 
     terminals.disposeAll()
 
     expect(a.pty.killed).toBe(true)
     expect(b.pty.killed).toBe(true)
+  })
+
+  it('kills every shell owned by an unpinned workspace', async () => {
+    const a = fakePty()
+    const b = fakePty()
+    const other = fakePty()
+    const { terminals } = service([a, b, other])
+    await terminals.create('term-1', 'w1')
+    await terminals.create('term-2', 'w1')
+    await terminals.create('term-3', 'w2')
+
+    terminals.killWorkspace('w1')
+
+    expect(a.pty.killed).toBe(true)
+    expect(b.pty.killed).toBe(true)
+    expect(other.pty.killed).toBe(false)
   })
 })

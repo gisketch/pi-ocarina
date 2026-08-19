@@ -40,14 +40,14 @@ class TermMode {
       // A shell the user exited leaves its column behind. `create` is a no-op
       // while one is running, so asking again is how you get a live shell back
       // without closing the column first.
-      void terminals.create(workspaceId).catch(() => {})
+      void terminals.create(id, workspaceId).catch(() => {})
       return
     }
 
     catalog.openTerminal(workspaceId)
     // A shell that cannot start is the documented native-module failure. The
     // column goes away again rather than sitting blank forever in TERM.
-    void terminals.create(workspaceId).catch((cause: unknown) => {
+    void terminals.create(id, workspaceId).catch((cause: unknown) => {
       catalog.failColumn(terminalId(workspaceId), cause)
       // Checked on the mode, not the column: the column has just been taken
       // away, so asking whether a terminal is focused always says no.
@@ -88,7 +88,7 @@ class TermMode {
     if (!doubled) return
 
     if (!app.thread.terminal) return
-    terminals.write(app.workspace.id, ESCAPE)
+    terminals.write(app.thread.id, ESCAPE)
     app.mode = 'TERM'
   }
 }

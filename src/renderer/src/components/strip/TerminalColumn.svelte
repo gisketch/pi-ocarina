@@ -25,6 +25,7 @@
   let host = $state<HTMLDivElement | null>(null)
   let term: Terminal | null = null
   let fit: FitAddon | null = null
+  const id = $derived(terminalId(workspaceId))
 
   /** Read from the document rather than hardcoded: the accent is seeded per
    *  workspace, so the cursor follows whichever workspace this shell is in. */
@@ -97,8 +98,8 @@
     term.attachCustomKeyEventHandler(xtermShouldHandle)
 
     // Keystrokes go straight out: buffering a key is a key that feels slow.
-    const typed = term.onData((data) => terminals.write(workspaceId, data))
-    const stop = terminals.onData(workspaceId, (data) => term?.write(data))
+    const typed = term.onData((data) => terminals.write(id, data))
+    const stop = terminals.onData(id, (data) => term?.write(data))
 
     const observer = new ResizeObserver(() => resize())
     observer.observe(host)
@@ -106,7 +107,7 @@
     // j/k scroll the focused column through one registry, whatever the column
     // is. xterm keeps its scrollback in a buffer of its own rather than as DOM
     // overflow, so it registers its scroll call instead of an element.
-    const unregister = registerColumnScroller(terminalId(workspaceId), (top) => {
+    const unregister = registerColumnScroller(id, (top) => {
       // The magnitude is in the thread column's pixels; a terminal counts in
       // lines. Converting keeps one contract — a scroller is asked to move by
       // an amount — so a half-page press moves a shell about as far as it
@@ -129,7 +130,7 @@
     if (!fit || !term) return
     try {
       fit.fit()
-      terminals.resize(workspaceId, term.cols, term.rows)
+      terminals.resize(id, term.cols, term.rows)
     } catch {
       // The column is mid-transition and has no measurable size yet.
     }

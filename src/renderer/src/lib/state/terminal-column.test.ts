@@ -57,7 +57,7 @@ describe('opening the terminal column', () => {
 
     termMode.open()
 
-    expect(create).toHaveBeenCalledWith('w1')
+    expect(create).toHaveBeenCalledWith(TERM_ID, 'w1')
     expect(app.thread.id).toBe(TERM_ID)
     expect(app.thread.terminal).toBe(true)
     expect(app.mode).toBe('TERM')
@@ -86,7 +86,7 @@ describe('opening the terminal column', () => {
     // The column outlives its pty; `create` is a no-op while one is running.
     termMode.open()
 
-    expect(create).toHaveBeenCalledWith('w1')
+    expect(create).toHaveBeenCalledWith(TERM_ID, 'w1')
     expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
   })
 
@@ -124,7 +124,7 @@ describe('leaving TERM', () => {
     now.mockReturnValue(1100)
     termMode.escape()
 
-    expect(write).toHaveBeenCalledWith('w1', ESC)
+    expect(write).toHaveBeenCalledWith(TERM_ID, ESC)
     expect(app.mode).toBe('TERM')
   })
 
@@ -160,7 +160,7 @@ describe('esc esc through the real key path', () => {
     now.mockReturnValue(1100)
     shell.handleKey({ key: 'Escape' })
 
-    expect(write).toHaveBeenCalledWith('w1', ESC)
+    expect(write).toHaveBeenCalledWith(TERM_ID, ESC)
     expect(app.mode).toBe('TERM')
   })
 

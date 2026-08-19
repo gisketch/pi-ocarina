@@ -134,8 +134,7 @@ class ShellState {
     if (thread.terminal) {
       // Closing kills the shell, so a command still running is worth one
       // question — the same bargain a running turn gets.
-      const workspaceId = app.workspace.id
-      void terminals.busy(workspaceId).then((busy) => {
+      void terminals.busy(thread.id).then((busy) => {
         if (busy) this.pendingClose = thread.id
         else this.closeThread(thread.id, { cancelTurn: false })
       })
@@ -152,7 +151,7 @@ class ShellState {
   closeThread(columnId: string, { cancelTurn }: { cancelTurn: boolean }): void {
     const workspaceId = workspaceOfTerminal(columnId)
     if (workspaceId) {
-      terminals.kill(workspaceId)
+      terminals.kill(columnId)
       blockNav.forget(columnId)
       agentPeek.forget(columnId)
       catalog.closeColumn(columnId)
