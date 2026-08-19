@@ -11,6 +11,7 @@ import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { app } from './app.svelte'
 import { blockElement, blockFocus, revealBlock } from './block-focus.svelte'
+import { dashboardRecent } from './dashboard-recent.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
@@ -205,6 +206,15 @@ class BlockNav {
     // Focusing a ghost leaves the column fully dimmed with nothing lit.
     if (blockElement(threadId, target.navId) === undefined) {
       this.reconcileMode()
+      return
+    }
+
+    // On a dashboard the destination is a recent row: the leap moves the
+    // selection bar and stops there, because opening is `enter`'s meaning —
+    // the same contract the ring has everywhere else. No READ either; a
+    // launcher has no transcript to dim.
+    if (app.thread.fresh === true && app.thread.id === threadId) {
+      dashboardRecent.select(app.workspace.id, target.navId)
       return
     }
 

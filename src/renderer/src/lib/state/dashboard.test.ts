@@ -15,6 +15,17 @@ import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
 import { branchField } from './branch-field.svelte'
 import { dashboardRecent } from './dashboard-recent.svelte'
+import { leap } from './leap.svelte'
+import { blockFocus, registerBlock } from './block-focus.svelte'
+
+/** Stands in for a rendered row: the drop-stale check asks whether one was
+ *  ever drawn, and in a headless run nothing is. */
+function stubElement(): HTMLElement {
+  return {
+    scrollIntoView() {},
+    getBoundingClientRect: () => ({ top: 0, bottom: 10 }) as DOMRect,
+  } as unknown as HTMLElement
+}
 
 const WORKSPACE = {
   id: 'w1',
@@ -283,4 +294,39 @@ describe('the recent list', () => {
     expect(app.thread.id).toBe('mid')
   })
 
+})
+
+describe('a leap over the dashboard', () => {
+  it('lands on a recent row as a selection, not a ring, and stays NORMAL', async () => {
+    vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) =>
+      Promise.resolve(
+        (name === 'listThreads'
+          ? {
+              threads: [
+                { id: 'mid', title: 'yesterday', modified: '2026-08-18T00:00:00Z', messageCount: 2 },
+                { id: 'new', title: 'this morning', modified: '2026-08-19T00:00:00Z', messageCount: 9 },
+              ],
+            }
+          : { ok: true }) as never,
+      ),
+    )
+    await dashboardRecent.load('w1')
+    shell.newThread()
+    const columnId = app.thread.id
+
+    // The landing refuses a row nothing drew, so one has to have been.
+    const off = registerBlock(columnId, 'mid', stubElement())
+    leap.threadId = columnId
+    leap.typed = 'ye'
+    leap.targets = [{ navId: 'mid', top: 0, left: 0 }]
+
+    shell.handleKey({ key: 's' })
+    off()
+
+    expect(leap.active).toBe(false)
+    expect(app.mode).toBe('NORMAL')
+    expect(blockFocus.idOf(columnId)).toBeNull()
+    expect(dashboardRecent.selected('w1')).toBe(1)
+    expect(app.thread.fresh).toBe(true)
+  })
 })

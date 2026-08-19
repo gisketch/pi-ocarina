@@ -1,7 +1,10 @@
 <script lang="ts">
   import Identicon from '../Identicon.svelte'
   import Composer from '../Composer.svelte'
+  import LeapOverlay from '../thread/LeapOverlay.svelte'
   import { branchField } from '$lib/state/branch-field.svelte'
+  import { navTarget } from '$lib/state/block-focus.svelte'
+  import { registerColumnBody } from '$lib/state/columns'
   import { ago, dashboardRecent } from '$lib/state/dashboard-recent.svelte'
   import type { Workspace } from '$lib/types'
 
@@ -41,10 +44,19 @@
   })
   const recent = $derived(dashboardRecent.rows(workspace.id))
   const selected = $derived(dashboardRecent.selected(workspace.id))
+
+  // The leap needs the column registered like any other: its candidates walk
+  // the registered body, and its labels position in that box's coordinates.
+  let middle = $state<HTMLElement | null>(null)
+  $effect(() => {
+    if (!middle) return
+    return registerColumnBody(columnId, middle)
+  })
 </script>
 
 <div class="hero" class:focused>
-  <div class="middle">
+  <div class="middle" bind:this={middle}>
+    <LeapOverlay threadId={columnId} />
     <Identicon name={workspace.name} hue={workspace.hue} size={70} />
     <div class="name">{workspace.name}</div>
     <div class="sub">
@@ -81,6 +93,7 @@
             <button
               type="button"
               class="row"
+              use:navTarget={{ threadId: columnId, navId: row.id }}
               class:picked={focused && index === selected}
               onclick={() => {
                 dashboardRecent.select(workspace.id, row.id)
@@ -121,6 +134,7 @@
   }
 
   .middle {
+    position: relative;
     flex: 1;
     min-height: 0;
     display: flex;

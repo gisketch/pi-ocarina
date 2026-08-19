@@ -45,7 +45,7 @@ dashboard column at its position.
   strip gains exactly one column; empty history shows actions only.
 - Blocked by: T1.
 
-## T4 — leap on dashboard rows — `todo`
+## T4 — leap on dashboard rows — `done`
 
 Dashboard registers its body and rows (`registerColumnBody`,
 `registerBlock`). `s` + typed visible text lands the selection on a

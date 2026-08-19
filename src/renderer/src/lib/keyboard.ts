@@ -235,6 +235,9 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     if (key === 'j' || key === 'ArrowDown') return result(state, [{ type: 'dashboardMove', delta: 1 }])
     if (key === 'k' || key === 'ArrowUp') return result(state, [{ type: 'dashboardMove', delta: -1 }])
     if (key === 'Enter') return result(state, [{ type: 'dashboardOpen' }])
+    // A leap over rows, not into a transcript: the mode stays NORMAL, and
+    // landing moves the selection bar instead of a block ring.
+    if (key === 's') return result(state, [{ type: 'leap' }])
   }
 
   // Opening a screen, from NORMAL or from READ. Above the switch because the
