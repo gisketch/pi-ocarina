@@ -125,7 +125,7 @@ Blocked by: T1.
 
 ## T5 — the great rename: OCARINA and CHAT
 
-Status: todo
+Status: done
 
 Behavior: the status bar says OCARINA on the strip and CHAT in the
 composer. Every key answers exactly as before. Old configs keep working.
