@@ -1,11 +1,12 @@
 import type { ThreadId } from '../../../../shared/thread-id'
 import type { ThreadSummary, WorkspaceSummary } from '../../../../shared/protocol'
+import { describe, freshThread, toThread, withTerminal } from './catalog-build'
 import { bridge } from '../bridge'
 import { blocksFor, MOCK_THREADS } from '../mock/threads'
 import { WORKSPACES } from '../mock/workspaces'
 import { session } from '../session'
 import { replayThread } from '../thread-reducer'
-import { terminalId, type Thread, type Workspace } from '../types'
+import type { Thread, Workspace } from '../types'
 import { app, PLACEHOLDER_TITLE } from './app.svelte'
 import { threads } from './threads.svelte'
 import { toasts } from './toasts.svelte'
@@ -296,54 +297,6 @@ class Catalog {
       return []
     }
   }
-}
-
-function describe(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause)
-}
-
-function toThread(summary: ThreadSummary): Thread {
-  return {
-    id: summary.id,
-    title: summary.title,
-    // The real status arrives with the thread's first events; until then the
-    // column reads as idle rather than claiming to know.
-    status: 'idle',
-    meta: timeOf(summary.modified),
-    branch: summary.branch ?? null,
-  }
-}
-
-/** The workspace with its shell column present. Idempotent: asking twice is
- *  asking for the one that is already there. */
-function withTerminal(workspace: Workspace): Workspace {
-  const id = terminalId(workspace.id)
-  if (workspace.threads.some((thread) => thread.id === id)) return workspace
-
-  return {
-    ...workspace,
-    threads: [
-      ...workspace.threads.filter((thread) => !thread.fresh),
-      { id, title: 'zsh', status: 'idle', meta: '', terminal: true },
-    ],
-  }
-}
-
-function freshThread(workspace: { id: string; name: string }): Thread {
-  return {
-    id: `fresh:${workspace.id}`,
-    title: workspace.name,
-    status: 'idle',
-    meta: 'fresh thread',
-    fresh: true,
-  }
-}
-
-/** "14:02" from an ISO timestamp; the column header has room for little else. */
-function timeOf(modified: string): string {
-  const at = new Date(modified)
-  if (Number.isNaN(at.getTime())) return ''
-  return at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export const catalog = new Catalog()
