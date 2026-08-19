@@ -81,6 +81,15 @@ class BlockNav {
    *  near the transcript keys, and a mode chip that disagrees with what the
    *  keys do is worse than no chip at all. */
   reconcileMode(): void {
+    // Vim's modes belong to a focused buffer column. A click that moves focus
+    // elsewhere leaves NORMAL/INSERT pointing at nothing — every key then
+    // goes to an editor that no longer has them, which reads as a dead
+    // keyboard. The strip takes the mode back with the focus.
+    if ((app.mode === 'NORMAL' || app.mode === 'INSERT') && app.thread.file === undefined) {
+      app.mode = 'OCARINA'
+      return
+    }
+
     if (app.mode !== 'READ') return
     // A leap is READ without a ring yet: the reader is choosing where it will
     // go. Reconciling mid-leap would drop the mode the leap is running in.

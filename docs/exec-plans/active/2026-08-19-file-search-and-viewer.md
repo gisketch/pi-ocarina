@@ -292,7 +292,10 @@ Blocked by: T7.
 
 ## T10 — review and fix
 
-Status: todo
+Status: done. Two findings, both fixed with regression tests: a click away
+from a buffer column stranded vim's mode on a strip that no longer had an
+editor (reconcileMode now hands it back), and `i` into a buffer vim left
+mid-insert typed a literal `i` (enterInsert now checks the engine first).
 
 `/sonata-review` over the feature commits; fix findings; full suite +
 svelte-check + check-sonata on touched files; the docs sweep from T5

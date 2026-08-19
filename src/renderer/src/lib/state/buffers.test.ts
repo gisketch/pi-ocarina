@@ -312,3 +312,26 @@ describe('landing on a mentioned line', () => {
     expect(landed).toEqual([7])
   })
 })
+
+describe('focus leaving the buffer', () => {
+  it('reconcileMode hands a stranded vim mode back to the strip', async () => {
+    const { blockNav } = await import('./block-nav.svelte')
+    await opened()
+    app.mode = 'NORMAL'
+    app.focusThread(0)
+
+    blockNav.reconcileMode()
+
+    expect(app.mode).toBe('OCARINA')
+  })
+
+  it('reconcileMode leaves vim alone while the buffer is the focus', async () => {
+    const { blockNav } = await import('./block-nav.svelte')
+    await opened()
+    app.mode = 'INSERT'
+
+    blockNav.reconcileMode()
+
+    expect(app.mode).toBe('INSERT')
+  })
+})

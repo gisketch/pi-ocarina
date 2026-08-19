@@ -145,7 +145,10 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
     },
     enterInsert: () => {
       const adapter = getCM(view)
-      if (adapter) Vim.handleKey(adapter as never, 'i', 'user')
+      // Only when vim is not already inserting: a click can leave the engine
+      // mid-insert, and handing it another `i` would type a literal one.
+      const inserting = (adapter?.state as { vim?: { insertMode?: boolean } })?.vim?.insertMode
+      if (adapter && !inserting) Vim.handleKey(adapter as never, 'i', 'user')
       view.focus()
     },
     notify: (message) => {

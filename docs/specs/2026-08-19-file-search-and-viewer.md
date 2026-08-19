@@ -1,6 +1,8 @@
 # File search and the file viewer column
 
-Status: **grilled 2026-08-19.** Decisions D1–D10 settled; awaiting implementation.
+Status: **implemented 2026-08-19.** D1–D10 settled and built; tickets in
+`docs/exec-plans/active/2026-08-19-file-search-and-viewer.md`. The live
+desktop pass (real vim editing beside a running pi) is the one open check.
 
 ## Problem
 
