@@ -45,7 +45,7 @@ beforeEach(() => {
   toasts.items = []
 })
 
-function backendAnswers(): ReturnType<typeof vi.spyOn> {
+function backendAnswers() {
   return vi.spyOn(session, 'invoke').mockImplementation((name) =>
     Promise.resolve((name === 'forkThread' ? { threadId: FORKED } : { ok: true }) as never),
   )

@@ -13,10 +13,12 @@ import type { NavBlock } from '../blocks'
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { changes } from './changes.svelte'
+import { forkAtCheckpoint } from './fork.svelte'
+import { shell } from './shell.svelte'
 import { threads } from './threads.svelte'
 import type { KeyEventLike } from '../keyboard'
 
-export type BlockActionId = 'copy' | 'restore' | 'changes'
+export type BlockActionId = 'copy' | 'restore' | 'fork' | 'changes'
 
 export interface BlockAction {
   id: BlockActionId
@@ -49,6 +51,10 @@ export function actionsFor(block: NavBlock, wired: boolean): BlockAction[] {
   }
   if (block.checkpointId !== undefined && wired) {
     actions.push({ id: 'restore', label: 'restore checkpoint' })
+    // Fork sits next to restore on purpose: the same place in the session,
+    // the two answers to "I want to go back" — one destroys the future, the
+    // other copies it.
+    actions.push({ id: 'fork', label: 'fork to a new thread' })
   }
   return actions
 }
@@ -138,6 +144,23 @@ class BlockMenu {
     if (action.id === 'copy') {
       void copyText(block.text)
       this.close()
+      return
+    }
+
+    // Fork destroys nothing, so it asks nothing: one Enter, and the reader is
+    // in the new column with the composer waiting for the second question.
+    if (action.id === 'fork') {
+      const checkpointId = block.checkpointId
+      const threadId = this.threadId
+      this.close()
+      if (checkpointId === undefined || threadId === null) return
+
+      void forkAtCheckpoint(threadId, checkpointId).then((column) => {
+        if (column === null) return
+        app.focusThread(column)
+        app.mode = 'INSERT'
+        shell.focusComposer()
+      })
       return
     }
 

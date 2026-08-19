@@ -11,8 +11,14 @@ vi.mock('../bridge', () => ({
   isDesktop: true,
 }))
 
+vi.mock('./fork.svelte', () => ({
+  forkAtCheckpoint: vi.fn(() => Promise.resolve(1)),
+}))
+
 import { actionsFor, blockMenu } from './block-menu.svelte'
+import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
+import { forkAtCheckpoint } from './fork.svelte'
 import { threads } from './threads.svelte'
 import { navBlocks } from '../blocks'
 import type { Block } from '../thread'
@@ -25,12 +31,12 @@ const blocks: Block[] = [
 const [message, reply] = navBlocks(blocks)
 
 describe('actionsFor', () => {
-  it('offers restore only where there is something to rewind to', () => {
-    expect(actionsFor(message, true).map((a) => a.id)).toEqual(['copy', 'restore'])
+  it('offers restore and fork only where there is something to rewind to', () => {
+    expect(actionsFor(message, true).map((a) => a.id)).toEqual(['copy', 'restore', 'fork'])
     expect(actionsFor(reply, true).map((a) => a.id)).toEqual(['copy'])
   })
 
-  it('offers no restore against a thread the backend never had', () => {
+  it('offers neither against a thread the backend never had', () => {
     expect(actionsFor(message, false).map((a) => a.id)).toEqual(['copy'])
   })
 })
@@ -55,7 +61,9 @@ describe('the menu', () => {
     blockMenu.handleKey({ key: 'j' })
     expect(blockMenu.index).toBe(1)
     blockMenu.handleKey({ key: 'j' })
-    expect(blockMenu.index).toBe(1)
+    blockMenu.handleKey({ key: 'j' })
+    expect(blockMenu.index).toBe(2)
+    blockMenu.handleKey({ key: 'k' })
     blockMenu.handleKey({ key: 'k' })
     blockMenu.handleKey({ key: 'k' })
     expect(blockMenu.index).toBe(0)
@@ -113,6 +121,47 @@ describe('the menu', () => {
 
     expect(blockMenu.confirming).toBe(false)
     expect(blockMenu.open).toBe(true)
+  })
+
+  it('forks in one press — no confirmation, nothing is destroyed', async () => {
+    blockMenu.openOn('t1' as ThreadId, message)
+    blockMenu.handleKey({ key: 'j' })
+    blockMenu.handleKey({ key: 'j' })
+    blockMenu.handleKey({ key: 'Enter' })
+
+    expect(blockMenu.open).toBe(false)
+    expect(blockMenu.confirming).toBe(false)
+    expect(forkAtCheckpoint).toHaveBeenCalledWith('t1', 'e1')
+  })
+
+  it('focuses the fork column and hands the caret to its composer', async () => {
+    catalog.workspaces = [
+      {
+        id: 'w1',
+        name: 'w',
+        note: '',
+        hue: 0,
+        snippet: '',
+        git: null,
+        threads: [
+          { id: 't1', title: 'parent', status: 'idle', meta: '' },
+          { id: 'fork', title: 'Fork - parent', status: 'idle', meta: '' },
+        ],
+      },
+    ]
+    app.goWorkspace(0)
+    app.focus = [0]
+    app.mode = 'NORMAL'
+
+    blockMenu.openOn('t1' as ThreadId, message)
+    blockMenu.handleKey({ key: 'j' })
+    blockMenu.handleKey({ key: 'j' })
+    blockMenu.handleKey({ key: 'Enter' })
+    // The flow resolves in a microtask; the focus move rides behind it.
+    await Promise.resolve()
+
+    expect(app.threadIndex).toBe(1)
+    expect(app.mode).toBe('INSERT')
   })
 
   it('takes back the question when the highlight moves off it', () => {
