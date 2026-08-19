@@ -18,7 +18,7 @@ import { confirm } from './confirm.svelte'
 import { keybinds } from './keybinds.svelte'
 import { sweep } from './sweep.svelte'
 import { renameAsk } from './rename-ask.svelte'
-import { worktreeAsk } from './worktree-ask.svelte'
+import { branchField } from './branch-field.svelte'
 import type { KeyEventLike } from '../keyboard'
 import { EMPTY_KEYMAP, type Keymap } from '../keymap'
 import type { ThreadId } from '../../../../shared/thread-id'
@@ -30,10 +30,10 @@ export function routeToOverlay(event: KeyEventLike, keymap: Keymap = EMPTY_KEYMA
   // Above the other modals: the reader armed it a keystroke ago, and any key
   // that fell past it would both bind nothing and do something.
   if (keybinds.recording !== null) return keybinds.handleRecordKey(event)
-  // The worktree question is modal for the same reason: it is answered
-  // before a thread exists, and a key that fell through would move a column
-  // behind it.
-  if (worktreeAsk.open) return worktreeAsk.handleKey(event)
+  // The branch field reads raw letters into a name. It ranks with the
+  // modals for the same reason they do: a key that fell through would move
+  // a column behind the field the reader is typing into.
+  if (branchField.columnId !== null) return branchField.handleKey(event)
   // The rename field is modal for the same reason.
   if (renameAsk.open) return renameAsk.handleKey(event)
   // The sweep is a list of directories with a removal key in it. Same rank:

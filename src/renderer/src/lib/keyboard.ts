@@ -265,6 +265,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return enterRead(state, ctx, [{ type: 'leap' }])
     case 'y':
       return result(state, [{ type: 'yank' }])
+    // The dashboard's worktree flow. The reducer does not know which column
+    // is focused; the shell drops the action when it is not a dashboard.
+    case 'b':
+      return result(state, [{ type: 'worktreeThread' }])
     // Shifted, like ⇧H/⇧L: the bare letters are taken, and a rename is rare
     // enough to be worth a reach.
     case 'R':

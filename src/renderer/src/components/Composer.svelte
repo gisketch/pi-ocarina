@@ -20,7 +20,6 @@
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
-  import { createThread } from '$lib/state/new-thread'
   import { runSlash } from '$lib/state/slash-run'
   import { completions } from '$lib/state/completions.svelte'
   import { drafts } from '$lib/state/drafts.svelte'
@@ -119,11 +118,13 @@
   }
 
   /** A fresh column has no thread behind it yet. Sending is what brings one
-   *  into existence, so the hero is not a dead end. */
+   *  into existence, so the hero is not a dead end. A plain thread, always:
+   *  the worktree question is the dashboard's `b` flow, not an interrupt on
+   *  the way to typing. */
   async function targetThread(): Promise<ThreadId | null> {
     const here = app.threadId
     if (here !== null) return here
-    return createThread(app.workspace.id)
+    return catalog.newThread(app.workspace.id)
   }
 
   async function send(): Promise<void> {

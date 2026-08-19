@@ -102,7 +102,7 @@ export const RETRY_BACKOFF: MockThread = {
 
     ...says(
       'a2',
-      'Done. Retries only on 5xx, capped at 5 attempts (~4s worst case). All 18 sync tests pass. VERIFY [Download rendering-showcase.docx](sandbox:/Users/me/out/rendering-showcase.docx) and [the docs](https://example.com/docs) and https://a.very.long.example.com/path/that/keeps/going/until/it/should/ellipsize',
+      'Done. Retries only on 5xx, capped at 5 attempts (~4s worst case). All 18 sync tests pass.',
     ),
     // The turn is over, but the question is not: the derived status is
     // `waiting-input`, because a thread holding an open card is waiting on a

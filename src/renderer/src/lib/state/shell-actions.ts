@@ -16,6 +16,7 @@ import { app } from './app.svelte'
 import { askKeys } from './ask-keys.svelte'
 import { blockMenu, copyText } from './block-menu.svelte'
 import { blockNav } from './block-nav.svelte'
+import { branchField } from './branch-field.svelte'
 import { catalog } from './catalog.svelte'
 import { changes } from './changes.svelte'
 import { commit } from './commit.svelte'
@@ -114,6 +115,16 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'newThread':
       shell.newThread()
       break
+    case 'worktreeThread': {
+      // Only the dashboard has the field, and only a live catalog has a git
+      // to make a worktree in. Anywhere else, `b` is a letter that means
+      // nothing — the same silence every unbound key gets.
+      const column = app.thread
+      if (column.fresh && catalog.source === 'live' && app.workspace.git !== null) {
+        branchField.open(app.workspace.id, column.id)
+      }
+      break
+    }
     case 'closeThread':
       shell.requestClose()
       break

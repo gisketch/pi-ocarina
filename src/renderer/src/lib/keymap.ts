@@ -44,6 +44,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'reasoning.toggle': { mode: 'NORMAL', key: 'o', label: 'toggle reasoning', group: 'navigate' },
   'block.menu': { mode: 'NORMAL', key: 'a', label: 'block actions', group: 'navigate' },
   'leap.start': { mode: 'NORMAL', key: 's', label: 'leap to block', group: 'navigate' },
+  'thread.worktree': { mode: 'NORMAL', key: 'b', label: 'worktree thread (dashboard)', group: 'navigate' },
 
   'changes.open': { mode: 'NORMAL', key: 'd', label: 'change viewer', group: 'screens' },
   'switcher.open': { mode: 'NORMAL', key: 'w', label: 'thread switcher', group: 'screens' },

@@ -36,6 +36,8 @@ export type Action =
   | { type: 'openBlockMenu' }
   | { type: 'expandBlock'; open: boolean }
   | { type: 'newThread' }
+  /** Open the worktree branch field on the focused dashboard column. */
+  | { type: 'worktreeThread' }
   | { type: 'closeThread' }
   /** Open the rename dialog on the focused thread. */
   | { type: 'renameThread' }

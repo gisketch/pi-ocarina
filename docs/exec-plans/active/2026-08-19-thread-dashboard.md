@@ -23,7 +23,7 @@ column in place (the worktree question still runs on send until T2).
 - Validation: state tests through the real key path; eye test.
 - Blocked by: T0.
 
-## T2 — inline worktree flow, modal dies — `todo`
+## T2 — inline worktree flow, modal dies — `done`
 
 `b` swaps the dashboard middle for an auto-focused branch field,
 reusing the `worktree-ask.svelte.ts` logic. Esc returns to the menu.

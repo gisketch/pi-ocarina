@@ -10,7 +10,6 @@
   import LeaderBar from './components/LeaderBar.svelte'
   import CloseConfirm from './components/CloseConfirm.svelte'
   import ConfirmModal from './components/ConfirmModal.svelte'
-  import WorktreeAsk from './components/WorktreeAsk.svelte'
   import RenameAsk from './components/RenameAsk.svelte'
   import SweepOverlay from './components/overlays/SweepOverlay.svelte'
   import AgentPeek from './components/thread/AgentPeek.svelte'
@@ -179,7 +178,6 @@
   {/if}
 
   <ConfirmModal />
-  <WorktreeAsk />
   <RenameAsk />
   <SweepOverlay />
   <!-- Not modal: the peek is somewhere to look from while the fan-out carries

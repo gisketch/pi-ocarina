@@ -1,6 +1,7 @@
 <script lang="ts">
   import Identicon from '../Identicon.svelte'
   import Composer from '../Composer.svelte'
+  import { branchField } from '$lib/state/branch-field.svelte'
   import type { Workspace } from '$lib/types'
 
   const {
@@ -24,6 +25,12 @@
     { key: 'b', label: 'new worktree thread' },
     { key: '/', label: 'search history' },
   ]
+
+  // The worktree flow: `b` swapped the menu for this field. Keys land through
+  // the shell's modal gate, so this only draws the state.
+  const naming = $derived(branchField.columnId === columnId)
+  const problem = $derived(branchField.problem)
+  const failure = $derived(branchField.failure)
 </script>
 
 <div class="hero" class:focused>
@@ -33,14 +40,30 @@
     <div class="sub">
       fresh thread — no history yet · <span class="note">♪ {workspace.note}</span>
     </div>
-    <div class="actions">
-      {#each actions as action (action.key)}
-        <div class="action">
-          <span class="kbd">{action.key}</span>
-          <span class="label">{action.label}</span>
+    {#if naming}
+      <div class="branch">
+        <div class="ask">branch name</div>
+        <div class="field" class:bad={problem !== null || failure !== null}>
+          <span class="typed">{branchField.branch}</span><span class="caret"></span>
         </div>
-      {/each}
-    </div>
+        <div class="detail" class:bad={problem !== null || failure !== null}>
+          {#if branchField.creating}
+            making the worktree…
+          {:else}
+            {problem ?? failure ?? 'e.g. fix/OCA-231 · ⏎ creates · esc goes back'}
+          {/if}
+        </div>
+      </div>
+    {:else}
+      <div class="actions">
+        {#each actions as action (action.key)}
+          <div class="action">
+            <span class="kbd">{action.key}</span>
+            <span class="label">{action.label}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- The column with no thread behind it is the one most likely to receive a
@@ -110,5 +133,49 @@
     font-size: 10.5px;
     min-width: 10px;
     text-align: center;
+  }
+
+  .branch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    width: min(300px, 80%);
+  }
+  .ask {
+    font-size: 11px;
+    color: var(--fg-dim);
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 8px 11px;
+    background: rgba(255, 255, 255, 0.05);
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--fg-bright);
+    min-height: 32px;
+  }
+  .field.bad {
+    background: rgba(224, 122, 107, 0.12);
+  }
+  .caret {
+    width: 6px;
+    height: 14px;
+    background: var(--accent);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  .detail {
+    font-size: 11px;
+    color: var(--fg-dimmer);
+  }
+  .detail.bad {
+    color: var(--err-text);
   }
 </style>

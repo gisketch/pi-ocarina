@@ -13,6 +13,7 @@ vi.mock('../bridge', () => ({
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
+import { branchField } from './branch-field.svelte'
 
 const WORKSPACE = {
   id: 'w1',
@@ -111,5 +112,103 @@ describe('a thread born on the dashboard', () => {
 
     const ids = app.workspace.threads.map((thread) => thread.id)
     expect(ids).toEqual(['t1', 'made'])
+  })
+})
+
+describe('the worktree flow on the dashboard', () => {
+  async function drain(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  it('opens the field on b, only on a dashboard in a repository', () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    shell.handleKey({ key: 'b' })
+    expect(branchField.columnId).toBeNull()
+
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    expect(branchField.columnId).toBe(app.thread.id)
+    branchField.close()
+  })
+
+  it('stays shut without a git to branch in', () => {
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    expect(branchField.columnId).toBeNull()
+  })
+
+  it('types a name, creates, and the thread takes the dashboard column', async () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) =>
+      Promise.resolve(
+        (name === 'createThread'
+          ? { threadId: 'made' }
+          : name === 'listWorktrees'
+            ? { worktrees: [] }
+            : { ok: true }) as never,
+      ),
+    )
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+
+    for (const key of 'fix/a') shell.handleKey({ key })
+    expect(branchField.branch).toBe('fix/a')
+    shell.handleKey({ key: 'Enter' })
+    await drain()
+
+    expect(branchField.columnId).toBeNull()
+    const ids = app.workspace.threads.map((thread) => thread.id)
+    expect(ids).toEqual(['t1', 'made'])
+    expect(app.workspace.threads[1].branch).toBe('fix/a')
+  })
+
+  it('refuses a taken name under the field, before git is asked', async () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) =>
+      Promise.resolve(
+        (name === 'listWorktrees' ? { worktrees: [{ branch: 'fix/a' }] } : { ok: true }) as never,
+      ),
+    )
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    await drain()
+
+    for (const key of 'fix/a') shell.handleKey({ key })
+
+    expect(branchField.problem).toBe('that branch already exists')
+    expect(branchField.ready).toBe(false)
+    branchField.close()
+  })
+
+  it('goes back to the menu on esc, keeping the column', () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    shell.handleKey({ key: 'x' })
+
+    shell.handleKey({ key: 'Escape' })
+
+    expect(branchField.columnId).toBeNull()
+    expect(app.thread.fresh).toBe(true)
+  })
+
+  it('keeps the field up with the failure when git refuses', async () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    vi.spyOn(session, 'invoke').mockImplementation((name: CommandName) =>
+      name === 'createThread'
+        ? Promise.reject(new Error('worktree add failed'))
+        : Promise.resolve((name === 'listWorktrees' ? { worktrees: [] } : { ok: true }) as never),
+    )
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    for (const key of 'fix/a') shell.handleKey({ key })
+
+    shell.handleKey({ key: 'Enter' })
+    await drain()
+
+    expect(branchField.columnId).not.toBeNull()
+    expect(branchField.failure).toBe('git would not make that worktree')
+    expect(app.thread.fresh).toBe(true)
+    branchField.close()
   })
 })
