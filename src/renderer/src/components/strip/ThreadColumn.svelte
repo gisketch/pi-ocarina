@@ -333,6 +333,17 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 120px;
     padding-inline: var(--pad-column);
+    /* Blocks are flex items, and a flex item's default `flex-shrink: 1` is
+       what silently destroyed the estimate above: when the column overflows,
+       the browser shrinks every *skipped* block toward zero — its min-content
+       is nothing while its layout is skipped — so a ninety-turn thread's
+       unmeasured scrollback added up to almost no scroll height at all.
+       Every page-distance was then computed against a collapsed layout that
+       exploded the moment its blocks were measured: `ctrl-u` flew across
+       dozens of turns, the bottom ran away from `ctrl-d`, and each
+       collapse/expand under the view was the flicker. Blocks never share a
+       fixed budget, so they must never shrink. */
+    flex: none;
   }
 
   /* The last block is exempt: it is the one that streams, and skipping its

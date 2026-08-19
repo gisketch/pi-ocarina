@@ -88,6 +88,7 @@ beforeEach(() => {
  *  frames. */
 function frames() {
   let queued: ((now: number) => void) | null = null
+  let now = 0
   vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
     queued = step
     return 1
@@ -95,8 +96,16 @@ function frames() {
   vi.stubGlobal('cancelAnimationFrame', () => {
     queued = null
   })
+  // Time belongs to the test. The scroll reads real time twice — its easing
+  // curve, and a 320ms watchdog that lands the scroll straight if no frame
+  // arrives — and a loaded machine can spend that whole budget between two
+  // stubbed frames, landing the scroll mid-test and failing it with numbers
+  // from a layout the frames never drove. Inert timers and a clock that only
+  // `run` advances make the frames the only thing that happens.
+  vi.stubGlobal('setTimeout', () => 0 as unknown as ReturnType<typeof setTimeout>)
+  vi.stubGlobal('clearTimeout', () => {})
+  vi.stubGlobal('performance', { now: () => now } as Performance)
 
-  const base = performance.now()
   return {
     /** Runs up to `count` frames at about 60hz. `before` happens between the
      *  last frame and this one, which is where a measurement lands; `after`
@@ -107,7 +116,10 @@ function frames() {
         if (!step) return
         queued = null
         before?.(at)
-        step(base + at * 16)
+        // Monotonic across every `run`: a second press reads the clock where
+        // the first left it, the way a browser's does.
+        now += 16
+        step(now)
         after?.(at)
       }
     },
@@ -219,5 +231,34 @@ describe('the ring while paging in READ', () => {
 
     vi.unstubAllGlobals()
     view.release()
+  })
+})
+
+describe('G with a ring out', () => {
+  it('moves the ring to the newest block, so j/k resume from the end', () => {
+    const view = column(400)
+    app.mode = 'READ'
+    blockFocus.set('s1', 'u1')
+    const clock = frames()
+
+    shell.handleKey({ key: 'G' })
+    expect(blockFocus.idOf('s1')).toBe('l1:r1')
+    clock.run(16)
+
+    app.mode = 'OCARINA'
+    view.release()
+    vi.unstubAllGlobals()
+  })
+
+  it('leaves a reader who never navigated without a ring', () => {
+    const view = column(400)
+    const clock = frames()
+
+    shell.handleKey({ key: 'G' })
+    expect(blockFocus.idOf('s1')).toBeNull()
+    clock.run(16)
+
+    view.release()
+    vi.unstubAllGlobals()
   })
 })
