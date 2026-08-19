@@ -164,6 +164,16 @@ describe('the thread picker', () => {
     expect(shell.overlay).toBeNull()
   })
 
+  it('asks the backend for archived threads — they are the history', async () => {
+    const invoke = vi
+      .spyOn(session, 'invoke')
+      .mockResolvedValue({ threads: [] } as never)
+
+    await dashboardRecent.load('w1')
+
+    expect(invoke).toHaveBeenCalledWith('listThreads', { workspaceId: 'w1', includeArchived: true })
+  })
+
   it('lists the whole history, not just five', async () => {
     const many = Array.from({ length: 9 }, (_, i) => ({
       id: `h${i}`,

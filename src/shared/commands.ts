@@ -31,7 +31,12 @@ export interface SessionCommands {
   listWorkspaces: { params: Record<string, never>; result: { workspaces: WorkspaceSummary[] } }
   pinWorkspace: { params: { path: string }; result: { workspace: WorkspaceSummary } }
   unpinWorkspace: { params: { workspaceId: string }; result: { ok: true } }
-  listThreads: { params: { workspaceId: string }; result: { threads: ThreadSummary[] } }
+  /** `includeArchived` lists closed threads too — the dashboard's history.
+   *  Off, the listing is the strip's: what "closed" hides stays hidden. */
+  listThreads: {
+    params: { workspaceId: string; includeArchived?: boolean }
+    result: { threads: ThreadSummary[] }
+  }
   /** `worktree` runs the thread in its own checkout on a new branch, made
    *  before the session starts — pi is given a working directory once, so this
    *  cannot be decided later. A failure rejects, leaving no thread behind. */

@@ -28,7 +28,11 @@ class DashboardRecent {
   async load(workspaceId: string): Promise<void> {
     if (catalog.source !== 'live') return
     try {
-      const { threads } = await session.invoke('listThreads', { workspaceId })
+      // Archived included, because archived is the point: `␣x` is what put a
+      // thread into this list. Without the flag the backend returns only the
+      // open threads — which the filter below then removes as open, so the
+      // launcher's history was empty forever, whatever the reader closed.
+      const { threads } = await session.invoke('listThreads', { workspaceId, includeArchived: true })
       this.#listed = { ...this.#listed, [workspaceId]: threads }
     } catch {
       this.#listed = { ...this.#listed, [workspaceId]: [] }

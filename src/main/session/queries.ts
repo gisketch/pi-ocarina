@@ -53,8 +53,10 @@ export class WorkspaceQueries {
       }
 
       case 'listThreads': {
-        const { workspaceId } = params as CommandParams<'listThreads'>
-        return { result: { threads: await this.#workspaces.listThreads(workspaceId) } }
+        const { workspaceId, includeArchived } = params as CommandParams<'listThreads'>
+        return {
+          result: { threads: await this.#workspaces.listThreads(workspaceId, { includeArchived }) },
+        }
       }
 
       case 'listFiles': {
