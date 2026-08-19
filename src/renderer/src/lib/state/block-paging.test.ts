@@ -77,24 +77,51 @@ beforeEach(() => {
   })
 })
 
+/** Drives frames one at a time, the way a browser does.
+ *
+ *  A stub that calls the frame back the moment it is asked for runs the whole
+ *  animation inside the first request, so nothing between frames can be
+ *  observed or changed — and what this is about is what happens *between* two
+ *  frames. */
+function frames() {
+  let queued: ((now: number) => void) | null = null
+  vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
+    queued = step
+    return 1
+  })
+  vi.stubGlobal('cancelAnimationFrame', () => {
+    queued = null
+  })
+
+  const base = performance.now()
+  return {
+    /** Runs up to `count` frames at about 60hz. `before` happens between the
+     *  last frame and this one, which is where a measurement lands; `after`
+     *  sees what the frame did. */
+    run(count: number, before?: (at: number) => void, after?: (at: number) => void) {
+      for (let at = 1; at <= count; at += 1) {
+        const step = queued
+        if (!step) return
+        queued = null
+        before?.(at)
+        step(base + at * 16)
+        after?.(at)
+      }
+    },
+  }
+}
+
 describe('ctrl-d and ctrl-u', () => {
   it('moves the view half a column, whatever the estimates do mid-scroll', () => {
     const view = column(400)
     view.body.scrollTop = 1000
-
-    // Frame two is where the block above is measured and turns out to be 600px
-    // taller than it was guessed.
-    let frames = 0
-    vi.stubGlobal('requestAnimationFrame', (step: (now: number) => void) => {
-      frames += 1
-      if (frames === 2) view.measure(600)
-      step(performance.now() + (frames < 2 ? 40 : 1000))
-      return frames
-    })
-    vi.stubGlobal('cancelAnimationFrame', () => {})
+    const clock = frames()
 
     const before = view.seen()
     shell.handleKey({ key: 'd', ctrlKey: true })
+    // The block above is measured a third of the way through, and turns out to
+    // be 600px taller than it was guessed.
+    clock.run(16, (at) => { if (at === 3) view.measure(600) })
 
     // Half of 400, and no more. Aimed at a number instead, the 600px
     // correction lands in the answer and the view goes the other way.
@@ -102,9 +129,34 @@ describe('ctrl-d and ctrl-u', () => {
 
     // And a press back up undoes exactly one press down, which is the part a
     // reader feels: an up that took three downs to cancel.
-    frames = 0
     shell.handleKey({ key: 'u', ctrlKey: true })
+    clock.run(16)
     expect(view.seen()).toBe(before)
+
+    vi.unstubAllGlobals()
+    view.release()
+  })
+
+  it('never doubles back, however late the measurement lands', () => {
+    const view = column(400)
+    view.body.scrollTop = 1000
+    const clock = frames()
+
+    const seen: number[] = []
+    shell.handleKey({ key: 'd', ctrlKey: true })
+    clock.run(
+      16,
+      (at) => { if (at === 3) view.measure(600) },
+      () => seen.push(view.seen()),
+    )
+
+    // A scroll down moves the block up, and only up. Interpolating from a
+    // fixed origin instead, the frame that carries the correction throws the
+    // view forward and the rest of the curve drags it back — one lurch out and
+    // one glide back, which is what a reader feels as rubber banding.
+    const back = seen.filter((at, i) => i > 0 && at > seen[i - 1])
+    expect(back).toEqual([])
+    expect(seen[seen.length - 1]).toBe(-200)
 
     vi.unstubAllGlobals()
     view.release()

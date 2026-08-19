@@ -69,6 +69,15 @@ export function smoothScrollTo(el: HTMLElement, top: number): void {
  *  a screen or more away from it, which is what made `j` and `k` read as
  *  erratic. Asking again each frame lets the move follow what it is chasing.
  *
+ *  What each frame writes is a fraction of the distance *still to go*, never a
+ *  position measured from where the scroll began. Those are the same thing
+ *  only while the target holds still. Interpolating from a fixed origin, every
+ *  correction to the target moved the view by that correction times however
+ *  far along the curve it was — a lurch out and a glide back, once per frame,
+ *  which is the rubber band. Closing the remaining gap absorbs a target that
+ *  moves, and absorbs the browser's own scroll anchoring shifting `scrollTop`
+ *  under us, because both change the gap and neither changes the fraction.
+ *
  *  The timer is the safety net. The curve runs on `requestAnimationFrame`, and
  *  an occluded or busy window suspends that — a jump to the latest is the one
  *  scroll that must never be lost, so if no frame has landed it by four
@@ -76,14 +85,14 @@ export function smoothScrollTo(el: HTMLElement, top: number): void {
 export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
   stopScroll(el)
 
-  const from = el.scrollTop
   const first = clampTop(el, aim())
-  if (Math.abs(first - from) < 1) {
+  if (Math.abs(first - el.scrollTop) < 1) {
     el.scrollTop = first
     return
   }
 
   const start = performance.now()
+  let previous = start
   let settles = 0
 
   // One record, mutated in place and put in the map before the first frame is
@@ -100,28 +109,47 @@ export function smoothScrollAiming(el: HTMLElement, aim: () => number): void {
     to: first,
   }
 
+  const land = (to: number): void => {
+    el.scrollTop = to
+    stopScroll(el)
+  }
+
   const step = (now: number): void => {
     if (inflight.get(el) !== running) return
 
     const to = clampTop(el, aim())
     running.to = to
 
-    const through = Math.min(1, (now - start) / SCROLL_MS)
-    if (through < 1) {
+    const gap = to - el.scrollTop
+    if (Math.abs(gap) < 1) {
+      land(to)
+      return
+    }
+
+    const before = Math.min(1, (previous - start) / SCROLL_MS)
+    const after = Math.min(1, (now - start) / SCROLL_MS)
+    previous = now
+
+    if (after < 1) {
       // Ease out only: the move starts at full speed, so the first frame
       // already shows the direction, and settles rather than stopping dead.
-      el.scrollTop = from + (to - from) * (1 - (1 - through) ** 3)
+      // Written as the share of what is left, so that the share is all this
+      // frame decides and the target is free to have moved.
+      const left = (1 - before) ** 3
+      el.scrollTop += gap * (left === 0 ? 1 : 1 - (1 - after) ** 3 / left)
       running.frame = requestAnimationFrame(step)
       return
     }
 
-    const landed = Math.abs(el.scrollTop - to) < 1
-    el.scrollTop = to
-    if (landed || settles >= SETTLE_PASSES) {
-      stopScroll(el)
+    // Past the curve and still short: the target moved late, which is a block
+    // measured after the scroll had all but arrived. Closed by halves rather
+    // than written, so a correction reads as the tail of the same move.
+    if (settles >= SETTLE_PASSES) {
+      land(to)
       return
     }
     settles += 1
+    el.scrollTop += gap / 2
     running.frame = requestAnimationFrame(step)
   }
 
