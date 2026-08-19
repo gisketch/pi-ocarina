@@ -12,6 +12,17 @@
   font-display: block;
 }
 
+/* Nerd Font symbols (MIT) — see assets/fonts/SymbolsNerdFont-LICENSE.txt.
+   A fallback, never the face: text stays JetBrains Mono, and only the
+   glyphs it lacks — powerline separators, devicons, the icons a prompt or a
+   TUI draws — fall through to here instead of rendering as blocks. */
+@font-face {
+  font-family: 'Symbols Nerd Font Mono';
+  src: url('../assets/fonts/SymbolsNerdFontMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }

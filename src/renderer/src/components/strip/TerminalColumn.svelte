@@ -70,6 +70,20 @@
 
     resize()
 
+    // The Nerd Font symbols load as a file, and xterm draws from a glyph
+    // atlas it built at open — before the file landed, every icon in a
+    // prompt or a TUI is a block. Once the face is in, resetting the family
+    // (through a real change, same-value sets are ignored) rebuilds the
+    // atlas with the symbols present. DOM text re-renders itself on font
+    // load; a canvas has to be told.
+    void document.fonts.load('12px "Symbols Nerd Font Mono"').then(() => {
+      if (!term) return
+      const family = term.options.fontFamily
+      term.options.fontFamily = 'monospace'
+      term.options.fontFamily = family
+      fit?.fit()
+    })
+
     // Escape belongs to the shell, not to xterm.
     //
     // xterm handles Escape itself and stops it before it reaches the window,

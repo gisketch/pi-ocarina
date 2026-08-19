@@ -107,8 +107,9 @@
   );
 
   /* type */
-  --font-chrome: 'Departure Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --font-body: 'JetBrains Mono', ui-monospace, monospace;
+  --font-chrome:
+    'Departure Mono', 'JetBrains Mono', 'Symbols Nerd Font Mono', ui-monospace, monospace;
+  --font-body: 'JetBrains Mono', 'Symbols Nerd Font Mono', ui-monospace, monospace;
 
   /* metrics */
   --titlebar-h: 40px;
