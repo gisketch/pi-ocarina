@@ -15,18 +15,27 @@ import { blockNav } from './block-nav.svelte'
 import { changes } from './changes.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
+import { keybinds } from './keybinds.svelte'
 import { sweep } from './sweep.svelte'
+import { renameAsk } from './rename-ask.svelte'
 import { worktreeAsk } from './worktree-ask.svelte'
 import type { KeyEventLike } from '../keyboard'
+import { EMPTY_KEYMAP, type Keymap } from '../keymap'
 import type { ThreadId } from '../../../../shared/thread-id'
 
-export function routeToOverlay(event: KeyEventLike): boolean | null {
+export function routeToOverlay(event: KeyEventLike, keymap: Keymap = EMPTY_KEYMAP): boolean | null {
   // The destructive modal outranks everything, including the close confirm.
   if (confirm.pending) return confirm.handleKey(event)
+  // A recording row owns the very next key — that is what recording means.
+  // Above the other modals: the reader armed it a keystroke ago, and any key
+  // that fell past it would both bind nothing and do something.
+  if (keybinds.recording !== null) return keybinds.handleRecordKey(event)
   // The worktree question is modal for the same reason: it is answered
   // before a thread exists, and a key that fell through would move a column
   // behind it.
   if (worktreeAsk.open) return worktreeAsk.handleKey(event)
+  // The rename field is modal for the same reason.
+  if (renameAsk.open) return renameAsk.handleKey(event)
   // The sweep is a list of directories with a removal key in it. Same rank:
   // a key falling through would move a column behind it.
   if (sweep.open) return sweep.handleKey(event)
@@ -36,7 +45,7 @@ export function routeToOverlay(event: KeyEventLike): boolean | null {
   // The viewer is modal and floats over everything: while it is up it owns
   // every key, which is what lets a filter be `/` and a jump be `gg` without
   // colliding with the bindings underneath.
-  if (changes.open) return changes.handleKey(event)
+  if (changes.open) return changes.handleKey(event, keymap)
 
   // A pending question is deliberately *not* here: it arrives on its own,
   // where everything above was put on screen by the reader, so it ranks below

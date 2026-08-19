@@ -5,6 +5,8 @@ import type { CatalogPosition } from './catalog'
 import { ensurePath } from './env-path'
 import { CatalogStore } from './catalog-store'
 import { ConfigStore, configPath } from './config-store'
+import { KeymapStore, keymapPath } from './keymap-store'
+import type { KeymapKeys } from '../shared/keymap-file'
 import { registerGit } from './git'
 import { holdWindowOpen, registerLifecycle } from './lifecycle'
 import { PiDriver } from './session/pi-driver'
@@ -167,6 +169,19 @@ function registerConfig(config: ConfigStore): void {
   })
 }
 
+function registerKeymap(keymap: KeymapStore): void {
+  // The one configuration file the app writes: the Keymaps screen's saves.
+  // Written whole — the renderer holds the truth and the file mirrors it.
+  ipcMain.handle('keymap:load', () => ({
+    path: keymap.path,
+    keys: keymap.keys,
+    problems: keymap.problems,
+  }))
+  ipcMain.handle('keymap:save', async (_event, keys: KeymapKeys) => {
+    await keymap.save(keys)
+  })
+}
+
 function registerCatalog(catalog: CatalogStore): void {
   // The store is already loaded before any window exists, so this reports what
   // main holds rather than reading the file again. A second read here would
@@ -210,6 +225,13 @@ void app.whenReady().then(async () => {
   }
   registerConfig(config)
 
+  const keymap = new KeymapStore(keymapPath(app.getPath('home')))
+  await keymap.load()
+  for (const problem of keymap.problems) {
+    console.warn(`[keymap] ${problem.where}: ${problem.message}`)
+  }
+  registerKeymap(keymap)
+
   // The driver is built after git, and git needs to ask it where a thread
   // runs. The question is only ever asked from an IPC handler, long after both
   // exist, so it is wired through a reference rather than by reordering.
@@ -227,6 +249,7 @@ void app.whenReady().then(async () => {
   // reader's and the app does not watch it. `/reload` is how a change lands.
   piDriver?.useHooks(() => config.config.hooks)
   piDriver?.useRules(() => config.config.rules)
+  piDriver?.useTitles(() => config.config.titles)
   const lifecycle = registerLifecycle({
     runningThreads: () => (driver instanceof PiDriver ? driver.runningThreads() : []),
     abortAll: () => (driver instanceof PiDriver ? driver.abortAll() : Promise.resolve()),

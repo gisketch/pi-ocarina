@@ -85,7 +85,7 @@
       hint: onmodes ? 'enter' : 'none',
       enter: onmodes,
     },
-    { label: 'keymap', value: () => 'view', hint: 'enter', enter: onkeymap },
+    { label: 'keymaps', value: () => 'edit', hint: 'enter', enter: onkeymap },
     // A pointer, not a door. Workspace settings have a key of their own,
     // because a per-workspace screen reached through the app-wide one reads as
     // if the workspace were a subsection of the app.

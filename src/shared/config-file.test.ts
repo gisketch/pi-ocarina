@@ -6,7 +6,7 @@ const of = (value: unknown) => parseConfig(JSON.stringify(value))
 describe('a file that cannot be read at all', () => {
   it('reports one problem rather than failing to start', () => {
     const { config, problems } = parseConfig('{not json')
-    expect(config).toEqual({ keys: [], hooks: [], rules: [] })
+    expect(config).toEqual({ keys: [], hooks: [], rules: [], titles: {} })
     expect(problems).toHaveLength(1)
     expect(problems[0].where).toBe('file')
   })
@@ -45,13 +45,12 @@ describe('keys', () => {
     expect(problems[0].where).toBe('keys[1]')
   })
 
-  it('protects the keys that actually enter a mode', () => {
-    // Checked against the reducer, not guessed: an earlier list protected `:`
-    // and `v`, which nothing reads, and left the leader's own space bar free
-    // to be taken.
-    for (const key of [' ', 'd', 'j', 'k', 't', 'i', 'Escape']) {
-      expect(FIXED_KEYS.has(key)).toBe(true)
-    }
+  it('protects Escape and only Escape', () => {
+    // The 2026-08-19 rebindable-keymaps spec: one fixed exit is enough to
+    // stay recoverable, and every other key — mode entries included — may
+    // move. An earlier list also fixed `i d j k t ␣`, which left a non-QWERTY
+    // reader unable to move the keys they hit most.
+    expect([...FIXED_KEYS]).toEqual(['Escape'])
   })
 
   it('refuses to rebind a key that leaves a mode', () => {
@@ -147,5 +146,29 @@ describe('rules', () => {
     expect(of({ rules: [{ effect: 'allow', tool: 'bash', match: '' }] }).problems[0].message).toContain(
       'not a rule',
     )
+  })
+})
+
+describe('titles', () => {
+  it('is empty when the file says nothing, which means on and automatic', () => {
+    expect(of({}).config.titles).toEqual({})
+  })
+
+  it('reads a pinned model and an off switch', () => {
+    const { config, problems } = of({
+      titles: { model: 'anthropic/claude-haiku-4-5', enabled: false },
+    })
+    expect(problems).toEqual([])
+    expect(config.titles).toEqual({ model: 'anthropic/claude-haiku-4-5', enabled: false })
+  })
+
+  it('refuses a model not spelt provider/id, and keeps the rest', () => {
+    const { config, problems } = of({ titles: { model: 'haiku', enabled: false } })
+    expect(problems[0].where).toBe('titles.model')
+    expect(config.titles).toEqual({ enabled: false })
+  })
+
+  it('refuses an enabled that is not a boolean', () => {
+    expect(of({ titles: { enabled: 'no' } }).problems[0].where).toBe('titles.enabled')
   })
 })

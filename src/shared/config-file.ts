@@ -52,13 +52,25 @@ export interface RuleEntry {
   workspace?: string
 }
 
+/** How threads get their names.
+ *
+ *  Absent entirely for almost everyone: the titler is on by default and picks
+ *  the cheapest model pi has configured. `model` pins it (`provider/id`, the
+ *  way pi's own config spells one); `enabled: false` turns the machine naming
+ *  off — the manual rename always works. */
+export interface TitleSettings {
+  model?: string
+  enabled?: boolean
+}
+
 export interface AppConfig {
   keys: KeyBinding[]
   hooks: HookEntry[]
   rules: RuleEntry[]
+  titles: TitleSettings
 }
 
-export const EMPTY_CONFIG: AppConfig = { keys: [], hooks: [], rules: [] }
+export const EMPTY_CONFIG: AppConfig = { keys: [], hooks: [], rules: [], titles: {} }
 
 /** One entry that did not load, and why. Never a thrown error: a file with one
  *  bad line still has good lines in it. */
@@ -80,14 +92,13 @@ const MODES = new Set(['NORMAL', 'READ', 'DIFF', 'LEADER'])
  *  who rebinds `Escape` has an app they cannot leave, and the fix is editing a
  *  file they cannot open because the app is holding the keyboard.
  *
- *  The list is the keys that *enter or leave a mode*, checked against the
- *  reducer rather than guessed: `Escape` leaves every mode, `i` enters INSERT,
- *  `d` enters DIFF, `j`/`k` enter READ, `t` opens a terminal column and `␣`
- *  starts the leader chord. Take any of those and a whole mode becomes
- *  unreachable — and the app has no other door to it. Earlier versions of this
- *  list protected `:` and `v`, which nothing reads, while leaving every key
- *  above rebindable. */
-export const FIXED_KEYS = new Set(['Escape', 'i', 'd', 'j', 'k', 't', ' '])
+ *  One key, decided in the 2026-08-19 rebindable-keymaps spec: `Escape` is
+ *  the universal way out — of a mode, an overlay, a recording — and a reader
+ *  who loses it has an app they cannot leave. Everything else may move; the
+ *  mode-entry keys included, because one fixed exit is enough to stay
+ *  recoverable. Earlier versions also fixed `i d j k t ␣`, which left a
+ *  non-QWERTY reader unable to move the keys they hit most. */
+export const FIXED_KEYS = new Set(['Escape'])
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -218,6 +229,38 @@ function readRules(value: unknown, problems: ConfigProblem[]): RuleEntry[] {
   return kept
 }
 
+function readTitles(value: unknown, problems: ConfigProblem[]): TitleSettings {
+  if (value === undefined) return {}
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    problems.push({ where: 'titles', message: 'expected an object' })
+    return {}
+  }
+
+  const entry = value as Record<string, unknown>
+  const kept: TitleSettings = {}
+
+  if (entry.model !== undefined) {
+    const model = str(entry.model)
+    // The same spelling pi's `--model` takes. Checked here so a typo is a
+    // reported line, not a titler that silently never runs.
+    if (model === '' || !model.includes('/')) {
+      problems.push({ where: 'titles.model', message: 'expected "provider/id"' })
+    } else {
+      kept.model = model
+    }
+  }
+
+  if (entry.enabled !== undefined) {
+    if (typeof entry.enabled !== 'boolean') {
+      problems.push({ where: 'titles.enabled', message: 'expected true or false' })
+    } else {
+      kept.enabled = entry.enabled
+    }
+  }
+
+  return kept
+}
+
 /** Reads the file's text. Never throws.
  *
  *  A file that is not valid JSON is one problem, not a broken launch: the app
@@ -247,6 +290,7 @@ export function parseConfig(text: string): ConfigLoad {
       keys: readKeys(record.keys, problems),
       hooks: readHooks(record.hooks, problems),
       rules: readRules(record.rules, problems),
+      titles: readTitles(record.titles, problems),
     },
     problems,
   }

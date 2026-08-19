@@ -11,6 +11,7 @@
   import CloseConfirm from './components/CloseConfirm.svelte'
   import ConfirmModal from './components/ConfirmModal.svelte'
   import WorktreeAsk from './components/WorktreeAsk.svelte'
+  import RenameAsk from './components/RenameAsk.svelte'
   import SweepOverlay from './components/overlays/SweepOverlay.svelte'
   import AgentPeek from './components/thread/AgentPeek.svelte'
   import ConfigBanner from './components/ConfigBanner.svelte'
@@ -18,6 +19,7 @@
   import Toasts from './components/Toasts.svelte'
   import DiffViewer from './components/overlays/DiffViewer.svelte'
   import KeymapOverlay from './components/overlays/KeymapOverlay.svelte'
+  import KeybindsOverlay from './components/overlays/KeybindsOverlay.svelte'
   import SwitcherOverlay from './components/overlays/SwitcherOverlay.svelte'
   import CommandPalette from './components/overlays/CommandPalette.svelte'
   import SettingsOverlay from './components/overlays/SettingsOverlay.svelte'
@@ -178,6 +180,7 @@
 
   <ConfirmModal />
   <WorktreeAsk />
+  <RenameAsk />
   <SweepOverlay />
   <!-- Not modal: the peek is somewhere to look from while the fan-out carries
        on behind it, so it floats rather than covering the strip. -->
@@ -193,6 +196,8 @@
 
   {#if shell.overlay === 'keymap'}
     <KeymapOverlay onclose={() => shell.closeOverlay()} />
+  {:else if shell.overlay === 'keybinds'}
+    <KeybindsOverlay onclose={() => shell.closeOverlay()} />
   {:else if shell.overlay === 'switcher'}
     <SwitcherOverlay
       bind:input={switcherInput}
@@ -205,7 +210,7 @@
   {:else if shell.overlay === 'settings'}
     <SettingsOverlay
       onclose={() => shell.closeOverlay()}
-      onkeymap={() => shell.openOverlay('keymap')}
+      onkeymap={() => shell.openOverlay('keybinds')}
       onmodel={() => shell.openModelFor('default')}
       onroles={() => shell.openOverlay('roles')}
       onmodes={() => shell.openOverlay('modes')}

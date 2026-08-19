@@ -8,8 +8,8 @@
  *  is what most readers have. */
 
 import { bridge } from '../bridge'
-import { buildKeymap, keymapProblems } from '../keymap'
-import { shell } from './shell.svelte'
+import { keymapProblems } from '../keymap'
+import { keybinds } from './keybinds.svelte'
 import { EMPTY_CONFIG, type AppConfig, type ConfigProblem } from '../../../../shared/config-file'
 
 class ConfigState {
@@ -39,8 +39,9 @@ class ConfigState {
 
     // Applied here rather than by the shell reading this store: the bindings
     // are an input to the reducer, and handing them over once at load keeps
-    // the keyboard from re-deriving them on every keystroke.
-    shell.keymap = buildKeymap(answer.config.keys)
+    // the keyboard from re-deriving them on every keystroke. The rebuild
+    // merges the Keymaps screen's saves underneath these — hand wins.
+    keybinds.rebuild()
 
     // A binding the keymap will not honour is a key that silently does
     // nothing, which is the failure this file exists to prevent.

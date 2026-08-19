@@ -1,5 +1,5 @@
 import { app } from './app.svelte'
-import { effectiveKey, EMPTY_KEYMAP, type Keymap } from '../keymap'
+import { decodePress, effectiveKey, EMPTY_KEYMAP, encodePress, type Keymap } from '../keymap'
 import { runAction } from './shell-actions'
 import { catalog } from './catalog.svelte'
 import { commit } from './commit.svelte'
@@ -188,7 +188,7 @@ class ShellState {
   /** Returns true when the event was consumed and should be prevented. */
   handleKey(event: KeyEventLike): boolean {
     // Everything modal answers first, in one place that owns the ranking.
-    const answered = routeToOverlay(event)
+    const answered = routeToOverlay(event, this.keymap)
     if (answered !== null) return answered
 
     // Everything `routeToSurface` asks belongs to a column: a block menu, the
@@ -230,17 +230,17 @@ class ShellState {
     // copies none of them, so a remapped `⌥j` would arrive at the reducer
     // looking like a bare `j` and walk straight past the guard that ignores
     // modifier chords.
-    const remapped = effectiveKey(this.keymap, before.mode, event.key)
+    const press = encodePress(event)
+    const remapped = effectiveKey(this.keymap, before.mode, press)
     const { state, actions, preventDefault, timer } = reduceKey(
       before,
-      remapped === event.key
+      remapped === press
         ? event
-        : {
-            key: remapped,
-            metaKey: event.metaKey,
-            ctrlKey: event.ctrlKey,
-            altKey: event.altKey,
-          },
+        : // A translated press names its own chord: `C-d` decodes with control
+          // held, a bare key without it. The original event's modifiers do not
+          // ride along — `z` bound to the half-page scroll must arrive looking
+          // exactly like `^d`.
+          { ...decodePress(remapped), metaKey: false, altKey: false },
       {
         workspaceCount: app.workspaces.length,
         terminalColumn: app.thread.terminal === true,

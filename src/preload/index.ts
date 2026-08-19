@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { CatalogLoad, CatalogPosition } from '../main/catalog'
-import type { ConfigLoad } from '../shared/config-file'
+import type { ConfigLoad, ConfigProblem } from '../shared/config-file'
+import type { KeymapKeys } from '../shared/keymap-file'
 import {
   GIT_STATUS_CHANNEL,
   SESSION_COMMAND_CHANNEL,
@@ -34,6 +35,12 @@ const api = {
   config: {
     load: (): Promise<ConfigLoad & { path: string }> => ipcRenderer.invoke('config:load'),
     reload: (): Promise<ConfigLoad & { path: string }> => ipcRenderer.invoke('config:reload'),
+  },
+  /** The Keymaps screen's file — the one configuration file the app writes. */
+  keymap: {
+    load: (): Promise<{ path: string; keys: KeymapKeys; problems: ConfigProblem[] }> =>
+      ipcRenderer.invoke('keymap:load'),
+    save: (keys: KeymapKeys): Promise<void> => ipcRenderer.invoke('keymap:save', keys),
   },
   files: {
     /** The real path of a dropped file. Electron 38 removed `File.path`, and

@@ -15,6 +15,7 @@ import { session } from '../session'
 import { app } from './app.svelte'
 import type { KeyEventLike } from '../keyboard'
 import { MODIFIER_KEYS } from '../keyboard'
+import { decodePress, effectiveKey, EMPTY_KEYMAP, encodePress, type Keymap } from '../keymap'
 import { fuzzyFilter } from '../fuzzy'
 
 export type Pane = 'files' | 'diff'
@@ -163,18 +164,26 @@ class Changes {
   }
 
   /** One key while the viewer is up. Always consumed: a key that fell through
-   *  would move the column behind the surface the reader is looking at. */
-  handleKey(event: KeyEventLike): boolean {
+   *  would move the column behind the surface the reader is looking at.
+   *
+   *  The reader's DIFF bindings are translated here, the same remap the shell
+   *  applies before its reducer — except while the filter is typing, when a
+   *  key is a letter and a rebind must not make one untypable. */
+  handleKey(event: KeyEventLike, keymap: Keymap = EMPTY_KEYMAP): boolean {
     if (MODIFIER_KEYS.has(event.key)) return false
 
     const pendingG = this.#pendingG
     this.#pendingG = false
 
-    if (this.filtering || event.key === '/') {
-      if (this.#filterKey(event)) return true
+    const key = this.filtering
+      ? event.key
+      : decodePress(effectiveKey(keymap, 'DIFF', encodePress(event))).key
+
+    if (this.filtering || key === '/') {
+      if (this.#filterKey(this.filtering ? event : { key })) return true
     }
 
-    switch (event.key) {
+    switch (key) {
       case 'Escape':
         this.leave()
         return true

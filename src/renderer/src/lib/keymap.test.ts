@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { KeyBinding } from '../../../shared/config-file'
-import { buildKeymap, effectiveKey, EMPTY_KEYMAP, isAction, keymapProblems, SHIPPED_KEYS } from './keymap'
+import {
+  buildKeymap,
+  decodePress,
+  effectiveKey,
+  EMPTY_KEYMAP,
+  encodePress,
+  isAction,
+  keymapProblems,
+  SHIPPED_KEYS,
+} from './keymap'
 
 const bind = (mode: KeyBinding['mode'], key: string, action: string): KeyBinding => ({
   mode,
@@ -73,7 +82,56 @@ describe('an action the app does not have', () => {
   })
 })
 
+describe('a press with control held', () => {
+  it('is encoded as a chord, and decoded back to the event the reducer reads', () => {
+    expect(encodePress({ key: 'd', ctrlKey: true })).toBe('C-d')
+    expect(encodePress({ key: 'd' })).toBe('d')
+    expect(decodePress('C-d')).toEqual({ key: 'd', ctrlKey: true })
+    expect(decodePress('d')).toEqual({ key: 'd', ctrlKey: false })
+  })
+
+  it('leaves meta and alt chords alone — those belong to the app and the OS', () => {
+    expect(encodePress({ key: 'k', metaKey: true })).toBe('k')
+    expect(encodePress({ key: 'j', altKey: true })).toBe('j')
+  })
+
+  it('can be rebound: a plain key can mean the half-page scroll', () => {
+    const keymap = buildKeymap([bind('NORMAL', 'z', 'scroll.down')])
+    expect(effectiveKey(keymap, 'NORMAL', 'z')).toBe('C-d')
+  })
+})
+
+describe('a NORMAL binding pressed in READ', () => {
+  it('falls through, because the NORMAL keys themselves fall through', () => {
+    // `y` yanks from READ too. A reader who moved `y` to `c` expects `c` to
+    // yank from READ, the same way `y` did.
+    const keymap = buildKeymap([bind('NORMAL', 'x', 'thread.next')])
+    expect(effectiveKey(keymap, 'READ', 'x')).toBe('l')
+  })
+
+  it("never shadows a key READ owns itself", () => {
+    // Stealing NORMAL `h` must not take READ's collapse with it.
+    const keymap = buildKeymap([bind('NORMAL', 'h', 'thread.rename')])
+    expect(effectiveKey(keymap, 'READ', 'h')).toBe('h')
+  })
+
+  it('loses to an explicit READ binding on the same key', () => {
+    const keymap = buildKeymap([
+      bind('NORMAL', 'x', 'thread.next'),
+      bind('READ', 'x', 'block.down'),
+    ])
+    expect(effectiveKey(keymap, 'READ', 'x')).toBe('j')
+  })
+})
+
 describe('the shipped table', () => {
+  it('labels and groups every action, for the screens that draw it', () => {
+    for (const entry of Object.values(SHIPPED_KEYS)) {
+      expect(entry.label.length).toBeGreaterThan(0)
+      expect(entry.group.length).toBeGreaterThan(0)
+    }
+  })
+
   it('names every action it binds', () => {
     for (const action of Object.keys(SHIPPED_KEYS)) expect(isAction(action)).toBe(true)
     expect(isAction('nonsense')).toBe(false)

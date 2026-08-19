@@ -112,6 +112,10 @@ describe('NORMAL bindings', () => {
     expect(actions).toEqual([{ type: 'focusComposer' }])
   })
 
+  it('opens the rename dialog on ⇧R', () => {
+    expect(press(NORMAL, 'R').actions).toEqual([{ type: 'renameThread' }])
+  })
+
   it('asks for the terminal column on t', () => {
     expect(press(NORMAL, 't').actions).toEqual([{ type: 'openTerminal' }])
   })

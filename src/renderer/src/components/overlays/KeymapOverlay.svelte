@@ -1,147 +1,102 @@
 <script lang="ts">
   import Backdrop from './Backdrop.svelte'
-  import { isAction } from '$lib/keymap'
-  import { config } from '$lib/state/config.svelte'
+  import { SHIPPED_KEYS } from '$lib/keymap'
+  import { keybinds } from '$lib/state/keybinds.svelte'
 
   const { onclose }: { onclose: () => void } = $props()
 
-  // The reader's own bindings, when there are any. The groups below are what
-  // the app ships; a screen that showed only those would be wrong for exactly
-  // the reader who changed something.
-  const mine = $derived(config.config.keys.filter((one) => isAction(one.action)))
+  /** Drawn from the registry and the live keymap, never written by hand — a
+   *  hardcoded sheet showed the shipped key for actions the reader had moved,
+   *  which is a cheat sheet that cheats. */
+  const GROUPS = [
+    { group: 'navigate', title: 'NAVIGATE' },
+    { group: 'screens', title: 'SCREENS' },
+    { group: 'read', title: 'READ' },
+    { group: 'diff', title: 'DIFF' },
+    { group: 'leader', title: 'LEADER ␣' },
+  ]
 
-  const groups: { title: string; rows: [string, string][] }[] = [
-    {
-      title: 'NAVIGATE',
-      rows: [
-        ['jump workspace', '1–3'],
-        ['prev/next thread', 'h / l'],
-        ['switcher', 'w'],
-        ['commands', '⌘K'],
-        ['search threads', '/'],
-        ['model', 'm'],
-        ['voice', '⇧M'],
-        ['terminal column', 't'],
-        ['move column', '⇧H/⇧L'],
-        ['settings', ','],
-        ['workspace settings', '<'],
-      ],
-    },
-    {
-      title: 'LEADER ␣',
-      rows: [
-        ['␣ 1–3 jump', 'chord'],
-        ['␣ n new thread', 'chord'],
-        ['␣ x close column', 'chord'],
-        ['␣ c compact', 'chord'],
-        ['␣ p permission', 'chord'],
-        ['␣ f find thread', 'chord'],
-        ['␣ m model', 'chord'],
-        ['␣ M voice', 'chord'],
-        ['␣ s settings', 'chord'],
-        ['␣ S workspace', 'chord'],
-        ['␣ k keymap', 'chord'],
-      ],
-    },
-    {
-      title: 'READ',
-      rows: [
-        ['enter · move block', 'j / k'],
-        ['expand · collapse', 'l / h'],
-        ['half page', '^d / ^u'],
-        ['leap to block', 's'],
-        ['block actions', 'a'],
-        ['back to strip', 'esc'],
-        ['yank last code', 'y'],
-        ['see the change', 'd'],
-      ],
-    },
-    {
-      title: 'DIFF',
-      rows: [
-        ['file · hunk', 'j / k'],
-        ['switch pane', 'tab'],
-        ['next · prev hunk', 'n / N'],
-        ['top · bottom', 'gg / G'],
-        ['filter files', '/'],
-        ['copy the line', 'y'],
-        ['close', 'esc'],
-      ],
-    },
-    {
-      title: 'COMPOSE',
-      rows: [
-        ['insert mode', 'i'],
-        ['normal mode', 'esc'],
-        ['send', '⏎'],
-      ],
-    },
+  const rowsOf = (group: string) =>
+    Object.entries(SHIPPED_KEYS).filter(([, entry]) => entry.group === group)
+
+  function spell(press: string): string {
+    if (press === ' ') return '␣'
+    if (press === 'Tab') return '⇥'
+    if (press.startsWith('C-')) return `^${press.slice(2)}`
+    return press
+  }
+
+  const moved = (action: string) => keybinds.pressOf(action) !== SHIPPED_KEYS[action].key
+
+  /** The keys no keymap moves, said rather than implied. */
+  const FIXED: [string, string][] = [
+    ['jump workspace', '1–3'],
+    ['commands', '⌘K'],
+    ['insert · send', 'i / ⏎'],
+    ['back out of anything', 'esc'],
   ]
 </script>
 
 <Backdrop {onclose} z={55} label="Keymap">
   <div class="keymap">
-    <div class="heading">KEYMAP <span class="sub">— play it like a song</span></div>
+    <div class="heading">
+      KEYMAP <span class="sub">— play it like a song</span>
+      <span class="edit">edit in settings (,)</span>
+    </div>
     <div class="grid">
-      {#each groups as group (group.title)}
+      {#each GROUPS as { group, title } (group)}
         <div class="group">
-          <div class="group-title">{group.title}</div>
-          {#each group.rows as [label, key] (label)}
-            <div class="row"><span>{label}</span><span class="key">{key}</span></div>
+          <div class="group-title">{title}</div>
+          {#each rowsOf(group) as [action, entry] (action)}
+            <div class="row">
+              <span>{entry.label}</span>
+              <span class="key" class:moved={moved(action)}>{spell(keybinds.pressOf(action))}</span>
+            </div>
           {/each}
         </div>
       {/each}
 
-      {#if mine.length > 0}
-        <div class="group">
-          <div class="group-title">YOURS</div>
-          <!-- Said rather than merged into the groups above: those are a
-               written list, so a shipped key the reader has taken over still
-               reads there as if it did what it always did. -->
-          <div class="row note">these replace the shipped keys above</div>
-          {#each mine as binding (`${binding.mode} ${binding.key}`)}
-            <div class="row">
-              <span>{binding.action} <span class="where">{binding.mode.toLowerCase()}</span></span>
-              <span class="key">{binding.key === ' ' ? '␣' : binding.key}</span>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      <div class="group">
+        <div class="group-title">FIXED</div>
+        {#each FIXED as [label, key] (label)}
+          <div class="row"><span>{label}</span><span class="key">{key}</span></div>
+        {/each}
+      </div>
     </div>
   </div>
 </Backdrop>
 
 <style>
-  .note {
-    color: var(--fg-dim);
-    font-size: 10px;
-  }
-
-  .where {
-    color: var(--fg-dim);
-    font-size: 10px;
-  }
-
   .keymap {
     width: var(--column-w);
     background: var(--bg-panel);
     padding: 26px 30px;
     animation: rise 0.2s ease;
+    max-height: 82vh;
+    overflow-y: auto;
   }
 
   .heading {
     font-size: 16px;
     color: var(--fg-bright);
     margin-bottom: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
   .sub {
     color: var(--fg-dimmer);
     font-size: 11px;
   }
+  .edit {
+    margin-left: auto;
+    color: var(--fg-dimmest);
+    font-size: 10px;
+  }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 24px;
     font-size: 11px;
   }
@@ -164,5 +119,9 @@
   }
   .key {
     color: var(--fg-dim);
+  }
+  /* The reader's own key, said in the reader's color. */
+  .key.moved {
+    color: var(--accent);
   }
 </style>

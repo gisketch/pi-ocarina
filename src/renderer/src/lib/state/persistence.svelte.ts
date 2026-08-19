@@ -2,6 +2,7 @@ import { app } from './app.svelte'
 import { bridge } from '../bridge'
 import { catalog } from './catalog.svelte'
 import { config } from './config.svelte'
+import { keybinds } from './keybinds.svelte'
 import { preferences } from './preferences.svelte'
 import { clampThread } from '../strip'
 
@@ -21,6 +22,9 @@ export function startPersistence(): () => void {
   // that only worked because a banner was mounted would be a keyboard that
   // stopped working the day the banner moved.
   void config.load()
+  // The Keymaps screen's saves, merged underneath the file above — the order
+  // of the two loads does not matter, because each rebuilds the merge whole.
+  void keybinds.load()
 
   // The real workspace list has to land first. Restoring against the demo
   // catalog would clamp a saved position to the wrong thread counts, and which

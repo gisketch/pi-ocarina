@@ -1,6 +1,7 @@
 import type { ThreadId } from '../../../../shared/thread-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChangedFile } from '../../../../shared/protocol'
+import { buildKeymap } from '../keymap'
 
 vi.mock('../session', () => ({ session: { invoke: vi.fn() } }))
 vi.mock('./app.svelte', () => ({ app: { mode: 'NORMAL' } }))
@@ -125,6 +126,33 @@ describe('stepping hunks', () => {
 
     changes.handleKey({ key: 'n' })
     expect(changes.line).toBe(settled)
+  })
+})
+
+describe('the reader’s own DIFF bindings', () => {
+  const remap = (key: string, action: string) => buildKeymap([{ mode: 'DIFF', key, action }])
+
+  it('translates a rebound key before the viewer reads it', () => {
+    load([twoHunks])
+
+    changes.handleKey({ key: 'p' }, remap('p', 'diff.hunkNext'))
+    expect(changes.line).toBe(1)
+  })
+
+  it('can move the filter key itself', () => {
+    load([twoHunks])
+
+    changes.handleKey({ key: 'f' }, remap('f', 'diff.filter'))
+    expect(changes.filtering).toBe(true)
+  })
+
+  it('never translates while the filter is typing', () => {
+    // A rebind must not make a letter untypable in a text field.
+    load([twoHunks])
+    changes.handleKey({ key: '/' })
+
+    changes.handleKey({ key: 'p' }, remap('p', 'diff.hunkNext'))
+    expect(changes.filter).toBe('p')
   })
 })
 

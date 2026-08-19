@@ -18,6 +18,7 @@ export type Overlay =
   | 'search'
   | 'roles'
   | 'workspace'
+  | 'keybinds'
 
 export interface KeyState {
   mode: Mode
@@ -36,6 +37,8 @@ export type Action =
   | { type: 'expandBlock'; open: boolean }
   | { type: 'newThread' }
   | { type: 'closeThread' }
+  /** Open the rename dialog on the focused thread. */
+  | { type: 'renameThread' }
   | { type: 'openTerminal' }
   /** Back to the newest content in the focused thread, and pinned there. */
   | { type: 'jumpToLive' }

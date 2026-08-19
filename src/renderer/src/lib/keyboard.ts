@@ -64,6 +64,10 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   // `y` copies an install line, and `j`/`k` walk the rows: every key it uses
   // is its own while it is open.
   'workspace',
+  // The Keymaps editor reads raw letters twice over: its rows answer j/k/r,
+  // and a recording row must receive literally any key — including the ones
+  // that open other screens.
+  'keybinds',
 ])
 
 /** The key each screen opens on, which is also the key that closes it again.
@@ -285,6 +289,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
       return enterRead(state, ctx, [{ type: 'leap' }])
     case 'y':
       return result(state, [{ type: 'yank' }])
+    // Shifted, like ⇧H/⇧L: the bare letters are taken, and a rename is rare
+    // enough to be worth a reach.
+    case 'R':
+      return result(state, [{ type: 'renameThread' }])
     default:
       return result(state, [], false)
   }
