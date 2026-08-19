@@ -1,6 +1,6 @@
 <script lang="ts" generics="T">
   import type { Snippet } from 'svelte'
-  import Backdrop from './Backdrop.svelte'
+  import TelescopeShell from './TelescopeShell.svelte'
   import { fuzzyFilter } from '$lib/fuzzy'
 
   interface Props {
@@ -61,55 +61,38 @@
   }
 </script>
 
-<Backdrop {onclose} z={50} {label}>
-  <div class="scope">
-    <div class="finder">
-      <input
-        bind:this={input}
-        bind:value={query}
-        {placeholder}
-        spellcheck="false"
-        oninput={() => (picked = 0)}
-        onkeydown={onkeydown}
-      />
-      <div class="list">
-        {#each hits as hit, index (key(hit))}
-          <button
-            type="button"
-            class="entry"
-            class:on={hit === highlighted}
-            onclick={() => onpick(hit)}
-            onmouseenter={() => (picked = index)}
-          >
-            {@render row(hit)}
-          </button>
-        {:else}
-          <div class="none">nothing matches</div>
-        {/each}
-      </div>
+<TelescopeShell {onclose} {label}>
+  {#snippet left()}
+    <input
+      bind:this={input}
+      bind:value={query}
+      {placeholder}
+      spellcheck="false"
+      oninput={() => (picked = 0)}
+      onkeydown={onkeydown}
+    />
+    <div class="list">
+      {#each hits as hit, index (key(hit))}
+        <button
+          type="button"
+          class="entry"
+          class:on={hit === highlighted}
+          onclick={() => onpick(hit)}
+          onmouseenter={() => (picked = index)}
+        >
+          {@render row(hit)}
+        </button>
+      {:else}
+        <div class="none">nothing matches</div>
+      {/each}
     </div>
-    <div class="pane">
-      {@render preview(highlighted)}
-    </div>
-  </div>
-</Backdrop>
+  {/snippet}
+  {#snippet right()}
+    {@render preview(highlighted)}
+  {/snippet}
+</TelescopeShell>
 
 <style>
-  .scope {
-    display: flex;
-    width: min(920px, 82vw);
-    height: min(560px, 72vh);
-    background: var(--bg-panel, #101014);
-  }
-
-  .finder {
-    display: flex;
-    flex-direction: column;
-    width: 42%;
-    min-width: 0;
-    background: rgba(255, 255, 255, 0.02);
-  }
-
   input {
     background: rgba(255, 255, 255, 0.05);
     padding: 10px 12px;
@@ -147,13 +130,5 @@
     padding: 10px 12px;
     font-size: 11.5px;
     color: var(--fg-dimmest);
-  }
-
-  .pane {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
 </style>

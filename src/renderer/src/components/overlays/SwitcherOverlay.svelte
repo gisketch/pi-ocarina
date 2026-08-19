@@ -52,7 +52,7 @@
   {onclose}
   z={50}
   label="Workspace switcher"
-  placeholder="fuzzy filter workspaces… ⏎ picks first"
+  placeholder="search workspaces… ⏎ picks first"
   bind:value={query}
   bind:input
   {onkeydown}

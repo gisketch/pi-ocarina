@@ -99,6 +99,11 @@ on one before implementing it. Each carries its own list of what the grill must
 settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
+- [2026-08-19-file-search-and-viewer.md](2026-08-19-file-search-and-viewer.md) —
+  `␣f` becomes a telescopic file search; a picked file opens a vim buffer
+  column (CodeMirror + vim); the strip's mode renames to OCARINA, typing to
+  CHAT, and NORMAL/INSERT become vim's; the diff viewer wears the same dialog
+  shell. **Grilled 2026-08-19.**
 - [2026-08-19-thread-dashboard.md](2026-08-19-thread-dashboard.md) — the
   fresh-thread placeholder becomes a launcher: deferred creation, an inline
   worktree flow replacing the WorktreeAsk modal, a recent-thread list, and a

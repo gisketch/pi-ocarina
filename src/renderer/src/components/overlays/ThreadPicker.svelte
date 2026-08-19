@@ -21,7 +21,7 @@
 <Telescope
   {onclose}
   label="Thread history"
-  placeholder="fuzzy filter threads… ⏎ opens"
+  placeholder="search threads… ⏎ opens"
   {items}
   text={(summary) => summary.title}
   key={(summary) => summary.id}
