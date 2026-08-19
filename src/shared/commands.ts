@@ -175,6 +175,14 @@ export interface SessionCommands {
     params: { threadId: ThreadId; checkpointId: string }
     result: { threadId: ThreadId }
   }
+  /** Copies a thread at a checkpoint into a new thread. The original is
+   *  untouched; the copy carries the history up to the checkpoint, shares the
+   *  parent's folder, and waits for a prompt. `title` is the copy's name —
+   *  the caller says `Fork - <parent>`, the backend does not invent it. */
+  forkThread: {
+    params: { threadId: ThreadId; checkpointId: string; title: string }
+    result: { threadId: ThreadId }
+  }
   compact: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Paths the @-mention picker offers, relative to the workspace. */
   listFiles: { params: { workspaceId: string }; result: { files: string[] } }

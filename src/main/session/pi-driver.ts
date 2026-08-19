@@ -27,6 +27,7 @@ import type { HookEntry, RuleEntry, TitleSettings } from '../../shared/config-fi
 import { StagedImages } from './staged-images'
 import { autoTitle, renameThread, wantsTitle } from './thread-title'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
+import { forkThread } from './fork-thread'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
 import { SteerQueue } from './steering'
@@ -207,6 +208,13 @@ export class PiDriver implements SessionDriver {
         const { threadId, checkpointId } = params as CommandParams<'restoreCheckpoint'>
         await restoreCheckpoint(this.#emit, threadId, this.#threads.get(threadId), checkpointId)
         return { threadId } as CommandResult<N>
+      }
+
+      case 'forkThread': {
+        const { threadId, checkpointId, title } = params as CommandParams<'forkThread'>
+        const parent = this.#threads.get(threadId)
+        const forkedId = await forkThread(this.#parts(), threadId, parent, checkpointId, title)
+        return { threadId: forkedId } as CommandResult<N>
       }
 
       case 'threadWorktree':
