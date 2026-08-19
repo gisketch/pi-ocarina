@@ -4,7 +4,7 @@ Spec: `docs/specs/2026-08-16-thread-fork.md` (D1–D6).
 
 ## T1 — backend: `forkThread` command
 
-Status: todo
+Status: done
 
 Behavior: a `forkThread { threadId, checkpointId, title }` command copies the
 parent session at the checkpoint into a new session file, opens it as a live
@@ -35,7 +35,7 @@ Blocked by: nothing.
 
 ## T2 — renderer: fork flow state
 
-Status: todo
+Status: done
 
 Behavior: a `forkThread(workspaceId, parentId, checkpointId, parentTitle)`
 renderer action invokes the command with title `Fork - <parentTitle>`,
@@ -58,7 +58,7 @@ Blocked by: T1 (command name and shape).
 
 ## T3 — block menu: fork action
 
-Status: todo
+Status: done
 
 Behavior: `a` on a message with a checkpoint offers `fork from here` next to
 restore. Enter runs it once (no confirm — fork destroys nothing), the new
@@ -81,7 +81,7 @@ Blocked by: T2.
 
 ## T4 — review and fix
 
-Status: todo
+Status: done
 
 `/sonata-review` over the fork commits; fix findings; full suite +
 svelte-check + check-sonata on touched files.
