@@ -7,11 +7,11 @@
   import { registerColumnScroller } from '$lib/state/columns'
   import { SCROLL_STEP } from '$lib/keyboard'
   import { xtermShouldHandle } from '$lib/terminal-keys'
-  import { terminalId } from '$lib/types'
   import { terminals } from '$lib/state/terminal.svelte'
   import '@xterm/xterm/css/xterm.css'
 
-  const { workspaceId, name, focused, onfocus }: {
+  const { terminalId: id, workspaceId, name, focused, onfocus }: {
+    terminalId: string
     workspaceId: string
     name: string
     focused: boolean
@@ -25,7 +25,6 @@
   let host = $state<HTMLDivElement | null>(null)
   let term: Terminal | null = null
   let fit: FitAddon | null = null
-  const id = $derived(terminalId(workspaceId))
 
   /** Read from the document rather than hardcoded: the accent is seeded per
    *  workspace, so the cursor follows whichever workspace this shell is in. */

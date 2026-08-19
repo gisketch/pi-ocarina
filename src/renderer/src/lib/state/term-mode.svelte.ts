@@ -9,6 +9,7 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { terminals } from './terminal.svelte'
 import { terminalId } from '../types'
+import { toasts } from './toasts.svelte'
 
 /** How long after leaving TERM a second `esc` still means "send it through".
  *
@@ -31,10 +32,15 @@ class TermMode {
     if (catalog.source !== 'live') return
 
     const workspaceId = app.workspace.id
-    const id = terminalId(workspaceId)
-    const existing = app.workspace.threads.findIndex((thread) => thread.id === id)
+    const focused = app.thread
+    const hostId = focused.attachment?.hostId ?? focused.id
+    if (!hostId) return
+    const existing = app.workspace.threads.findIndex(
+      (thread) => thread.terminal && thread.attachment?.hostId === hostId,
+    )
 
     if (existing !== -1) {
+      const id = app.workspace.threads[existing].id
       app.focusThread(existing)
       this.enter()
       // A shell the user exited leaves its column behind. `create` is a no-op
@@ -44,14 +50,19 @@ class TermMode {
       return
     }
 
-    catalog.openTerminal(workspaceId)
+    const base = terminalId(workspaceId, hostId)
+    let id = base
+    let suffix = 2
+    while (app.workspace.threads.some((thread) => thread.id === id)) id = `${base}:${suffix++}`
+    catalog.openTerminal(workspaceId, hostId, id)
     // A shell that cannot start is the documented native-module failure. The
     // column goes away again rather than sitting blank forever in TERM.
     void terminals.create(id, workspaceId).catch((cause: unknown) => {
-      catalog.failColumn(terminalId(workspaceId), cause)
-      // Checked on the mode, not the column: the column has just been taken
-      // away, so asking whether a terminal is focused always says no.
-      if (app.mode === 'TERM') app.mode = 'OCARINA'
+      catalog.failColumn(id, cause)
+      const host = app.workspace.threads.findIndex((thread) => thread.id === hostId)
+      if (host !== -1) app.focusThread(host)
+      app.mode = app.thread.file !== undefined ? 'NORMAL' : 'OCARINA'
+      toasts.push({ tone: 'error', text: cause instanceof Error ? cause.message : String(cause) })
     })
 
     const column = app.workspace.threads.findIndex((thread) => thread.id === id)

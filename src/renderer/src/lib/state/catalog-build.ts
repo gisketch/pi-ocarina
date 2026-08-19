@@ -4,7 +4,7 @@
  *  column out — and the catalog is the state that calls them. */
 
 import type { ThreadSummary } from '../../../../shared/protocol'
-import { terminalId, type Thread, type Workspace } from '../types'
+import { terminalId, type PaneSide, type Thread, type Workspace } from '../types'
 
 export function describe(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
@@ -24,17 +24,29 @@ export function toThread(summary: ThreadSummary): Thread {
 
 /** The workspace with its shell column present. Idempotent: asking twice is
  *  asking for the one that is already there. */
-export function withTerminal(workspace: Workspace): Workspace {
-  const id = terminalId(workspace.id)
-  if (workspace.threads.some((thread) => thread.id === id)) return workspace
+export function withTerminal(
+  workspace: Workspace,
+  hostId = workspace.threads.find((thread) => !thread.terminal)?.id ?? '',
+  id = terminalId(workspace.id, hostId),
+  side: PaneSide = 'right',
+): Workspace {
+  if (!hostId || workspace.threads.some((thread) => thread.id === id)) return workspace
+  if (workspace.threads.some((thread) => thread.attachment?.hostId === hostId)) return workspace
 
   // The dashboard stays. It used to be filtered out here, when `fresh` only
   // meant "this workspace has nothing yet" — but a dashboard is a column the
   // reader asked for, and opening a terminal is not an answer to it.
-  return {
-    ...workspace,
-    threads: [...workspace.threads, { id, title: 'zsh', status: 'idle', meta: '', terminal: true }],
+  if (!workspace.threads.some((thread) => thread.id === hostId)) return workspace
+
+  const terminal: Thread = {
+    id,
+    title: 'zsh',
+    status: 'idle',
+    meta: '',
+    terminal: true,
+    attachment: { kind: 'terminal', hostId, side },
   }
+  return { ...workspace, threads: [...workspace.threads, terminal] }
 }
 
 export function freshThread(workspace: { id: string; name: string }): Thread {

@@ -16,6 +16,7 @@ import { shell } from './shell.svelte'
 import { dashboardRecent } from './dashboard-recent.svelte'
 import { leap } from './leap.svelte'
 import { blockFocus, registerBlock } from './block-focus.svelte'
+import { terminalId } from '../types'
 
 /** Stands in for a rendered row: the drop-stale check asks whether one was
  *  ever drawn, and in a headless run nothing is. */
@@ -103,14 +104,14 @@ describe('the recent list', () => {
     listing()
     await dashboardRecent.load('w1')
     shell.newThread()
-    catalog.openTerminal('w1')
+    catalog.openTerminal('w1', 't1', terminalId('w1', 't1'))
 
     shell.handleKey({ key: 'j' })
     shell.handleKey({ key: 'Enter' })
     await drain()
 
     const ids = app.workspace.threads.map((thread) => thread.id)
-    expect(ids).toEqual(['t1', 'mid', 'terminal:w1'])
+    expect(ids).toEqual(['t1', 'mid', terminalId('w1', 't1')])
     expect(app.thread.id).toBe('mid')
   })
 

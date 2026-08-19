@@ -37,6 +37,17 @@ export function isVimMode(mode: Mode): boolean {
  *  thread and a listed one cannot disagree about what a thread is doing. */
 export type ThreadStatus = ThreadRunState
 
+export type PaneSide = 'left' | 'right'
+export type PaneKind = 'terminal'
+
+/** A smaller pane magnetically attached to one strip column. The discriminant
+ *  is deliberately generic even though terminal is the first pane kind. */
+export interface PaneAttachment {
+  kind: PaneKind
+  hostId: string
+  side: PaneSide
+}
+
 /** A column in a workspace's strip.
  *
  *  The terminal is one of these rather than a surface of its own, so focus,
@@ -55,8 +66,10 @@ export interface Thread {
   meta: string
   /** A started-but-empty thread; renders the hero column instead of history. */
   fresh?: boolean
-  /** The workspace's shell. Exactly one per workspace, created on demand. */
+  /** A user-owned shell column. Several may exist in one workspace. */
   terminal?: boolean
+  /** Present when this column is the smaller member of an attached group. */
+  attachment?: PaneAttachment
   /** A buffer column: the workspace-relative path it is editing. */
   file?: string
   /** The branch of the worktree this thread runs in, or null when it runs in
@@ -86,8 +99,10 @@ export function fileColumnId(workspaceId: string, path: string): string {
 
 /** The id a workspace's terminal column always has. Derived rather than stored,
  *  so main and the renderer cannot disagree about which pty is which. */
-export function terminalId(workspaceId: string): string {
-  return `terminal:${workspaceId}`
+export function terminalId(workspaceId: string, hostId?: string): string {
+  return hostId === undefined
+    ? `terminal:${workspaceId}`
+    : `terminal:${workspaceId}:${encodeURIComponent(hostId)}`
 }
 
 /** The workspace a terminal column belongs to, or null if it is not one.

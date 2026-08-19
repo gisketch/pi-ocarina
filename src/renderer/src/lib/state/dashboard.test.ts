@@ -14,6 +14,7 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
 import { branchField } from './branch-field.svelte'
+import { terminalId } from '../types'
 
 const WORKSPACE = {
   id: 'w1',
@@ -97,12 +98,12 @@ describe('a thread born on the dashboard', () => {
     shell.newThread()
     // A column on the other side, so "in place" is distinguishable from "at
     // the end".
-    catalog.openTerminal('w1')
+    catalog.openTerminal('w1', 't1', terminalId('w1', 't1'))
 
     await catalog.newThread('w1')
 
     const ids = app.workspace.threads.map((thread) => thread.id)
-    expect(ids).toEqual(['t1', 'made', 'terminal:w1'])
+    expect(ids).toEqual(['t1', 'made', terminalId('w1', 't1')])
   })
 
   it('still lands on the end when no dashboard is up', async () => {

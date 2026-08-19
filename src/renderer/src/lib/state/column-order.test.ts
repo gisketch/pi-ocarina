@@ -23,6 +23,7 @@ import { shell } from './shell.svelte'
 import { termMode } from './term-mode.svelte'
 import { terminals } from './terminal.svelte'
 import { terminalId } from '../types'
+import { toasts } from './toasts.svelte'
 
 const WORKSPACE = {
   id: 'w1',
@@ -37,7 +38,7 @@ const WORKSPACE = {
   ],
 }
 
-const TERM_ID = terminalId('w1')
+const TERM_ID = terminalId('w1', 's1')
 /** What a real escape key sends. */
 const ESC = String.fromCharCode(27)
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -50,6 +51,7 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'OCARINA'
   shell.pendingClose = null
+  toasts.reset()
 })
 
 describe('moving columns', () => {
@@ -137,6 +139,8 @@ describe('when the shell cannot start', () => {
     expect(app.workspace.threads.some((thread) => thread.terminal)).toBe(false)
     expect(catalog.error).toBe('node-pty ABI mismatch')
     expect(app.mode).toBe('OCARINA')
+    expect(app.thread.id).toBe('s1')
+    expect(toasts.items.at(-1)).toMatchObject({ tone: 'error', text: 'node-pty ABI mismatch' })
   })
 })
 
@@ -147,7 +151,7 @@ describe('closing the shell named by the column', () => {
     const kill = vi.spyOn(terminals, 'kill').mockImplementation(() => {})
 
     // The id carries the workspace, so a focus change cannot redirect the kill.
-    shell.closeThread(terminalId('w1'), { cancelTurn: false })
+    shell.closeThread(TERM_ID, { cancelTurn: false })
 
     expect(kill).toHaveBeenCalledWith(TERM_ID)
   })

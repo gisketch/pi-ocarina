@@ -36,7 +36,7 @@ const WORKSPACE = {
   ],
 }
 
-const TERM_ID = terminalId('w1')
+const TERM_ID = terminalId('w1', 's1')
 /** What a real escape key sends. */
 const ESC = String.fromCharCode(27)
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -75,6 +75,19 @@ describe('opening the terminal column', () => {
     expect(app.workspace.threads.filter((thread) => thread.terminal)).toHaveLength(1)
     expect(app.thread.id).toBe(TERM_ID)
     expect(app.mode).toBe('TERM')
+  })
+
+  it('creates independent terminals for two hosts', () => {
+    const create = vi.spyOn(terminals, 'create').mockResolvedValue()
+    termMode.open()
+    app.focusThread(app.workspace.threads.findIndex((thread) => thread.id === 's2'))
+
+    termMode.open()
+
+    const shells = app.workspace.threads.filter((thread) => thread.terminal)
+    expect(shells).toHaveLength(2)
+    expect(shells.map((thread) => thread.attachment?.hostId)).toEqual(['s1', 's2'])
+    expect(create).toHaveBeenLastCalledWith(terminalId('w1', 's2'), 'w1')
   })
 
   it('revives a shell the user exited, without closing the column first', () => {

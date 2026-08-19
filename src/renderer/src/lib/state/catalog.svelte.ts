@@ -37,10 +37,11 @@ class Catalog {
     // Shells and arrangement are the renderer's alone — the backend listing
     // knows only about threads. Reloading (pinning a second folder, say) would
     // otherwise drop an open terminal column and undo every ⇧H/⇧L.
-    const shells = new Set(
-      this.workspaces
-        .filter((workspace) => workspace.threads.some((thread) => thread.terminal))
-        .map((workspace) => workspace.id),
+    const shells = Object.fromEntries(
+      this.workspaces.map((workspace) => [
+        workspace.id,
+        workspace.threads.filter((thread) => thread.terminal && thread.attachment),
+      ]),
     )
     const arrangement = Object.fromEntries(
       this.workspaces.map((workspace) => [workspace.id, workspace.threads.map((t) => t.id)]),
@@ -48,7 +49,16 @@ class Catalog {
 
     const built = await Promise.all(pinned.map((workspace) => this.#build(workspace)))
     this.workspaces = built.map((workspace) =>
-      shells.has(workspace.id) ? withTerminal(workspace) : workspace,
+      (shells[workspace.id] ?? []).reduce(
+        (next, shell) =>
+          withTerminal(
+            next,
+            shell.attachment!.hostId,
+            shell.id,
+            shell.attachment!.side,
+          ),
+        workspace,
+      ),
     )
     this.source = 'live'
     this.applyOrder(arrangement)
@@ -130,11 +140,11 @@ class Catalog {
     )
   }
 
-  /** Puts the workspace's shell on the strip. One per workspace: asking twice
-   *  is asking for the one that is already there. */
-  openTerminal(workspaceId: string): void {
+  /** Attaches one terminal to a host. The host's single slot makes this
+   *  idempotent even though a workspace may contain several terminals. */
+  openTerminal(workspaceId: string, hostId: string, id: string): void {
     this.workspaces = this.workspaces.map((workspace) =>
-      workspace.id === workspaceId ? withTerminal(workspace) : workspace,
+      workspace.id === workspaceId ? withTerminal(workspace, hostId, id) : workspace,
     )
     app.reconcile()
   }
