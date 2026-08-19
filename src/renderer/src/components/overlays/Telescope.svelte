@@ -39,6 +39,7 @@
   let query = $state('')
   let picked = $state(0)
   let input = $state<HTMLInputElement | null>(null)
+  let list = $state<HTMLElement | null>(null)
 
   /** Only the head of the match is shown (spec D8): past this the reader
    *  types, never scrolls. The narrower still matched everything, so the next
@@ -53,6 +54,26 @@
   // highlight is a chord, not a focus change. Telescope's contract.
   $effect(() => {
     input?.focus()
+  })
+
+  /** vim's scrolloff, the same contract the keymaps screen keeps: the
+   *  highlight never enters the outermost rows of the list. The moment it
+   *  comes within two rows of an edge, the list scrolls — what is coming
+   *  next is on screen before it is chosen. */
+  const SCROLLOFF = 2
+  $effect(() => {
+    const at = hits.indexOf(highlighted as T)
+    const holder = list
+    const entry = holder?.querySelectorAll<HTMLElement>('.entry')[at]
+    if (!holder || !entry) return
+
+    const margin = entry.offsetHeight * SCROLLOFF
+    const top = entry.offsetTop - margin
+    const bottom = entry.offsetTop + entry.offsetHeight + margin
+    if (top < holder.scrollTop) holder.scrollTop = top
+    else if (bottom > holder.scrollTop + holder.clientHeight) {
+      holder.scrollTop = bottom - holder.clientHeight
+    }
   })
 
   function move(delta: number): void {
@@ -91,7 +112,7 @@
       oninput={() => (picked = 0)}
       onkeydown={onkeydown}
     />
-    <div class="list">
+    <div class="list" bind:this={list}>
       {#each hits as hit, index (key(hit))}
         <button
           type="button"

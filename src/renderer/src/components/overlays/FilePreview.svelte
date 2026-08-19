@@ -1,6 +1,9 @@
-<!-- The head of one workspace file, for the file search's right pane. -->
+<!-- The head of one workspace file, for the file search's right pane —
+     drawn by the same machinery as the buffer column (theme, palette
+     highlighting, gutter), so what the picker shows is what opening gets. -->
 <script lang="ts">
   import { session } from '$lib/session'
+  import { mountPreview, type PreviewHandle } from '$lib/editor/preview'
 
   const { workspaceId, path }: { workspaceId: string; path: string } = $props()
 
@@ -9,6 +12,8 @@
   const HEAD_LINES = 200
 
   let shown = $state<{ text: string } | { note: string } | null>(null)
+  let host = $state<HTMLDivElement | null>(null)
+  let mounted: PreviewHandle | null = null
 
   $effect(() => {
     const wanted = path
@@ -30,6 +35,19 @@
         shown = { note: cause instanceof Error ? cause.message : String(cause) }
       })
   })
+
+  // One pane per shown text: the component is keyed by path upstream, but the
+  // text arrives async, so the mount follows the answer rather than the mount
+  // of the component.
+  $effect(() => {
+    const target = host
+    if (!target || shown === null || 'note' in shown) return
+    mounted = mountPreview(target, shown.text, path)
+    return () => {
+      mounted?.destroy()
+      mounted = null
+    }
+  })
 </script>
 
 <div class="head"><span class="path">{path}</span></div>
@@ -38,7 +56,7 @@
 {:else if 'note' in shown}
   <div class="note">{shown.note}</div>
 {:else}
-  <pre>{shown.text}</pre>
+  <div class="pane" bind:this={host}></div>
 {/if}
 
 <style>
@@ -57,15 +75,12 @@
     font-size: 11px;
     color: var(--fg-dimmest);
   }
-  pre {
+  .pane {
     flex: 1;
     min-height: 0;
-    margin: 0;
-    padding: 4px 14px 12px;
-    overflow: auto;
-    font-family: var(--font-body);
-    font-size: 11px;
-    line-height: 1.6;
-    color: var(--fg-dim);
+    overflow: hidden;
+  }
+  .pane :global(.cm-editor) {
+    height: 100%;
   }
 </style>

@@ -4,6 +4,8 @@
 <script lang="ts">
   import Telescope from './Telescope.svelte'
   import FilePreview from './FilePreview.svelte'
+  import Icon from '../Icon.svelte'
+  import { fileIcon } from '$lib/icons'
   import { app } from '$lib/state/app.svelte'
   import { files } from '$lib/state/files.svelte'
 
@@ -29,7 +31,11 @@
   empty={ready ? 'nothing matches' : 'reading the file list…'}
 >
   {#snippet row(path)}
-    <span class="path">{path}</span>
+    <span class="line">
+      <!-- The same mark the chips and the mention menu wear for this path. -->
+      <span class="icon"><Icon name={fileIcon(path)} size={13} /></span>
+      <span class="path">{path}</span>
+    </span>
   {/snippet}
   {#snippet preview(path)}
     {#if path}
@@ -43,7 +49,19 @@
 </Telescope>
 
 <style>
+  .line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .icon {
+    flex: none;
+    display: flex;
+    color: var(--fg-dimmer);
+  }
   .path {
+    flex: 1;
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;

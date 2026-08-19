@@ -12,7 +12,7 @@ import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
-import { languages } from '@codemirror/language-data'
+import { languageFor } from './language'
 import { Vim, getCM, vim, type CodeMirror } from '@replit/codemirror-vim'
 import { EX_COMMANDS, isForced, type ExBag } from './ex-commands'
 import { leapExtension } from './leap'
@@ -70,15 +70,6 @@ function registerExCommands(): void {
       void command.run(bag, isForced(params.argString))
     })
   }
-}
-
-/** The language extension for a path, loaded lazily; nothing for a file no
- *  grammar claims. */
-async function languageFor(path: string): Promise<Extension | null> {
-  const found = languages.find((description) => description.extensions.some((ext) => path.endsWith(`.${ext}`)))
-  if (!found) return null
-  const support = await found.load()
-  return support
 }
 
 export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHandle {
