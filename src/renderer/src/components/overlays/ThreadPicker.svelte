@@ -1,5 +1,6 @@
 <script lang="ts">
   import Telescope from './Telescope.svelte'
+  import ThreadPreview from './ThreadPreview.svelte'
   import type { ThreadSummary } from '../../../../shared/protocol'
   import { ago, dashboardRecent } from '$lib/state/dashboard-recent.svelte'
   import { app } from '$lib/state/app.svelte'
@@ -41,10 +42,12 @@
           · {ago(summary.modified)} ago
           {#if summary.branch}· ⎇ {summary.branch}{/if}
         </div>
-        <!-- The live transcript preview is the next ticket; this pane keeps
-             its seat so the layout does not jump when it arrives. -->
-        <div class="soon">preview coming</div>
       </div>
+      <!-- Keyed: a new highlight is a new pane. What survives the key is the
+           thread store underneath, which is where the caching lives. -->
+      {#key summary.id}
+        <ThreadPreview threadId={summary.id} hue={app.workspace.hue} />
+      {/key}
     {:else}
       <div class="about"><div class="soon">nothing to show</div></div>
     {/if}
@@ -72,13 +75,13 @@
   }
 
   .about {
-    flex: 1;
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 20px;
+    gap: 6px;
+    padding: 16px 20px 10px;
   }
   .name {
     font-size: 14px;

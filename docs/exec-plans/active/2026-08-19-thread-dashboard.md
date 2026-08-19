@@ -62,7 +62,7 @@ opens in place; Esc returns. Right pane shows title/meta only here.
 
 - Blocked by: T3.
 
-## T6 — live preview pane — `todo`
+## T6 — live preview pane — `done`
 
 Right pane previews the highlighted thread. Cached renders at once;
 uncached shows a skeleton while the replay runs in the background. The
