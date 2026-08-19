@@ -4,8 +4,11 @@
     {
       "name": "renderer-web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev:web"],
-      "port": 5273
+      "runtimeArgs": [
+        "dev:web"
+      ],
+      "port": 5273,
+      "autoPort": true
     }
   ]
 }

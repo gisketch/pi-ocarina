@@ -9,6 +9,6 @@ export default defineConfig({
   resolve: {
     alias: { $lib: resolve('src/renderer/src/lib') },
   },
-  server: { port: 5273, strictPort: true },
+  server: { port: Number(process.env.PORT) || 5273, strictPort: true },
   plugins: [svelte()],
 })
