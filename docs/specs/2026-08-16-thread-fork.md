@@ -58,10 +58,14 @@ and a copy that continues from that point. The strip shows both.
   independent session file; `parentSessionPath` is an inert string. Closing
   (archiving) the parent changes nothing in the fork. The app has no hard
   delete today.
-- D6: The fork waits for a new prompt. It opens showing the history up to the
-  checkpoint with the composer focused and empty — the same posture restore
-  leaves a thread in. No prompt is re-sent and no tokens are spent until the
-  reader types.
+- D6: The fork waits for a new prompt. It opens showing the history up to
+  **just before** the checkpoint, and the checkpoint message's own text is
+  placed in the fork's composer as a draft — the reader forked to ask that
+  question differently, so it sits under their caret, edited or sent as is.
+  Copying the checkpoint message into the transcript instead replayed as an
+  unanswered, interrupted turn (found live). A fork at the very first message
+  has nothing before it to copy and starts as a history-free session. No
+  prompt is re-sent and no tokens are spent until the reader sends.
 
 ## Acceptance behavior
 
@@ -69,8 +73,9 @@ and a copy that continues from that point. The strip shows both.
 - The fork opens as a new column directly right of the parent, focused,
   carrying the history up to the checkpoint.
 - The fork's title is the parent's title prefixed with `Fork - `.
-- The fork's composer is focused and empty; nothing runs until the reader
-  sends.
+- The fork's transcript ends on the answer before the checkpoint; the
+  checkpoint message's text is in the composer, focused, unsent. Nothing runs
+  until the reader sends.
 - The original thread is unchanged, including its blocks after the fork point.
 - Forking works while the parent's turn is running.
 - Closing either thread leaves the other one working; both survive a restart.

@@ -213,8 +213,8 @@ export class PiDriver implements SessionDriver {
       case 'forkThread': {
         const { threadId, checkpointId, title } = params as CommandParams<'forkThread'>
         const parent = this.#threads.get(threadId)
-        const forkedId = await forkThread(this.#parts(), threadId, parent, checkpointId, title)
-        return { threadId: forkedId } as CommandResult<N>
+        const forked = await forkThread(this.#parts(), threadId, parent, checkpointId, title)
+        return forked as CommandResult<N>
       }
 
       case 'threadWorktree':

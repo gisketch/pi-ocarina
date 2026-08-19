@@ -176,12 +176,14 @@ export interface SessionCommands {
     result: { threadId: ThreadId }
   }
   /** Copies a thread at a checkpoint into a new thread. The original is
-   *  untouched; the copy carries the history up to the checkpoint, shares the
-   *  parent's folder, and waits for a prompt. `title` is the copy's name —
+   *  untouched; the copy carries the history up to just before the
+   *  checkpoint, shares the parent's folder, and waits for a prompt. `draft`
+   *  is the checkpoint message's own text, for the composer — the reader
+   *  forked to ask that question differently. `title` is the copy's name —
    *  the caller says `Fork - <parent>`, the backend does not invent it. */
   forkThread: {
     params: { threadId: ThreadId; checkpointId: string; title: string }
-    result: { threadId: ThreadId }
+    result: { threadId: ThreadId; draft: string }
   }
   compact: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Paths the @-mention picker offers, relative to the workspace. */

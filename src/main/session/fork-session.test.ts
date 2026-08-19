@@ -145,6 +145,25 @@ describe('createBranchedSession, as the fork relies on it', () => {
     expect(fork.buildContextEntries().length).toBe(1)
   })
 
+  it('walks to the entry before the checkpoint through parentId', () => {
+    const dir = tempDir()
+    const { parentFile, second } = seeded(dir)
+    const fork = SessionManager.open(parentFile)
+
+    // How forkThread lands the copy on the last answer instead of on the
+    // unanswered question: the checkpoint entry's parent is the assistant
+    // message before it, and that is the leaf handed to the branch.
+    const checkpoint = fork.getEntry(second)
+    expect(checkpoint?.parentId).toBeTruthy()
+    fork.createBranchedSession(checkpoint!.parentId!)
+
+    const entries = fork.buildContextEntries()
+    expect(entries.length).toBe(2)
+    const leaf = fork.getLeafEntry()
+    expect(leaf?.type).toBe('message')
+    expect(leaf && 'message' in leaf && leaf.message).toMatchObject({ role: 'assistant' })
+  })
+
   it('throws on an id the session does not have', () => {
     const dir = tempDir()
     const { parentFile } = seeded(dir)

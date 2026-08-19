@@ -13,6 +13,7 @@ vi.mock('../bridge', () => ({
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { withThreadAfter } from './catalog-build'
+import { drafts } from './drafts.svelte'
 import { forkAtCheckpoint } from './fork.svelte'
 import { toasts } from './toasts.svelte'
 
@@ -43,11 +44,12 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'NORMAL'
   toasts.items = []
+  drafts.forget('forked')
 })
 
-function backendAnswers() {
+function backendAnswers(draft = 'the second question') {
   return vi.spyOn(session, 'invoke').mockImplementation((name) =>
-    Promise.resolve((name === 'forkThread' ? { threadId: FORKED } : { ok: true }) as never),
+    Promise.resolve((name === 'forkThread' ? { threadId: FORKED, draft } : { ok: true }) as never),
   )
 }
 
@@ -95,6 +97,22 @@ describe('forkAtCheckpoint', () => {
     ])
     expect(column).toBe(1)
     expect(catalog.workspaces[0]?.threads[1]?.title).toBe('Fork - fix the scroll')
+  })
+
+  it('puts the checkpoint message back under the caret as the fork draft', async () => {
+    backendAnswers('what is this project about')
+
+    await forkAtCheckpoint(T1, 'cp-1')
+
+    expect(drafts.get('forked')).toBe('what is this project about')
+  })
+
+  it('leaves the draft alone when the checkpoint message had no text', async () => {
+    backendAnswers('')
+
+    await forkAtCheckpoint(T1, 'cp-1')
+
+    expect(drafts.get('forked')).toBe('')
   })
 
   it('carries the parent branch onto the fork column', async () => {

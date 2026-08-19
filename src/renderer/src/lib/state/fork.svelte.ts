@@ -9,6 +9,7 @@ import type { ThreadId } from '../../../../shared/thread-id'
 import { describe } from './catalog-build'
 import { session } from '../session'
 import { catalog } from './catalog.svelte'
+import { drafts } from './drafts.svelte'
 import { threads } from './threads.svelte'
 import { toasts } from './toasts.svelte'
 
@@ -30,13 +31,16 @@ export async function forkAtCheckpoint(
 
   const title = `Fork - ${parent.title}`
   try {
-    const { threadId } = await session.invoke('forkThread', {
+    const { threadId, draft } = await session.invoke('forkThread', {
       threadId: parentId,
       checkpointId,
       title,
     })
 
     threads.follow(threadId)
+    // The question the reader forked at, back under their caret. Set before
+    // the column exists so its composer mounts already holding it.
+    if (draft !== '') drafts.set(threadId, draft)
     // The fork shares the parent's folder, so it carries the parent's branch —
     // the column must know it is isolated without waiting for a relaunch.
     catalog.placeAfter(workspace.id, parentId, {
