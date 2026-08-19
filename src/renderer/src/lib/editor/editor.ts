@@ -8,7 +8,7 @@
  *  once and route back to the mounted editor through a per-instance bag map —
  *  two buffer columns must not answer each other's `:w`. */
 
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
+import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
@@ -117,6 +117,9 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         // Above vim inside its own precedence: leap must read `s` first.
         leapExtension(),
         numbers.of(numberGutter()),
+        // The vim plugin hides the native selection outright, so without this
+        // layer visual mode selects invisibly — the one thing the mode is for.
+        drawSelection(),
         history(),
         bracketMatching(),
         syntaxHighlighting(ocarinaHighlight),

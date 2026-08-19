@@ -42,6 +42,9 @@
       fontSize: 12,
       lineHeight: 1.35,
       cursorBlink: true,
+      // No ghost cursor from the strip: an unfocused shell draws none, the
+      // same rule the buffer's block cursor follows in OCARINA.
+      cursorInactiveStyle: 'none',
       // Scrollback is the reason j/k works here; xterm owns its own viewport.
       scrollback: 5000,
       theme: {

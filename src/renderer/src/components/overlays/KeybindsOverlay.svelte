@@ -8,9 +8,10 @@
 
   /** Registry order is display order; the groups read top to bottom the way
    *  the app is learnt: strip first, screens, then the deeper modes. */
-  const GROUPS = ['navigate', 'screens', 'read', 'diff', 'leader'] as const
+  const GROUPS = ['navigate', 'buffer', 'screens', 'read', 'diff', 'leader'] as const
   const TITLES: Record<string, string> = {
     navigate: 'NAVIGATE',
+    buffer: 'BUFFER',
     screens: 'SCREENS',
     read: 'READ',
     diff: 'DIFF',

@@ -83,8 +83,8 @@
     </div>
 
     <div class="note">
-      the enter keys (⏎, i) are rebindable on the keymaps screen — vim's own
-      keys inside the buffer are vim's
+      the entry keys live under BUFFER on the keymaps screen — vim's own keys
+      inside the buffer are vim's
     </div>
 
     <div class="foot">j/k move · ⏎ change · esc close</div>

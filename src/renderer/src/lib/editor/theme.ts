@@ -24,12 +24,18 @@ export const ocarinaTheme = EditorView.theme(
       background: 'var(--accent)',
       color: 'var(--bg-panel, #101014)',
     },
+    // OCARINA has the keyboard, so the buffer draws no cursor at all — a
+    // ghost outline reads as "keys go here", which is exactly the lie.
+    // `display` because the plugin styles its outline at highest precedence;
+    // it never sets display, so this wins without a fight.
     '&:not(.cm-focused) .cm-fat-cursor': {
-      outline: '1px solid var(--accent)',
-      background: 'transparent',
+      display: 'none',
     },
+    // Visual mode's band. The vim plugin hides the native selection, so this
+    // paints drawSelection's layer — and it must read as a band, not a tint:
+    // the selection is the entire point of the mode.
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-      backgroundColor: 'var(--seg-strong)',
+      backgroundColor: 'color-mix(in srgb, var(--accent) 24%, transparent)',
     },
     '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
     '.cm-gutters': {

@@ -24,8 +24,8 @@ export interface ShippedKey {
  *  the Keymaps screen edits and the completeness sweep checks.
  *
  *  Not quite every key in the app: `Escape` is the one way out and stays
- *  fixed, digits are positional, arrows are fixed synonyms for hjkl, and
- *  `Enter` only acts on the empty welcome screen. Everything else is here. */
+ *  fixed, digits are positional, and arrows are fixed synonyms for hjkl.
+ *  Everything else is here. */
 export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'thread.prev': { mode: 'OCARINA', key: 'h', label: 'previous thread', group: 'navigate' },
   'thread.next': { mode: 'OCARINA', key: 'l', label: 'next thread', group: 'navigate' },
@@ -39,12 +39,19 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'terminal.open': { mode: 'OCARINA', key: 't', label: 'terminal column', group: 'navigate' },
   'thread.rename': { mode: 'OCARINA', key: 'R', label: 'rename thread', group: 'navigate' },
   'leader.start': { mode: 'OCARINA', key: ' ', label: 'leader chord', group: 'navigate' },
-  'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose (insert)', group: 'navigate' },
+  'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose · buffer insert', group: 'navigate' },
   'yank.code': { mode: 'OCARINA', key: 'y', label: 'yank last code', group: 'navigate' },
   'reasoning.toggle': { mode: 'OCARINA', key: 'o', label: 'toggle reasoning', group: 'navigate' },
   'block.menu': { mode: 'OCARINA', key: 'a', label: 'block actions', group: 'navigate' },
   'leap.start': { mode: 'OCARINA', key: 's', label: 'leap to block', group: 'navigate' },
   'thread.worktree': { mode: 'OCARINA', key: 'b', label: 'worktree thread (dashboard)', group: 'navigate' },
+
+  // Into a buffer column (spec D3, D10). One row, not two: `i` is not a
+  // second buffer key but compose.insert doing its one job — "start typing
+  // here" — on a column that types through vim. Moving compose.insert moves
+  // both, which is the point. Vim's own keys inside the buffer are vim's,
+  // not the registry's.
+  'buffer.normal': { mode: 'OCARINA', key: 'Enter', label: 'enter buffer (vim normal)', group: 'buffer' },
 
   'changes.open': { mode: 'OCARINA', key: 'd', label: 'change viewer', group: 'screens' },
   'switcher.open': { mode: 'OCARINA', key: 'w', label: 'thread switcher', group: 'screens' },

@@ -29,8 +29,13 @@ const registered = new Set(
   Object.values(SHIPPED_KEYS).map((entry) => `${entry.mode} ${entry.key}`),
 )
 
-function consumed(mode: KeyState['mode'], before: KeyState, event: { key: string; ctrlKey?: boolean }): boolean {
-  const after = reduceKey(before, event, ctx)
+function consumed(
+  mode: KeyState['mode'],
+  before: KeyState,
+  event: { key: string; ctrlKey?: boolean },
+  where: KeyContext = ctx,
+): boolean {
+  const after = reduceKey(before, event, where)
   if (after.actions.length > 0) return true
   if (after.state.overlay !== before.overlay) return true
   if (mode === 'LEADER') return after.state.mode !== 'OCARINA' && after.state.mode !== mode
@@ -73,7 +78,9 @@ describe('every registry default lands on its action', () => {
       const event = entry.key.startsWith('C-')
         ? { key: entry.key.slice(2), ctrlKey: true }
         : { key: entry.key }
-      expect(consumed(entry.mode, before, event)).toBe(true)
+      // The buffer keys act only when the focused column is a buffer.
+      const where = entry.group === 'buffer' ? { ...ctx, bufferColumn: true } : ctx
+      expect(consumed(entry.mode, before, event, where)).toBe(true)
     })
   }
 })
