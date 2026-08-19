@@ -27,6 +27,11 @@ textarea,
 select {
   appearance: none;
   border: none;
+  /* The other UA survivor: controls do not inherit type. Left alone, any
+     button whose block forgot `font-family` renders its label in the
+     platform's UI face — one sans-serif island in a monospace app. */
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 /* One scrollbar everywhere: thin, square and flat, like the rest of the app.
