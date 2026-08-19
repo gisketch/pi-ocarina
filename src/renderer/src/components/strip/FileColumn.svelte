@@ -76,6 +76,7 @@
     <span><span class="k">⏎</span> normal</span>
     <span><span class="k">i</span> insert</span>
     <span><span class="k">:w :q :wq :qa</span></span>
+    <span><span class="k">s</span> leap</span>
     <span class="right"><span class="k">esc</span> back</span>
   </div>
 </section>

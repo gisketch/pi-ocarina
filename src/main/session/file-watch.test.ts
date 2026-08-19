@@ -70,7 +70,15 @@ describe('the file watcher', () => {
 
     unlinkSync(join(dir, 'a.txt'))
 
-    await until(() => heard.some((message) => message.mtimeMs === null))
+    // The poke re-runs the delete: FSEvents can swallow an unlink that lands
+    // as the watch starts, and a deleted file cannot be poked with a write.
+    await until(
+      () => heard.some((message) => message.mtimeMs === null),
+      () => {
+        writeFileSync(join(dir, 'a.txt'), 'back')
+        unlinkSync(join(dir, 'a.txt'))
+      },
+    )
   })
 
   it('ignores its neighbours', async () => {

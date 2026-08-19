@@ -15,6 +15,7 @@ import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { Vim, getCM, vim, type CodeMirror } from '@replit/codemirror-vim'
 import { EX_COMMANDS, isForced, type ExBag } from './ex-commands'
+import { leapExtension } from './leap'
 import { ocarinaHighlight, ocarinaTheme } from './theme'
 
 export interface EditorOptions {
@@ -122,6 +123,8 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         // status bar; the plugin still raises a transient panel for `:`, `/`
         // and notifications.
         vim({ status: false }),
+        // Above vim inside its own precedence: leap must read `s` first.
+        leapExtension(),
         numbers.of(numberGutter()),
         history(),
         bracketMatching(),
