@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { ThreadId } from '../../../../shared/thread-id'
-  import Message from '../thread/Message.svelte'
-  import Ledger from '../thread/Ledger.svelte'
+  import ThreadView from '../thread/ThreadView.svelte'
+  import ThreadSkeleton from '../thread/ThreadSkeleton.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import { threads } from '$lib/state/threads.svelte'
 
-  const { threadId, hue }: { threadId: ThreadId; hue: number } = $props()
+  const { threadId }: { threadId: ThreadId } = $props()
 
   /** How much of the tail a preview shows before being asked for more. The
    *  end of a conversation identifies it better than its start, and ten
@@ -42,55 +42,27 @@
 </script>
 
 {#if !loaded && blocks.length === 0}
-  <!-- The skeleton answers on the same frame the highlight moved; the replay
-       is somewhere behind it. Never a spinner over the input's snappiness. -->
-  <div class="skeleton" aria-label="loading preview">
-    {#each Array.from({ length: 5 }, (_, i) => i) as line (line)}
-      <div class="bone" style:width="{88 - line * 9}%"></div>
-    {/each}
-  </div>
+  <!-- The same skeleton a live column shows while its replay runs: the pane
+       answers on the frame the highlight moved, never a spinner over the
+       input's snappiness. -->
+  <ThreadSkeleton />
 {:else if blocks.length === 0}
   <div class="empty">an empty thread</div>
 {:else}
+  <!-- The real transcript renderer, so the preview is the column it promises.
+       Only the tail is handed over; the rest stays in the store until the
+       chip below asks for it — a render cost, never another backend trip. -->
   <div class="body" bind:this={body}>
     {#if hidden > 0}
       <button type="button" class="earlier" onclick={() => (earlier = true)}>
         earlier… {hidden} more block{hidden === 1 ? '' : 's'}
       </button>
     {/if}
-    {#each shown as block (block.id)}
-      {#if block.kind === 'user' || block.kind === 'agent'}
-        <Message role={block.kind} text={block.text} labelled={block.kind === 'agent'} />
-      {:else if block.kind === 'ledger'}
-        <Ledger rows={block.rows} {threadId} blockId={block.id} focusedNav={null} {hue} />
-      {:else}
-        <!-- Asks, approvals, compactions, raw events: a preview identifies a
-             thread, it does not relive one. One quiet line each. -->
-        <div class="other">· {block.kind}</div>
-      {/if}
-    {/each}
+    <ThreadView {threadId} blocks={shown} />
   </div>
 {/if}
 
 <style>
-  .skeleton {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 26px 22px;
-  }
-  .bone {
-    height: 11px;
-    background: rgba(255, 255, 255, 0.05);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    50% {
-      opacity: 0.45;
-    }
-  }
-
   .empty {
     flex: 1;
     display: flex;
@@ -100,15 +72,35 @@
     color: var(--fg-dimmest);
   }
 
+  /* The live column's own body, minus what a preview has no use for (the
+     leap's quieting, the hidden scrollbar's reasoning still applies). */
   .body {
     flex: 1;
     min-height: 0;
+    position: relative;
     overflow-y: auto;
-    padding: 14px 18px;
+    padding: var(--pad-column) 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
   }
+  .body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  /* The same virtualization, for the same reason: `earlier…` can hand this
+     pane a five-thousand-block thread in one click. */
+  .body > :global(*) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+    padding-inline: var(--pad-column);
+  }
+  .body > :global(*:last-child) {
+    content-visibility: visible;
+  }
+
   .earlier {
     align-self: center;
     padding: 4px 10px;
@@ -116,12 +108,10 @@
     color: var(--fg-dim);
     background: rgba(255, 255, 255, 0.05);
     cursor: pointer;
+    /* Not a block: the chip stays its own width inside the padded column. */
+    width: fit-content;
   }
   .earlier:hover {
     color: var(--fg-bright);
-  }
-  .other {
-    font-size: 10.5px;
-    color: var(--fg-dimmest);
   }
 </style>

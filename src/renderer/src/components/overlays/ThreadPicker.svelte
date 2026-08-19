@@ -46,7 +46,7 @@
       <!-- Keyed: a new highlight is a new pane. What survives the key is the
            thread store underneath, which is where the caching lives. -->
       {#key summary.id}
-        <ThreadPreview threadId={summary.id} hue={app.workspace.hue} />
+        <ThreadPreview threadId={summary.id} />
       {/key}
     {:else}
       <div class="about"><div class="soon">nothing to show</div></div>

@@ -41,7 +41,9 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
-    const chord = event.ctrlKey && !event.metaKey && !event.altKey
+    // ctrl and cmd both: ctrl-j/k is the terminal's habit, cmd-j/k the
+    // mac's hand — and neither letter is anything the filter could want.
+    const chord = (event.ctrlKey || event.metaKey) && !event.altKey
     if (event.key === 'ArrowDown' || (chord && event.key === 'j') || (chord && event.key === 'n')) {
       event.preventDefault()
       move(1)
