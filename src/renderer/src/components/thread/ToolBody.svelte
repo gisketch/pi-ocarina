@@ -122,6 +122,10 @@
     margin: 2px 6px 6px;
     font-size: 11.5px;
     background: var(--bg-deep);
+    /* The line-drawn bodies keep `white-space: pre`, so one long line is wider
+       than the panel — it must scroll inside the frame, never spill past the
+       background onto the column. */
+    overflow-x: auto;
   }
 
   .code {
@@ -158,6 +162,10 @@
   .dline {
     padding: 2px 12px;
     white-space: pre;
+    /* A line paints its own band. Scrolled sideways, the band must reach the
+       end of the longest line, not stop at the panel's first screenful. */
+    width: max-content;
+    min-width: 100%;
   }
   .dline.add {
     color: var(--ok-text);
