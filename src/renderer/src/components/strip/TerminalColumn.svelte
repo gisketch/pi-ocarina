@@ -159,7 +159,7 @@
     <span><span class="k">i</span> type</span>
     <span><span class="k">esc</span> normal</span>
     <span><span class="k">esc esc</span> literal esc</span>
-    <span><span class="k">⇧H/⇧L</span> move column</span>
+    <span><span class="k">⇧H/⇧L</span> move pane</span>
     <span class="right"><span class="k">␣x</span> close</span>
   </div>
 </section>

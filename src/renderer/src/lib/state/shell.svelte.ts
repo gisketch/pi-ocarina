@@ -24,6 +24,7 @@ import { permission } from './permission.svelte'
 import { preferences } from './preferences.svelte'
 import { threads } from './threads.svelte'
 import { newestCodeBlock } from '../thread'
+import { attachmentFor, movePane } from '../pane-layout'
 import {
   type Action,
   type KeyEventLike,
@@ -54,6 +55,8 @@ class ShellState {
 
   /** The thread waiting on a "close this running turn?" answer, if any. */
   pendingClose = $state<string | null>(null)
+  pendingCloseTerminalId = $state<string | null>(null)
+  pendingCloseTerminalBusy = $state(false)
 
   readonly targets: FocusTargets = {}
 
@@ -124,6 +127,22 @@ class ShellState {
       return
     }
 
+    const attachment = thread.terminal ? undefined : attachmentFor(app.workspace, thread.id)
+    // Unsaved text outranks the group question: confirming a terminal close
+    // must never kill the shell and then discover the buffer refused to leave.
+    if (thread.file !== undefined && buffers.get(thread.id)?.dirty) {
+      buffers.quit(thread.id, false)
+      return
+    }
+    if (attachment) {
+      void terminals.busy(attachment.id).then((busy) => {
+        this.pendingCloseTerminalId = attachment.id
+        this.pendingCloseTerminalBusy = busy
+        this.pendingClose = thread.id
+      })
+      return
+    }
+
     // A buffer answers `␣x` the way it answers `:q`: unsaved work refuses
     // and says why on its own notice line; a clean buffer just goes.
     if (thread.file !== undefined) {
@@ -159,6 +178,7 @@ class ShellState {
     }
 
     const column = app.workspace.threads.find((thread) => thread.id === columnId)
+    const attachment = column ? attachmentFor(app.workspace, column.id) : undefined
     const threadId = column ? threadOf(column) : null
 
     blockNav.forget(columnId)
@@ -166,6 +186,17 @@ class ShellState {
     // A column with no session behind it has no turn to cancel and no session
     // file to hide. `requestClose` turns the placeholder away already; this is
     // the type saying the same thing where the id would otherwise be spent.
+    if (column?.file !== undefined) {
+      buffers.quit(column.id, false)
+      if (app.workspace.threads.some((thread) => thread.id === column.id)) return
+      if (attachment) this.closeThread(attachment.id, { cancelTurn: false })
+      return
+    }
+    if (column?.fresh) {
+      catalog.closeColumn(column.id)
+      if (attachment) this.closeThread(attachment.id, { cancelTurn: false })
+      return
+    }
     if (threadId === null) return
 
     if (cancelTurn) threads.cancel(threadId)
@@ -174,18 +205,21 @@ class ShellState {
     // that will not close has no idea what it is waiting for.
     const isolated = column?.branch
     catalog.closeThread(threadId)
+    if (attachment) this.closeThread(attachment.id, { cancelTurn: false })
     threadGit.forget(threadId)
     if (isolated) void settleWorktree(threadId)
   }
 
   /** Moves the focused column itself, rather than the focus. */
   moveColumn(delta: number): void {
-    const from = app.threadIndex
-    const to = from + delta
-    if (to < 0 || to >= app.workspace.threads.length) return
-
-    catalog.moveColumn(app.workspace.id, from, to)
-    app.focusThread(to)
+    const focusedId = app.thread.id
+    const moved = movePane(app.workspace, focusedId, delta < 0 ? -1 : 1)
+    if (moved === app.workspace) return
+    catalog.workspaces = catalog.workspaces.map((workspace) =>
+      workspace.id === moved.id ? moved : workspace,
+    )
+    const index = moved.threads.findIndex((thread) => thread.id === focusedId)
+    if (index !== -1) app.focusThread(index)
   }
 
   /** Returns true when the event was consumed and should be prevented. */
@@ -218,6 +252,8 @@ class ShellState {
       const confirmed = event.key === 'y' || event.key === 'Enter'
       const threadId = this.pendingClose
       this.pendingClose = null
+      this.pendingCloseTerminalId = null
+      this.pendingCloseTerminalBusy = false
       if (confirmed) this.closeThread(threadId, { cancelTurn: true })
       return true
     }

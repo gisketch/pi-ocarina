@@ -6,7 +6,7 @@ import { blocksFor, MOCK_THREADS } from '../mock/threads'
 import { WORKSPACES } from '../mock/workspaces'
 import { session } from '../session'
 import { replayThread } from '../thread-reducer'
-import type { Thread, Workspace } from '../types'
+import type { PaneSide, Thread, Workspace } from '../types'
 import { app, PLACEHOLDER_TITLE } from './app.svelte'
 import { threads } from './threads.svelte'
 import { toasts } from './toasts.svelte'
@@ -142,9 +142,9 @@ class Catalog {
 
   /** Attaches one terminal to a host. The host's single slot makes this
    *  idempotent even though a workspace may contain several terminals. */
-  openTerminal(workspaceId: string, hostId: string, id: string): void {
+  openTerminal(workspaceId: string, hostId: string, id: string, side: PaneSide = 'right'): void {
     this.workspaces = this.workspaces.map((workspace) =>
-      workspace.id === workspaceId ? withTerminal(workspace, hostId, id) : workspace,
+      workspace.id === workspaceId ? withTerminal(workspace, hostId, id, side) : workspace,
     )
     app.reconcile()
   }

@@ -197,6 +197,7 @@ function registerCatalog(catalog: CatalogStore): void {
       position.focus,
       position.preferences,
       position.order,
+      position.panes,
     )
   })
 }

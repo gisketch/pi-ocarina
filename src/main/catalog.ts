@@ -52,6 +52,8 @@ export interface CatalogState {
    *  ⇧H/⇧L. Ids not listed sort after, so a thread created since the last
    *  save still appears rather than being dropped by an older order. */
   order: Record<string, string[]>
+  /** Workspace id → attached panes restored as fresh processes on launch. */
+  panes?: Record<string, PersistedPane[]>
   /** The roles a child agent can be spawned as. */
   roles: AgentRole[]
   /** The voices the agent can be asked to write in. Not roles: a role says what
@@ -77,6 +79,13 @@ export interface CatalogState {
   preferences: Preferences
 }
 
+export interface PersistedPane {
+  id: string
+  kind: 'terminal'
+  hostId: string
+  side: 'left' | 'right'
+}
+
 /** A fresh empty catalog.
  *
  *  A function, not a shared constant: spreading a constant copies the object but
@@ -92,6 +101,7 @@ export function defaultCatalog(): CatalogState {
     archived: {},
     retired: {},
     order: {},
+    panes: {},
     roles: [],
     modes: [],
     namePool: [],
@@ -112,6 +122,7 @@ export interface CatalogPosition {
   preferences?: Preferences
   /** Column order per workspace, as arranged with ⇧H/⇧L. */
   order?: Record<string, string[]>
+  panes?: Record<string, PersistedPane[]>
 }
 
 export interface CatalogLoad {
@@ -192,6 +203,26 @@ function parseIdLists(value: unknown): Record<string, string[]> {
   return rules
 }
 
+function parsePanes(value: unknown): Record<string, PersistedPane[]> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const result: Record<string, PersistedPane[]> = {}
+  for (const [workspaceId, rawPanes] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(rawPanes)) continue
+    const panes: PersistedPane[] = []
+    for (const raw of rawPanes) {
+      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue
+      const pane = raw as Record<string, unknown>
+      const id = text(pane.id)
+      const hostId = text(pane.hostId)
+      if (!id || !hostId || pane.kind !== 'terminal') continue
+      if (pane.side !== 'left' && pane.side !== 'right') continue
+      panes.push({ id, hostId, kind: 'terminal', side: pane.side })
+    }
+    if (panes.length > 0) result[workspaceId] = panes
+  }
+  return result
+}
+
 /** Validates untrusted JSON. Never throws: a broken catalog must not stop the app. */
 export function parseCatalog(raw: string): CatalogLoad {
   let data: unknown
@@ -241,6 +272,7 @@ export function parseCatalog(raw: string): CatalogLoad {
       archived: parseIdLists(record.archived),
       retired: parseIdLists(record.retired),
       order: parseIdLists(record.order),
+      panes: parsePanes(record.panes),
       roles: parseRoles(record.roles),
       modes: parseModes(record.modes),
       namePool: parseNamePool(record.namePool),

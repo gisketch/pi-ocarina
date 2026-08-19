@@ -52,6 +52,7 @@ export class CatalogStore {
       archived: structuredClone(this.#state.archived),
       retired: structuredClone(this.#state.retired),
       order: structuredClone(this.#state.order),
+      panes: structuredClone(this.#state.panes ?? {}),
       roles: structuredClone(this.#state.roles),
       namePool: [...this.#state.namePool],
     }
@@ -300,6 +301,7 @@ export class CatalogStore {
     delete this.#state.archived[removed.id]
     delete this.#state.retired[removed.id]
     delete this.#state.order[removed.id]
+    delete this.#state.panes?.[removed.id]
     this.#state.workspaceIndex = Math.min(
       this.#state.workspaceIndex,
       Math.max(0, this.#state.workspaces.length - 1),
@@ -313,11 +315,13 @@ export class CatalogStore {
     focus: number[],
     preferences?: Preferences,
     order?: Record<string, string[]>,
+    panes?: CatalogState['panes'],
   ): void {
     this.#state.workspaceIndex = workspaceIndex
     this.#state.focus = focus
     if (preferences) this.#state.preferences = parsePreferences(preferences)
     if (order) this.#state.order = order
+    if (panes) this.#state.panes = structuredClone(panes)
     this.#persist()
   }
 

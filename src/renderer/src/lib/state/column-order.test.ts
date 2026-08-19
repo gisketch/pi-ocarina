@@ -51,6 +51,8 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'OCARINA'
   shell.pendingClose = null
+  shell.pendingCloseTerminalId = null
+  shell.pendingCloseTerminalBusy = false
   toasts.reset()
 })
 
@@ -75,13 +77,13 @@ describe('moving columns', () => {
     expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s1', 's2'])
   })
 
-  it('moves the terminal like any other column', () => {
+  it('moves the terminal across its host before re-docking it', () => {
     vi.spyOn(terminals, 'create').mockResolvedValue()
     termMode.open()
 
     shell.moveColumn(-1)
 
-    expect(app.workspace.threads.map((thread) => thread.id)).toEqual(['s1', TERM_ID, 's2'])
+    expect(app.thread.attachment).toMatchObject({ hostId: 's1', side: 'left' })
   })
 })
 
@@ -124,6 +126,39 @@ describe('closing the terminal column', () => {
     await settle()
 
     expect(archive).not.toHaveBeenCalled()
+  })
+})
+
+describe('closing a host with a terminal', () => {
+  beforeEach(() => {
+    vi.spyOn(terminals, 'create').mockResolvedValue()
+    termMode.open()
+    app.focusThread(app.workspace.threads.findIndex((thread) => thread.id === 's1'))
+    app.mode = 'OCARINA'
+  })
+
+  it('always asks and names the attached terminal', async () => {
+    vi.spyOn(terminals, 'busy').mockResolvedValue(false)
+
+    shell.requestClose()
+    await settle()
+
+    expect(shell.pendingClose).toBe('s1')
+    expect(shell.pendingCloseTerminalId).toBe(TERM_ID)
+    expect(shell.pendingCloseTerminalBusy).toBe(false)
+  })
+
+  it('one confirmation closes both host and terminal', async () => {
+    vi.spyOn(terminals, 'busy').mockResolvedValue(false)
+    const kill = vi.spyOn(terminals, 'kill').mockImplementation(() => {})
+    shell.requestClose()
+    await settle()
+
+    shell.handleKey({ key: 'y' })
+
+    expect(kill).toHaveBeenCalledWith(TERM_ID)
+    expect(app.workspace.threads.some((thread) => thread.id === TERM_ID)).toBe(false)
+    expect(app.workspace.threads.some((thread) => thread.id === 's1')).toBe(false)
   })
 })
 

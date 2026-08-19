@@ -8,8 +8,13 @@
   // What is at stake differs: a thread loses a turn, a shell loses a running
   // process. Saying "turn" over a shell would describe the wrong loss.
   const isShell = $derived(workspaceOfTerminal(shell.pendingClose ?? '') !== null)
+  const closesAttachment = $derived(shell.pendingCloseTerminalId !== null)
   const question = $derived(
-    isShell
+    closesAttachment && shell.pendingCloseTerminalBusy
+      ? 'closing this column also kills its attached terminal and running process'
+      : closesAttachment
+        ? 'closing this column also closes its attached terminal'
+        : isShell
       ? 'this shell is running something — closing it kills it'
       : 'this thread is running — closing it cancels the turn',
   )

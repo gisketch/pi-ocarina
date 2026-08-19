@@ -3,6 +3,7 @@ import { clampThread } from '../strip'
 import { threads } from './threads.svelte'
 import { threadOf, type Mode, type Thread, type ThreadStatus, type Workspace } from '../types'
 import type { ThreadId } from '../../../../shared/thread-id'
+import { visualColumns } from '../pane-layout'
 
 /** Stand-ins for "there is nothing here yet". Frozen so a component cannot
  *  write into what is meant to be the absence of a workspace or thread. The
@@ -132,7 +133,12 @@ class AppState {
   }
 
   moveThread(delta: number): void {
-    this.focusThread(this.threadIndex + delta)
+    const columns = visualColumns(this.workspace)
+    const from = columns.findIndex((column) => column.id === this.thread.id)
+    const target = columns[Math.min(columns.length - 1, Math.max(0, from + delta))]
+    if (!target) return
+    const index = this.workspace.threads.findIndex((column) => column.id === target.id)
+    if (index !== -1) this.focusThread(index)
   }
 }
 
