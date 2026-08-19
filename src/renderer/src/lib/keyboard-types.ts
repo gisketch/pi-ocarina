@@ -18,6 +18,8 @@ export type Overlay =
   | 'search'
   /** The dashboard's thread picker: fzf over the workspace's history. */
   | 'threads'
+  /** `␣f`: the file search over the focused workspace. */
+  | 'filefind'
   | 'roles'
   | 'workspace'
   | 'keybinds'

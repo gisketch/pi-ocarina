@@ -1,7 +1,7 @@
 <script lang="ts" generics="T">
   import type { Snippet } from 'svelte'
   import TelescopeShell from './TelescopeShell.svelte'
-  import { fuzzyFilter } from '$lib/fuzzy'
+  import { fuzzyNarrower } from '$lib/fuzzy'
 
   interface Props {
     onclose: () => void
@@ -18,15 +18,35 @@
     /** The right pane, drawn for the highlighted item — or for nothing, when
      *  the filter has emptied the list. */
     preview: Snippet<[T | undefined]>
+    /** What an empty list says. The file search borrows it for its first
+     *  index walk, which is a wait rather than a miss. */
+    empty?: string
   }
 
-  const { onclose, label, placeholder, items, text, key, onpick, row, preview }: Props = $props()
+  const {
+    onclose,
+    label,
+    placeholder,
+    items,
+    text,
+    key,
+    onpick,
+    row,
+    preview,
+    empty = 'nothing matches',
+  }: Props = $props()
 
   let query = $state('')
   let picked = $state(0)
   let input = $state<HTMLInputElement | null>(null)
 
-  const hits = $derived(fuzzyFilter(items, query, text))
+  /** Only the head of the match is shown (spec D8): past this the reader
+   *  types, never scrolls. The narrower still matched everything, so the next
+   *  character narrows the full set. */
+  const CAP = 50
+
+  const narrow = fuzzyNarrower((item: T) => text(item))
+  const hits = $derived(narrow(items, query).slice(0, CAP))
   const highlighted = $derived(hits[Math.min(picked, Math.max(0, hits.length - 1))])
 
   // The input keeps the caret for the picker's whole life — moving the
@@ -83,7 +103,7 @@
           {@render row(hit)}
         </button>
       {:else}
-        <div class="none">nothing matches</div>
+        <div class="none">{empty}</div>
       {/each}
     </div>
   {/snippet}

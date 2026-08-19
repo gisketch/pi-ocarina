@@ -35,7 +35,9 @@ export function reduceLeader(state: KeyState, key: string, ctx: KeyContext): Key
       // list the reader writes, and cycling nine of them is nine presses.
       return result({ ...done, overlay: 'mode' }, [], true, 'clear')
     case 'f':
-      return result({ ...done, overlay: 'search' }, focusFor('search'), true, 'clear')
+      // Files, not threads: `/` already opens the thread search, and a chord
+      // that duplicated it was a chord doing nothing new (spec D4).
+      return result({ ...done, overlay: 'filefind' }, focusFor('filefind'), true, 'clear')
     case 'n':
       return result({ ...done, overlay: null }, [{ type: 'newThread' }], true, 'clear')
     case 'x':

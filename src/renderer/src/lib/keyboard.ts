@@ -35,8 +35,9 @@ const TYPING_OVERLAYS: ReadonlySet<Overlay> = new Set<Overlay>([
   'model',
   'search',
   // The thread picker is an fzf input with a preview; every letter is a
-  // filter character while it is up.
+  // filter character while it is up. The file search is the same telescope.
   'threads',
+  'filefind',
   // The roles form has a name field, an instructions field and a model field.
   // Without this, typing a role called "scout" moved thread focus, opened the
   // terminal and closed a column. Found in review.

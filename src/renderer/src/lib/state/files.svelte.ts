@@ -16,7 +16,23 @@ class FileIndex {
 
   /** Loads the index if it is not already there. Safe to call on every render. */
   ensure(workspaceId: string): void {
-    if (workspaceId in this.#indexes || this.#loading.has(workspaceId)) return
+    if (workspaceId in this.#indexes) return
+    this.refresh(workspaceId)
+  }
+
+  /** Whether a workspace's index has ever arrived — false only before the
+   *  first walk answers, which is the one moment the picker shows a wait. */
+  loaded(workspaceId: string): boolean {
+    return workspaceId in this.#indexes
+  }
+
+  /** Re-walks the workspace behind whatever is already showing (spec D8).
+   *
+   *  Stale-while-revalidate: the cached list keeps serving, and the fresh one
+   *  replaces it whole when the walk returns. The caller never waits — a walk
+   *  must not stand in front of a keystroke. */
+  refresh(workspaceId: string): void {
+    if (this.#loading.has(workspaceId)) return
     this.#loading.add(workspaceId)
 
     void session
@@ -24,8 +40,9 @@ class FileIndex {
       .then(({ files }) => this.#store(workspaceId, files))
       .catch(() => {
         // No backend, or a folder that cannot be walked. The picker simply
-        // finds nothing rather than the composer breaking.
-        this.#store(workspaceId, [])
+        // finds nothing rather than the composer breaking — but a failed
+        // re-walk keeps the cache it already had.
+        if (!(workspaceId in this.#indexes)) this.#store(workspaceId, [])
       })
       .finally(() => this.#loading.delete(workspaceId))
   }

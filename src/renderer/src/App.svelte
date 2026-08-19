@@ -30,6 +30,7 @@
   import ModelOverlay from './components/overlays/ModelOverlay.svelte'
   import SearchOverlay from './components/overlays/SearchOverlay.svelte'
   import ThreadPicker from './components/overlays/ThreadPicker.svelte'
+  import FileFind from './components/overlays/FileFind.svelte'
   import { app } from '$lib/state/app.svelte'
   import { bridge } from '$lib/bridge'
   import { catalog, seedMockThreads } from '$lib/state/catalog.svelte'
@@ -39,6 +40,7 @@
   import { attachments } from '$lib/state/attachments.svelte'
   import { shell } from '$lib/state/shell.svelte'
   import { threads } from '$lib/state/threads.svelte'
+  import { toasts } from '$lib/state/toasts.svelte'
   import { startPersistence } from '$lib/state/persistence.svelte'
   import {
     answerQuitConfirm,
@@ -245,6 +247,15 @@
     <ModeOverlay onclose={() => shell.closeOverlay()} threadLabel={app.threadLabel} />
   {:else if shell.overlay === 'threads'}
     <ThreadPicker onclose={() => shell.closeOverlay()} />
+  {:else if shell.overlay === 'filefind'}
+    <FileFind
+      onclose={() => shell.closeOverlay()}
+      onpick={(path) => {
+        shell.closeOverlay()
+        // Until the buffer column lands (T7), a pick proves itself out loud.
+        toasts.push({ tone: 'info', text: path })
+      }}
+    />
   {:else if shell.overlay === 'search'}
     <SearchOverlay
       onclose={() => shell.closeOverlay()}

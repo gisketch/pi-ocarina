@@ -36,6 +36,43 @@ export function fuzzyFilter<T>(items: readonly T[], query: string, text: (item: 
     .map((entry) => entry.item)
 }
 
+/** A filter that narrows instead of rescanning (spec D8).
+ *
+ *  A longer query can only lose matches — every text a subsequence `qc`
+ *  matches, `q` matched already — so extending the query filters the previous
+ *  hits, never the full list. Ties still break on the original index, which is
+ *  why the pool keeps it: the answer must equal `fuzzyFilter`'s to the item,
+ *  or two ways into the same picker would sort two different ways.
+ *
+ *  A closure with memory rather than a pure function, so each picker holds
+ *  one and the memory dies with it. */
+export function fuzzyNarrower<T>(
+  text: (item: T) => string,
+): (items: readonly T[], query: string) => T[] {
+  let seen: readonly T[] = []
+  let last = ''
+  let pool: { item: T; index: number }[] = []
+
+  return (items, query) => {
+    const q = query.trim().toLowerCase()
+    const extending = items === seen && last !== '' && q.startsWith(last)
+    const candidates = extending ? pool : items.map((item, index) => ({ item, index }))
+
+    const scored = candidates.flatMap((entry) => {
+      const score = fuzzyScore(text(entry.item), q)
+      return score === null ? [] : [{ ...entry, score }]
+    })
+
+    seen = items
+    last = q
+    // Taken before the sort: candidate order is original order, and that is
+    // what the next narrowing's tie-break needs.
+    pool = scored.map(({ item, index }) => ({ item, index }))
+
+    return scored.sort((a, b) => a.score - b.score || a.index - b.index).map((entry) => entry.item)
+  }
+}
+
 /** Wraps an index into a list, so arrow keys cycle at both ends. */
 export function wrapIndex(index: number, length: number): number {
   if (length <= 0) return 0

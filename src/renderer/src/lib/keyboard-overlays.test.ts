@@ -162,8 +162,21 @@ describe('search', () => {
     expect(press(NORMAL, '/').state.overlay).toBe('search')
   })
 
-  it('opens on the leader f chord', () => {
-    expect(press(NORMAL, ' ', 'f').state.overlay).toBe('search')
+  it('leader f finds files now, not threads — slash already finds those', () => {
+    expect(press(NORMAL, ' ', 'f').state.overlay).toBe('filefind')
+  })
+
+  it('every letter reaches the file search filter, none the strip', () => {
+    const open = press(NORMAL, ' ', 'f').state
+    // `t` opens the terminal from NORMAL; over the file search it must be a
+    // filter character instead.
+    expect(press(open, 't').state.overlay).toBe('filefind')
+    expect(press(open, 't').actions).toEqual([])
+  })
+
+  it('escape closes the file search', () => {
+    const open = press(NORMAL, ' ', 'f').state
+    expect(press(open, 'Escape').state.overlay).toBe(null)
   })
 
   it('a second slash types into the filter instead of closing it', () => {

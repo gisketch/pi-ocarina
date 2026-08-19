@@ -82,7 +82,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'leader.compact': { mode: 'LEADER', key: 'c', label: 'compact thread', group: 'leader' },
   'leader.permission': { mode: 'LEADER', key: 'p', label: 'cycle permission', group: 'leader' },
   'leader.switcher': { mode: 'LEADER', key: 'w', label: 'thread switcher', group: 'leader' },
-  'leader.find': { mode: 'LEADER', key: 'f', label: 'find thread', group: 'leader' },
+  'leader.find': { mode: 'LEADER', key: 'f', label: 'find file', group: 'leader' },
   'leader.keymap': { mode: 'LEADER', key: 'k', label: 'keymap sheet', group: 'leader' },
   'leader.changes': { mode: 'LEADER', key: 'd', label: 'change viewer', group: 'leader' },
   'leader.threadPrev': { mode: 'LEADER', key: 'h', label: 'previous thread', group: 'leader' },

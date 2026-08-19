@@ -37,7 +37,7 @@ Blocked by: nothing.
 
 ## T2 — backend: file read, write, stat
 
-Status: todo
+Status: done
 
 Behavior: the renderer can read a workspace file, stat it, and write it
 back with a staleness guard (D1) — through `src/shared/`, never `node:fs`.
