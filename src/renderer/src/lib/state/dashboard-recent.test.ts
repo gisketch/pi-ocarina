@@ -13,7 +13,6 @@ vi.mock('../bridge', () => ({
 import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
-import { branchField } from './branch-field.svelte'
 import { dashboardRecent } from './dashboard-recent.svelte'
 import { leap } from './leap.svelte'
 import { blockFocus, registerBlock } from './block-focus.svelte'

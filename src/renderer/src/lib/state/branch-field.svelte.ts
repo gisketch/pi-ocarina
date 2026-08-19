@@ -73,7 +73,9 @@ class BranchField {
   async #readTaken(workspaceId: string): Promise<void> {
     try {
       const { worktrees } = await session.invoke('listWorktrees', { workspaceId })
-      if (this.columnId === null) return
+      // Not just "still open": closed and reopened over another workspace
+      // before this landed would write the wrong workspace's names.
+      if (this.columnId === null || this.#workspaceId !== workspaceId) return
       this.#taken = worktrees.flatMap((tree) => [tree.branch, worktreeDirName(tree.branch)])
     } catch {
       this.#taken = []
@@ -108,6 +110,21 @@ class BranchField {
   /** One key while the field is up. Always consumed, except a bare modifier:
    *  reaching for a capital is not an answer. */
   handleKey(event: { key: string }): boolean {
+    // The column can vanish underneath the field without an esc: a catalog
+    // reload rebuilds the strip without dashboards, and a failed column is
+    // taken away. A modal gate for a surface nothing draws would eat the
+    // keyboard whole, so the field lets go the moment its column is gone.
+    const columnId = this.columnId
+    const drawn =
+      columnId !== null &&
+      catalog.workspaces.some((workspace) =>
+        workspace.threads.some((thread) => thread.id === columnId),
+      )
+    if (!drawn) {
+      this.close()
+      return false
+    }
+
     if (MODIFIER_KEYS.has(event.key)) return false
     // While git runs there is nothing to type, and `esc` must not abandon a
     // checkout that is halfway made.

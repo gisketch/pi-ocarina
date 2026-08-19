@@ -98,8 +98,9 @@ class ShellState {
     // session behind, which the old immediate creation always did.
     const column = catalog.addDashboard(app.workspace.id)
     if (column === -1) return
+    // The list itself loads from the dashboard component's own effect; this
+    // only puts the bar back on top for the launcher that is about to show.
     dashboardRecent.resetBar(app.workspace.id)
-    void dashboardRecent.load(app.workspace.id)
     app.focusThread(column)
     app.mode = 'NORMAL'
   }

@@ -14,18 +14,6 @@ import { app } from './app.svelte'
 import { catalog } from './catalog.svelte'
 import { shell } from './shell.svelte'
 import { branchField } from './branch-field.svelte'
-import { dashboardRecent } from './dashboard-recent.svelte'
-import { leap } from './leap.svelte'
-import { blockFocus, registerBlock } from './block-focus.svelte'
-
-/** Stands in for a rendered row: the drop-stale check asks whether one was
- *  ever drawn, and in a headless run nothing is. */
-function stubElement(): HTMLElement {
-  return {
-    scrollIntoView() {},
-    getBoundingClientRect: () => ({ top: 0, bottom: 10 }) as DOMRect,
-  } as unknown as HTMLElement
-}
 
 const WORKSPACE = {
   id: 'w1',
@@ -224,5 +212,24 @@ describe('the worktree flow on the dashboard', () => {
     expect(branchField.failure).toBe('git would not make that worktree')
     expect(app.thread.fresh).toBe(true)
     branchField.close()
+  })
+})
+
+describe('a branch field whose column vanished', () => {
+  it('lets go of the keyboard instead of eating every key', () => {
+    catalog.workspaces = [{ ...structuredClone(WORKSPACE), git: { branch: 'main' } as never }]
+    shell.newThread()
+    shell.handleKey({ key: 'b' })
+    expect(branchField.columnId).not.toBeNull()
+
+    // A catalog reload rebuilds the strip without dashboards.
+    catalog.workspaces = [structuredClone(WORKSPACE)]
+
+    // The next key is not swallowed: it reaches the strip and acts.
+    shell.handleKey({ key: 'l' })
+
+    expect(branchField.columnId).toBeNull()
+    expect(app.focus[0]).toBe(1)
+    app.focusThread(0)
   })
 })
