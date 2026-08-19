@@ -204,6 +204,25 @@ export class SessionFactory {
     return session
   }
 
+  /** A bare completion session: no file, no tools, no extensions.
+   *
+   *  What the thread titler runs on. Not `child()` — a child is wired into a
+   *  parent's column, its approval gate and its fleet, and a titler that could
+   *  raise an approval card would be a pop-up about naming. `named` falls back
+   *  the same way a child's model does: an id this machine does not have means
+   *  the session default, never a failure. */
+  async oneShot(cwd: string, named?: string): Promise<AgentSession> {
+    const { createAgentSession, SessionManager } = await this.load()
+
+    const { session } = await createAgentSession({
+      cwd,
+      sessionManager: SessionManager.inMemory(cwd),
+      model: await this.#childModel(named, undefined),
+      tools: [],
+    })
+    return session
+  }
+
   /** The model a child runs on, falling back rather than failing.
    *
    *  A role ships with a model id, and an id ages: the model is retired, or the

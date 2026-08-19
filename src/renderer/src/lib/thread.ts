@@ -102,6 +102,8 @@ export type Block =
       beforePercent?: number
       afterPercent?: number
       summary?: string
+      /** Raw tokens the compaction reclaimed, when pi reported both counts. */
+      tokensSaved?: number
       /** Set when the compaction started and then did not happen. The card says
        *  so instead of claiming a compaction that never took place. */
       skipped?: string
@@ -157,20 +159,6 @@ export const EMPTY_THREAD: ThreadViewModel = {
   status: 'idle',
   runState: 'idle',
   pendingAskId: null,
-}
-
-/** How many blocks a finished compaction stands in front of.
- *
- *  A compaction summary replaces the history above it, so that history
- *  collapses behind the card — matching the reference's "done (collapsed
- *  history)" state. Zero means there is nothing to collapse: no compaction has
- *  finished, one finished with no history above it, or the one that finished
- *  was refused and so replaced nothing. */
-export function collapsedBefore(blocks: Block[]): number {
-  const cut = blocks.findLastIndex(
-    (block) => block.kind === 'compaction' && !block.running && !block.skipped,
-  )
-  return cut > 0 ? cut : 0
 }
 
 export type { InlineSegment, ListItem, MarkdownNode } from './markdown'

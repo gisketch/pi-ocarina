@@ -21,7 +21,7 @@
   import { threads } from '$lib/state/threads.svelte'
   import { app } from '$lib/state/app.svelte'
   import { askKeys } from '$lib/state/ask-keys.svelte'
-  import { collapsedBefore, type Block } from '$lib/thread'
+  import type { Block } from '$lib/thread'
   import { labelOwning, marksTurnStart } from '$lib/thread-turn'
   import { navBlocks } from '$lib/blocks'
 
@@ -40,22 +40,15 @@
   // belonging where it runs rather than as a fifth colour in the column.
   const hue = $derived(app.workspace.hue)
 
-  // A finished compaction stands where the history it replaced used to be, so
-  // the blocks above it collapse behind it until the reader asks for them.
-  const cut = $derived(collapsedBefore(blocks))
-  // Keyed by which compaction is doing the collapsing: a second compaction
-  // later in the thread starts collapsed again rather than inheriting the
-  // first one's expansion.
-  let expandedFor = $state<string | null>(null)
-  const marker = $derived(cut > 0 ? (blocks[cut]?.id ?? null) : null)
-  const hidden = $derived(marker !== null && expandedFor !== marker ? cut : 0)
-  const drawn = $derived(hidden === 0 ? blocks : blocks.slice(hidden))
+  // A compaction folds pi's context, never the reader's transcript: every
+  // block above the divider stays exactly where it was. Hiding them behind the
+  // card was tried and read as the app deleting the conversation.
   // `o` takes the thinking out of the transcript, not merely out of view: a
   // row left in place with its contents hidden still holds the space it stood
   // in, and a reader who asked for the thinking to be gone gets a column of
   // gaps where it was.
   const shown = $derived(
-    reasoningOpen.shown ? drawn : drawn.map(withoutThinking).filter(hasSomething),
+    reasoningOpen.shown ? blocks : blocks.map(withoutThinking).filter(hasSomething),
   )
 
   // Which blocks open a turn's worth of agent work. pi splits one turn across
@@ -205,11 +198,8 @@
           running={block.running}
           beforePercent={block.beforePercent}
           afterPercent={block.afterPercent}
-          summary={block.summary}
+          tokensSaved={block.tokensSaved}
           skipped={block.skipped}
-          hidden={block.id === marker ? cut : 0}
-          collapsed={block.id === marker && hidden > 0}
-          ontoggle={() => (expandedFor = expandedFor === marker ? null : marker)}
         />
       {:else if block.kind === 'steer'}
         <QueuedSteer

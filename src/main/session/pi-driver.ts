@@ -23,8 +23,9 @@ import { ModeControl } from './mode-commands'
 import { handleStored, ownsStored, type StoredDeps } from './stored-commands'
 import { openingDeps, storedDeps, type DriverParts } from './driver-deps'
 import { applyThreadDefaults } from './thread-defaults'
-import type { HookEntry, RuleEntry } from '../../shared/config-file'
+import type { HookEntry, RuleEntry, TitleSettings } from '../../shared/config-file'
 import { StagedImages } from './staged-images'
+import { autoTitle, renameThread, wantsTitle } from './thread-title'
 import { compactThread, restoreCheckpoint, startTurn, steerTurn } from './turn-ops'
 import { adoptSession, openThread, type OpenDeps } from './thread-open'
 import { SessionFactory, type ModelRef, type ThreadHandle } from './session-factory'
@@ -66,6 +67,8 @@ export class PiDriver implements SessionDriver {
    *  construction: main reads the file once at launch, and a driver built
    *  before it simply has none. */
   #hooks: () => readonly HookEntry[] = () => []
+  /** The reader's title settings, from the same file, the same way. */
+  #titles: () => TitleSettings = () => ({})
   readonly #changes = new ChangeLog()
   readonly #staged = new StagedImages()
   readonly #asks: AskGate
@@ -113,6 +116,11 @@ export class PiDriver implements SessionDriver {
     this.#approvals.useRules(rules)
   }
 
+  /** Hands the titler the reader's settings. Absent means on, cheapest. */
+  useTitles(titles: () => TitleSettings): void {
+    this.#titles = titles
+  }
+
   async execute<N extends CommandName>(
     name: N,
     params: CommandParams<N>,
@@ -151,7 +159,29 @@ export class PiDriver implements SessionDriver {
         // Prose instead of a choice means none of the above. The question ends
         // carrying what was said, and the message goes on as an ordinary one.
         this.#asks.cancel(threadId, text)
-        await startTurn(this.#emit, threadId, this.#threads.get(threadId), text, attachments ?? [])
+        const thread = this.#threads.get(threadId)
+        await startTurn(this.#emit, threadId, thread, text, attachments ?? [])
+        // The titler rides beside the turn, never in front of it: the first
+        // message of a nameless session goes to a cheap model whose one job
+        // is the header line, and a failure there is silence.
+        if (wantsTitle(thread)) {
+          const cwd = this.#workspaces.cwdOf(threadId)
+          if (cwd) {
+            void autoTitle(
+              { sessions: this.#sessions, emit: this.#emit, titles: this.#titles },
+              threadId,
+              thread,
+              cwd,
+              text,
+            )
+          }
+        }
+        return { ok: true } as CommandResult<N>
+      }
+
+      case 'renameThread': {
+        const { threadId, title } = params as CommandParams<'renameThread'>
+        renameThread(this.#emit, threadId, this.#threads.get(threadId), title)
         return { ok: true } as CommandResult<N>
       }
 

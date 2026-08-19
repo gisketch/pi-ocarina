@@ -86,11 +86,10 @@ describe('where the reader is standing', () => {
   })
 
   it('moves nothing when they are reading back through it', () => {
-    // The follow state, not the scroll position. The ask block is added in the
-    // same batch, so the column has already grown and the old position measures
-    // a long way from a bottom that has just moved — which made a reader who
-    // sent a message and waited get "a question below" instead of the question.
-    following.of('s1').scrolled({ top: 0, height: 500, total: 2000 })
+    // The follow state, not the scroll position. The reader pauses by an act
+    // — a wheel, a drag, a paging key — which is `take()`; a position alone
+    // never pauses, because the machine's own scrolls look identical.
+    following.of('s1').take()
 
     ask('s1')
 

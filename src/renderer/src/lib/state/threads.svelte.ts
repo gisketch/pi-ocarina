@@ -89,6 +89,9 @@ class ThreadStore {
         if (event.kind === 'connectivity') {
           connectivity.report(threadId, event.state, event.retryInSeconds)
         }
+        // The header's name lives in the catalog, so the event is walked over
+        // to it — the reducer has nothing to draw for a title.
+        if (event.kind === 'titled') catalog.retitle(threadId, event.title)
         // A retry cannot outlive the turn it belongs to. An interrupted turn
         // ends with no `auto_retry_end`, and the banner would otherwise say
         // the app was reconnecting for the rest of the session.

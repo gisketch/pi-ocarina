@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../../shared/protocol'
 import { reduceBatch, reduceThread, replayThread } from './thread-reducer'
-import { collapsedBefore, EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
+import { EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
 
 function run(...events: UiEvent[]) {
   return replayThread(events)

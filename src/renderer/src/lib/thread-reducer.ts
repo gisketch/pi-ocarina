@@ -195,10 +195,16 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         beforePercent: event.beforePercent,
         afterPercent: event.afterPercent,
         summary: event.summary,
+        tokensSaved: event.tokensSaved,
       })
 
     case 'compaction-skipped':
       return finishCompaction(model, event.id, { running: false, skipped: event.reason })
+
+    // A name is column chrome, not conversation: the catalog holds it, and the
+    // thread store routes the event there. Nothing to draw in the transcript.
+    case 'titled':
+      return model
 
     case 'steer-queued':
       return push(model, { kind: 'steer', id: event.id, text: event.text })

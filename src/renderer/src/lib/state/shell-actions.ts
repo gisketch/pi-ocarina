@@ -23,6 +23,7 @@ import { following } from './following.svelte'
 import { newestCodeBlock } from '../thread'
 import { permission } from './permission.svelte'
 import { reasoningOpen } from './reasoning.svelte'
+import { renameAsk } from './rename-ask.svelte'
 import { sweep } from './sweep.svelte'
 import { termMode } from './term-mode.svelte'
 import { threadGit } from './thread-git.svelte'
@@ -103,6 +104,13 @@ export function runAction(shell: ShellHost, action: Action): void {
     case 'yank':
       void yankNewestCodeBlock()
       break
+    case 'renameThread': {
+      // Only a real thread has a session file to write a name into — the
+      // placeholder and the shell keep the key inert.
+      const named = app.threadId
+      if (named) renameAsk.run(named, app.titleOf(app.thread))
+      break
+    }
     case 'newThread':
       shell.newThread()
       break

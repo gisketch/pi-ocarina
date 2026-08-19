@@ -60,6 +60,13 @@ describe('the mark beside a path', () => {
     expect(fileIcon('a/b/main.py')).toBe('lang-python')
   })
 
+  it('is the one answer every chip gives — picker, composer, sent message', () => {
+    // The reported bug: chips guessed image-or-generic while the picker knew
+    // better. `CLAUDE.md` wears the markdown mark everywhere or nowhere.
+    expect(fileIcon('CLAUDE.md')).toBe('lang-markdown')
+    expect(fileIcon('pasted-1.png')).toBe('image')
+  })
+
   it('knows the kinds that are not a language', () => {
     expect(fileIcon('docs/shot.png')).toBe('image')
     expect(fileIcon('notes.txt')).toBe('file-text')

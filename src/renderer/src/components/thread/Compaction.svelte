@@ -1,82 +1,80 @@
 <script lang="ts">
+  /** The compaction divider: one line while it runs, one line when it is done.
+   *
+   *  Never a card and never a summary. The summary pi writes is for the model
+   *  — the reader's record is the conversation itself, which stays in the
+   *  transcript untouched. All this line has to say is that a compaction
+   *  happened and what it bought. */
   import Icon from '../Icon.svelte'
+  import { elapsed } from '$lib/elapsed'
+  import { formatTokens } from '$lib/usage-format'
+  import { clock } from '$lib/state/clock.svelte'
 
   interface Props {
     running: boolean
     beforePercent?: number
     afterPercent?: number
-    summary?: string
+    /** Raw tokens reclaimed, when pi reported both counts. */
+    tokensSaved?: number
     /** Set when the compaction started and then did not happen. */
     skipped?: string
-    /** How many blocks this card stands in front of. Zero hides the control:
-     *  there is nothing to show or hide. */
-    hidden?: number
-    /** Whether that history is currently hidden. */
-    collapsed?: boolean
-    ontoggle?: () => void
   }
 
-  const {
-    running,
-    beforePercent,
-    afterPercent,
-    summary,
-    skipped,
-    hidden = 0,
-    collapsed = false,
-    ontoggle,
-  }: Props = $props()
+  const { running, beforePercent, afterPercent, tokensSaved, skipped }: Props = $props()
 
-  // No `undo`. The reference offers one, but nothing in pi 0.84 can put a
-  // compacted context back, and a button that silently does nothing is worse
-  // than no button. Recorded as an open item in the thread-ledger spec.
+  // When this divider appeared, which is when the compaction started: the
+  // block exists from the `compaction-start` event on. Good enough for a
+  // ticking duration, and honest — events carry no clock of their own.
+  const startedAt = Date.now()
+
+  // Only a running divider watches the clock; a thread of finished ones
+  // holds nothing ticking.
+  $effect(() => {
+    if (!running) return
+    return clock.watch()
+  })
+
+  const took = $derived(elapsed(clock.now - startedAt))
+
+  /** What a finished compaction gained. Tokens when pi counted them; the
+   *  context percentages otherwise, so an old recording still says something. */
+  const gained = $derived(
+    tokensSaved !== undefined && tokensSaved > 0
+      ? `${formatTokens(tokensSaved)} saved`
+      : beforePercent !== undefined && afterPercent !== undefined
+        ? `ctx ${beforePercent}% → ${afterPercent}%`
+        : '',
+  )
 </script>
 
-{#if running}
-  <div class="line">
-    <span class="rule"></span>
-    <span class="label">⌫ COMPACTING</span>
-    <!-- Stepped, never eased: the reference's pixel shimmer moves in whole
-         cells, so it reads as a machine working rather than a progress bar. -->
-    <span class="shimmer"></span>
-    <span class="rule"></span>
-  </div>
-{:else if skipped}
-  <div class="line">
-    <span class="rule"></span>
-    <span class="label">⌫ NOT COMPACTED · {skipped}</span>
-    <span class="rule"></span>
-  </div>
-{:else}
-  <div class="card">
-    <div class="head">
-      <span class="label">⌫ COMPACTED</span>
-      {#if beforePercent !== undefined && afterPercent !== undefined}
-        <span class="ctx">ctx {beforePercent}% → <span class="after">{afterPercent}%</span></span>
-      {/if}
-    </div>
-    {#if summary}
-      <div class="summary">{summary}</div>
-    {/if}
-    {#if hidden > 0 && ontoggle}
-      <div class="actions">
-        <button type="button" onclick={ontoggle}>
-          {collapsed ? 'expand original' : 'collapse original'}
-          <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} />
-          <span class="count">{hidden} blocks</span>
-        </button>
-      </div>
-    {/if}
-  </div>
-{/if}
+<div class="line" class:running>
+  <span class="rule"></span>
+  {#if running}
+    <span class="mark pulse"><Icon name="compact" /></span>
+    <span class="label">compacting conversation · {took}</span>
+  {:else if skipped}
+    <span class="mark"><Icon name="compact" /></span>
+    <span class="label">not compacted · {skipped}</span>
+  {:else}
+    <span class="mark"><Icon name="compact" /></span>
+    <span class="label">compacted{gained ? ` · ${gained}` : ''}</span>
+  {/if}
+  <span class="rule"></span>
+</div>
 
 <style>
   .line {
     display: flex;
     align-items: center;
     gap: 10px;
+    padding-block: 4px;
     font-size: 10px;
     font-family: var(--font-chrome);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-dimmest);
+  }
+  .line.running {
     color: var(--fg-dim);
   }
 
@@ -90,73 +88,19 @@
     );
   }
 
+  .mark {
+    display: inline-flex;
+    flex: none;
+    font-size: 11px;
+  }
+  /* The app's one vocabulary for "this is happening": the same breath the
+     turn footer's square and a running tool row take. */
+  .pulse {
+    color: var(--accent);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+
   .label {
     white-space: nowrap;
-  }
-
-  .shimmer {
-    width: 64px;
-    height: 8px;
-    flex: none;
-    background: repeating-linear-gradient(
-      90deg,
-      oklch(0.76 0.14 var(--accent-hue) / 0.5) 0 6px,
-      rgba(255, 255, 255, 0.05) 6px 12px
-    );
-    background-size: 120px 100%;
-    animation: pixelshift 0.9s steps(10) infinite;
-  }
-
-  .card {
-    background: rgba(255, 255, 255, 0.035);
-    padding: 10px 13px;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-  }
-
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 10px;
-    font-family: var(--font-chrome);
-    color: var(--fg-dim);
-  }
-
-  .ctx {
-    margin-left: auto;
-    color: var(--fg-dimmest);
-  }
-  .after {
-    color: var(--accent);
-  }
-
-  .summary {
-    color: var(--fg-dim);
-    line-height: 1.65;
-    font-size: 11.5px;
-    font-family: var(--font-body);
-  }
-
-  .actions {
-    display: flex;
-    gap: 12px;
-  }
-  .actions button {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 10px;
-    font-family: var(--font-chrome);
-    color: var(--fg-dimmest);
-    cursor: pointer;
-    transition: color 0.15s;
-  }
-  .actions button:hover {
-    color: var(--fg-dim);
-  }
-  .count {
-    color: var(--fg-dimmest);
   }
 </style>

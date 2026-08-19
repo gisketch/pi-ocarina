@@ -73,6 +73,9 @@ describe('PiTranslator — turn lifecycle', () => {
       beforePercent: 50,
       afterPercent: 10,
       summary: 'we did things',
+      // The raw gain, which is what the divider leads with — percentages
+      // need the window, the saving does not.
+      tokensSaved: 80_000,
     })
   })
 

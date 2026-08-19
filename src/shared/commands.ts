@@ -81,6 +81,10 @@ export interface SessionCommands {
     params: { threadId: ThreadId }
     result: { surface: ProjectSurface; reloaded: true } | { reloaded: false; because: string }
   }
+  /** Names a thread. Written into pi's session file (`session_info`), so it is
+   *  the same name the listing reads back — no second store to disagree. A
+   *  hand-given name is final: the auto-titler never overwrites one. */
+  renameThread: { params: { threadId: ThreadId; title: string }; result: { ok: true } }
   /** Hides a thread from its workspace's strip. The session file is untouched. */
   archiveThread: { params: { threadId: ThreadId }; result: { ok: true } }
   /** Brings a closed thread back — what jumping to it from search does. */

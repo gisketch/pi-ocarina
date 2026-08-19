@@ -128,12 +128,20 @@ export type UiEvent =
       beforePercent: number
       afterPercent: number
       summary: string
+      /** Raw tokens the compaction reclaimed. Optional: recorded sessions from
+       *  before it existed, and a session whose window is unknown, have only
+       *  the percentages to say. */
+      tokensSaved?: number
     }
   /** A compaction that started and then did not happen — pi refuses to compact
    *  a session it considers too small. It must be named rather than left as a
    *  `raw` note: without the id, nothing can end the compaction it began, and
    *  the UI would shimmer forever over work that already stopped. */
   | { kind: 'compaction-skipped'; id: string; reason: string }
+  /** The thread's name changed — a hand rename, or the titler's one-line
+   *  summary of the first message. The column header is catalog state, not a
+   *  block, so the reducer ignores this; the store routes it to the catalog. */
+  | { kind: 'titled'; title: string }
   | { kind: 'steer-queued'; id: string; text: string }
   | { kind: 'steer-delivered'; id: string }
   | { kind: 'steer-cancelled'; id: string }
@@ -263,6 +271,7 @@ const KNOWN_KINDS: ReadonlySet<string> = new Set<UiEventKind>([
   'compaction-start',
   'compaction-done',
   'compaction-skipped',
+  'titled',
   'steer-queued',
   'steer-delivered',
   'steer-cancelled',

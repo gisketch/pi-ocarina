@@ -89,6 +89,8 @@ import fileText from '@vscode/codicons/src/icons/file-text.svg?raw'
 import fileBinary from '@vscode/codicons/src/icons/file-binary.svg?raw'
 import gear from '@vscode/codicons/src/icons/gear.svg?raw'
 import lock from '@vscode/codicons/src/icons/lock.svg?raw'
+// The compaction divider's mark: history folded away into a box.
+import archive from '@vscode/codicons/src/icons/archive.svg?raw'
 
 import { langOf } from '../../../shared/lang-of'
 import square from '@phosphor-icons/core/assets/light/square-light.svg?raw'
@@ -116,6 +118,7 @@ export const ICONS = {
    *  weight than a Codicon circle did anyway. */
   box: square,
   'box-done': squareFilled,
+  compact: archive,
 
   // The tool kinds. Named `tool-*` so a glance at a component says which
   // vocabulary an icon came from, and so the map below cannot silently pick

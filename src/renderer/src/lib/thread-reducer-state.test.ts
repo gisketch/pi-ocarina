@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { UiEvent } from '../../../shared/protocol'
 import { reduceBatch, reduceThread, replayThread } from './thread-reducer'
-import { collapsedBefore, EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
+import { EMPTY_THREAD, type Block, type ToolBody, type ToolRow } from './thread'
 
 function run(...events: UiEvent[]) {
   return replayThread(events)
@@ -104,16 +104,22 @@ describe('checkpoints, compaction, steering', () => {
     expect(kinds(model.blocks)).toEqual(['user', 'checkpoint'])
   })
 
-  it('shows compaction running, then its summary', () => {
+  it('shows compaction running, then its outcome', () => {
     const model = run({ kind: 'compaction-start', id: 'k1' }, {
       kind: 'compaction-done',
       id: 'k1',
       beforePercent: 82,
       afterPercent: 24,
       summary: 'kept the plan',
+      tokensSaved: 116_000,
     })
 
-    expect(model.blocks[0]).toMatchObject({ running: false, beforePercent: 82, afterPercent: 24 })
+    expect(model.blocks[0]).toMatchObject({
+      running: false,
+      beforePercent: 82,
+      afterPercent: 24,
+      tokensSaved: 116_000,
+    })
   })
 
   it('lands a compaction summary even when its start was never seen', () => {
@@ -252,55 +258,25 @@ describe('reset and purity', () => {
   })
 })
 
-describe('collapsing history behind a compaction', () => {
-  const compaction = (running: boolean): Block => ({ kind: 'compaction', id: 'k1', running })
-  const message = (id: string): Block => ({ kind: 'user', id, text: id })
+describe('the transcript around a compaction', () => {
+  it('keeps every block above the divider', () => {
+    // A compaction folds pi's context, never the reader's transcript. Hiding
+    // history behind the card was tried, and read as the app deleting the
+    // conversation.
+    const model = run(
+      { kind: 'user-message', id: 'u1', text: 'first' },
+      start('a1'),
+      delta('a1', 'answer'),
+      { kind: 'compaction-start', id: 'k1' },
+      {
+        kind: 'compaction-done',
+        id: 'k1',
+        beforePercent: 82,
+        afterPercent: 24,
+        summary: 'kept the plan',
+      },
+    )
 
-  it('collapses nothing when no compaction has finished', () => {
-    expect(collapsedBefore([message('a'), message('b')])).toBe(0)
-    expect(collapsedBefore([message('a'), compaction(true)])).toBe(0)
-  })
-
-  it('collapses everything above a finished compaction', () => {
-    expect(collapsedBefore([message('a'), message('b'), compaction(false)])).toBe(2)
-  })
-
-  it('collapses nothing when the compaction is the first block', () => {
-    // There is no history above it to hide, so the card shows no control.
-    expect(collapsedBefore([compaction(false), message('a')])).toBe(0)
-  })
-
-  it('uses the newest finished compaction when a thread has several', () => {
-    const blocks: Block[] = [
-      message('a'),
-      { kind: 'compaction', id: 'k1', running: false },
-      message('b'),
-      message('c'),
-      { kind: 'compaction', id: 'k2', running: false },
-    ]
-
-    expect(collapsedBefore(blocks)).toBe(4)
-  })
-
-  it('collapses nothing behind a compaction that was refused', () => {
-    // Nothing was replaced, so there is no history it stands in front of.
-    const blocks: Block[] = [
-      message('a'),
-      message('b'),
-      { kind: 'compaction', id: 'k1', running: false, skipped: 'nothing to compact' },
-    ]
-
-    expect(collapsedBefore(blocks)).toBe(0)
-  })
-
-  it('keeps the last compaction collapsed while a newer one is still running', () => {
-    const blocks: Block[] = [
-      message('a'),
-      { kind: 'compaction', id: 'k1', running: false },
-      message('b'),
-      { kind: 'compaction', id: 'k2', running: true },
-    ]
-
-    expect(collapsedBefore(blocks)).toBe(1)
+    expect(kinds(model.blocks)).toEqual(['user', 'agent', 'compaction'])
   })
 })

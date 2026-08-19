@@ -105,6 +105,23 @@ class Catalog {
     }
   }
 
+  /** Renames one thread's column, wherever it is. Driven by the `titled`
+   *  event and by the rename dialog's optimistic write — the session file
+   *  already holds the name, this only keeps the header from waiting for a
+   *  relaunch to show it. */
+  retitle(threadId: string, title: string): void {
+    this.workspaces = this.workspaces.map((workspace) =>
+      workspace.threads.some((thread) => thread.id === threadId)
+        ? {
+            ...workspace,
+            threads: workspace.threads.map((thread) =>
+              thread.id === threadId ? { ...thread, title } : thread,
+            ),
+          }
+        : workspace,
+    )
+  }
+
   /** Puts the workspace's shell on the strip. One per workspace: asking twice
    *  is asking for the one that is already there. */
   openTerminal(workspaceId: string): void {

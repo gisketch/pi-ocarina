@@ -279,13 +279,23 @@ export class PiTranslator {
         const percent = (tokens: number | undefined): number =>
           window && tokens ? Math.round((tokens / window) * 1000) / 10 : 0
 
+        // The raw counts, when pi reported both: percentages need the window,
+        // but "how much did this buy me" does not, and it is the number the
+        // card leads with.
+        const { tokensBefore, estimatedTokensAfter } = event.result
+        const tokensSaved =
+          tokensBefore !== undefined && estimatedTokensAfter !== undefined
+            ? Math.max(0, tokensBefore - estimatedTokensAfter)
+            : undefined
+
         return [
           {
             kind: 'compaction-done',
             id,
-            beforePercent: percent(event.result.tokensBefore),
-            afterPercent: percent(event.result.estimatedTokensAfter),
+            beforePercent: percent(tokensBefore),
+            afterPercent: percent(estimatedTokensAfter),
             summary: event.result.summary,
+            ...(tokensSaved === undefined ? {} : { tokensSaved }),
           },
         ]
       }

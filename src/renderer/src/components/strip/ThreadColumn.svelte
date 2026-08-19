@@ -238,8 +238,15 @@
     animation: pulse 1.1s ease-in-out infinite;
   }
 
+  /* One line, always: a long name truncates rather than wrapping the header
+     taller and pushing the transcript down. `min-width: 0` is what lets a
+     flex item shrink past its content at all. */
   .title {
     color: var(--fg-bright);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Truncates rather than wrapping, and loses before the title: `min-width: 0`
