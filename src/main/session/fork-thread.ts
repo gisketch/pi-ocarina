@@ -14,6 +14,7 @@
  *  The fork shares the parent's folder, worktree included. It is a
  *  compare-conversations tool; isolation is what worktree threads are for. */
 
+import { existsSync } from 'node:fs'
 import { adoptSession } from './thread-open'
 import { renameThread } from './thread-title'
 import { openingDeps, type DriverParts } from './driver-deps'
@@ -32,6 +33,12 @@ export async function forkThread(
   const parentFile = parent.session.sessionManager.getSessionFile()
   if (parentFile === undefined) {
     throw new Error('this thread has no session file to fork')
+  }
+  // A session file is deferred until the first assistant reply — a fork of a
+  // fork that has never answered has a path but no file yet, and opening the
+  // nothing behind it would fork an empty session with a cryptic error.
+  if (!existsSync(parentFile)) {
+    throw new Error('this thread has not been answered yet — there is nothing to fork')
   }
 
   // The throwaway copy the mutation is allowed to eat. After the call it holds
