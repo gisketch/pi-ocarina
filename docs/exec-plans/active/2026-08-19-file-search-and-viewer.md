@@ -68,7 +68,7 @@ Blocked by: nothing.
 
 ## T3 — file search on `␣f`
 
-Status: todo
+Status: done
 
 Behavior: `␣f` opens a file search in the telescopic dialog: cached index
 at once, re-walk behind, top hits only, preview of the highlighted file's

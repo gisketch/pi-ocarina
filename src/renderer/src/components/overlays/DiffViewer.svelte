@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TelescopeShell from './TelescopeShell.svelte'
   import { changes } from '$lib/state/changes.svelte'
 
   // Held apart from the column, deliberately. A column carries
@@ -28,7 +29,10 @@
   }
 </script>
 
-<div class="sheet" role="dialog" aria-label="changes">
+<!-- The finders' shell (spec D6): clicking outside is the mouse's escape,
+     and it leaves DIFF the way `esc` does — mode handed back, state reset. -->
+<TelescopeShell onclose={() => changes.leave()} label="changes" z={60} wide>
+  {#snippet left()}
   <div class="pane files" class:focused={changes.pane === 'files'}>
     <div class="head">
       {#if changes.filtering}
@@ -53,7 +57,9 @@
       {/each}
     </div>
   </div>
+  {/snippet}
 
+  {#snippet right()}
   <div class="pane diff" class:focused={changes.pane === 'diff'}>
     {#if changes.loading}
       <div class="empty">reading the changes…</div>
@@ -98,30 +104,18 @@
       </div>
     {/if}
   </div>
-</div>
+  {/snippet}
+</TelescopeShell>
 
 <style>
-  .sheet {
-    position: fixed;
-    inset: 48px 40px 56px;
-    z-index: 60;
-    display: grid;
-    grid-template-columns: minmax(200px, 300px) 1fr;
-    background: var(--bg-float);
-    box-shadow: 0 24px 64px rgb(0 0 0 / 55%);
-    overflow: hidden;
-  }
-
+  /* The shell owns the frame; each pane fills its half of it. */
   .pane {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-  }
-  /* The file list is a step down from the diff beside it — that step is the
-     only thing separating the two panes. */
-  .files {
-    background: rgba(255, 255, 255, 0.025);
   }
   /* Which pane has the keys, said quietly: its name strip goes accent. The
      reader is reading code, and the surface must not compete with it. */
