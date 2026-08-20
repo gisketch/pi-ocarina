@@ -104,6 +104,10 @@ settle. Ordered by the ranking in
   leads, TERM bails at the pipeline mouth, parse/highlight memoize, the
   forced-layout loops end, and the per-keystroke tail is cut. **Draft, from
   the 2026-08-20 audit.**
+- [2026-08-20-agent-peek-dialog.md](2026-08-20-agent-peek-dialog.md) — the
+  agent peek counts tokens live, names the child's effective model, and draws
+  as a floating chat-column dialog. **Implemented 2026-08-20.** Tickets in
+  [2026-08-20-agent-peek-dialog.md](../exec-plans/active/2026-08-20-agent-peek-dialog.md).
 - [2026-08-20-attached-panes.md](2026-08-20-attached-panes.md) — attach
   terminals, and later other pane types, to chat or buffer columns so the group
   centers and moves as one entity. **Approved and implemented 2026-08-20.**

@@ -24,6 +24,7 @@ function child(
     role,
     label,
     status: 'running',
+    model: 'anthropic/claude-sonnet-4-5',
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
     startedAt: NOW,
     ...extra,
@@ -68,7 +69,10 @@ export const FAN_OUT: MockThread = {
         ...CIRCE,
         status: 'ok',
         endedAt: NOW + 34_000,
-        output: 'Seven callers, all in src/sync.',
+        // Markdown, not a sentence: a child's report is prose it wrote, and the
+        // peek reads it the way every other piece of agent prose is read.
+        output:
+          'Seven callers, all in `src/sync`:\n\n- `worker.ts` — three, all in the retry path\n- `queue.ts` — two\n- `index.ts` — two, both re-exports',
         usage: { input: 9_100, output: 240, cacheRead: 0, cacheWrite: 0, cost: 0.004 },
       },
     },
