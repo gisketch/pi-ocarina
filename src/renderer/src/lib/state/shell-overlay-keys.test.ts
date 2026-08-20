@@ -14,6 +14,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const routing = vi.hoisted(() => ({
   routeToOverlay: vi.fn<(event: unknown) => boolean | null>(() => null),
   routeToSurface: vi.fn<(event: unknown, mode: string, threadId: string) => boolean>(() => false),
+  // Nothing here is in TERM, so the bail never fires — but the shell calls it
+  // before anything else, and a mock missing it throws before a single
+  // assertion runs.
+  termSwallows: vi.fn<() => boolean>(() => false),
 }))
 vi.mock('./key-routing.svelte', () => routing)
 
