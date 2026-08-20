@@ -1,11 +1,14 @@
 import { basename } from 'node:path'
 import type { IPty } from 'node-pty'
 
-/** Bytes are flushed on this cadence rather than per read.
+/** Bytes are coalesced within this window rather than sent per read.
  *
  *  A build can emit thousands of tiny chunks; each one crossing IPC on its own
- *  would cost more in messages than in bytes. Matches the session batcher's
- *  window so terminal and thread updates land in the same frame. */
+ *  would cost more in messages than in bytes. The window only defers bytes
+ *  that arrive on the heels of a flush — the first chunk after quiet goes out
+ *  on its own tick, because an idle keystroke's echo has nothing to coalesce
+ *  with and waiting would only make typing feel slow. Matches the session
+ *  batcher's window so terminal and thread updates land in the same frame. */
 const FLUSH_MS = 16
 
 /** How the shell is asked for. */
@@ -32,6 +35,8 @@ interface Terminal {
   workspaceId: string
   pending: string
   timer: ReturnType<typeof setTimeout> | null
+  /** When bytes last went out; zero means quiet, so the next chunk leads. */
+  lastFlush: number
 }
 
 /** Independently addressed login shells.
@@ -50,6 +55,12 @@ export class TerminalService {
     this.#emit = emit
     this.#cwdOf = cwdOf
     this.#spawn = spawn
+    // The native import is slow enough that awaiting it inside the first
+    // create blocks main under a `t`. Started here so it overlaps startup;
+    // the rejection is swallowed because a module that fails to build must
+    // not crash the app — create awaits the same cached promise and surfaces
+    // the error to whoever actually asked for a shell.
+    if (!spawn) void loadPty().catch(() => {})
   }
 
   /** Starts one terminal's shell, or does nothing if it is already running.
@@ -80,7 +91,7 @@ export class TerminalService {
       rows: 24,
     })
 
-    const terminal: Terminal = { pty, shell, workspaceId, pending: '', timer: null }
+    const terminal: Terminal = { pty, shell, workspaceId, pending: '', timer: null, lastFlush: 0 }
     this.#terminals.set(terminalId, terminal)
 
     pty.onData((data) => this.#buffer(terminalId, terminal, data))
@@ -160,12 +171,27 @@ export class TerminalService {
     terminal.pending += data
     if (terminal.timer) return
 
+    // Nothing flushed within the window means nothing to coalesce with: an
+    // idle keystroke's echo leaves on this tick instead of waiting out a
+    // timer armed for chatter that never comes. Under spew the timer covers
+    // only the remainder of the window, so batches keep the same cadence.
+    const sinceFlush = Date.now() - terminal.lastFlush
+    if (sinceFlush >= FLUSH_MS) {
+      this.#flush(terminalId, terminal)
+      return
+    }
+
     terminal.timer = setTimeout(() => {
       terminal.timer = null
-      const flushed = terminal.pending
-      terminal.pending = ''
-      if (flushed) this.#emit(terminalId, flushed)
-    }, FLUSH_MS)
+      this.#flush(terminalId, terminal)
+    }, FLUSH_MS - sinceFlush)
+  }
+
+  #flush(terminalId: string, terminal: Terminal): void {
+    terminal.lastFlush = Date.now()
+    const flushed = terminal.pending
+    terminal.pending = ''
+    if (flushed) this.#emit(terminalId, flushed)
   }
 
   #forget(terminalId: string, terminal: Terminal): void {
@@ -175,9 +201,13 @@ export class TerminalService {
   }
 }
 
-/** Loaded on first use, like the pi SDK: a native module that fails to build
- *  must not stop the rest of the app from starting. */
-async function loadPty(): Promise<PtySpawn> {
-  const pty = await import('node-pty')
-  return pty.spawn as unknown as PtySpawn
+let ptyLoad: Promise<PtySpawn> | undefined
+
+/** Loaded outside app startup, like the pi SDK: a native module that fails to
+ *  build must not stop the rest of the app from starting. Cached so the
+ *  prewarm at construction and the await inside create share one import —
+ *  and one failure, reported where a user can see it. */
+function loadPty(): Promise<PtySpawn> {
+  ptyLoad ??= import('node-pty').then((pty) => pty.spawn as unknown as PtySpawn)
+  return ptyLoad
 }

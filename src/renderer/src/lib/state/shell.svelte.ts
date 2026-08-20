@@ -6,7 +6,7 @@ import { dashboardRecent } from './dashboard-recent.svelte'
 import { commit } from './commit.svelte'
 import { confirm } from './confirm.svelte'
 import { askKeys } from './ask-keys.svelte'
-import { routeToOverlay, routeToSurface } from './key-routing.svelte'
+import { routeToOverlay, routeToSurface, termSwallows } from './key-routing.svelte'
 import { sweep } from './sweep.svelte'
 import { settleWorktree } from './worktree-close'
 import { threadGit } from './thread-git.svelte'
@@ -230,6 +230,10 @@ class ShellState {
     // window — where the shell, seeing no overlay any more, read the digit
     // that chose a voice as "go to that workspace".
     if (event.defaultPrevented) return false
+
+    // TERM's keys are the pty's, so nothing below may run for them — the why
+    // and the modal exceptions live with the predicate.
+    if (termSwallows(event, app.mode, this.pendingClose, this.overlay)) return false
 
     // Everything modal answers first, in one place that owns the ranking.
     const answered = routeToOverlay(event, this.keymap)

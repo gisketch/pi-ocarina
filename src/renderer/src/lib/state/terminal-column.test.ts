@@ -17,7 +17,9 @@ vi.mock('../bridge', () => ({
 }))
 
 import { app } from './app.svelte'
+import { blockNav } from './block-nav.svelte'
 import { catalog } from './catalog.svelte'
+import { confirm } from './confirm.svelte'
 import { shell } from './shell.svelte'
 import { termMode } from './term-mode.svelte'
 import { terminals } from './terminal.svelte'
@@ -49,6 +51,7 @@ beforeEach(() => {
   app.focus = [0]
   app.mode = 'OCARINA'
   shell.pendingClose = null
+  if (confirm.pending) confirm.answer(false)
 })
 
 describe('opening the terminal column', () => {
@@ -215,5 +218,56 @@ describe('esc esc through the real key path', () => {
     shell.handleKey({ key: 'Escape' })
 
     expect(write).not.toHaveBeenCalled()
+  })
+})
+
+describe('TERM bails at the pipeline mouth', () => {
+  beforeEach(() => {
+    vi.spyOn(terminals, 'create').mockResolvedValue()
+    termMode.open()
+  })
+
+  it('lets a typed key pass to the pty without walking the modal stack', () => {
+    // The stale-overlay sweep is the one DOM-touching step of the walk, so it
+    // stands in for the whole pipeline: a pty keystroke that skipped it
+    // skipped everything the bail exists to skip.
+    const sweep = vi.spyOn(blockNav, 'dropStaleOverlays')
+
+    const consumed = shell.handleKey({ key: 'a' })
+
+    expect(consumed).toBe(false)
+    expect(app.mode).toBe('TERM')
+    expect(shell.overlay).toBeNull()
+    expect(sweep).not.toHaveBeenCalled()
+  })
+
+  it('still hands Escape to the full path, which leaves TERM', () => {
+    shell.handleKey({ key: 'Escape' })
+
+    expect(app.mode).toBe('OCARINA')
+  })
+
+  it('still routes the answer to a close confirm that landed over TERM', () => {
+    // The busy() round trip can resolve after the mode has already moved, so
+    // the question genuinely coexists with TERM and its keys must get through.
+    const close = vi.spyOn(shell, 'closeThread').mockImplementation(() => {})
+    shell.pendingClose = TERM_ID
+
+    const consumed = shell.handleKey({ key: 'y' })
+
+    expect(consumed).toBe(true)
+    expect(shell.pendingClose).toBeNull()
+    expect(close).toHaveBeenCalledWith(TERM_ID, { cancelTurn: true })
+  })
+
+  it('still routes the answer to a quit confirm that arrived over TERM', () => {
+    void confirm.ask({ title: 'quit', message: 'work running', confirmLabel: 'quit' })
+
+    const consumed = shell.handleKey({ key: 'Escape' })
+
+    expect(consumed).toBe(true)
+    expect(confirm.pending).toBe(false)
+    // The confirm took the escape; TERM is untouched behind it.
+    expect(app.mode).toBe('TERM')
   })
 })

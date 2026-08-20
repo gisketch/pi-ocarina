@@ -23,6 +23,38 @@ import type { KeyEventLike } from '../keyboard'
 import { EMPTY_KEYMAP, type Keymap } from '../keymap'
 import type { ThreadId } from '../../../../shared/thread-id'
 
+/** Whether TERM should swallow this key before any routing runs.
+ *
+ *  TERM hands every key to the pty, so the reducer's TERM branch answers "not
+ *  consumed" for everything but Escape — yet without this bail each pty
+ *  keystroke first paid seven modal getters, a DOM-touching stale-overlay
+ *  sweep and a keymap translation just to reach that answer. The predicate
+ *  mirrors the reducer's exactly, so bailing is the same behaviour at a
+ *  fraction of the cost; the reducer's own branch stays, and the two must
+ *  never disagree.
+ *
+ *  The modal guards exist because two questions can land on top of TERM:
+ *  main's quit confirm arrives on its own clock, and a close confirm can
+ *  finish its busy() round trip after the mode has already moved. Their
+ *  answer keys must still route, so the bail steps aside on the cheap boolean
+ *  reads rather than re-running the walks it exists to skip. An overlay
+ *  cannot open from TERM today, but the read costs nothing and keeps this
+ *  true if a new door in ever appears. */
+export function termSwallows(
+  event: KeyEventLike,
+  mode: string,
+  pendingClose: string | null,
+  overlay: string | null,
+): boolean {
+  return (
+    mode === 'TERM' &&
+    event.key !== 'Escape' &&
+    !confirm.pending &&
+    pendingClose === null &&
+    overlay === null
+  )
+}
+
 export function routeToOverlay(event: KeyEventLike, keymap: Keymap = EMPTY_KEYMAP): boolean | null {
   // The destructive modal outranks everything, including the close confirm.
   if (confirm.pending) return confirm.handleKey(event)

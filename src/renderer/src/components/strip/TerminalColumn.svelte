@@ -25,6 +25,9 @@
   let host = $state<HTMLDivElement | null>(null)
   let term: Terminal | null = null
   let fit: FitAddon | null = null
+  /** The grid last told to the pty; a refit landing on the same one is mute. */
+  let sized = { cols: 0, rows: 0 }
+  let raf = 0
 
   /** Read from the document rather than hardcoded: the accent is seeded per
    *  workspace, so the cursor follows whichever workspace this shell is in. */
@@ -100,7 +103,13 @@
     const typed = term.onData((data) => terminals.write(id, data))
     const stop = terminals.onData(id, (data) => term?.write(data))
 
-    const observer = new ResizeObserver(() => resize())
+    // One fit per frame, however many observations a width transition fires
+    // into it — each fit is a layout read, and the transition already owns
+    // the frame budget.
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(resize)
+    })
     observer.observe(host)
 
     // j/k scroll the focused column through one registry, whatever the column
@@ -119,6 +128,7 @@
       unregister()
       typed.dispose()
       stop()
+      cancelAnimationFrame(raf)
       observer.disconnect()
       term?.dispose()
       term = null
@@ -129,6 +139,11 @@
     if (!fit || !term) return
     try {
       fit.fit()
+      // Same cell grid, no round trip: a width transition can refit every
+      // frame, and each resize IPC is a SIGWINCH to the shell — a running
+      // TUI would redraw per frame for a grid that never changed.
+      if (term.cols === sized.cols && term.rows === sized.rows) return
+      sized = { cols: term.cols, rows: term.rows }
       terminals.resize(id, term.cols, term.rows)
     } catch {
       // The column is mid-transition and has no measurable size yet.

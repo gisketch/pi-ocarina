@@ -137,7 +137,21 @@ describe('whether the shell is busy', () => {
 })
 
 describe('output', () => {
-  it('coalesces a burst into one message', async () => {
+  it('echoes the first chunk after quiet on the same tick', async () => {
+    // A single keystroke's echo is exactly this shape: one small chunk into a
+    // quiet terminal. Waiting out the window here is the felt typing lag.
+    vi.useFakeTimers()
+    const shell = fakePty()
+    const { terminals, emitted } = service([shell])
+    await terminals.create('term-1', 'w1')
+
+    shell.handlers.data?.('e')
+
+    expect(emitted).toEqual([['term-1', 'e']])
+    vi.useRealTimers()
+  })
+
+  it('coalesces a burst behind the leading chunk into one message', async () => {
     vi.useFakeTimers()
     const shell = fakePty()
     const { terminals, emitted } = service([shell])
@@ -146,10 +160,36 @@ describe('output', () => {
     shell.handlers.data?.('one ')
     shell.handlers.data?.('two ')
     shell.handlers.data?.('three')
-    expect(emitted).toEqual([])
+    expect(emitted).toEqual([['term-1', 'one ']])
 
     vi.advanceTimersByTime(20)
-    expect(emitted).toEqual([['term-1', 'one two three']])
+    expect(emitted).toEqual([
+      ['term-1', 'one '],
+      ['term-1', 'two three'],
+    ])
+    vi.useRealTimers()
+  })
+
+  it('keeps chunk order across leading and trailing flushes', async () => {
+    // A trailing flush reopens the window: the next chunk after quiet must
+    // lead again, and nothing may leapfrog what is still pending.
+    vi.useFakeTimers()
+    const shell = fakePty()
+    const { terminals, emitted } = service([shell])
+    await terminals.create('term-1', 'w1')
+
+    shell.handlers.data?.('a')
+    shell.handlers.data?.('b')
+    shell.handlers.data?.('c')
+    vi.advanceTimersByTime(16)
+    vi.advanceTimersByTime(16)
+    shell.handlers.data?.('d')
+
+    expect(emitted).toEqual([
+      ['term-1', 'a'],
+      ['term-1', 'bc'],
+      ['term-1', 'd'],
+    ])
     vi.useRealTimers()
   })
 
@@ -159,11 +199,12 @@ describe('output', () => {
     const { terminals, emitted } = service([shell])
     await terminals.create('term-1', 'w1')
 
+    shell.handlers.data?.('prompt')
     shell.handlers.data?.('late output')
     terminals.kill('term-1')
     vi.advanceTimersByTime(50)
 
-    expect(emitted).toEqual([])
+    expect(emitted).toEqual([['term-1', 'prompt']])
     expect(shell.pty.killed).toBe(true)
     vi.useRealTimers()
   })
