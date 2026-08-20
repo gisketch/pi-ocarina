@@ -168,7 +168,15 @@
     <span class="key">t</span>
   </header>
 
-  <div class="screen" bind:this={host}></div>
+  <!-- The padding is the frame's, never the xterm host's: the fit addon sizes
+       the grid from `getComputedStyle(parent).height`, which under
+       `box-sizing: border-box` reports the *border* box — padding included.
+       Padding on the element xterm opens into therefore buys a grid one row
+       too tall, and the extra row paints straight over the hints bar. An
+       unpadded host measures true. -->
+  <div class="screen">
+    <div class="host" bind:this={host}></div>
+  </div>
 
   <div class="hints">
     <span><span class="k">i</span> type</span>
@@ -222,10 +230,19 @@
     padding: 2px 6px;
   }
 
+  /* Clipped as well as measured true: a grid that drifts past its box — a
+     font landing between the fit and the draw — stays inside the frame
+     instead of over the hints. */
   .screen {
     flex: 1;
     min-height: 0;
     padding: 10px 12px;
+    overflow: hidden;
+  }
+
+  .host {
+    width: 100%;
+    height: 100%;
   }
 
   .hints {
