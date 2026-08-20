@@ -3,12 +3,15 @@
      what the `:` commands mean; this wires the two and draws the frame. -->
 <script lang="ts">
   import { onMount } from 'svelte'
+  import EditorRendered from './EditorRendered.svelte'
   import { app } from '$lib/state/app.svelte'
   import { buffers } from '$lib/state/buffers.svelte'
+  import { registerColumnBody } from '$lib/state/columns'
   import { isVimMode } from '$lib/types'
   import { preferences } from '$lib/state/preferences.svelte'
   import { toasts } from '$lib/state/toasts.svelte'
   import { mountEditor, type EditorHandle } from '$lib/editor/editor'
+  import { isMarkdownPath, readsRendered } from '$lib/editor/reading'
 
   const { columnId, focused, onfocus }: {
     columnId: string
@@ -20,6 +23,27 @@
 
   let host = $state<HTMLDivElement | null>(null)
   let handle = $state<EditorHandle | null>(null)
+
+  /* Markdown reads rendered; entering vim shows the source (spec:
+     pane-reveal-and-editor). Only the reader-facing view swaps — the
+     CodeMirror instance stays mounted backstage so cursor, undo history and
+     unsaved edits survive every swap. */
+  const markdown = $derived(isMarkdownPath(entry?.path ?? ''))
+  const reading = $derived(readsRendered(entry?.path ?? '', focused, app.mode))
+  /* The live editor text, dirty edits included; `entry.text` is a dependency
+     so a watcher reload of a clean buffer re-renders, and the pre-mount
+     fallback for the first paint. */
+  const readingText = $derived(reading ? (handle?.text() ?? entry?.text ?? '') : '')
+
+  /* While the rendered view shows, it is the column's scroll box: ctrl-d/u
+     page it through the existing seam, and a wheel yields a keyboard scroll
+     the same way a transcript does. Unmounting unregisters, so vim's own
+     ctrl-d never fights it. */
+  let readBox = $state<HTMLDivElement | null>(null)
+  $effect(() => {
+    if (!readBox) return
+    return registerColumnBody(columnId, readBox)
+  })
 
   // The settings toggle reaches every open buffer live.
   $effect(() => {
@@ -63,7 +87,7 @@
 <section class="buffer" class:focused role="presentation" onclickcapture={onfocus}>
   <header class="head">
     <span class="dot"></span>
-    <span class="kind">BUFFER</span>
+    <span class="kind">EDITOR</span>
     <span class="path">{entry?.path ?? columnId}</span>
     {#if entry?.dirty}<span class="mark">+</span>{/if}
   </header>
@@ -72,10 +96,15 @@
     <div class="notice">{entry.notice}</div>
   {/if}
 
-  <div class="screen" bind:this={host} onfocusincapture={claimed}></div>
+  {#if reading}
+    <div class="reading" bind:this={readBox}>
+      <EditorRendered text={readingText} />
+    </div>
+  {/if}
+  <div class="screen" class:backstage={reading} bind:this={host} onfocusincapture={claimed}></div>
 
   <div class="hints">
-    <span><span class="k">⏎</span> normal</span>
+    <span><span class="k">⏎</span> {markdown ? 'edit source' : 'normal'}</span>
     <span><span class="k">i</span> insert</span>
     <span><span class="k">:w :q :wq :qa</span></span>
     <span><span class="k">s</span> leap</span>
@@ -85,6 +114,7 @@
 
 <style>
   .buffer {
+    position: relative;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -151,10 +181,26 @@
     font-size: 11px;
   }
 
+  .reading {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 20px;
+  }
+
   .screen {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+  }
+  /* Hidden, not gone: the vim state lives in this instance, and an element
+     that kept `display` stays focusable — entering vim focuses it in the
+     same keystroke, before the rendered view has even unmounted. */
+  .screen.backstage {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
   }
   .screen :global(.cm-editor) {
     height: 100%;
