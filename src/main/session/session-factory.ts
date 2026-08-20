@@ -197,7 +197,12 @@ export class SessionFactory {
       allowed: tools,
       demoteSearch: this.#hasLsp(options.workspaceId, options.cwd),
     })
-    return { session, model: chosen.named }
+    // The session's own model outranks the book's answer: when this app names
+    // no model at all — "pi default" — the book has nothing to say, but pi has
+    // still chosen one and the session knows which. Asking pi is the only way
+    // the peek can name the default instead of showing nothing.
+    const ran = session.model
+    return { session, model: ran ? `${ran.provider}/${ran.id}` : chosen.named }
   }
 
   /** A bare completion session: no file, no tools, no extensions.

@@ -157,3 +157,16 @@ row it points at goes away or thread focus leaves its column.
   350-line smell; the split is by responsibility, not by size.
 - The dialog grows with the child between a floor and a ceiling rather than
   reserving a fixed column of empty room.
+- The peek renders with the chat column's own components, not a copy of their
+  grammar: the brief and the report are `Message`s, the calls a `Ledger` under
+  an empty thread id so its rows never register as stops in the real thread.
+  Grouped runs, expandable bodies and the spine all come along for free.
+- The entry's model is read back from the created session itself, not from
+  what was asked for: when the app names no model — "pi default" — pi still
+  chooses one, and the session is the only party that knows which.
+- The body follows the child the way the column follows a turn: opened at the
+  bottom, pinned there while new rows land, released when the reader scrolls
+  up.
+- The entrance animates on a panel inside a centering wrapper: `rise` owns
+  `transform` while it runs, and a panel centering itself with a translate was
+  drawn un-centered until the animation ended, then snapped into place.

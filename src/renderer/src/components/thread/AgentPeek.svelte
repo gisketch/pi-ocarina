@@ -1,17 +1,12 @@
 <script lang="ts">
-  import Icon from '../Icon.svelte'
   import Identicon from '../Identicon.svelte'
   import Message from './Message.svelte'
-  import AgentRow from './AgentRow.svelte'
-  import ToolLine from './ToolLine.svelte'
+  import Ledger from './Ledger.svelte'
   import { agentMark, agentTone, elapsedText } from '$lib/agent-row'
-  import { nodeTone } from '$lib/ledger'
-  import { toolIcon } from '$lib/icons'
   import { clock } from '$lib/state/clock.svelte'
   import { agentPeek } from '$lib/state/agent-peek.svelte'
   import { tokensIn } from '../../../../shared/vocabulary'
   import { app } from '$lib/state/app.svelte'
-  import type { ToolRow } from '$lib/thread'
 
   /** Looking inside one child while it runs.
    *
@@ -19,15 +14,17 @@
    *  the question a row cannot: what has this child actually been doing, is it
    *  stuck, what is it running on, and what has it cost so far.
    *
-   *  It is drawn as a floating column rather than as a corner card, because the
-   *  thing it holds *is* a small transcript — a brief, a run of calls, a report
-   *  — and a tooltip-sized box made a fan-out's most detailed surface its least
-   *  readable one. It floats rather than covering: the strip keeps streaming
-   *  behind it, dimmed a step, and every key it does not claim still reaches the
-   *  shell.
+   *  It is drawn as a floating chat column, with the chat column's own pieces:
+   *  the brief and the report are `Message`s, the calls are a `Ledger`. Not a
+   *  copy of their grammar — the components themselves, so the peek and the
+   *  column can never disagree about what a call looks like. Under an empty
+   *  thread id: the peek is not a place `j` can reach, so its rows must not
+   *  register as stops in the real thread, and nothing under '' is ever asked.
    *
-   *  It reads the thread each paint rather than holding a copy, so a child that
-   *  is still working keeps moving underneath it. */
+   *  It floats rather than covering: the strip keeps streaming behind it,
+   *  dimmed a step, and every key it does not claim still reaches the shell.
+   *  It reads the thread each paint rather than holding a copy, so a child
+   *  that is still working keeps moving underneath it. */
   const peeked = $derived(agentPeek.peeked)
   const running = $derived(peeked?.entry.status === 'running')
 
@@ -52,31 +49,39 @@
    *  every child in practice, and the part that distinguishes one model from
    *  another is the tail; the full id is on the title. */
   const modelShort = $derived(peeked?.entry.model?.split('/').at(-1) ?? '')
-</script>
 
-<!-- One row of the child's own ledger, drawn with the transcript's grammar so
-     the peek and the column say the same thing about the same call. Its tones
-     and icons come from the shared mapping; only the geometry is local, since
-     there is no spine to hang a node on in here. -->
-{#snippet call(row: ToolRow, nested: boolean)}
-  <div class="entry" class:nested>
-    <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}>
-      <Icon name={toolIcon(row.kind, row.lang)} />
-    </span>
-    <span class="line">
-      {#if row.agent}
-        <AgentRow agent={row.agent} hue={app.workspace.hue} rows={row.children} />
-      {:else}
-        <ToolLine {row} />
-      {/if}
-    </span>
-  </div>
-  {#if row.children?.length && !nested}
-    {#each row.children as child (child.id)}
-      {@render call(child, true)}
-    {/each}
-  {/if}
-{/snippet}
+  let body = $state<HTMLElement | null>(null)
+
+  /** Follows the child the way the column follows a turn: opened at the
+   *  bottom, and pinned there while new rows land — unless the reader has
+   *  scrolled up to read something, in which case the transcript stays put
+   *  under them. Near-bottom is the whole test the column's follow uses too. */
+  const nearBottom = (box: HTMLElement): boolean =>
+    box.scrollHeight - box.scrollTop - box.clientHeight < 48
+
+  $effect(() => {
+    const id = peeked?.entry.id
+    void id
+    const box = body
+    if (!box) return
+    // A fresh peek starts at the bottom: the newest call is the question.
+    requestAnimationFrame(() => {
+      box.scrollTop = box.scrollHeight
+    })
+  })
+
+  $effect(() => {
+    const grew = peeked?.rows.length ?? 0
+    const said = peeked?.entry.output?.length ?? 0
+    void grew
+    void said
+    const box = body
+    if (!box || !nearBottom(box)) return
+    requestAnimationFrame(() => {
+      box.scrollTop = box.scrollHeight
+    })
+  })
+</script>
 
 {#if peeked}
   <!-- The dim is a background step, not a border, and it does not blur: the
@@ -88,56 +93,60 @@
     onkeydown={() => {}}
   ></div>
 
-  <div class="peek" role="dialog" aria-label="agent {peeked.entry.name}">
-    <div class="head">
-      <Identicon name={peeked.entry.name} hue={app.workspace.hue} size={13} />
-      <span class="who">{peeked.entry.name}</span>
-      <span class="role">{peeked.entry.role}</span>
-      {#if modelShort}
-        <span class="model" title={peeked.entry.model}>{modelShort}</span>
-      {/if}
-      <span class="spacer"></span>
-      {#if !running}
-        <span class="mark {agentTone(peeked.entry.status)}">{agentMark(peeked.entry.status)}</span>
-      {/if}
-      <span class="clock">{elapsed}</span>
-    </div>
-
-    <div class="body">
-      <div class="brief">
-        <div class="tag">BRIEF</div>
-        <p>{peeked.entry.label}</p>
+  <!-- Centered by the wrapper, animated on the panel: `rise` owns `transform`
+       for its first frames, so a panel centering itself with a translate was
+       drawn un-centered until the animation ended, then snapped into place. -->
+  <div class="wrap">
+    <div class="peek" role="dialog" aria-label="agent {peeked.entry.name}">
+      <div class="head">
+        <Identicon name={peeked.entry.name} hue={app.workspace.hue} size={13} />
+        <span class="who">{peeked.entry.name}</span>
+        <span class="role">{peeked.entry.role}</span>
+        {#if modelShort}
+          <span class="model" title={peeked.entry.model}>{modelShort}</span>
+        {/if}
+        <span class="spacer"></span>
+        {#if !running}
+          <span class="mark {agentTone(peeked.entry.status)}"
+            >{agentMark(peeked.entry.status)}</span
+          >
+        {/if}
+        <span class="clock">{elapsed}</span>
       </div>
 
-      <div class="calls">
+      <div class="body" bind:this={body}>
+        <!-- The orchestrator's brief reads as the sent message it is. -->
+        <Message role="user" text={peeked.entry.label} labelled={false} />
+
         {#if peeked.rows.length === 0}
           <p class="empty">nothing yet</p>
         {:else}
-          {#each peeked.rows as row (row.id)}
-            {@render call(row, false)}
-          {/each}
+          <div class="calls">
+            <Ledger
+              rows={peeked.rows}
+              threadId=""
+              blockId="peek:{peeked.entry.id}"
+              focusedNav={null}
+              hue={app.workspace.hue}
+            />
+          </div>
         {/if}
-      </div>
 
-      {#if peeked.entry.output}
-        <div class="report">
-          <div class="tag">REPORT</div>
-          <!-- The child's report is prose it wrote, so it is read the way every
-               other piece of agent prose in the app is read. -->
+        {#if peeked.entry.output}
           <Message role="agent" text={peeked.entry.output} labelled={false} />
           {#if peeked.entry.truncated}
             <p class="cut">report cut at the per-child cap</p>
           {/if}
-        </div>
-      {/if}
-    </div>
+        {/if}
+      </div>
 
-    <div class="foot">
-      <span class="cost">{cost}</span>
-      <span class="spacer"></span>
-      <!-- `x` is destructive inside a surface that is otherwise only for
-           looking, so it confirms before it stops anything. -->
-      <span class="keys">{running ? 'x stop · h close' : 'h close'}</span>
+      <div class="foot">
+        <span class="cost">{cost}</span>
+        <span class="spacer"></span>
+        <!-- `x` is destructive inside a surface that is otherwise only for
+             looking, so it confirms before it stops anything. -->
+        <span class="keys">{running ? 'x stop · h close' : 'h close'}</span>
+      </div>
     </div>
   </div>
 {/if}
@@ -151,20 +160,26 @@
     animation: fade 0.15s ease;
   }
 
-  /* A column, not a card: what it holds is a small transcript, and the width
-     the rest of the app reads a transcript at is the width this reads at. */
-  .peek {
+  /* The wrapper owns position, the panel owns its entrance: the two cannot
+     share, because the animation writes `transform` and would override a
+     centering translate for as long as it runs. */
+  .wrap {
     position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
     z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  /* A column, not a card: what it holds is a small transcript, and the width
+     the rest of the app reads a transcript at is the width this reads at. It
+     grows with the child between a floor and a ceiling rather than reserving
+     a column of empty room. */
+  .peek {
+    pointer-events: auto;
     width: min(680px, 78vw);
-    /* Grows with the child rather than reserving a column of empty room: a
-       peek opened on a child that has made two calls is two calls tall. It
-       still has a floor, so the first call does not open a box the size of a
-       tooltip, and a ceiling, so a noisy child scrolls instead of running off
-       the screen. */
     min-height: min(320px, 46vh);
     max-height: min(660px, 76vh);
     display: flex;
@@ -225,9 +240,9 @@
     color: var(--warn);
   }
 
-  /* One scroll for the whole transcript rather than one per region: a reader
-     following a child reads down it, and three independent scrollbars made
-     the report unreachable without finding the right one first. */
+  /* One scroll for the whole transcript, the way the column has one. The
+     horizontal padding is the column's own, which is also what the ledger's
+     spine geometry is measured from. */
   .body {
     flex: 1;
     min-height: 0;
@@ -235,62 +250,19 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding: 14px;
+    padding: 14px var(--pad-column);
   }
 
-  .tag {
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--fg-dim);
-    margin-bottom: 6px;
-  }
-  .brief p {
-    margin: 0;
-    color: var(--fg-body);
-    line-height: 1.6;
-  }
-
-  /* The calls are the reason the peek exists, so they take the room the report
-     is not using. A step down from the dialog's ground is what separates them
-     from it — no rule, per the borderless contract. */
+  /* The ledger's spine geometry is measured from its own box under the
+     column's rule that pads every block by `--pad-column`. The peek's body
+     pads everything the same way, so the ledger box is widened back out to
+     the panel edge and handed that same padding — the geometry in
+     `tokens.css` then holds without change. */
   .calls {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 10px 12px;
+    margin: 0 calc(-1 * var(--pad-column));
   }
-  .entry {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    min-width: 0;
-  }
-  /* One indent, no rule: the ledger's own nesting reads the same way. */
-  .entry.nested {
-    padding-left: var(--pad-nest, 18px);
-  }
-  .node {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 13px;
-    height: 13px;
-    align-self: center;
-  }
-  .node.pulse {
-    animation: pulse 1.1s ease-in-out infinite;
-  }
-  .line {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 10.5px;
-    color: var(--fg-dim);
+  .calls > :global(.ledger) {
+    padding-inline: var(--pad-column);
   }
 
   .empty,
@@ -298,9 +270,6 @@
     margin: 0;
     font-size: 10.5px;
     color: var(--fg-dimmer);
-  }
-  .cut {
-    margin-top: 8px;
   }
 
   .foot {
