@@ -3,25 +3,86 @@
 export const COLUMN_WIDTH = 780
 export const COLUMN_GAP = 22
 export const COLUMN_STEP = COLUMN_WIDTH + COLUMN_GAP
-export const ATTACHED_GROUP_WIDTH = 1170
-export const ATTACHED_GROUP_MIN_WIDTH = 960
+export const ATTACHMENT_WIDTH = 390
+export const ATTACHED_GROUP_WIDTH = COLUMN_WIDTH + ATTACHMENT_WIDTH
+/** Below this the clamped reveal would pin the host to both viewport edges
+ *  at once: the host itself plus a 40px breathing margin. */
+export const REVEAL_MIN_WIDTH = COLUMN_WIDTH + 40
 
 /** Pixel offset that centres the focused column inside a strip anchored at left:50%. */
 export function stripOffset(focusedIndex: number): number {
   return -(COLUMN_WIDTH / 2 + focusedIndex * COLUMN_STEP)
 }
 
-/** Width of one navigation entity. Narrow viewports swap between members
- *  instead of squeezing either below its usable minimum. */
-export function paneGroupWidth(attached: boolean, viewportWidth: number): number {
-  if (!attached) return COLUMN_WIDTH
-  if (viewportWidth <= 0) return ATTACHED_GROUP_WIDTH
-  if (viewportWidth < ATTACHED_GROUP_MIN_WIDTH) return COLUMN_WIDTH
-  return Math.min(ATTACHED_GROUP_WIDTH, viewportWidth)
+/** How an attached group meets the viewport. Members never resize — the
+ *  regime only picks how the group is placed:
+ *  - full:   the whole group fits and centres as one entity.
+ *  - reveal: the group keeps its width; the offset is clamped so the
+ *            focused member is fully visible and the partner is clipped.
+ *  - split:  the members separate into two ordinary columns with the strip
+ *            gap, each centred alone when focused.
+ *  An unmeasured viewport (0) reads as full so the first paint is centred. */
+export type PaneRegime = 'full' | 'reveal' | 'split'
+
+export function paneRegime(attached: boolean, viewportWidth: number): PaneRegime {
+  if (!attached || viewportWidth <= 0 || viewportWidth >= ATTACHED_GROUP_WIDTH) return 'full'
+  return viewportWidth >= REVEAL_MIN_WIDTH ? 'reveal' : 'split'
 }
 
-export function paneGroupIsNarrow(viewportWidth: number): boolean {
-  return viewportWidth > 0 && viewportWidth < ATTACHED_GROUP_MIN_WIDTH
+/** Width of one navigation entity. Constant per regime, never viewport-led:
+ *  a member that resized would re-wrap a live terminal. */
+export function paneGroupWidth(attached: boolean, regime: PaneRegime = 'full'): number {
+  if (!attached) return COLUMN_WIDTH
+  if (regime === 'split') return COLUMN_WIDTH + COLUMN_GAP + ATTACHMENT_WIDTH
+  return ATTACHED_GROUP_WIDTH
+}
+
+export interface MemberBox {
+  /** Group-local x of the member's left edge. */
+  start: number
+  width: number
+}
+
+/** Where the host and its attachment sit inside their group. Zero-gap while
+ *  the group reads as one entity; the strip gap opens between them in split. */
+export function memberBoxes(
+  side: 'left' | 'right',
+  regime: PaneRegime,
+): { host: MemberBox; attachment: MemberBox } {
+  const gap = regime === 'split' ? COLUMN_GAP : 0
+  if (side === 'left') {
+    return {
+      attachment: { start: 0, width: ATTACHMENT_WIDTH },
+      host: { start: ATTACHMENT_WIDTH + gap, width: COLUMN_WIDTH },
+    }
+  }
+  return {
+    host: { start: 0, width: COLUMN_WIDTH },
+    attachment: { start: COLUMN_WIDTH + gap, width: ATTACHMENT_WIDTH },
+  }
+}
+
+/** The strip offset for a focused member of the group starting at
+ *  `groupStart` (strip-x of its left edge), against a strip anchored at
+ *  left:50%. Full centres the group; split centres the member; reveal
+ *  centres the group but clamps so the member's box stays inside the
+ *  viewport — with the degenerate member-wider-than-viewport case falling
+ *  back to centring the member, clipped evenly. */
+export function paneOffset(
+  groupStart: number,
+  groupWidth: number,
+  member: MemberBox,
+  regime: PaneRegime,
+  viewportWidth: number,
+): number {
+  const memberStart = groupStart + member.start
+  if (regime === 'split') return -(memberStart + member.width / 2)
+  const centered = -(groupStart + groupWidth / 2)
+  if (regime === 'full') return centered
+  const lo = -viewportWidth / 2 - memberStart
+  const hi = viewportWidth / 2 - (memberStart + member.width)
+  if (lo > hi) return -(memberStart + member.width / 2)
+  return Math.min(hi, Math.max(lo, centered))
 }
 
 /** Centres a variable-width group in a strip anchored at left:50%. */

@@ -6,7 +6,7 @@
   import LiveThread from './LiveThread.svelte'
   import TerminalColumn from './TerminalColumn.svelte'
   import ThreadColumn from './ThreadColumn.svelte'
-  import { paneGroupIsNarrow, paneGroupWidth } from '$lib/strip'
+  import { COLUMN_GAP, paneGroupWidth, paneRegime } from '$lib/strip'
 
   const {
     workspace,
@@ -30,11 +30,17 @@
 
   const live = $derived(threadOf(host))
   const attached = $derived(attachment !== undefined)
-  const narrow = $derived(attached && paneGroupIsNarrow(viewportWidth))
-  const width = $derived(paneGroupWidth(attached, viewportWidth))
+  const regime = $derived(paneRegime(attached, viewportWidth))
+  const width = $derived(paneGroupWidth(attached, regime))
 </script>
 
-<div class="pane-group" class:attached class:narrow style:width={`${width}px`}>
+<div
+  class="pane-group"
+  class:attached
+  class:split={regime === 'split'}
+  style:width={`${width}px`}
+  style:gap={regime === 'split' ? `${COLUMN_GAP}px` : ''}
+>
   {#if attachment?.attachment?.side === 'left'}
     <div class="member attachment" class:active={focusedId === attachment.id}>
       <TerminalColumn
@@ -115,19 +121,14 @@
     opacity: 0.75;
   }
 
-  .pane-group.attached:not(.narrow) .host {
-    width: 66.6667%;
+  /* Members never resize with the viewport: the regime moves the strip
+     around fixed boxes (spec: pane-reveal). A width that followed the window
+     would re-wrap a live terminal on every drag of the sash. */
+  .pane-group.attached .host {
+    width: var(--column-w);
   }
 
-  .pane-group.attached:not(.narrow) .attachment {
-    width: 33.3333%;
-  }
-
-  .pane-group.narrow .member:not(.active) {
-    display: none;
-  }
-
-  .pane-group.narrow .member.active {
-    width: 100%;
+  .pane-group.attached .attachment {
+    width: 390px;
   }
 </style>

@@ -5,7 +5,14 @@
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { columnBody } from '$lib/state/columns'
   import { following } from '$lib/state/following.svelte'
-  import { clampThread, COLUMN_GAP, paneGroupWidth, stripGroupOffset } from '$lib/strip'
+  import {
+    clampThread,
+    COLUMN_GAP,
+    memberBoxes,
+    paneGroupWidth,
+    paneOffset,
+    paneRegime,
+  } from '$lib/strip'
   import type { Thread, Workspace } from '$lib/types'
 
   /** The two overlays a composer's `/` commands open. They belong to the app
@@ -69,10 +76,21 @@
     const focused = workspace.threads.find((thread) => thread.id === focusedId)
     const focusedHostId = focused?.attachment?.hostId ?? focusedId
     const group = Math.max(0, hosts.findIndex((candidate) => candidate.id === focusedHostId))
-    const widths = hosts.map((candidate) =>
-      paneGroupWidth(attachmentOf(workspace, candidate.id) !== undefined, viewportWidth),
+    const attachments = hosts.map((candidate) => attachmentOf(workspace, candidate.id))
+    const regimes = attachments.map((attachment) =>
+      paneRegime(attachment !== undefined, viewportWidth),
     )
-    return stripGroupOffset(widths, group)
+    const widths = attachments.map((attachment, at) =>
+      paneGroupWidth(attachment !== undefined, regimes[at]),
+    )
+    const groupStart =
+      widths.slice(0, group).reduce((total, width) => total + width, 0) + group * COLUMN_GAP
+
+    const attachment = attachments[group]
+    if (attachment === undefined) return -(groupStart + widths[group] / 2)
+    const boxes = memberBoxes(attachment.attachment?.side ?? 'right', regimes[group])
+    const member = focusedId === attachment.id ? boxes.attachment : boxes.host
+    return paneOffset(groupStart, widths[group], member, regimes[group], viewportWidth)
   }
 
   onMount(() => {
