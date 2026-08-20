@@ -1,3 +1,5 @@
+import { SvelteMap } from 'svelte/reactivity'
+
 /** What has been typed into a column and not yet sent.
  *
  *  Held here rather than in the composer because the composer now lives inside
@@ -6,27 +8,27 @@
  *  message, glance at the column next door, and come back to an empty field.
  *
  *  Keyed by column id, not thread id. The placeholder column is exactly where a
- *  first message gets typed, and it has no thread until that message is sent. */
+ *  first message gets typed, and it has no thread until that message is sent.
+ *
+ *  A reactive map, not one `$state` record: the map invalidates per key, so a
+ *  keystroke in one composer leaves every other composer's read untouched —
+ *  the whole strip used to re-render per character typed anywhere on it. */
 class Drafts {
-  #per = $state<Record<string, string>>({})
+  #per = new SvelteMap<string, string>()
 
   get(columnId: string): string {
-    return this.#per[columnId] ?? ''
+    return this.#per.get(columnId) ?? ''
   }
 
   set(columnId: string, text: string): void {
-    if (this.#per[columnId] === text) return
-    this.#per = { ...this.#per, [columnId]: text }
+    if (this.get(columnId) === text) return
+    this.#per.set(columnId, text)
   }
 
   /** Called when a column goes away, the way the other per-column registries
    *  are. A closed column's draft has nowhere to be sent. */
   forget(columnId: string): void {
-    if (this.#per[columnId] === undefined) return
-
-    const next = { ...this.#per }
-    delete next[columnId]
-    this.#per = next
+    this.#per.delete(columnId)
   }
 }
 

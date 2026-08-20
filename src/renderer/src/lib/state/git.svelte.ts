@@ -98,6 +98,11 @@ function apply(workspaceId: string, status: GitStatus | null): void {
   let changed = false
   const next: Workspace[] = catalog.workspaces.map((workspace) => {
     if (workspace.id !== workspaceId) return workspace
+    // A push that says what the workspace already says is not a change, and
+    // reassigning the array for it would wake every reader of the catalog per
+    // `.git` write during a build or rebase. Statuses are a handful of fields,
+    // so the structural compare is by serialization.
+    if (JSON.stringify(workspace.git) === JSON.stringify(status)) return workspace
     changed = true
     return { ...workspace, git: status }
   })

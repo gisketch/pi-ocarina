@@ -9,8 +9,13 @@
 export function fuzzyScore(text: string, query: string): number | null {
   const q = query.trim().toLowerCase()
   if (q === '') return 0
-  const haystack = text.toLowerCase()
+  return scoreLowered(text.toLowerCase(), q)
+}
 
+/** The match itself, over text both sides have already lowered. Split out so a
+ *  caller holding fifty thousand paths can lower each one once, not once per
+ *  keystroke — lowering was most of `fuzzyScore`'s cost at that scale. */
+function scoreLowered(haystack: string, q: string): number | null {
   let index = 0
   let score = 0
   let previous = -1
@@ -29,8 +34,13 @@ export function fuzzyScore(text: string, query: string): number | null {
 /** Keeps the items whose `text` matches, best first. Ties keep their original
  *  order, so an empty query leaves a list exactly as it was written. */
 export function fuzzyFilter<T>(items: readonly T[], query: string, text: (item: T) => string): T[] {
+  const q = query.trim().toLowerCase()
+  // Everything matches at score zero, so scoring and sorting would be a full
+  // pass over the list to reproduce the list. The picker opens on this case.
+  if (q === '') return items.slice()
+
   return items
-    .map((item, index) => ({ item, index, score: fuzzyScore(text(item), query) }))
+    .map((item, index) => ({ item, index, score: scoreLowered(text(item).toLowerCase(), q) }))
     .filter((entry): entry is { item: T; index: number; score: number } => entry.score !== null)
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .map((entry) => entry.item)
@@ -45,21 +55,34 @@ export function fuzzyFilter<T>(items: readonly T[], query: string, text: (item: 
  *  or two ways into the same picker would sort two different ways.
  *
  *  A closure with memory rather than a pure function, so each picker holds
- *  one and the memory dies with it. */
+ *  one and the memory dies with it. The pool carries each candidate's lowered
+ *  text along too: it is computed once per rescan and reused per keystroke. */
 export function fuzzyNarrower<T>(
   text: (item: T) => string,
 ): (items: readonly T[], query: string) => T[] {
   let seen: readonly T[] = []
   let last = ''
-  let pool: { item: T; index: number }[] = []
+  let pool: { item: T; index: number; lowered: string }[] = []
 
   return (items, query) => {
     const q = query.trim().toLowerCase()
+    if (q === '') {
+      // The same short-circuit `fuzzyFilter` takes, and the pool empties: an
+      // empty query has no hits worth narrowing from, so the next character
+      // rescans — which is also what keeps the two matchers answering alike.
+      seen = items
+      last = ''
+      pool = []
+      return items.slice()
+    }
+
     const extending = items === seen && last !== '' && q.startsWith(last)
-    const candidates = extending ? pool : items.map((item, index) => ({ item, index }))
+    const candidates = extending
+      ? pool
+      : items.map((item, index) => ({ item, index, lowered: text(item).toLowerCase() }))
 
     const scored = candidates.flatMap((entry) => {
-      const score = fuzzyScore(text(entry.item), q)
+      const score = scoreLowered(entry.lowered, q)
       return score === null ? [] : [{ ...entry, score }]
     })
 
@@ -67,7 +90,7 @@ export function fuzzyNarrower<T>(
     last = q
     // Taken before the sort: candidate order is original order, and that is
     // what the next narrowing's tie-break needs.
-    pool = scored.map(({ item, index }) => ({ item, index }))
+    pool = scored.map(({ item, index, lowered }) => ({ item, index, lowered }))
 
     return scored.sort((a, b) => a.score - b.score || a.index - b.index).map((entry) => entry.item)
   }

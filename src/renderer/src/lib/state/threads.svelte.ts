@@ -75,12 +75,7 @@ class ThreadStore {
       // it is the same moment the change viewer, if it is open on this thread,
       // stops being up to date.
       if (events.some((event) => event.kind === 'tool-end')) {
-        git.refreshForThread(threadId)
-        // An isolated thread's own checkout has no watcher — it is made and
-        // removed with the thread — so this is the only moment its state can
-        // be known to have moved.
-        threadGit.refresh(threadId)
-        void changes.refreshFor(threadId)
+        scheduleGitRefresh(threadId)
       }
 
       applyAskEffects(threadId, events)
@@ -212,6 +207,33 @@ class ThreadStore {
     this.#boxes.set(threadId, box)
     return box
   }
+}
+
+/** How long a turn's tool calls may keep pushing the git re-read out. An agent
+ *  editing files runs tools back to back, and three git processes per finished
+ *  call is a fan-out that scales with the turn, not with what changed. */
+const GIT_REFRESH_DEBOUNCE_MS = 250
+
+const gitRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+/** Trailing-edge, per thread: the re-read lands once the tools go quiet, and
+ *  one busy thread never delays another's. */
+function scheduleGitRefresh(threadId: ThreadId): void {
+  const armed = gitRefreshTimers.get(threadId)
+  if (armed) clearTimeout(armed)
+
+  gitRefreshTimers.set(
+    threadId,
+    setTimeout(() => {
+      gitRefreshTimers.delete(threadId)
+      git.refreshForThread(threadId)
+      // An isolated thread's own checkout has no watcher — it is made and
+      // removed with the thread — so this is the only moment its state can
+      // be known to have moved.
+      threadGit.refresh(threadId)
+      void changes.refreshFor(threadId)
+    }, GIT_REFRESH_DEBOUNCE_MS),
+  )
 }
 
 /** What a question arriving, or ending, does outside the reducer.

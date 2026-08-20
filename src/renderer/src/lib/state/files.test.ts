@@ -29,8 +29,9 @@ describe('the file index refresh', () => {
     expect(files.files('w-refresh')).toEqual(['a.ts'])
     expect(files.loaded('w-refresh')).toBe(true)
 
-    // The re-walk is in flight; the cache still serves.
-    files.refresh('w-refresh')
+    // The re-walk is in flight; the cache still serves. Forced, because the
+    // TTL would otherwise swallow a second walk this soon after the first.
+    files.refresh('w-refresh', { force: true })
     expect(files.files('w-refresh')).toEqual(['a.ts'])
 
     answer(['a.ts', 'b.ts'])
@@ -54,9 +55,30 @@ describe('the file index refresh', () => {
     await new Promise((tick) => setTimeout(tick, 0))
 
     vi.spyOn(session, 'invoke').mockImplementationOnce(() => Promise.reject(new Error('gone')))
-    files.refresh('w-fail')
+    files.refresh('w-fail', { force: true })
     await new Promise((tick) => setTimeout(tick, 0))
 
     expect(files.files('w-fail')).toEqual(['kept.ts'])
+  })
+
+  it('serves a fresh answer from cache instead of walking again', async () => {
+    // `␣f` re-opened seconds after closing used to put a whole crawl behind
+    // the open. Inside the TTL the cache is the answer; past it, the walk runs.
+    const invoke = vi
+      .spyOn(session, 'invoke')
+      .mockImplementation(() => Promise.resolve({ files: ['a.ts'] } as never))
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+
+    files.refresh('w-ttl')
+    await new Promise((tick) => setTimeout(tick, 0))
+    files.refresh('w-ttl')
+    expect(invoke).toHaveBeenCalledTimes(1)
+
+    now.mockReturnValue(1_000 + 31_000)
+    files.refresh('w-ttl')
+    await new Promise((tick) => setTimeout(tick, 0))
+    expect(invoke).toHaveBeenCalledTimes(2)
+
+    now.mockRestore()
   })
 })

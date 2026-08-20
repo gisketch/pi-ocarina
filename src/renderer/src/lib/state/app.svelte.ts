@@ -108,6 +108,12 @@ class AppState {
     return live.blocks.length > 0 ? live.status : thread.status
   }
 
+  /** Per thread, the last blocks array searched and what it yielded. The
+   *  header asks per render, and during a stream the blocks array is replaced
+   *  per batch — but its identity is exactly what says whether the search is
+   *  worth repeating. One entry per thread, so nothing grows with a session. */
+  #titles = new Map<string, { blocks: readonly unknown[]; title: string }>()
+
   /** What a column header should call a thread.
    *
    *  A thread created in this session is listed before it has said anything, so
@@ -117,8 +123,14 @@ class AppState {
   titleOf(thread: Thread): string {
     if (thread.title !== PLACEHOLDER_TITLE) return thread.title
 
-    const first = threads.get(thread.id).blocks.find((block) => block.kind === 'user')
-    return first ? firstLine(first.text) : thread.title
+    const blocks = threads.get(thread.id).blocks
+    const seen = this.#titles.get(thread.id)
+    if (seen && seen.blocks === blocks) return seen.title
+
+    const first = blocks.find((block) => block.kind === 'user')
+    const title = first ? firstLine(first.text) : thread.title
+    this.#titles.set(thread.id, { blocks, title })
+    return title
   }
 
   goWorkspace(index: number): void {

@@ -29,6 +29,10 @@
   let resetAsked = $state(false)
 
   let list = $state<HTMLElement | null>(null)
+  /** The rows, registered as they mount. A plain array: the list is static,
+   *  and the effect below runs after render — walking the DOM per keypress
+   *  for elements already in hand was the cost being removed. */
+  let entries: (HTMLElement | null)[] = []
 
   /** vim's scrolloff: the selection never enters the outermost rows of the
    *  viewport. The moment it comes within two rows of an edge, the list
@@ -37,7 +41,7 @@
   const SCROLLOFF = 2
   $effect(() => {
     const holder = list
-    const row = holder?.querySelectorAll<HTMLElement>('.row')[selected]
+    const row = entries[selected]
     if (!holder || !row) return
 
     const margin = row.offsetHeight * SCROLLOFF
@@ -151,6 +155,7 @@
           <div class="group">{TITLES[one.group]}</div>
         {/if}
         <button
+          bind:this={entries[i]}
           type="button"
           class="row"
           class:selected={i === selected}

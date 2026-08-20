@@ -31,16 +31,43 @@ class PermissionState {
   #workspaceId = ''
   #threadId: ThreadId | null = null
 
+  /** Answers already fetched, by destination. The bar asks on every focus
+   *  move, and a level only changes through this store — so a repeat visit is
+   *  two IPCs to learn what was learnt last time, and the chip flickering
+   *  stale→fresh while they land. Cleared whenever a level is written. */
+  #known = new Map<string, {
+    workspace: PermissionLevel | undefined
+    global: PermissionLevel
+    level: PermissionLevel
+    thread: PermissionLevel | undefined
+  }>()
+
   /** What the workspace row reads: its own level, or what it inherits. */
   get row(): string {
     const label = PERMISSION_LABELS[this.level]
     return this.workspace === undefined ? `inherit — ${label}` : label
   }
 
-  async load(workspaceId: string, threadId: ThreadId | null = null): Promise<void> {
+  async load(
+    workspaceId: string,
+    threadId: ThreadId | null = null,
+    opts: { fresh?: boolean } = {},
+  ): Promise<void> {
     this.#workspaceId = workspaceId
     this.#threadId = threadId
     if (!session.wired) return
+
+    const key = `${workspaceId}\n${threadId ?? ''}`
+    if (!opts.fresh) {
+      const seen = this.#known.get(key)
+      if (seen) {
+        this.workspace = seen.workspace
+        this.global = seen.global
+        this.level = seen.level
+        this.thread = seen.thread
+        return
+      }
+    }
 
     try {
       const described = await session.invoke('workspacePermission', { workspaceId })
@@ -53,13 +80,21 @@ class PermissionState {
       // resolved to, with no `*`.
       if (threadId === null) {
         this.thread = undefined
-        return
+      } else {
+        // The thread's own level, asked for second because it wins: the bar
+        // must never show the workspace's answer for a thread that overrode it.
+        const own = await session.invoke('threadPermission', { threadId, workspaceId })
+        this.thread = own.thread
+        this.level = own.level
       }
-      // The thread's own level, asked for second because it wins: the bar must
-      // never show the workspace's answer for a thread that overrode it.
-      const own = await session.invoke('threadPermission', { threadId, workspaceId })
-      this.thread = own.thread
-      this.level = own.level
+      // Only a whole answer is worth remembering: a failure below falls
+      // through uncached, so the next visit asks again.
+      this.#known.set(key, {
+        workspace: this.workspace,
+        global: this.global,
+        level: this.level,
+        thread: this.thread,
+      })
     } catch {
       // A level we cannot read is not worth a banner: the bar keeps the last
       // one it knew, and main is still enforcing whatever the truth is.
@@ -79,6 +114,9 @@ class PermissionState {
       return
     }
 
+    // Every thread of this workspace inherits from what just moved, so the
+    // whole memory goes, not one key.
+    this.#known.clear()
     await session.invoke('setWorkspacePermission', { workspaceId: this.#workspaceId, level })
     await this.load(this.#workspaceId, this.#threadId)
   }
@@ -100,6 +138,7 @@ class PermissionState {
       return this.level
     }
 
+    this.#known.clear()
     const { level: now, thread } = await session.invoke('setThreadPermission', {
       threadId,
       workspaceId: this.#workspaceId,

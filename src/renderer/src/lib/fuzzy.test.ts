@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fuzzyFilter, fuzzyNarrower, fuzzyScore, wrapIndex } from './fuzzy'
 
 describe('fuzzyScore', () => {
@@ -58,6 +58,19 @@ describe('fuzzyFilter', () => {
     const items = [{ label: 'alpha' }, { label: 'beta' }]
     expect(fuzzyFilter(items, 'bet', (item) => item.label)).toEqual([{ label: 'beta' }])
   })
+
+  it('never scores against an empty query', () => {
+    // The picker opens on the empty query over its whole index; scoring fifty
+    // thousand items to reproduce their own order is the cost being refused.
+    const text = vi.fn((name: string) => name)
+    expect(fuzzyFilter(names, '', text)).toEqual(names)
+    expect(fuzzyFilter(names, '   ', text)).toEqual(names)
+    expect(text).not.toHaveBeenCalled()
+  })
+
+  it('hands back a copy, not the list itself', () => {
+    expect(fuzzyFilter(names, '', (name) => name)).not.toBe(names)
+  })
 })
 
 describe('wrapIndex', () => {
@@ -105,5 +118,24 @@ describe('fuzzyNarrower', () => {
     const names = ['aab', 'aac', 'aad']
     narrow(names, 'a')
     expect(narrow(names, 'aa')).toEqual(['aab', 'aac', 'aad'])
+  })
+
+  it('never scores against an empty query, and preserves the order', () => {
+    const text = vi.fn((path: string) => path)
+    const narrow = fuzzyNarrower(text)
+    expect(narrow(paths, '')).toEqual(paths)
+    expect(text).not.toHaveBeenCalled()
+  })
+
+  it('reads each item once across a run of extending keystrokes', () => {
+    // The lowered text rides in the pool: only a rescan — a new list, or a
+    // query that is not an extension — pays the read again.
+    const text = vi.fn((path: string) => path)
+    const narrow = fuzzyNarrower(text)
+    narrow(paths, 's')
+    const scans = text.mock.calls.length
+    narrow(paths, 'sr')
+    narrow(paths, 'src')
+    expect(text.mock.calls.length).toBe(scans)
   })
 })

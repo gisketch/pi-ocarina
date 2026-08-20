@@ -31,13 +31,18 @@ class WorkspaceLspState {
   copied = $state<string | null>(null)
 
   #workspaceId = ''
+  /** Answers already fetched, per workspace. The status bar asks on every
+   *  focus move; a repeat visit answers from here without the round trip.
+   *  Callers who know something moved — the settings screen opening, a turn
+   *  starting a server — pass `fresh` and pay the read. Cleared by writes. */
+  #known = new Map<string, { on: boolean; servers: LspServerState[] }>()
 
   /** What the status bar draws. Null when this workspace is not using LSP. */
   get chip(): string | null {
     return lspChip(this.servers)
   }
 
-  async load(workspaceId: string): Promise<void> {
+  async load(workspaceId: string, opts: { fresh?: boolean } = {}): Promise<void> {
     this.#workspaceId = workspaceId
     this.copied = null
 
@@ -47,12 +52,24 @@ class WorkspaceLspState {
       return
     }
 
+    if (!opts.fresh) {
+      const seen = this.#known.get(workspaceId)
+      if (seen) {
+        this.on = seen.on
+        this.servers = seen.servers
+        this.error = null
+        return
+      }
+    }
+
     this.loading = true
     this.error = null
     try {
       const { on, servers } = await session.invoke('workspaceLsp', { workspaceId })
       this.on = on
       this.servers = servers
+      // Only a whole answer is remembered; a failure retries on the next ask.
+      this.#known.set(workspaceId, { on, servers })
     } catch (cause) {
       this.error = cause instanceof Error ? cause.message : String(cause)
     } finally {
@@ -76,6 +93,7 @@ class WorkspaceLspState {
       return
     }
 
+    this.#known.clear()
     await session.invoke('setWorkspaceLsp', { workspaceId: this.#workspaceId, ...change })
     await this.load(this.#workspaceId)
   }
@@ -97,6 +115,7 @@ class WorkspaceLspState {
     this.servers = []
     this.error = null
     this.copied = null
+    this.#known.clear()
   }
 }
 

@@ -40,6 +40,11 @@
   let picked = $state(0)
   let input = $state<HTMLInputElement | null>(null)
   let list = $state<HTMLElement | null>(null)
+  /** The rows, registered as they mount. A plain array on purpose: the
+   *  scrolloff effect below already re-runs per keystroke on `hits`, and it
+   *  runs after the list has rendered — walking the DOM for elements the
+   *  render just created was the only reason `querySelectorAll` was here. */
+  let entries: (HTMLElement | null)[] = []
 
   /** Only the head of the match is shown (spec D8): past this the reader
    *  types, never scrolls. The narrower still matched everything, so the next
@@ -64,7 +69,7 @@
   $effect(() => {
     const at = hits.indexOf(highlighted as T)
     const holder = list
-    const entry = holder?.querySelectorAll<HTMLElement>('.entry')[at]
+    const entry = entries[at]
     if (!holder || !entry) return
 
     const margin = entry.offsetHeight * SCROLLOFF
@@ -115,6 +120,7 @@
     <div class="list" bind:this={list}>
       {#each hits as hit, index (key(hit))}
         <button
+          bind:this={entries[index]}
           type="button"
           class="entry"
           class:on={hit === highlighted}

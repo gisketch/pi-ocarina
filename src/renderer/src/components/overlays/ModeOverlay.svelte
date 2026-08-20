@@ -24,7 +24,9 @@
   // settings screen, or in another column, and a stale list would offer a mode
   // the reader deleted.
   $effect(() => {
-    void modes.load(app.threadId)
+    // Fresh: a picker is about to offer these voices for choosing, so it
+    // re-reads rather than trusting the bar's cached copy.
+    void modes.load(app.threadId, { fresh: true })
   })
 
   /** "Normal" is the absence of a mode, so it is a row rather than an entry in

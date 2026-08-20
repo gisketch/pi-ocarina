@@ -8,6 +8,10 @@ export default defineConfig({
   plugins: [svelte()],
   resolve: {
     alias: { $lib: resolve('src/renderer/src/lib') },
+    // The client runtime, not the server one: tests over stores must see the
+    // same reactivity the app does — under the server build `$effect` is inert,
+    // and an invalidation-granularity contract cannot be proved at all.
+    conditions: ['browser'],
   },
   test: {
     include: ['src/**/*.{test,spec}.ts'],

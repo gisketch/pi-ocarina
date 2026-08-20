@@ -21,8 +21,11 @@
   let selected = $state(0)
 
   $effect(() => {
-    void workspaceLsp.load(app.workspace.id)
-    void permission.load(app.workspace.id)
+    // Fresh on purpose: this screen's contract is a re-read on open, because
+    // a server can start or die while it is closed — the status bar's cached
+    // answer is not good enough for the rows the reader is about to act on.
+    void workspaceLsp.load(app.workspace.id, { fresh: true })
+    void permission.load(app.workspace.id, null, { fresh: true })
     // Keyed on the workspace, with the thread only narrowing it. This screen
     // is workspace-scoped, and it used to render `unknown thread: fresh:<id>`
     // where the inventory belongs whenever every column was closed.

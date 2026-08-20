@@ -18,6 +18,11 @@ export function startPersistence(): () => void {
 
   let restored = false
   let timer: ReturnType<typeof setTimeout> | null = null
+  /** The layout last handed to a save, serialized. The effect below tracks
+   *  more than it writes — a git status push reassigns the workspace array it
+   *  reads — so without this compare every `.git` change during a build
+   *  re-armed the debounce and rewrote an identical catalog to disk. */
+  let written = ''
 
   // The reader's own file, read here rather than by whichever component
   // happens to draw it. The keymap is applied from this read, and a keyboard
@@ -98,6 +103,10 @@ export function startPersistence(): () => void {
         ),
       }
       if (!restored) return
+
+      const serial = JSON.stringify(snapshot)
+      if (serial === written) return
+      written = serial
 
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {

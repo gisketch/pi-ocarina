@@ -23,7 +23,9 @@
   // would clear the chip's `current` until something else happened to reload
   // it — which, keyed on the thread, would be never.
   $effect(() => {
-    void modes.load(app.threadId)
+    // Fresh: this screen edits the voices, so it re-reads rather than
+    // trusting the bar's cached copy.
+    void modes.load(app.threadId, { fresh: true })
   })
 
   function isTyping(target: EventTarget | null): boolean {

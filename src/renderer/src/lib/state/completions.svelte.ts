@@ -12,7 +12,7 @@
 import { applyMention, mentionAt } from '../mention'
 import type { CaretField } from '../chip-field'
 import { applySlash, filterSlash, resolveSlash, slashAt, type SlashCommand } from '../slash'
-import { fuzzyFilter, wrapIndex } from '../fuzzy'
+import { fuzzyNarrower, wrapIndex } from '../fuzzy'
 import { app } from './app.svelte'
 import { files } from './files.svelte'
 import { projectSurface } from './project-surface.svelte'
@@ -90,13 +90,18 @@ export function completions(deps: CompletionDeps) {
       ? null
       : found,
   )
+  // The narrower, not `fuzzyFilter`: the index holds every path in the
+  // workspace, and rescoring all of it per keystroke is a pause under the
+  // caret. Its memory keys on the list's identity, so a workspace switch or a
+  // re-walked index rescans by itself — the same contract Telescope leans on.
+  const narrowPaths = fuzzyNarrower((path: string) => path)
   const paths = $derived(
     mention === null
       ? []
       : // The menu scrolls, so this is a bound on how far a fuzzy match is
         // worth chasing rather than on what fits: past a few dozen the reader
         // types another letter instead of scrolling.
-        fuzzyFilter(files.files(app.workspace.id), mention.query, (path) => path).slice(0, 40),
+        narrowPaths(files.files(app.workspace.id), mention.query).slice(0, 40),
   )
 
   // One menu at a time. A slash only ever opens at position 0 and a mention

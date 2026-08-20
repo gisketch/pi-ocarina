@@ -6,9 +6,18 @@ import { session } from '../session'
  *  `@` would put a filesystem crawl in front of a keystroke. Stale by design —
  *  a file created after the index was built will not appear until the workspace
  *  is reloaded, which is a fair trade for a picker that opens instantly. */
+/** How long a walk's answer keeps re-walks at bay.
+ *
+ *  Long enough that reopening the picker while hunting for a file costs no
+ *  crawl, short enough that a file the agent just wrote shows up on the next
+ *  open after a pause. */
+const REFRESH_TTL_MS = 30_000
+
 class FileIndex {
   #indexes = $state.raw<Record<string, string[]>>({})
   #loading = new Set<string>()
+  /** When each workspace's walk last answered, for the TTL below. */
+  #walked = new Map<string, number>()
   /** Keyed by the list's identity, so a swapped index drops its old Set. */
   #sets = new WeakMap<string[], Set<string>>()
 
@@ -46,9 +55,16 @@ class FileIndex {
    *
    *  Stale-while-revalidate: the cached list keeps serving, and the fresh one
    *  replaces it whole when the walk returns. The caller never waits — a walk
-   *  must not stand in front of a keystroke. */
-  refresh(workspaceId: string): void {
+   *  must not stand in front of a keystroke.
+   *
+   *  Behind a TTL, because the picker calls this on every open: a crawl that
+   *  just answered is not worth repeating for a reader flicking `␣f` between
+   *  two files. The first walk always runs — nothing is served before it —
+   *  and `force` is for the caller who knows the folder moved under it. */
+  refresh(workspaceId: string, opts: { force?: boolean } = {}): void {
     if (this.#loading.has(workspaceId)) return
+    const walked = this.#walked.get(workspaceId)
+    if (!opts.force && walked !== undefined && Date.now() - walked < REFRESH_TTL_MS) return
     this.#loading.add(workspaceId)
 
     void session
@@ -67,10 +83,12 @@ class FileIndex {
   forget(workspaceId: string): void {
     const { [workspaceId]: _dropped, ...rest } = this.#indexes
     this.#indexes = rest
+    this.#walked.delete(workspaceId)
   }
 
   #store(workspaceId: string, files: string[]): void {
     this.#indexes = { ...this.#indexes, [workspaceId]: files }
+    this.#walked.set(workspaceId, Date.now())
   }
 }
 

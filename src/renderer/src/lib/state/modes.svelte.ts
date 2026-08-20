@@ -20,6 +20,15 @@ class ModeState {
   overridden = $state(false)
 
   #threadId: ThreadId | null = null
+  /** Answers already fetched, per thread. The bar asks on every focus move and
+   *  a voice only changes through this store, so a repeat visit is an IPC to
+   *  learn what was learnt last time. Cleared by every write below. */
+  #known = new Map<string, {
+    all: ChatMode[]
+    current: string | undefined
+    overridden: boolean
+    fallback: string | undefined
+  }>()
   /** Harness only: what the fake backend remembers. Held here rather than in
    *  `all`, which `load` overwrites — without it an edited voice vanished the
    *  moment the screen reloaded itself. */
@@ -36,8 +45,19 @@ class ModeState {
     return modeChip(this.mode)
   }
 
-  async load(threadId: ThreadId | null): Promise<void> {
+  async load(threadId: ThreadId | null, opts: { fresh?: boolean } = {}): Promise<void> {
     this.#threadId = threadId
+
+    if (session.wired && !opts.fresh) {
+      const seen = this.#known.get(threadId ?? '')
+      if (seen) {
+        this.all = seen.all
+        this.current = seen.current
+        this.overridden = seen.overridden
+        this.fallback = seen.fallback
+        return
+      }
+    }
 
     if (!session.wired) {
       this.all = [...this.#demoModes]
@@ -57,11 +77,18 @@ class ModeState {
     this.current = answer.current
     this.overridden = answer.overridden
     this.fallback = answer.fallbackMode
+    this.#known.set(threadId ?? '', {
+      all: this.all,
+      current: this.current,
+      overridden: this.overridden,
+      fallback: this.fallback,
+    })
   }
 
   /** Sets this thread's own voice. `undefined` returns it to the default. */
   async setThread(modeId: string | undefined): Promise<void> {
     if (this.#threadId === null) return
+    this.#known.clear()
 
     if (!session.wired) {
       if (modeId === undefined) this.#demoThread.delete(this.#threadId)
@@ -100,6 +127,7 @@ class ModeState {
 
   async save(mode: ChatMode): Promise<boolean> {
     if (mode.name.trim() === '' || mode.instructions.trim() === '') return false
+    this.#known.clear()
 
     if (session.wired) await session.invoke('saveMode', { mode })
     else this.#demoModes = [...this.#demoModes.filter((one) => one.id !== mode.id), mode]
@@ -109,6 +137,7 @@ class ModeState {
   }
 
   async remove(modeId: string): Promise<void> {
+    this.#known.clear()
     if (session.wired) await session.invoke('deleteMode', { modeId })
     else {
       this.#demoModes = this.#demoModes.filter((one) => one.id !== modeId)
@@ -122,6 +151,7 @@ class ModeState {
 
   /** Sets the voice every thread starts on. */
   async setDefault(modeId: string | undefined): Promise<void> {
+    this.#known.clear()
     if (!session.wired) {
       this.#demoDefault = modeId
       await this.load(this.#threadId)

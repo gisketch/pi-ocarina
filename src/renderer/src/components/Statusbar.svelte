@@ -48,10 +48,17 @@
   // turn and never at a moment the reader did anything. Without the run state
   // in this effect the count was whatever it had been when the workspace was
   // opened, which for a fresh workspace is always "none".
+  //
+  // `fresh` only when the run state actually moved: that is the moment a
+  // server can have started or died. A plain focus move answers from the
+  // store's memory, so crossing the strip stops costing a round trip per key.
+  let seenRun: string | undefined
   $effect(() => {
-    void app.workspace.id
-    void runState
-    void workspaceLsp.load(app.workspace.id)
+    const id = app.workspace.id
+    const run = runState
+    const fresh = seenRun !== undefined && seenRun !== run
+    seenRun = run
+    void workspaceLsp.load(id, { fresh })
   })
   // The permission level is never absent from the bar. A level that is
   // invisible is a level that surprises — and `full` is the one state where
