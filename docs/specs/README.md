@@ -111,6 +111,12 @@ settle. Ordered by the ranking in
 - [2026-08-20-attached-panes.md](2026-08-20-attached-panes.md) — attach
   terminals, and later other pane types, to chat or buffer columns so the group
   centers and moves as one entity. **Approved and implemented 2026-08-20.**
+- [2026-08-20-pane-reveal-and-editor.md](2026-08-20-pane-reveal-and-editor.md) —
+  fixed pane widths with a focus-follows reveal at narrow viewports, a SPLIT
+  regime at very low width, the buffer renamed EDITOR, and markdown files
+  reading rendered through the chat renderer. **Approved 2026-08-20 (owner
+  direction).** Amends attached-panes and file-search-and-viewer. Tickets in
+  [2026-08-20-pane-reveal-and-editor.md](../exec-plans/active/2026-08-20-pane-reveal-and-editor.md).
 - [2026-08-19-file-search-and-viewer.md](2026-08-19-file-search-and-viewer.md) —
   `␣f` becomes a telescopic file search; a picked file opens a vim buffer
   column (CodeMirror + vim); the strip's mode renames to OCARINA, typing to
