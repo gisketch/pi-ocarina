@@ -178,8 +178,39 @@ describe('which model a child runs on', () => {
     const entry = await fleet.run(PARENT, plan(), POOL, undefined)
 
     expect(entry.model).toBe('anthropic/fell-back-to-this')
-    const first = events.find(([, event]) => event.kind === 'agent-update')
-    expect(first?.[1]).toMatchObject({ agent: { model: 'anthropic/fell-back-to-this' } })
+    // On every update from the moment the session exists — the first one is
+    // the unqueue, which happens before there is a model to name.
+    const updates = events
+      .filter(([, event]) => event.kind === 'agent-update')
+      .map(([, event]) => (event as { agent: { model?: string } }).agent)
+    expect(updates.slice(1).every((agent) => agent.model === 'anthropic/fell-back-to-this')).toBe(
+      true,
+    )
+  })
+
+  it('stops reading as queued before its session is built, not after', async () => {
+    // Building a session loads pi, its model runtime and its resource loader.
+    // A row still marked queued through all of that reads as a child waiting
+    // for a slot it is already holding — four of them as a stuck fan-out.
+    const { session } = fakeSession({})
+    let build: (() => void) | undefined
+    const events: [string, UiEvent][] = []
+    const factory: ChildFactory = {
+      child: () =>
+        new Promise((resolve) => {
+          build = () => resolve({ session, model: 'anthropic/m' } as never)
+        }),
+    }
+    const fleet = new AgentFleet(factory, (id, event) => events.push([id, event]))
+    const run = fleet.run(PARENT, plan(), POOL, undefined)
+
+    await vi.waitFor(() => expect(build).toBeDefined())
+    const mid = events.at(-1)?.[1] as { kind: string; agent?: { queued?: true } }
+    expect(mid.kind).toBe('agent-update')
+    expect(mid.agent?.queued).toBeUndefined()
+
+    build?.()
+    await run
   })
 
   it('says nothing when the app named no model and pi chose its own', async () => {

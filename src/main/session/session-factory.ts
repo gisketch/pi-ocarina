@@ -98,7 +98,7 @@ export class SessionFactory {
     // names a model, and names none at all unless asked to.
     const { session } = await createAgentSession({
       cwd,
-      model: (await this.#models.forChild(undefined)).model,
+      model: await this.#models.resolve(),
       resourceLoader: await this.#loader(cwd, workspaceId, handle),
     })
 
@@ -120,7 +120,7 @@ export class SessionFactory {
     const { session } = await createAgentSession({
       cwd,
       sessionManager,
-      model: (await this.#models.forChild(undefined)).model,
+      model: await this.#models.resolve(),
       resourceLoader: await this.#loader(cwd, workspaceId, { threadId }),
     })
 

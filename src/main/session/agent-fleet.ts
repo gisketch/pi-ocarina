@@ -157,6 +157,17 @@ export class AgentFleet {
         return this.#settle(parent, { ...entry, queued: undefined }, 'cancelled')
       }
 
+      // The clock starts when it starts, not when it was asked for: a child
+      // that waited two minutes for a slot did not take two minutes to work.
+      //
+      // Announced here rather than after the session is built, even though the
+      // model is not known until then: building one loads pi, its model
+      // runtime and its resource loader, and a row still marked `queued`
+      // through all of that reads as a child waiting for a slot it is in fact
+      // already holding. Four of them read as a fan-out stuck in the queue.
+      const running: AgentEntry = { ...entry, queued: undefined, startedAt: Date.now() }
+      this.#emit(parent.threadId, { kind: 'agent-update', id, agent: running })
+
       const built = await this.#factory.child({
         cwd: parent.cwd,
         workspaceId: parent.workspaceId,
@@ -171,18 +182,14 @@ export class AgentFleet {
         onWarning: (warning) => warn?.(`${plan.label}: ${warning}`),
       })
 
-      // The clock starts when it starts, not when it was asked for: a child
-      // that waited two minutes for a slot did not take two minutes to work.
-      // Announced after the session exists rather than before, because the
-      // model is only settled once it does — a role's id can fall back, and
-      // the entry says what the child truly runs on, not what was asked for.
-      const started: AgentEntry = {
-        ...entry,
-        queued: undefined,
-        startedAt: Date.now(),
-        ...(built.model ? { model: built.model } : {}),
+      // Only now is the model settled: a role's id can fall back, and the entry
+      // says what the child truly runs on rather than what was asked for. A
+      // second update rather than a later first one, so the row is not left
+      // reading `queued` while the session is being built.
+      const started: AgentEntry = built.model ? { ...running, model: built.model } : running
+      if (built.model) {
+        this.#emit(parent.threadId, { kind: 'agent-update', id, agent: started })
       }
-      this.#emit(parent.threadId, { kind: 'agent-update', id, agent: started })
 
       return await this.#drive(parent, id, started, built.session, plan, signal)
     } catch (error) {
