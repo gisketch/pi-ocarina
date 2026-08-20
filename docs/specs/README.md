@@ -99,6 +99,11 @@ on one before implementing it. Each carries its own list of what the grill must
 settle. Ordered by the ranking in
 [the landscape read](../reference/2026-08-16-agent-harness-landscape.html).
 
+- [2026-08-20-performance-snappy.md](2026-08-20-performance-snappy.md) — the
+  full performance pass: workspaces keep their strips mounted, the pty flush
+  leads, TERM bails at the pipeline mouth, parse/highlight memoize, the
+  forced-layout loops end, and the per-keystroke tail is cut. **Draft, from
+  the 2026-08-20 audit.**
 - [2026-08-20-attached-panes.md](2026-08-20-attached-panes.md) — attach
   terminals, and later other pane types, to chat or buffer columns so the group
   centers and moves as one entity. **Approved and implemented 2026-08-20.**

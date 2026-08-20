@@ -17,6 +17,7 @@ Keep this as the project verification menu. Add commands only after they pass lo
 | Run application | `pnpm dev` (electron-vite dev, HMR) | verified |
 | Fast code checks | `pnpm check` (svelte-check + tsc) | verified |
 | Unit tests | `pnpm test` (vitest) | verified |
+| Perf workloads | `pnpm bench` — the hot-seam workloads behind the 2026-08-20 performance spec, printed as a markdown table for before/after comparison | verified |
 | Build | `pnpm build` (main + preload + renderer → `dist/`) | verified |
 | Visual review vs reference | `pnpm dev:web` on :5273, compare with `docs/reference/design/` | verified |
 | Scrollback perf budget | see `docs/exec-plans/active/2026-08-15-live-thread-ledger.md` C5 — generate a 5k-block thread, sweep the column, time layout per step; budget 8.34ms | verified |
