@@ -70,7 +70,7 @@ function fakeSession(options: {
 
 function fleetWith(session: unknown): { fleet: AgentFleet; events: [string, UiEvent][] } {
   const events: [string, UiEvent][] = []
-  const factory: ChildFactory = { child: async () => session as never }
+  const factory: ChildFactory = { child: async () => ({ session }) as never }
   return { fleet: new AgentFleet(factory, (id, event) => events.push([id, event])), events }
 }
 
@@ -102,7 +102,7 @@ describe('stopping one child out of several', () => {
             }),
           abort: async () => release?.(),
         }
-        return session as never
+        return { session } as never
       },
     }
     return { fleet: new AgentFleet(factory, (id, event) => events.push([id, event])), events, releases }
@@ -163,9 +163,11 @@ describe('stopping one child out of several', () => {
       child: async (options) => {
         started.push(options.instructions)
         return {
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => releases.shift()?.(),
+          session: {
+            subscribe: () => () => {},
+            prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
+            abort: async () => releases.shift()?.(),
+          },
         } as never
       },
     }

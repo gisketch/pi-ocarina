@@ -282,6 +282,12 @@ export interface AgentEntry {
   /** Set when the per-child cap cut the output, so the parent knows it holds a
    *  fragment. */
   truncated?: true
+  /** The model this child is actually running on, after the role's default,
+   *  the spawn's override and the not-configured fallback have all had their
+   *  say. Absent on entries recorded before it was carried, and when the app
+   *  named no model at all and pi chose its own — the peek shows nothing
+   *  rather than guessing. */
+  model?: string
   usage: AgentUsage
   startedAt: number
   endedAt?: number

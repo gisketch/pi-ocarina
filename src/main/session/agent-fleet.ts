@@ -11,7 +11,7 @@
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent'
 import type { EmitEvent } from '../../shared/protocol'
-import type { AgentEntry, AgentRole, AgentStatus } from '../../shared/vocabulary'
+import type { AgentEntry, AgentStatus } from '../../shared/vocabulary'
 import { NamePool } from './agent-names'
 import { driveChild } from './agent-run'
 import { SlotPool } from './agent-slots'
@@ -157,12 +157,7 @@ export class AgentFleet {
         return this.#settle(parent, { ...entry, queued: undefined }, 'cancelled')
       }
 
-      // The clock starts when it starts, not when it was asked for: a child
-      // that waited two minutes for a slot did not take two minutes to work.
-      const started: AgentEntry = { ...entry, queued: undefined, startedAt: Date.now() }
-      this.#emit(parent.threadId, { kind: 'agent-update', id, agent: started })
-
-      const session = await this.#factory.child({
+      const built = await this.#factory.child({
         cwd: parent.cwd,
         workspaceId: parent.workspaceId,
         handle: { threadId: parent.threadId },
@@ -176,7 +171,20 @@ export class AgentFleet {
         onWarning: (warning) => warn?.(`${plan.label}: ${warning}`),
       })
 
-      return await this.#drive(parent, id, started, session, plan, signal)
+      // The clock starts when it starts, not when it was asked for: a child
+      // that waited two minutes for a slot did not take two minutes to work.
+      // Announced after the session exists rather than before, because the
+      // model is only settled once it does — a role's id can fall back, and
+      // the entry says what the child truly runs on, not what was asked for.
+      const started: AgentEntry = {
+        ...entry,
+        queued: undefined,
+        startedAt: Date.now(),
+        ...(built.model ? { model: built.model } : {}),
+      }
+      this.#emit(parent.threadId, { kind: 'agent-update', id, agent: started })
+
+      return await this.#drive(parent, id, started, built.session, plan, signal)
     } catch (error) {
       return this.#settle(parent, { ...entry, queued: undefined, output: reasonOf(error) }, 'fail')
     } finally {
@@ -245,6 +253,12 @@ export class AgentFleet {
       usage: entry.usage,
       emit: this.#emit,
       wasBlocked: this.#wasBlocked,
+      // Display only. The bill is still charged once, at settle, from the
+      // figure the drive hands back — these carry the same running total to
+      // the peek so it counts up instead of reading zero until the end.
+      onUsage: (usage) => {
+        this.#emit(parent.threadId, { kind: 'agent-update', id, agent: { ...entry, usage } })
+      },
     })
     const counted = { ...entry, usage: ran.usage }
 
@@ -317,33 +331,4 @@ function rowStatus(status: AgentStatus): 'ok' | 'fail' | 'cancelled' | 'denied' 
 
 function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-/** Builds a fleet and hands it back to the factory that will build its children.
- *
- *  A child is a session and a session may spawn children, so the two are
- *  mutually dependent and one of them has to be wired after construction. Here
- *  rather than in the driver's constructor, which is already a list of six
- *  things being stood up in order. */
-export function fleetFor(
-  sessions: ChildFactory & {
-    enableSpawning: (deps: {
-      fleet: AgentFleet
-      roles: () => AgentRole[]
-      names: () => string[]
-    }) => void
-  },
-  emit: EmitEvent,
-  catalog: { roles: () => AgentRole[]; namePool: () => string[] },
-  wasBlocked: (toolCallId: string) => boolean = () => false,
-): AgentFleet {
-  const fleet = new AgentFleet(sessions, emit, wasBlocked)
-  sessions.enableSpawning({
-    fleet,
-    // Read fresh on every call, so a role added in settings is spawnable
-    // without restarting the app.
-    roles: () => catalog.roles(),
-    names: () => catalog.namePool(),
-  })
-  return fleet
 }

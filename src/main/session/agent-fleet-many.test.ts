@@ -70,7 +70,7 @@ function fakeSession(options: {
 
 function fleetWith(session: unknown): { fleet: AgentFleet; events: [string, UiEvent][] } {
   const events: [string, UiEvent][] = []
-  const factory: ChildFactory = { child: async () => session as never }
+  const factory: ChildFactory = { child: async () => ({ session }) as never }
   return { fleet: new AgentFleet(factory, (id, event) => events.push([id, event])), events }
 }
 
@@ -86,9 +86,11 @@ describe('several at once', () => {
       child: async (options) => {
         started.push(options.instructions)
         return {
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
+          session: {
+            subscribe: () => () => {},
+            prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
+            abort: async () => {},
+          },
         } as never
       },
     }
@@ -116,9 +118,11 @@ describe('several at once', () => {
     const factory: ChildFactory = {
       child: async () =>
         ({
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
+          session: {
+            subscribe: () => () => {},
+            prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
+            abort: async () => {},
+          },
         }) as never,
     }
     const fleet = new AgentFleet(factory, (_id, event) => {
@@ -139,9 +143,11 @@ describe('several at once', () => {
     const factory: ChildFactory = {
       child: async () =>
         ({
-          subscribe: () => () => {},
-          prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
-          abort: async () => {},
+          session: {
+            subscribe: () => () => {},
+            prompt: () => new Promise<void>((resolve) => releases.push(resolve)),
+            abort: async () => {},
+          },
         }) as never,
     }
     const fleet = new AgentFleet(factory, (id, event) => events.push([id, event]))
@@ -174,9 +180,11 @@ describe('several at once', () => {
       child: async (options) => {
         depths.push(options.depth)
         return {
-          subscribe: () => () => {},
-          prompt: async () => {},
-          abort: async () => {},
+          session: {
+            subscribe: () => () => {},
+            prompt: async () => {},
+            abort: async () => {},
+          },
         } as never
       },
     }

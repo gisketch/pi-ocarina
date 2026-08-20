@@ -39,6 +39,15 @@ export async function driveChild(options: {
    *  same way, so without this a call the reader refused reads as one that
    *  broke — and the gate's record of it is never consumed, which leaks. */
   wasBlocked: (toolCallId: string) => boolean
+  /** Told what the child has spent so far, each time a model message closes.
+   *
+   *  The peek is opened *while* a child runs, and until this existed the only
+   *  figure it could read was the one handed back at settle — so it showed
+   *  zeros for the whole window it was open for, then the truth a moment after
+   *  it stopped mattering. Handed a copy, never the accumulator: the caller
+   *  puts it in an entry it emits, and a shared object would keep changing
+   *  underneath a value already sent. */
+  onUsage?: (usage: AgentUsage) => void
 }): Promise<Ran> {
   const { session, threadId, childId, task, emit } = options
   const usage = { ...options.usage }
@@ -69,6 +78,7 @@ export async function driveChild(options: {
       const failure = (event.message as { errorMessage?: unknown }).errorMessage
       if (typeof failure === 'string' && failure !== '') broke = failure
       add(usage, event.message.usage)
+      options.onUsage?.({ ...usage })
     }
   })
 

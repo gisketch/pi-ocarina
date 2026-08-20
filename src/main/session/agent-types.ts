@@ -56,7 +56,10 @@ export interface ChildFactory {
     /** Its own id, so a fan-out it starts can lend its slot back. */
     selfId: string
     onWarning?: (warning: string) => void
-  }): Promise<AgentSession>
+    /** The session, and which model it was actually built with — a role's id
+     *  can fall back, and the entry has to say what the child truly runs on
+     *  rather than what was asked for. */
+  }): Promise<{ session: AgentSession; model?: string }>
 }
 
 /** One child the fleet is holding, running or queued. */

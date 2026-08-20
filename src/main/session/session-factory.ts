@@ -4,17 +4,12 @@ import type { AskGate } from './ask-gate'
 import { buildResources, canSpawn, type ChildShape } from './session-extensions'
 import { demote, type LspExtensionDeps } from './lsp-extension'
 import { SPAWN_TOOL, type SpawnDeps } from './spawn-tool'
+import { ModelBook, type ModelRef } from './session-models'
 import type { Sdk } from './workspaces'
 
-// Derived from the factory: pi's ModelRuntime constructor is private.
-type ModelRuntimeOf = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>
 type ResourceLoaderOf = InstanceType<Sdk['DefaultResourceLoader']>
 
-/** A model named the way pi's config names it. */
-export interface ModelRef {
-  provider: string
-  id: string
-}
+export type { ModelRef } from './session-models'
 
 /** Lets the approval extension name its thread, which on a new session only
  *  exists after pi has finished building the session the extension is part of. */
@@ -45,11 +40,10 @@ export interface BindOptions {
  *  threads and commands rather than about pi's construction quirks. */
 export class SessionFactory {
   #sdk: Promise<Sdk> | null = null
-  #runtime: Promise<ModelRuntimeOf> | null = null
 
   readonly #approvals: ApprovalGate
   readonly #asks: AskGate
-  readonly #model: ModelRef | undefined
+  readonly #models: ModelBook
   /** Supplied after construction: the fleet is built from this factory, so the
    *  two cannot be constructed in one order. A session started before it
    *  arrives simply has no spawn tool. */
@@ -65,7 +59,7 @@ export class SessionFactory {
   constructor(approvals: ApprovalGate, asks: AskGate, model?: ModelRef) {
     this.#approvals = approvals
     this.#asks = asks
-    this.#model = model
+    this.#models = new ModelBook(() => this.load(), model)
   }
 
   /** Lets sessions spawn children. Called once, after the fleet exists. */
@@ -104,7 +98,7 @@ export class SessionFactory {
     // names a model, and names none at all unless asked to.
     const { session } = await createAgentSession({
       cwd,
-      model: await this.#resolveModel(),
+      model: (await this.#models.forChild(undefined)).model,
       resourceLoader: await this.#loader(cwd, workspaceId, handle),
     })
 
@@ -126,7 +120,7 @@ export class SessionFactory {
     const { session } = await createAgentSession({
       cwd,
       sessionManager,
-      model: await this.#resolveModel(),
+      model: (await this.#models.forChild(undefined)).model,
       resourceLoader: await this.#loader(cwd, workspaceId, { threadId }),
     })
 
@@ -170,7 +164,7 @@ export class SessionFactory {
     /** Told when the model a role names is not configured here, so the fan-out
      *  can say so rather than swallowing it. */
     onWarning?: (warning: string) => void
-  }): Promise<AgentSession> {
+  }): Promise<{ session: AgentSession; model?: string }> {
     const { createAgentSession, SessionManager } = await this.load()
     // pi filters custom tools by this list too, so a child that may spawn has
     // to be handed the tool by name or it silently never has it.
@@ -178,12 +172,14 @@ export class SessionFactory {
       ? [...options.tools, SPAWN_TOOL]
       : options.tools
 
+    const chosen = await this.#models.forChild(options.model, options.onWarning)
+
     const { session } = await createAgentSession({
       cwd: options.cwd,
       // No session file: a child is not a thread. It is never listed, never
       // reopened, and its transcript lives only in the rows under the call.
       sessionManager: SessionManager.inMemory(options.cwd),
-      model: await this.#childModel(options.model, options.onWarning),
+      model: chosen.model,
       // pi filters custom tools by this list too, so a child that may spawn has
       // to be handed the tool by name or it silently never has it.
       tools,
@@ -201,7 +197,7 @@ export class SessionFactory {
       allowed: tools,
       demoteSearch: this.#hasLsp(options.workspaceId, options.cwd),
     })
-    return session
+    return { session, model: chosen.named }
   }
 
   /** A bare completion session: no file, no tools, no extensions.
@@ -217,33 +213,10 @@ export class SessionFactory {
     const { session } = await createAgentSession({
       cwd,
       sessionManager: SessionManager.inMemory(cwd),
-      model: await this.#childModel(named, undefined),
+      model: (await this.#models.forChild(named)).model,
       tools: [],
     })
     return session
-  }
-
-  /** The model a child runs on, falling back rather than failing.
-   *
-   *  A role ships with a model id, and an id ages: the model is retired, or the
-   *  user never configured that provider. Failing the child there would mean a
-   *  fan-out that dies on first use because of a default nobody chose — proven
-   *  live, where the shipped `scout` named a model this machine did not have and
-   *  every scout failed before running. It falls back to the session's own model
-   *  and says so, because a child quietly running on a model ten times the price
-   *  of the one its role names is worse than a warning. */
-  async #childModel(
-    named: string | undefined,
-    warn: ((warning: string) => void) | undefined,
-  ): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
-    if (!named) return this.#resolveModel()
-
-    try {
-      return await this.#resolveModel(named)
-    } catch {
-      warn?.(`model "${named}" is not configured here; used this session's model instead`)
-      return this.#resolveModel()
-    }
   }
 
   /** The resource loader for one session, with this app's extensions in it. */
@@ -317,49 +290,8 @@ export class SessionFactory {
     session.agent.state.tools = [...rebound, ...kept]
   }
 
-  /** The models this machine can actually run.
-   *
-   *  `getModels()` returns pi's whole catalogue — over a thousand entries,
-   *  nearly all of them for providers with no credentials here. Selecting one
-   *  throws "No API key". `getAvailable()` is the set with auth configured,
-   *  which is the only honest list to put in front of a person. */
-  async models(): Promise<ReturnType<ModelRuntimeOf['getAvailableSnapshot']>> {
-    const { ModelRuntime } = await this.load()
-    this.#runtime ??= ModelRuntime.create()
-    const runtime = await this.#runtime
-
-    const available = await runtime.getAvailable()
-    // A machine with no credentials at all gets an empty list, and the selector
-    // says so — better than offering models that cannot run.
-    return available.length > 0 ? available : runtime.getAvailableSnapshot()
+  /** The models this machine can actually run. */
+  models(): ReturnType<ModelBook['available']> {
+    return this.#models.available()
   }
-
-  /** The model this session runs on.
-   *
-   *  A child may name its own as `provider/id`; naming none means it borrows
-   *  whatever the app is configured with, which is what "inherits the parent's
-   *  model" amounts to here. */
-  async #resolveModel(named?: string): Promise<ReturnType<ModelRuntimeOf['getModel']> | undefined> {
-    const wanted = named ? splitModel(named) : this.#model
-    if (!wanted) return undefined
-
-    const { ModelRuntime } = await this.load()
-    this.#runtime ??= ModelRuntime.create()
-    const model = (await this.#runtime).getModel(wanted.provider, wanted.id)
-    if (!model) {
-      throw new Error(`pi has no model "${wanted.provider}/${wanted.id}" configured`)
-    }
-    return model
-  }
-}
-
-/** `provider/id`, the way pi's own config and its `--model` flag spell it.
- *
- *  Split on the first slash only: a model id may contain slashes of its own
- *  (`anthropic/claude-…` versus an OpenRouter id like `x-ai/grok`), and the
- *  provider never does. */
-function splitModel(named: string): ModelRef {
-  const at = named.indexOf('/')
-  if (at === -1) throw new Error(`model "${named}" needs the form provider/id`)
-  return { provider: named.slice(0, at), id: named.slice(at + 1) }
 }

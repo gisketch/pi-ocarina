@@ -21,6 +21,9 @@ function fakeSession(options: {
   hang?: boolean
   errorMessage?: string
   usage?: Record<string, unknown>
+  /** How many model messages the turn closes. More than one is what a child
+   *  that uses tools actually does, and what the live usage figure counts. */
+  messages?: number
 }): { session: any; finish: () => void } {
   const listeners: ((event: unknown) => void)[] = []
   let release: (() => void) | undefined
@@ -35,15 +38,17 @@ function fakeSession(options: {
         emit({ type: 'tool_execution_start', toolCallId: id, toolName: 'read', args: { file_path: 'a.ts' } })
         emit({ type: 'tool_execution_end', toolCallId: id, toolName: 'read', result: {}, isError: false })
       }
-      emit({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          content: [{ type: 'text', text: options.says ?? 'done' }],
-          usage: options.usage ?? { input: 10, output: 4, cost: { total: 0.001 } },
-          ...(options.errorMessage ? { errorMessage: options.errorMessage } : {}),
-        },
-      })
+      for (let n = 0; n < (options.messages ?? 1); n += 1) {
+        emit({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: options.says ?? 'done' }],
+            usage: options.usage ?? { input: 10, output: 4, cost: { total: 0.001 } },
+            ...(options.errorMessage ? { errorMessage: options.errorMessage } : {}),
+          },
+        })
+      }
       if (options.hang) await new Promise<void>((resolve) => (release = resolve))
     },
     async abort() {
@@ -60,7 +65,7 @@ function fakeSession(options: {
 
 function fleetWith(session: unknown): { fleet: AgentFleet; events: [string, UiEvent][] } {
   const events: [string, UiEvent][] = []
-  const factory: ChildFactory = { child: async () => session as never }
+  const factory: ChildFactory = { child: async () => ({ session }) as never }
   return { fleet: new AgentFleet(factory, (id, event) => events.push([id, event])), events }
 }
 
@@ -155,6 +160,62 @@ describe('running one child', () => {
     await fleet.run(PARENT, plan(), POOL, undefined)
     expect(events.at(-2)?.[1]).toMatchObject({ kind: 'agent-update' })
     expect(events.at(-1)?.[1]).toMatchObject({ kind: 'tool-end', status: 'ok' })
+  })
+})
+
+describe('which model a child runs on', () => {
+  it('carries what the factory built it with, not what its role asked for', async () => {
+    // The factory falls back when a role names a model this machine has not
+    // configured. The entry has to say what actually ran, or a reader watching
+    // a slow child cannot see the one fact that explains it.
+    const { session } = fakeSession({})
+    const events: [string, UiEvent][] = []
+    const factory: ChildFactory = {
+      child: async () => ({ session, model: 'anthropic/fell-back-to-this' }) as never,
+    }
+    const fleet = new AgentFleet(factory, (id, event) => events.push([id, event]))
+
+    const entry = await fleet.run(PARENT, plan(), POOL, undefined)
+
+    expect(entry.model).toBe('anthropic/fell-back-to-this')
+    const first = events.find(([, event]) => event.kind === 'agent-update')
+    expect(first?.[1]).toMatchObject({ agent: { model: 'anthropic/fell-back-to-this' } })
+  })
+
+  it('says nothing when the app named no model and pi chose its own', async () => {
+    const { session } = fakeSession({})
+    const { fleet } = fleetWith(session)
+
+    expect((await fleet.run(PARENT, plan(), POOL, undefined)).model).toBeUndefined()
+  })
+})
+
+describe('what a child has spent, while it is spending it', () => {
+  it('reports a growing figure as the child works, not one at the end', async () => {
+    // The peek is opened while a child runs. Before this it read zero for the
+    // whole window it was open for, then the truth once the child had stopped.
+    const { session } = fakeSession({ messages: 3 })
+    const { fleet, events } = fleetWith(session)
+
+    await fleet.run(PARENT, plan(), POOL, undefined)
+
+    const running = events
+      .filter(([, event]) => event.kind === 'agent-update')
+      .map(([, event]) => (event as { agent: { status: string; usage: { input: number } } }).agent)
+      .filter((agent) => agent.status === 'running')
+
+    // One for the start, then one per closed message.
+    expect(running.map((agent) => agent.usage.input)).toEqual([0, 10, 20, 30])
+  })
+
+  it('charges the thread once, however many times the figure was reported', async () => {
+    const { session } = fakeSession({ messages: 3 })
+    const { fleet } = fleetWith(session)
+
+    const entry = await fleet.run(PARENT, plan(), POOL, undefined)
+
+    expect(entry.usage).toMatchObject({ input: 30, output: 12 })
+    expect(fleet.spentIn('t1')).toMatchObject({ tokens: 42, costUsd: 0.003 })
   })
 })
 
