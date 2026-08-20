@@ -1,6 +1,9 @@
 # Pane Reveal and EDITOR — Execution Plan
 
-Status: drafted 2026-08-20. Canonical behavior lives in
+Status: completed 2026-08-20 (PR1+PR2 landed as one commit — a single
+`paneOffset` serves both regimes; ED3 landed with ED2 — registering the
+rendered view as the column body was the whole ticket). The owner's visual
+pass in the real app is the one open check. Canonical behavior lives in
 [the approved spec](../../specs/2026-08-20-pane-reveal-and-editor.md).
 
 Two independent tracks share this plan: the pane-group width regimes (PR),
@@ -9,7 +12,7 @@ never touch the same files; they can be worked in parallel. Per house rule,
 each ticket runs one small targeted validation and ends in its own scoped
 commit.
 
-## PR1 — Fixed widths and the REVEAL clamp
+## PR1 — Fixed widths and the REVEAL clamp ✅
 
 Delivered behavior: an attached group never resizes and never overlaps. From
 `820px` up, both members keep their constant widths (`780 + 390`); when the
@@ -55,7 +58,7 @@ sides, and the centered no-op.
 
 Blocked by: nothing.
 
-## PR2 — SPLIT: the group dissolves below 820px
+## PR2 — SPLIT: the group dissolves below 820px ✅
 
 Delivered behavior: below `820px` of viewport the host and its terminal are
 laid out and centered as two ordinary strip columns with the normal gap,
@@ -89,7 +92,7 @@ centering, boundary hand-off at 819/820.
 
 Blocked by: PR1.
 
-## ED1 — The reader's word is EDITOR
+## ED1 — The reader's word is EDITOR ✅
 
 Delivered behavior: every reader-facing `BUFFER` becomes `EDITOR`.
 
@@ -112,7 +115,7 @@ the config compatibility).
 
 Blocked by: nothing.
 
-## ED2 — Markdown reads rendered
+## ED2 — Markdown reads rendered ✅
 
 Delivered behavior: a markdown file opens as rendered markdown in the chat's
 typography; entering vim shows the raw source; Escape back to OCARINA shows
@@ -155,7 +158,7 @@ survival across swaps.
 
 Blocked by: ED1 (same files; keeps the diffs apart).
 
-## ED3 — Paging the rendered view
+## ED3 — Paging the rendered view ✅
 
 Delivered behavior: with a markdown editor column focused in OCARINA,
 `ctrl-d` / `ctrl-u` page the rendered view by half a viewport, matching the
