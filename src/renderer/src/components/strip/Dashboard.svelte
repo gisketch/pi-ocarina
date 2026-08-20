@@ -119,6 +119,7 @@
 <style>
   .hero {
     width: var(--column-w);
+    height: 100%;
     flex: none;
     display: flex;
     flex-direction: column;
