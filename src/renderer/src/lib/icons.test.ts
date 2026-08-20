@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fileIcon, ICONS, iconSvg, isIcon, toolIcon, type IconName } from './icons'
+import { fileColor, fileIcon, fileTone, ICONS, iconSvg, isIcon, toolIcon, type IconName } from './icons'
 
 const names = Object.keys(ICONS) as IconName[]
 
@@ -84,5 +84,53 @@ describe('the mark beside a path', () => {
   it('falls back to a plain file rather than guessing', () => {
     expect(fileIcon('LICENSE')).toBe('file')
     expect(fileIcon('weird.qqq')).toBe('file')
+  })
+})
+
+describe('the tone a path wears in the picker', () => {
+  it('follows the mark, so icon and colour can never disagree', () => {
+    expect(fileTone('src/main.ts')).toBe('code')
+    expect(fileTone('docs/shot.png')).toBe('media')
+    expect(fileTone('paper.pdf')).toBe('media')
+    expect(fileTone('Dockerfile')).toBe('config')
+    expect(fileTone('pnpm-lock.yaml')).toBe('config')
+    expect(fileTone('scripts/check.sh')).toBe('config')
+    expect(fileTone('notes.txt')).toBe('plain')
+    expect(fileTone('LICENSE')).toBe('plain')
+  })
+
+  it('recedes a dotfile whole, wherever it lives', () => {
+    expect(fileTone('.gitignore')).toBe('hidden')
+    expect(fileTone('.config/settings.json')).toBe('hidden')
+    expect(fileTone('src/.env')).toBe('hidden')
+    // A dot inside a name is not a dotfile.
+    expect(fileTone('build.tar.gz')).toBe('plain')
+  })
+
+  it('recedes a secret by extension, dot or no dot', () => {
+    expect(fileTone('config/server.pem')).toBe('hidden')
+    expect(fileTone('signing.key')).toBe('hidden')
+    expect(fileTone('flake.lock')).toBe('hidden')
+  })
+})
+
+describe('the colour a mark wears', () => {
+  it('follows the nerd-font conventions per extension', () => {
+    expect(fileColor('src/main.ts')).toBe('#519aba')
+    expect(fileColor('App.svelte')).toBe('#ff3e00')
+    expect(fileColor('index.js')).toBe('#cbcb41')
+    expect(fileColor('README.md')).toBe('#519aba')
+    expect(fileColor('scripts/check.sh')).toBe('#89e051')
+  })
+
+  it('says nothing for the kinds that stay in the app greys', () => {
+    expect(fileColor('LICENSE')).toBe(null)
+    expect(fileColor('notes.txt')).toBe(null)
+  })
+
+  it('never colours what the tone hides — a secret stays quiet', () => {
+    expect(fileColor('.config/settings.json')).toBe(null)
+    expect(fileColor('server.pem')).toBe(null)
+    expect(fileColor('src/.env')).toBe(null)
   })
 })

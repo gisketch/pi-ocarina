@@ -289,3 +289,119 @@ export function fileIcon(path: string): IconName {
   if (dot <= 0) return 'file'
   return BY_KIND[base.slice(dot + 1)] ?? 'file'
 }
+
+/** The colour family a path's mark wears in a picker.
+ *
+ *  Not a taxonomy of its own: the family follows from the mark `fileIcon`
+ *  already chose, so a file can never wear one kind's icon in another kind's
+ *  colour. `hidden` wins over everything — a dotfile, or anything under a
+ *  dot-directory, recedes whole. The tones are the workspace's own
+ *  (`--tone-1..3`), so the picker recolours with the accent like the rest
+ *  of the app. */
+export type FileTone = 'code' | 'media' | 'config' | 'plain' | 'hidden'
+
+/** Extensions that are secrets or machinery: they recede the way dotfiles do,
+ *  never wearing a colour that would draw the eye to them. */
+const MUTED = new Set(['env', 'pem', 'key', 'crt', 'cer', 'p12', 'pfx', 'lock'])
+
+export function fileTone(path: string): FileTone {
+  if (/(^|[/\\])\./.test(path)) return 'hidden'
+  const dot = path.lastIndexOf('.')
+  if (dot > 0 && MUTED.has(path.slice(dot + 1).toLowerCase())) return 'hidden'
+  const icon = fileIcon(path)
+  if (icon.startsWith('lang-')) return 'code'
+  if (icon === 'image' || icon === 'file-pdf') return 'media'
+  if (icon === 'file-config' || icon === 'file-lock' || icon === 'tool-bash') return 'config'
+  return 'plain'
+}
+
+/** The colour a file's mark wears in the picker, by extension.
+ *
+ *  These are the nerd-font conventions — the seti-ui palette that
+ *  nvim-web-devicons and every terminal file tree ship — so a TypeScript file
+ *  is the same blue here as in the user's editor. A small palette on purpose:
+ *  eight hues that already sit well on a dark ground, reused across kinds,
+ *  rather than one brand colour per company. */
+const SETI = {
+  blue: '#519aba',
+  cyan: '#61dafb',
+  green: '#8dc149',
+  shell: '#89e051',
+  yellow: '#cbcb41',
+  gold: '#ffbc03',
+  orange: '#e37933',
+  vermilion: '#ff3e00',
+  red: '#cc3e44',
+  purple: '#a074c4',
+  violet: '#663399',
+  pink: '#f55385',
+  tan: '#dea584',
+  grey: '#6d8086',
+} as const
+
+const COLOR_BY_EXT: Readonly<Record<string, string>> = {
+  ts: SETI.blue,
+  tsx: SETI.cyan,
+  js: SETI.yellow,
+  mjs: SETI.yellow,
+  cjs: SETI.yellow,
+  jsx: SETI.cyan,
+  svelte: SETI.vermilion,
+  vue: SETI.green,
+  py: SETI.gold,
+  go: SETI.blue,
+  rs: SETI.tan,
+  rb: SETI.red,
+  php: SETI.purple,
+  java: SETI.red,
+  kt: SETI.purple,
+  swift: SETI.orange,
+  c: SETI.blue,
+  h: SETI.purple,
+  cpp: SETI.blue,
+  cs: SETI.violet,
+  html: SETI.orange,
+  htm: SETI.orange,
+  css: SETI.violet,
+  scss: SETI.pink,
+  json: SETI.yellow,
+  jsonc: SETI.yellow,
+  md: SETI.blue,
+  markdown: SETI.blue,
+  yaml: SETI.grey,
+  yml: SETI.grey,
+  toml: SETI.grey,
+  sh: SETI.shell,
+  bash: SETI.shell,
+  zsh: SETI.shell,
+  fish: SETI.shell,
+  sql: SETI.pink,
+  svg: SETI.gold,
+  png: SETI.purple,
+  jpg: SETI.purple,
+  jpeg: SETI.purple,
+  gif: SETI.purple,
+  webp: SETI.purple,
+  avif: SETI.purple,
+  ico: SETI.purple,
+  pdf: SETI.red,
+  zip: SETI.grey,
+  gz: SETI.grey,
+  tgz: SETI.grey,
+  tar: SETI.grey,
+  doc: SETI.blue,
+  docx: SETI.blue,
+  csv: SETI.green,
+  xlsx: SETI.green,
+}
+
+/** The mark's colour, or none for the kinds that stay in the app's greys.
+ *  A muted path (`fileTone` says `hidden`) never gets one: a secret should
+ *  not be the brightest thing in the list. */
+export function fileColor(path: string): string | null {
+  if (fileTone(path) === 'hidden') return null
+  const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1)
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0) return null
+  return COLOR_BY_EXT[base.slice(dot + 1).toLowerCase()] ?? null
+}

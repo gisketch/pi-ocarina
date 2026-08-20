@@ -5,7 +5,7 @@
   import Telescope from './Telescope.svelte'
   import FilePreview from './FilePreview.svelte'
   import Icon from '../Icon.svelte'
-  import { fileIcon } from '$lib/icons'
+  import { fileColor, fileIcon, fileTone } from '$lib/icons'
   import { app } from '$lib/state/app.svelte'
   import { files } from '$lib/state/files.svelte'
 
@@ -18,6 +18,15 @@
 
   const items = $derived(files.files(workspaceId))
   const ready = $derived(files.loaded(workspaceId))
+
+  /** The tail of a path is what identifies it; the head is shared by half the
+   *  repository. Splitting them lets the head recede and truncate while the
+   *  name stays whole and bright. */
+  function parts(path: string): { dir: string; base: string } {
+    const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+    if (slash === -1) return { dir: '', base: path }
+    return { dir: path.slice(0, slash + 1), base: path.slice(slash + 1) }
+  }
 </script>
 
 <Telescope
@@ -31,10 +40,15 @@
   empty={ready ? 'nothing matches' : 'reading the file list…'}
 >
   {#snippet row(path)}
-    <span class="line">
-      <!-- The same mark the chips and the mention menu wear for this path. -->
-      <span class="icon"><Icon name={fileIcon(path)} size={13} /></span>
-      <span class="path">{path}</span>
+    {@const split = parts(path)}
+    <span class="line tone-{fileTone(path)}">
+      <!-- The same mark the chips and the mention menu wear for this path,
+           in the colour the nerd-font conventions give its extension. -->
+      <span class="icon" style:color={fileColor(path)}><Icon name={fileIcon(path)} size={13} /></span>
+      <span class="base">{split.base}</span>
+      {#if split.dir !== ''}
+        <span class="dir">{split.dir}</span>
+      {/if}
     </span>
   {/snippet}
   {#snippet preview(path)}
@@ -60,16 +74,46 @@
     display: flex;
     color: var(--fg-dimmer);
   }
-  .path {
-    flex: 1;
-    display: block;
+  /* The mark carries the kind in the workspace's own tones; the accent keeps
+     the loudest voice (code), the support tones take media and config. */
+  .tone-code .icon {
+    color: var(--tone-1);
+  }
+  .tone-media .icon {
+    color: var(--tone-2);
+  }
+  .tone-config .icon {
+    color: var(--tone-3);
+  }
+  .base {
+    flex: none;
+    max-width: 60%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    /* The tail of a path is what identifies it; the head is shared by half
-       the repository. */
+    /* The name is the row: it reads at body strength, not chrome strength. */
+    color: var(--fg-body);
+  }
+  .dir {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* The head truncates from its own head: the part nearest the name is the
+       part that disambiguates it. */
     direction: rtl;
     text-align: left;
+    color: var(--fg-dimmer);
+    font-size: 11px;
+  }
+  /* A dotfile, a secret, or anything living under a dot-directory recedes
+     whole — name included. */
+  .tone-hidden,
+  .tone-hidden .icon,
+  .tone-hidden .base,
+  .tone-hidden .dir {
+    color: var(--fg-dimmest);
   }
   .none {
     margin: auto;
