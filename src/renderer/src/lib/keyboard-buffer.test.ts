@@ -14,6 +14,7 @@ const plain = { workspaceCount: 1, terminalColumn: false }
 const OCARINA = initialKeyState
 const NORMAL: KeyState = { ...initialKeyState, mode: 'NORMAL' }
 const INSERT: KeyState = { ...initialKeyState, mode: 'INSERT' }
+const LEAP: KeyState = { ...initialKeyState, mode: 'LEAP' }
 
 describe('entering the buffer from OCARINA', () => {
   it('enter gives motions: vim NORMAL, editor focused', () => {
@@ -48,6 +49,15 @@ describe('entering the buffer from OCARINA', () => {
 })
 
 describe('inside vim', () => {
+  it('LEAP leaves every key to the editor extension', () => {
+    for (const key of ['Escape', 'j', 'a', ' ']) {
+      const { state, actions, last } = pressWith(buffer, LEAP, key)
+      expect(state.mode).toBe('LEAP')
+      expect(actions).toEqual([])
+      expect(last.preventDefault).toBe(false)
+    }
+  })
+
   it('NORMAL leaves every letter to the editor', () => {
     for (const key of ['h', 'j', 'k', 'l', 'i', 'w', 'd', ':', ' ']) {
       const { state, actions, last } = pressWith(buffer, NORMAL, key)

@@ -131,6 +131,10 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
   if (state.mode === 'INSERT' || state.mode === 'VISUAL') {
     return result(state, [], false)
   }
+  // The buffer's leap extension owns every key while it is aiming. Its DOM
+  // handler normally stops propagation; this branch keeps the mode honest for
+  // synthetic events and for any key the editor deliberately lets bubble.
+  if (state.mode === 'LEAP') return result(state, [], false)
   if (state.mode === 'NORMAL') {
     if (key === 'Escape') {
       return result({ ...state, mode: 'OCARINA' }, [{ type: 'bufferBlur' }], true, 'clear')

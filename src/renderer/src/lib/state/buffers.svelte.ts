@@ -151,7 +151,8 @@ class Buffers {
     if (!isVimMode(app.mode)) return
     // Replace mode types over what is there — insert-shaped, so Escape stays
     // vim's own exit the way it is in INSERT.
-    if (vimMode === 'insert' || vimMode === 'replace') app.mode = 'INSERT'
+    if (vimMode === 'leap') app.mode = 'LEAP'
+    else if (vimMode === 'insert' || vimMode === 'replace') app.mode = 'INSERT'
     else if (vimMode === 'visual') app.mode = 'VISUAL'
     else app.mode = 'NORMAL'
   }

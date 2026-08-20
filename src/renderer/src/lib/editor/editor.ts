@@ -8,7 +8,13 @@
  *  once and route back to the mounted editor through a per-instance bag map —
  *  two buffer columns must not answer each other's `:w`. */
 
-import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view'
+import {
+  drawSelection,
+  EditorView,
+  highlightActiveLineGutter,
+  keymap,
+  lineNumbers,
+} from '@codemirror/view'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { bracketMatching, syntaxHighlighting } from '@codemirror/language'
@@ -17,6 +23,7 @@ import { Vim, getCM, vim, type CodeMirror } from '@replit/codemirror-vim'
 import { EX_COMMANDS, isForced, type ExBag } from './ex-commands'
 import { beginLeap, leapExtension } from './leap'
 import { ocarinaHighlight, ocarinaTheme } from './theme'
+import { showVisualLines, visualLineExtension } from './visual-line'
 
 export interface EditorOptions {
   text: string
@@ -25,6 +32,9 @@ export interface EditorOptions {
   bag: ExBag
   /** vim's own mode word: `normal`, `insert`, `visual`, `replace`. */
   onModeChange?: (mode: string) => void
+  /** Vim's transient notices (`2 lines yanked`, invalid commands, and so on).
+   *  The app routes these through its shared toast surface. */
+  onNotify?: (message: string) => void
   onDirtyChange?: (dirty: boolean) => void
   /** Gutter counts from the cursor, vim's relativenumber. Off by default;
    *  the buffer settings screen flips it through `setRelativeNumbers`. */
@@ -46,7 +56,7 @@ export interface EditorHandle {
   enterInsert(): void
   /** Focus in vim NORMAL with a leap already listening — `s` from the strip. */
   enterLeap(): void
-  /** A one-line message on vim's own notice line, for `:w` refusals. */
+  /** Emits a Vim-style notice through the same app notification seam. */
   notify(message: string): void
   /** Puts the cursor on a 1-based line and scrolls it into the middle —
    *  how a `path:12` chip lands where it pointed. */
@@ -117,8 +127,10 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
         // and notifications.
         vim({ status: false }),
         // Above vim inside its own precedence: leap must read `s` first.
-        leapExtension(),
+        leapExtension((active) => options.onModeChange?.(active ? 'leap' : 'normal')),
+        visualLineExtension,
         numbers.of(numberGutter()),
+        highlightActiveLineGutter(),
         // The vim plugin hides the native selection outright, so without this
         // layer visual mode selects invisibly — the one thing the mode is for.
         drawSelection(),
@@ -144,8 +156,26 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
   const cm = getCM(view)
   if (cm) {
     bags.set(cm, options.bag)
+    if (options.onNotify) {
+      const nativeNotification = cm.openNotification.bind(cm)
+      cm.openNotification = (template, notificationOptions) => {
+        const message = template.textContent
+          ?.replace(/\s*Press ENTER or type command to continue\s*$/, '')
+          .trim()
+        if (!message) return nativeNotification(template, notificationOptions)
+        options.onNotify?.(message)
+        return () => {}
+      }
+    }
     cm.on('vim-mode-change', (change: unknown) => {
-      const mode = (change as { mode?: string })?.mode
+      const { mode, subMode } = change as { mode?: string; subMode?: string }
+      const linewise = mode === 'visual' && subMode === 'linewise'
+      // Vim can emit this from inside CodeMirror's own selection update.
+      // Dispatching another transaction there is forbidden; the band can
+      // follow one microtask later without losing a frame.
+      queueMicrotask(() => {
+        if (view.dom.isConnected) showVisualLines(view, linewise)
+      })
       if (mode) options.onModeChange?.(mode)
     })
   }
@@ -190,8 +220,9 @@ export function mountEditor(host: HTMLElement, options: EditorOptions): EditorHa
     },
     notify: (message) => {
       const adapter = getCM(view)
-      ;(adapter as unknown as { openNotification?: (html: Node) => void })?.openNotification?.(
+      adapter?.openNotification(
         document.createTextNode(message),
+        { bottom: true, duration: 6000 },
       )
     },
     setRelativeNumbers: (on) => {

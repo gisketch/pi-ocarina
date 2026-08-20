@@ -233,12 +233,12 @@ describe('the mode mirror', () => {
   it('shows vim visual and replace on the one status bar', async () => {
     await opened()
     app.mode = 'NORMAL'
-    buffers.mirrorMode(COLUMN, 'visual')
-    expect(app.mode).toBe('VISUAL')
-    buffers.mirrorMode(COLUMN, 'replace')
-    expect(app.mode).toBe('INSERT')
-    buffers.mirrorMode(COLUMN, 'normal')
-    expect(app.mode).toBe('NORMAL')
+    for (const [vim, mode] of [
+      ['visual', 'VISUAL'], ['replace', 'INSERT'], ['leap', 'LEAP'], ['normal', 'NORMAL'],
+    ] as const) {
+      buffers.mirrorMode(COLUMN, vim)
+      expect(app.mode).toBe(mode)
+    }
   })
 
   it('says nothing when the strip has the keyboard', async () => {

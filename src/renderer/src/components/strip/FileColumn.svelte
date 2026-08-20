@@ -7,6 +7,7 @@
   import { buffers } from '$lib/state/buffers.svelte'
   import { isVimMode } from '$lib/types'
   import { preferences } from '$lib/state/preferences.svelte'
+  import { toasts } from '$lib/state/toasts.svelte'
   import { mountEditor, type EditorHandle } from '$lib/editor/editor'
 
   const { columnId, focused, onfocus }: {
@@ -38,6 +39,7 @@
         quitAll: (force) => buffers.quitAll(force),
       },
       onModeChange: (mode) => buffers.mirrorMode(columnId, mode),
+      onNotify: (text) => toasts.push({ tone: 'info', text }),
       onDirtyChange: (dirty) => buffers.setDirty(columnId, dirty),
       relativeNumbers: preferences.bufferRelativeNumbers,
     })
@@ -86,8 +88,21 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: var(--bg-deep);
+    /* A buffer is another column in the same strip, so it uses the CHAT
+       column's exact attention treatment rather than becoming a dark editor
+       embedded beside it. CodeMirror itself stays transparent. */
+    background: var(--bg-column-idle);
+    opacity: 0.4;
+    transition:
+      opacity 0.4s,
+      background 0.4s;
     overflow: hidden;
+    cursor: pointer;
+  }
+  .buffer.focused {
+    opacity: 1;
+    background: var(--bg-column-focus);
+    cursor: default;
   }
 
   .head {

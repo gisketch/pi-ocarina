@@ -23,10 +23,15 @@ class LabelWidget extends WidgetType {
     return other.label === this.label
   }
   toDOM(): HTMLElement {
-    const span = document.createElement('span')
-    span.className = 'cm-leap-label'
-    span.textContent = this.label
-    return span
+    // A zero-width anchor with an absolute glyph: the label paints ON TOP of
+    // the character after the match instead of pushing it aside — leap.nvim's
+    // own look, and the text never shifts under the reader's aim.
+    const anchor = document.createElement('span')
+    anchor.className = 'cm-leap-label'
+    const glyph = document.createElement('span')
+    glyph.textContent = this.label
+    anchor.appendChild(glyph)
+    return anchor
   }
   override ignoreEvent(): boolean {
     return true
@@ -38,10 +43,31 @@ const setLabels = StateEffect.define<number[] | null>()
 /** An external way in: `s` from the strip enters the buffer already leaping.
  *  The effect reaches the closure below through its update listener. */
 const leapBegin = StateEffect.define<{ forward: boolean }>()
+const leapEnd = StateEffect.define<null>()
 
 export function beginLeap(view: EditorView, forward = true): void {
   view.dispatch({ effects: leapBegin.of({ forward }) })
 }
+
+/** Whether a leap is aiming right now. Drives the dim — every character not
+ *  part of a match steps back so the matches are the only thing lit — and
+ *  the `cm-leaping` class the theme hangs it on. */
+const activeField = StateField.define<boolean>({
+  create: () => false,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(leapBegin)) value = true
+      if (effect.is(leapEnd)) value = false
+    }
+    return value
+  },
+  provide: (field) =>
+    EditorView.editorAttributes.from(field, (on) => {
+      const attributes: Record<string, string> = {}
+      if (on) attributes.class = 'cm-leaping'
+      return attributes
+    }),
+})
 
 const labelField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -62,16 +88,31 @@ const labelField = StateField.define<DecorationSet>({
 })
 
 const leapTheme = EditorView.baseTheme({
-  '.cm-leap-hit': {
+  '&.cm-leaping .cm-content, &.cm-leaping .cm-content *': {
+    color: 'var(--fg-dimmest) !important',
+  },
+  '&.cm-leaping .cm-leap-hit': {
     backgroundColor: 'var(--accent-soft)',
-    color: 'var(--fg-bright)',
+    color: 'var(--fg-bright) !important',
   },
   '.cm-leap-label': {
+    position: 'relative',
+    display: 'inline',
+    width: '0',
+    height: '0',
+  },
+  '&.cm-leaping .cm-leap-label > span': {
+    position: 'absolute',
+    left: '0',
+    bottom: '-0.15em',
+    zIndex: '2',
     backgroundColor: 'var(--accent)',
-    color: 'var(--bg-panel, #101014)',
-    padding: '0 2px',
-    marginLeft: '1px',
+    color: 'var(--bg-panel, #101014) !important',
+    minWidth: '1ch',
+    padding: '0 1px',
     fontWeight: 'bold',
+    lineHeight: '1.2',
+    textAlign: 'center',
   },
 })
 
@@ -112,12 +153,12 @@ interface Session {
 
 /** One leap per editor: the session lives in this closure, the decorations in
  *  the state field. */
-export function leapExtension(): Extension {
+export function leapExtension(onActiveChange?: (active: boolean) => void): Extension {
   let session: Session | null = null
 
   const clear = (view: EditorView): void => {
     session = null
-    view.dispatch({ effects: setLabels.of(null) })
+    view.dispatch({ effects: [setLabels.of(null), leapEnd.of(null)] })
   }
 
   const jump = (view: EditorView, pos: number): void => {
@@ -141,7 +182,7 @@ export function leapExtension(): Extension {
 
     if (session === null) {
       if ((event.key !== 's' && event.key !== 'S') || !vimIdle(view)) return false
-      session = { forward: event.key === 's', chars: '', targets: [] }
+      view.dispatch({ effects: leapBegin.of({ forward: event.key === 's' }) })
       event.preventDefault()
       event.stopPropagation()
       return true
@@ -183,11 +224,16 @@ export function leapExtension(): Extension {
   }
 
   return [
+    activeField,
     labelField,
     leapTheme,
     // The strip's way in (`beginLeap`): the effect lands here because the
     // session is closure state the effect cannot reach on its own.
     EditorView.updateListener.of((update) => {
+      const wasActive = update.startState.field(activeField)
+      const active = update.state.field(activeField)
+      if (active !== wasActive) onActiveChange?.(active)
+
       for (const tr of update.transactions) {
         for (const effect of tr.effects) {
           if (effect.is(leapBegin)) {

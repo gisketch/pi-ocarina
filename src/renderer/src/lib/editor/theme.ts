@@ -1,7 +1,8 @@
 /** The buffer column's look, from the app's own variables (spec D2).
  *
  *  CodeMirror paints through this extension and nothing else — no bundled
- *  theme, so the buffer cannot drift off-palette when the accent moves. */
+ *  theme. Its surface stays transparent so it is visibly part of the column;
+ *  the workspace accent and its rotations supply the syntax hierarchy. */
 
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle } from '@codemirror/language'
@@ -13,7 +14,7 @@ export const ocarinaTheme = EditorView.theme(
       height: '100%',
       fontSize: '11.5px',
       backgroundColor: 'transparent',
-      color: 'var(--fg-dim)',
+      color: 'var(--fg)',
     },
     '.cm-content': {
       fontFamily: 'var(--font-body)',
@@ -31,13 +32,45 @@ export const ocarinaTheme = EditorView.theme(
     '&:not(.cm-focused) .cm-fat-cursor': {
       display: 'none',
     },
-    // Visual mode's band. The vim plugin hides the native selection, so this
-    // paints drawSelection's layer — and it must read as a band, not a tint:
-    // the selection is the entire point of the mode.
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-      backgroundColor: 'color-mix(in srgb, var(--accent) 24%, transparent)',
+    // Characterwise visual mode uses CodeMirror's native range. Linewise mode
+    // suppresses that range and supplies one text-only mark per selected row,
+    // preventing any paint over the empty canvas after an end-of-line.
+    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+      backgroundColor: 'color-mix(in srgb, var(--accent) 24%, var(--bg-column))',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+    // CodeMirror's linewise range includes each newline. Its selection layer
+    // turns that into a full-width rectangle, so hide the layer completely
+    // while our character-only marks are active. Native selection is also
+    // forced clear so the app-wide green ::selection colour cannot leak in.
+    '&.cm-visual-line-mode .cm-selectionLayer': {
+      display: 'none',
+    },
+    '&.cm-visual-line-mode .cm-line::selection, &.cm-visual-line-mode .cm-line *::selection': {
+      backgroundColor: 'transparent !important',
+    },
+    '.cm-visual-line-text': {
+      // Mix onto the opaque column ground before painting. A translucent mark
+      // gets brighter wherever another decoration or seam shadow crosses it;
+      // this colour is idempotent no matter how many times that pixel paints.
+      backgroundColor: 'color-mix(in srgb, var(--accent) 22%, var(--bg-column))',
+      boxShadow:
+        '0 -1px 0 color-mix(in srgb, var(--accent) 22%, var(--bg-column)), 0 1px 0 color-mix(in srgb, var(--accent) 22%, var(--bg-column))',
+    },
+    '.cm-visual-line-current': {
+      backgroundColor: 'color-mix(in srgb, var(--accent) 34%, var(--bg-column))',
+      boxShadow:
+        '0 -1px 0 color-mix(in srgb, var(--accent) 34%, var(--bg-column)), 0 1px 0 color-mix(in srgb, var(--accent) 34%, var(--bg-column))',
+      fontWeight: '600',
+      filter: 'brightness(1.16)',
+    },
+    // Current-line emphasis is typographic, so it also stops at the text.
+    // There is deliberately no full-width active-line background.
+    '.cm-activeLine': {
+      backgroundColor: 'transparent',
+      color: 'var(--fg-bright)',
+      fontWeight: '600',
+      filter: 'brightness(1.1)',
+    },
     '.cm-gutters': {
       backgroundColor: 'transparent',
       color: 'var(--fg-ghost)',
@@ -46,7 +79,9 @@ export const ocarinaTheme = EditorView.theme(
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',
-      color: 'var(--fg-dim)',
+      color: 'var(--fg-bright)',
+      fontWeight: '700',
+      filter: 'brightness(1.16)',
     },
     // The vim `:` line and search prompt, drawn by the plugin.
     '.cm-vim-panel': {
@@ -69,22 +104,20 @@ export const ocarinaTheme = EditorView.theme(
   { dark: true },
 )
 
-/** Syntax colours from the same tokens the rest of the app paints with — the
- *  accent hue leads, the two derived tones carry names and types, and the
- *  status colours (`--ok`, `--warn`, `--err`) keep the meanings they have
- *  everywhere else: strings are ok-green, numbers warn-amber, invalid is err. */
+/** Workspace colour leads the grammar. Its two rotated tones separate values,
+ *  calls and types without importing a second palette into the column. */
 export const ocarinaHighlight = HighlightStyle.define(
   [
-    { tag: [tags.keyword, tags.moduleKeyword, tags.controlKeyword], color: 'var(--accent)' },
-    { tag: [tags.operator, tags.operatorKeyword, tags.definitionKeyword], color: 'var(--accent)' },
-    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: 'var(--ok-text)' },
-    { tag: [tags.number, tags.bool, tags.atom, tags.null, tags.escape], color: 'var(--warn)' },
+    { tag: [tags.keyword, tags.moduleKeyword, tags.controlKeyword], color: 'var(--accent)', fontWeight: '500' },
+    { tag: [tags.operator, tags.operatorKeyword, tags.definitionKeyword], color: 'color-mix(in srgb, var(--accent) 72%, var(--fg-dim))' },
+    { tag: [tags.string, tags.special(tags.string), tags.regexp], color: 'var(--tone-2)' },
+    { tag: [tags.number, tags.bool, tags.atom, tags.null, tags.escape], color: 'var(--tone-3)' },
     { tag: [tags.comment, tags.docComment], color: 'var(--fg-dimmest)', fontStyle: 'italic' },
-    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: 'var(--tone-2)' },
+    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: 'var(--tone-2)', fontWeight: '500' },
     { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--tone-3)' },
     { tag: [tags.propertyName, tags.attributeName, tags.labelName], color: 'var(--fg-body)' },
     { tag: [tags.variableName, tags.definition(tags.variableName)], color: 'var(--fg)' },
-    { tag: [tags.tagName, tags.macroName, tags.annotation], color: 'var(--tone-2)' },
+    { tag: [tags.tagName, tags.macroName, tags.annotation], color: 'var(--accent)' },
     { tag: [tags.meta, tags.punctuation, tags.separator, tags.bracket], color: 'var(--fg-dim)' },
     { tag: [tags.heading], color: 'var(--fg-bright)', fontWeight: 'bold' },
     { tag: [tags.emphasis], fontStyle: 'italic' },

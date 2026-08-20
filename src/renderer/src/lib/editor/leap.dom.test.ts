@@ -69,6 +69,35 @@ describe('leap in a mounted editor', () => {
     expect(view.state.selection.main.head).toBe(15)
   })
 
+  it('announces LEAP, dims the buffer, highlights matches, and overlays labels', () => {
+    const active: boolean[] = []
+    view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc: 'alpha beta and beta again',
+        extensions: [vim(), leapExtension((now) => active.push(now))],
+      }),
+    })
+
+    press('s')
+    expect(active).toEqual([true])
+    expect(view.dom.classList.contains('cm-leaping')).toBe(true)
+
+    press('b')
+    press('e')
+    expect(view.dom.querySelectorAll('.cm-leap-hit')).toHaveLength(2)
+    const labels = view.dom.querySelectorAll<HTMLElement>('.cm-leap-label')
+    expect(labels).toHaveLength(2)
+    expect(labels[0]?.firstElementChild?.textContent).toBe('j')
+    expect(getComputedStyle(labels[0]!).width).toBe('0px')
+    expect(getComputedStyle(labels[0]!.firstElementChild!).position).toBe('absolute')
+    expect(view.state.doc.toString()).toBe('alpha beta and beta again')
+
+    press('Escape')
+    expect(active).toEqual([true, false])
+    expect(view.dom.classList.contains('cm-leaping')).toBe(false)
+  })
+
   it('escape cancels a leap and stays put', () => {
     mount('alpha beta and beta again')
     press('s')
@@ -82,6 +111,7 @@ describe('leap in a mounted editor', () => {
     const { mountEditor } = await import('./editor')
     const host = document.createElement('div')
     document.body.appendChild(host)
+    const modes: string[] = []
     const handle = mountEditor(host, {
       text: 'alpha beta',
       path: 'a.txt',
@@ -90,22 +120,27 @@ describe('leap in a mounted editor', () => {
         quit: () => {},
         quitAll: () => {},
       },
+      onModeChange: (mode) => modes.push(mode),
     })
     const inner = host.querySelector('.cm-content') as HTMLElement
     const hit = (key: string): void => {
       inner.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
     }
     hit('s')
+    expect(modes.at(-1)).toBe('leap')
     hit('b')
     hit('e')
+    expect(modes.at(-1)).toBe('normal')
     const mounted = EditorView.findFromDOM(host)
     expect(mounted?.state.selection.main.head).toBe(6)
 
     // The strip's way in: enterLeap arms a session without an s keypress.
     mounted?.dispatch({ selection: { anchor: 0 } })
     handle.enterLeap()
+    expect(modes.at(-1)).toBe('leap')
     hit('b')
     hit('e')
+    expect(modes.at(-1)).toBe('normal')
     expect(mounted?.state.selection.main.head).toBe(6)
     handle.destroy()
   })

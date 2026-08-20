@@ -53,6 +53,7 @@
   import type { CommandId } from '$lib/commands'
   import { permission } from '$lib/state/permission.svelte'
   import { preferences } from '$lib/state/preferences.svelte'
+  import { openPickedFile } from '$lib/state/open-picked-file'
 
   // The demo columns belong to the browser harness alone — it has no backend
   // to pin against, so demo data is the only thing it can draw. The desktop app
@@ -257,10 +258,7 @@
   {:else if shell.overlay === 'filefind'}
     <FileFind
       onclose={() => shell.closeOverlay()}
-      onpick={(path) => {
-        shell.closeOverlay()
-        void buffers.open(app.workspace.id, path)
-      }}
+      onpick={(path) => void openPickedFile(path)}
     />
   {:else if shell.overlay === 'search'}
     <SearchOverlay

@@ -42,7 +42,8 @@ the `w` switcher.
   buffer column, `Enter` enters vim NORMAL and `i` enters vim INSERT directly —
   `i` keeps meaning "start typing here" on every column kind. Escape walks one
   rung: INSERT → NORMAL → OCARINA; CHAT → OCARINA. READ, DIFF, TERM and LEADER
-  keep their names and jobs.
+  keep their names and jobs. While buffer leap owns the keys, the mode is
+  `LEAP`; it returns to `NORMAL` when the leap lands or is cancelled.
 
 - D4: `␣f` opens file search. Nothing is lost: `␣f` was a duplicate door to
   the thread content search, and `/` still opens that screen. The file search
@@ -96,9 +97,21 @@ the `w` switcher.
 - `␣f` opens the file search in the telescopic dialog: generic placeholder,
   list left, file preview right, no lag while typing.
 - Enter on a hit opens that file as a buffer column directly right of the
-  focused column; a file already open focuses its existing column.
+  focused column and enters Vim NORMAL; a file already open focuses its
+  existing column and enters NORMAL too.
 - The status bar says OCARINA on the strip, CHAT in the composer, NORMAL and
   INSERT inside a buffer. Escape walks INSERT → NORMAL → OCARINA.
+- Pressing `s` or `S` in buffer NORMAL shows LEAP in the status bar, dims the
+  buffer text, keeps matches bright, and paints each hint over its character
+  without shifting the document.
+- Vim `V` paints only the existing characters on each selected row; trailing
+  canvas stays clear, with no seams or brighter alpha overlaps between
+  adjacent selected rows. The moving/current row and its gutter number are
+  brighter and bold.
+  Characterwise `v` remains character-shaped. Vim notices such as yank counts
+  and command errors use the app toast stack instead of an embedded editor
+  panel. The buffer uses the CHAT column's focused and idle surfaces; syntax
+  uses the workspace accent and its derived tones rather than a separate theme.
 - `Enter` on a focused buffer column enters vim NORMAL; `i` enters INSERT.
   Real vim motions work; `:w` writes, `:q` closes the column, `:wq` both,
   `:qa` closes every buffer column, `!` forces.
