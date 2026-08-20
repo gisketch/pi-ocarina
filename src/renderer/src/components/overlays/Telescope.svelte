@@ -151,6 +151,10 @@
     min-height: 0;
     overflow-y: auto;
     padding: 4px 0;
+    /* The offset parent for the scrolloff arithmetic: an entry's offsetTop
+       must be measured against this box, not the shell panel behind it —
+       the same contract the keymaps screen keeps. */
+    position: relative;
   }
   .entry {
     display: block;
