@@ -115,6 +115,30 @@ export function hasSomething(block: Block): boolean {
 export function withoutThinking(block: Block): Block {
   if (block.kind !== 'ledger') return block
 
+  const filtered = thoughtless.get(block)
+  if (filtered) return filtered
+
   const rows = block.rows.filter((row) => row.kind !== 'think')
-  return rows.length === block.rows.length ? block : { ...block, rows }
+  const made = rows.length === block.rows.length ? block : { ...block, rows }
+  // Remembered by the block's identity, which the reducer replaces whenever a
+  // row changes — so a hit is always current. Without this, every streamed
+  // token handed every thought-bearing ledger in the thread a fresh object,
+  // and every one of them re-ran its walks for a token that touched none.
+  thoughtless.set(block, made)
+  return made
 }
+
+const thoughtless = new WeakMap<Block, Block>()
+
+/** The blocks a thread draws with thinking hidden — the one list the renderer
+ *  and the nav model must agree on, filtered once and remembered by the block
+ *  array's identity so a keypress re-reads rather than re-filters. */
+export function visibleBlocks(blocks: Block[]): Block[] {
+  const hit = visible.get(blocks)
+  if (hit) return hit
+  const made = blocks.map(withoutThinking).filter(hasSomething)
+  visible.set(blocks, made)
+  return made
+}
+
+const visible = new WeakMap<Block[], Block[]>()

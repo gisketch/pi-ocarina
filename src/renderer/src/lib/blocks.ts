@@ -9,8 +9,7 @@
  *  that spawned them, and the ledger's one-level nesting stays the single
  *  special case it already is. */
 
-import { parseMarkdown } from './markdown'
-import { segmentText, segmentsOf } from './markdown-segments'
+import { parseMarkdownCached, segmentTextCached, segmentsOfCached } from './parse-cache'
 import { pointableRows } from './ledger-rows'
 import { countedAs, groupRows, type RowGroup } from './ledger-groups'
 import type { Block, ToolRow } from './thread'
@@ -129,13 +128,16 @@ function labelFor(kind: string | undefined, source: string): string {
  *  already contain a colon (`user:e1`) and the ledger's row separator would be
  *  ambiguous here. */
 function messageEntries(kind: 'user' | 'agent', blockId: string, text: string): NavBlock[] {
-  const segments = segmentsOf(parseMarkdown(text))
+  // The cached parse: this runs per keypress and per streamed token, over
+  // every message in the thread, and the renderer has already parsed the same
+  // text — the nav model must never pay for it twice.
+  const segments = segmentsOfCached(parseMarkdownCached(text))
   if (segments.length <= 1) {
     return [{ id: blockId, kind, blockId, label: short(text), text }]
   }
 
   return segments.map((segment, at) => {
-    const source = segmentText(segment)
+    const source = segmentTextCached(segment)
     return {
       id: `${blockId}#${at}`,
       kind,

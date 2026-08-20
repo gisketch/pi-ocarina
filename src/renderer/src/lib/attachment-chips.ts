@@ -67,7 +67,10 @@ export function markNodes(
   nodes: readonly MarkdownNode[],
   attachments: readonly MessageAttachment[] = [],
 ): MarkdownNode[] {
-  if (attachments.length === 0) return [...nodes]
+  // The input untouched, not a copy: with nothing to mark this is the identity
+  // pass, and the caller's memoized readers (`segmentsOfCached`) recognise a
+  // parse they have seen only by the array staying the same array.
+  if (attachments.length === 0) return nodes as MarkdownNode[]
 
   return nodes.map((node): MarkdownNode => {
     if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'quote') {

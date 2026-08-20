@@ -12,7 +12,7 @@
   import BlockMenu from './BlockMenu.svelte'
   import TurnFooter from './TurnFooter.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
-  import { hasSomething, withoutThinking } from '$lib/thread-rows'
+  import { visibleBlocks } from '$lib/thread-rows'
   import { groupShown } from '$lib/ledger-groups'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
@@ -47,9 +47,10 @@
   // row left in place with its contents hidden still holds the space it stood
   // in, and a reader who asked for the thinking to be gone gets a column of
   // gaps where it was.
-  const shown = $derived(
-    reasoningOpen.shown ? blocks : blocks.map(withoutThinking).filter(hasSomething),
-  )
+  // `visibleBlocks` is memoized and shared with the nav model, so the two can
+  // never disagree about what is drawn — and a streamed token that touched one
+  // ledger hands every other block back with its identity intact.
+  const shown = $derived(reasoningOpen.shown ? blocks : visibleBlocks(blocks))
 
   // Which blocks open a turn's worth of agent work. pi splits one turn across
   // several messages and interleaves tool calls between them, so the name is

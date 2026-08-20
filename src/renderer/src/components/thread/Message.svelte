@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { parseMarkdown, type ListItem, type MarkdownNode } from '$lib/thread'
+  import type { ListItem, MarkdownNode } from '$lib/thread'
+  import { parseMarkdownCached, segmentsOfCached } from '$lib/parse-cache'
   import Icon from '../Icon.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
@@ -9,7 +10,6 @@
   import Quote from './md/Quote.svelte'
   import Table from './md/Table.svelte'
 
-  import { segmentsOf } from '$lib/markdown-segments'
   import { markNodes, unnamedIn } from '$lib/attachment-chips'
   import { collapseSkills, markSkillNodes } from '$lib/skill-chips'
   import AttachmentCard from './AttachmentCard.svelte'
@@ -50,8 +50,8 @@
   // invocation, so it skips both passes.
   const nodes = $derived(
     role === 'user'
-      ? markSkillNodes(markNodes(parseMarkdown(collapseSkills(text)), attachments))
-      : markNodes(parseMarkdown(text), attachments),
+      ? markSkillNodes(markNodes(parseMarkdownCached(collapseSkills(text)), attachments))
+      : markNodes(parseMarkdownCached(text), attachments),
   )
   /** Files the message never named. They travelled with it, so they are drawn
    *  — as chips after the text, never as a paragraph describing them. */
@@ -65,7 +65,7 @@
   const openChip = (name: string): void => {
     opened = opened === name ? null : name
   }
-  const segments = $derived(segmentsOf(nodes))
+  const segments = $derived(segmentsOfCached(nodes))
 
   /** A message with one segment keeps the block's own id, so nothing about the
    *  common case changes. `blocks.ts` numbers them the same way. */

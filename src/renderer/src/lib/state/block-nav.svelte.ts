@@ -6,7 +6,7 @@
  *  owns what happens inside one column once the key has arrived. */
 
 import { navBlocks } from '../blocks'
-import { hasSomething, withoutThinking } from '../thread-rows'
+import { visibleBlocks } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { isVimMode } from '../types'
@@ -33,15 +33,14 @@ class BlockNav {
   }
 
   /** The nav list of the focused thread. Rebuilt per keypress rather than
-   *  cached: a keypress is not a hot path, and a stale list would point at
-   *  blocks a restore has taken away. */
+   *  cached, so it can never point at blocks a restore has taken away — the
+   *  rebuild is cheap because everything expensive under it (the markdown
+   *  parse, the thinking filter) is memoized at its own seam. */
   #list(threadId = app.thread.id): ReturnType<typeof navBlocks> {
     const blocks = threads.get(threadId).blocks
     // A hidden thought is not drawn, so it is not somewhere `j` can go: a ring
     // on nothing is a key that appears to do nothing.
-    const visible = reasoningOpen.shown
-      ? blocks
-      : blocks.map(withoutThinking).filter(hasSomething)
+    const visible = reasoningOpen.shown ? blocks : visibleBlocks(blocks)
 
     return navBlocks(visible, (navId, group) =>
       groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),

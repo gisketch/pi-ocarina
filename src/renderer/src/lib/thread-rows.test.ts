@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasSomething, withoutThinking } from './thread-rows'
+import { hasSomething, visibleBlocks, withoutThinking } from './thread-rows'
 import type { Block, ToolRow } from './thread'
 
 const think = (id: string): ToolRow => ({ id, kind: 'think', target: 'a thought', status: 'ok' })
@@ -33,5 +33,30 @@ describe('taking the thinking out', () => {
     const message: Block = { kind: 'user', id: 'u1', text: 'hello' }
     expect(withoutThinking(message)).toBe(message)
     expect(hasSomething(message)).toBe(true)
+  })
+
+  it('answers the same block with the same filtered object', () => {
+    // Identity is the contract: the reducer replaces a block whenever a row
+    // changes, so a repeat of the same object means nothing changed — and a
+    // ledger handed a fresh copy per streamed token re-ran every walk it has
+    // for a token that touched none of them.
+    const block: Block = { kind: 'ledger', id: 'l1', rows: [think('t1'), read('r1')] }
+    expect(withoutThinking(block)).toBe(withoutThinking(block))
+  })
+})
+
+describe('the one visible list', () => {
+  it('filters, drops the emptied, and remembers by the array', () => {
+    const blocks: Block[] = [
+      { kind: 'ledger', id: 'l1', rows: [think('t1'), read('r1')] },
+      { kind: 'ledger', id: 'l2', rows: [think('t2')] },
+      { kind: 'agent', id: 'a1', text: 'answer' },
+    ]
+    const shown = visibleBlocks(blocks)
+    expect(shown.map((block) => block.id)).toEqual(['l1', 'a1'])
+    expect(visibleBlocks(blocks)).toBe(shown)
+
+    // A block untouched by the filter keeps its identity outright.
+    expect(shown[1]).toBe(blocks[2])
   })
 })

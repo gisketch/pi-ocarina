@@ -130,9 +130,15 @@ export function followColumn(
    *  it genuinely holds still. Writing once was never enough — the write
    *  itself makes the column measure blocks it had only estimated,
    *  `scrollHeight` grows under the write, and a single correction still
-   *  landed short. While a turn is running the loop never quits at all:
-   *  the stream renders on its own schedule, and "quiet for a frame" is not
-   *  "done" — this is what pins the working footer the moment a send lands. */
+   *  landed short.
+   *
+   *  The loop always ends after the quiet window. It used to run for the
+   *  whole of a running turn, and every pass reads `scrollHeight` — a forced
+   *  layout of a column whose blocks are deliberately unmeasured, sixty times
+   *  a second, per following column, for minutes. The arrival effect below
+   *  restarts the loop on every delta, so a stream is still pinned the frame
+   *  it lands; what the turn-long loop bought beyond that was only the
+   *  layout it forced. */
   const settle = (): void => {
     settling = 0
     const box = element()
@@ -140,6 +146,9 @@ export function followColumn(
     // intervening frame keeps it — yanking it back is the one thing follow
     // mode promises never to do.
     if (!box || !following.of(threadId()).following) return
+    // A column that is not laid out — its workspace's strip is hidden — has
+    // no bottom to hold. The next arrival re-pins it; so does its reveal.
+    if (box.offsetParent === null) return
 
     // A jump's animation owns the travel. Its aim re-asks for the bottom
     // every frame, so it arrives wherever the bottom has moved to — writing
@@ -154,7 +163,7 @@ export function followColumn(
     const wanted = Math.max(0, box.scrollHeight - box.clientHeight)
     if (Math.abs(box.scrollTop - wanted) < 1) {
       quiet += 1
-      if (quiet > QUIET_FRAMES && threads.get(threadId()).runState !== 'running') return
+      if (quiet > QUIET_FRAMES) return
     } else {
       quiet = 0
       box.scrollTop = box.scrollHeight
@@ -180,6 +189,10 @@ export function followColumn(
     // not an arrival; it is a reader saying where they want to be, and how
     // they get there is the jump's business.
     if (!box || !untrack(() => following.of(threadId()).following)) return
+    // A hidden column's scrollHeight is zero, and writing that zero into
+    // `scrollTop` would still be there at reveal — the column would come back
+    // at its top. The strip re-pins followed columns when it shows them.
+    if (box.offsetParent === null) return
     // A jump still travelling keeps the wheel: its aim is the live bottom,
     // asked again every frame, so the arrival that just landed is already
     // where it is going — smoothly, the same glide `G` has. The pin writes

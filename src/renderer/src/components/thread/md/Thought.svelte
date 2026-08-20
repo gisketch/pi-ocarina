@@ -6,19 +6,23 @@
    *  than an answer. A thought styled like an answer competes with the answer,
    *  and the answer is what the reader came for. */
   import Inline from './Inline.svelte'
-  import { parseInline } from '$lib/markdown-inline'
+  import { parseInlineCached } from '$lib/parse-cache'
 
   const { text }: { text: string } = $props()
 
   /** Paragraphs, not blocks: a thought is prose, and running it through the
    *  full markdown parser would let it grow headings and tables inside a tool
-   *  body. Blank lines are the only structure it keeps. */
+   *  body. Blank lines are the only structure it keeps.
+   *
+   *  Parsed through the cache: a streaming thought grows at its tail, and its
+   *  settled paragraphs used to re-parse on every arriving delta. */
   const paragraphs = $derived(text.split(/\n{2,}/).filter((one) => one.trim() !== ''))
+  const parsed = $derived(paragraphs.map((paragraph) => parseInlineCached(paragraph)))
 </script>
 
 <div class="thought">
-  {#each paragraphs as paragraph, i (i)}
-    <p><Inline parts={parseInline(paragraph)} /></p>
+  {#each parsed as parts, i (i)}
+    <p><Inline {parts} /></p>
   {/each}
 </div>
 

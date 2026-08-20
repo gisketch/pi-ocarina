@@ -178,19 +178,51 @@ class BlockFocus {
     revealBlock(threadId, next)
   }
 
-  /** The blocks the reader can see, in order. */
+  /** The blocks the reader can see, in order.
+   *
+   *  Entries are in document order, so where the viewport starts is found by
+   *  binary search rather than by measuring every block: each measurement is
+   *  a forced layout, and the first `j` in a five-thousand-block thread used
+   *  to pay for all five thousand to learn which ten were on screen. */
   #visible(threadId: string, list: NavBlock[]): NavBlock[] {
     const body = columnBody(threadId)
     if (!body) return []
 
     const box = body.getBoundingClientRect()
-    return list.filter((entry) => {
-      const el = blockElement(threadId, entry.id)
-      if (!el) return false
+    const rectOf = (entry: NavBlock): DOMRect | undefined =>
+      blockElement(threadId, entry.id)?.getBoundingClientRect()
 
-      const rect = el.getBoundingClientRect()
-      return rect.bottom > box.top && rect.top < box.bottom
-    })
+    // The first entry that ends below the top of the view. An unregistered
+    // entry has no rect to compare; the probe walks forward to the nearest
+    // one that does, which keeps the search sound around gaps.
+    let low = 0
+    let high = list.length - 1
+    let first = list.length
+    while (low <= high) {
+      const mid = (low + high) >> 1
+      let at = mid
+      let rect: DOMRect | undefined
+      while (at <= high && (rect = rectOf(list[at])) === undefined) at += 1
+      if (rect === undefined) {
+        high = mid - 1
+        continue
+      }
+      if (rect.bottom > box.top) {
+        first = at
+        high = mid - 1
+      } else {
+        low = at + 1
+      }
+    }
+
+    const seen: NavBlock[] = []
+    for (let at = first; at < list.length; at += 1) {
+      const rect = rectOf(list[at])
+      if (!rect) continue
+      if (rect.top >= box.bottom) break
+      if (rect.bottom > box.top) seen.push(list[at])
+    }
+    return seen
   }
 
   /** Where the ring appears when there was not one. Moving down starts at the
