@@ -11,7 +11,7 @@
   const GROUPS = ['navigate', 'buffer', 'screens', 'read', 'diff', 'leader'] as const
   const TITLES: Record<string, string> = {
     navigate: 'NAVIGATE',
-    buffer: 'BUFFER',
+    buffer: 'EDITOR',
     screens: 'SCREENS',
     read: 'READ',
     diff: 'DIFF',

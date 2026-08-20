@@ -89,7 +89,7 @@
       enter: onmodes,
     },
     {
-      label: 'buffer settings',
+      label: 'editor settings',
       value: () => 'edit',
       hint: onbuffer ? 'enter' : 'none',
       enter: onbuffer,

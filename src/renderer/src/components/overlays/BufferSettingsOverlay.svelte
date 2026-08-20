@@ -29,7 +29,7 @@
       enter: () => preferences.toggleBufferRelativeNumbers(),
     },
     {
-      label: 'buffer keymaps',
+      label: 'editor keymaps',
       value: () => 'edit',
       enter: () => onkeymap(),
     },
@@ -59,9 +59,9 @@
 
 <svelte:window {onkeydown} />
 
-<Backdrop {onclose} z={54} label="Buffer settings">
+<Backdrop {onclose} z={54} label="Editor settings">
   <div class="panel">
-    <div class="head">BUFFER SETTINGS</div>
+    <div class="head">EDITOR SETTINGS</div>
 
     <div class="rows">
       {#each rows as row, i (row.label)}
@@ -83,8 +83,8 @@
     </div>
 
     <div class="note">
-      the entry keys live under BUFFER on the keymaps screen — vim's own keys
-      inside the buffer are vim's
+      the entry keys live under EDITOR on the keymaps screen — vim's own keys
+      inside the editor are vim's
     </div>
 
     <div class="foot">j/k move · ⏎ change · esc close</div>

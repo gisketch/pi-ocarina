@@ -39,7 +39,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'terminal.open': { mode: 'OCARINA', key: 't', label: 'terminal column', group: 'navigate' },
   'thread.rename': { mode: 'OCARINA', key: 'R', label: 'rename thread', group: 'navigate' },
   'leader.start': { mode: 'OCARINA', key: ' ', label: 'leader chord', group: 'navigate' },
-  'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose · buffer insert', group: 'navigate' },
+  'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose · editor insert', group: 'navigate' },
   'yank.code': { mode: 'OCARINA', key: 'y', label: 'yank last code', group: 'navigate' },
   'reasoning.toggle': { mode: 'OCARINA', key: 'o', label: 'toggle reasoning', group: 'navigate' },
   'block.menu': { mode: 'OCARINA', key: 'a', label: 'block actions', group: 'navigate' },
@@ -51,7 +51,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   // here" — on a column that types through vim. Moving compose.insert moves
   // both, which is the point. Vim's own keys inside the buffer are vim's,
   // not the registry's.
-  'buffer.normal': { mode: 'OCARINA', key: 'Enter', label: 'enter buffer (vim normal)', group: 'buffer' },
+  'buffer.normal': { mode: 'OCARINA', key: 'Enter', label: 'enter editor (vim normal)', group: 'buffer' },
 
   'changes.open': { mode: 'OCARINA', key: 'd', label: 'change viewer', group: 'screens' },
   'switcher.open': { mode: 'OCARINA', key: 'w', label: 'thread switcher', group: 'screens' },
