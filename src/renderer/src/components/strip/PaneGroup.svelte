@@ -100,11 +100,19 @@
     height: 100%;
     flex: none;
     min-width: 0;
-    transition: filter var(--dur-fast) ease;
+    transition: opacity var(--dur-fast) ease;
   }
 
+  /* The inactive member recedes by opacity, never by `filter`: a filter here
+     re-rasters the whole member on every content change, and one member is a
+     live streaming column — exactly the per-frame paint cost the
+     frame-interval sweep in docs/quality.md exists to catch. Opacity is the
+     compositor's to blend, so a token stream in one pane paints nothing in
+     the other. The column already dims itself against the strip
+     (ThreadColumn drops to 0.4 unfocused); this layer only tells host and
+     attachment apart inside one group, so it stays light. */
   .member:not(.active) {
-    filter: brightness(0.72) saturate(0.82);
+    opacity: 0.75;
   }
 
   .pane-group.attached:not(.narrow) .host {
