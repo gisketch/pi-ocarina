@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { flip } from 'svelte/animate'
+  import { quintOut } from 'svelte/easing'
   import PaneGroup from './PaneGroup.svelte'
+  import { swapDuration } from '$lib/motion'
   import { app } from '$lib/state/app.svelte'
   import { blockNav } from '$lib/state/block-nav.svelte'
   import { columnBody } from '$lib/state/columns'
@@ -140,17 +143,21 @@
       {#each hostsOf(strip.workspace) as host (host.id)}
         {@const attachment = attachmentOf(strip.workspace, host.id)}
         <!-- A hidden strip names no focused column: a composer or a shell in
-             it believing it held the keyboard would fight the one on screen. -->
-        <PaneGroup
-          workspace={strip.workspace}
-          {host}
-          {attachment}
-          focusedId={active ? app.thread.id : ''}
-          {viewportWidth}
-          onfocus={focusColumn}
-          {onmodel}
-          {oncommit}
-        />
+             it believing it held the keyboard would fight the one on screen.
+             The wrapper is what FLIP measures: a ⇧H/⇧L reorder slides the
+             groups past each other instead of teleporting them. -->
+        <div class="entity" animate:flip={{ duration: swapDuration(), easing: quintOut }}>
+          <PaneGroup
+            workspace={strip.workspace}
+            {host}
+            {attachment}
+            focusedId={active ? app.thread.id : ''}
+            {viewportWidth}
+            onfocus={focusColumn}
+            {onmodel}
+            {oncommit}
+          />
+        </div>
       {/each}
     </div>
   {/each}
@@ -180,5 +187,10 @@
   /* Kept, not gone: the whole point of mounting more than one strip. */
   .strip.hidden {
     display: none;
+  }
+
+  .entity {
+    flex: none;
+    height: 100%;
   }
 </style>

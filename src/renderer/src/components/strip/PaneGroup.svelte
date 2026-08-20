@@ -6,7 +6,10 @@
   import LiveThread from './LiveThread.svelte'
   import TerminalColumn from './TerminalColumn.svelte'
   import ThreadColumn from './ThreadColumn.svelte'
+  import { flip } from 'svelte/animate'
+  import { quintOut } from 'svelte/easing'
   import { COLUMN_GAP, paneGroupWidth, paneRegime } from '$lib/strip'
+  import { swapDuration } from '$lib/motion'
 
   const {
     workspace,
@@ -32,6 +35,18 @@
   const attached = $derived(attachment !== undefined)
   const regime = $derived(paneRegime(attached, viewportWidth))
   const width = $derived(paneGroupWidth(attached, regime))
+
+  /** The members in visual order, keyed so a side change is a reorder of the
+   *  same DOM — which keeps xterm alive across the swap and gives FLIP a
+   *  move to animate instead of a teleport. */
+  const members = $derived.by((): { id: string; kind: 'host' | 'attachment' }[] => {
+    if (attachment === undefined) return [{ id: host.id, kind: 'host' }]
+    const ordered = [
+      { id: host.id, kind: 'host' as const },
+      { id: attachment.id, kind: 'attachment' as const },
+    ]
+    return attachment.attachment?.side === 'left' ? ordered.reverse() : ordered
+  })
 </script>
 
 <div
@@ -41,57 +56,49 @@
   style:width={`${width}px`}
   style:gap={regime === 'split' ? `${COLUMN_GAP}px` : ''}
 >
-  {#if attachment?.attachment?.side === 'left'}
-    <div class="member attachment" class:active={focusedId === attachment.id}>
-      <TerminalColumn
-        terminalId={attachment.id}
-        workspaceId={workspace.id}
-        name={workspace.name}
-        focused={focusedId === attachment.id}
-        onfocus={() => onfocus(attachment.id)}
-      />
+  {#each members as member (member.id)}
+    <div
+      class="member"
+      class:host={member.kind === 'host'}
+      class:attachment={member.kind === 'attachment'}
+      class:active={focusedId === member.id}
+      animate:flip={{ duration: swapDuration(), easing: quintOut }}
+    >
+      {#if member.kind === 'attachment' && attachment !== undefined}
+        <TerminalColumn
+          terminalId={attachment.id}
+          workspaceId={workspace.id}
+          name={workspace.name}
+          focused={focusedId === attachment.id}
+          onfocus={() => onfocus(attachment.id)}
+        />
+      {:else if host.fresh}
+        <Dashboard
+          {workspace}
+          columnId={host.id}
+          focused={focusedId === host.id}
+          {onmodel}
+          {oncommit}
+        />
+      {:else if host.file !== undefined}
+        <FileColumn
+          columnId={host.id}
+          focused={focusedId === host.id}
+          onfocus={() => onfocus(host.id)}
+        />
+      {:else if live}
+        <ThreadColumn
+          thread={host}
+          focused={focusedId === host.id}
+          onfocus={() => onfocus(host.id)}
+          {onmodel}
+          {oncommit}
+        >
+          <LiveThread threadId={live} />
+        </ThreadColumn>
+      {/if}
     </div>
-  {/if}
-
-  <div class="member host" class:active={focusedId === host.id}>
-    {#if host.fresh}
-      <Dashboard
-        {workspace}
-        columnId={host.id}
-        focused={focusedId === host.id}
-        {onmodel}
-        {oncommit}
-      />
-    {:else if host.file !== undefined}
-      <FileColumn
-        columnId={host.id}
-        focused={focusedId === host.id}
-        onfocus={() => onfocus(host.id)}
-      />
-    {:else if live}
-      <ThreadColumn
-        thread={host}
-        focused={focusedId === host.id}
-        onfocus={() => onfocus(host.id)}
-        {onmodel}
-        {oncommit}
-      >
-        <LiveThread threadId={live} />
-      </ThreadColumn>
-    {/if}
-  </div>
-
-  {#if attachment?.attachment?.side === 'right'}
-    <div class="member attachment" class:active={focusedId === attachment.id}>
-      <TerminalColumn
-        terminalId={attachment.id}
-        workspaceId={workspace.id}
-        name={workspace.name}
-        focused={focusedId === attachment.id}
-        onfocus={() => onfocus(attachment.id)}
-      />
-    </div>
-  {/if}
+  {/each}
 </div>
 
 <style>
