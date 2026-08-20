@@ -98,11 +98,12 @@ components.
 ### The clamp, precisely
 
 REVEAL's offset is: take the FULL centered offset for the group, then clamp
-it so `focused member's left ≥ viewport left` and `focused member's right ≤
-viewport right` (the member's box in strip coordinates against the viewport
-box). When the centered offset already satisfies both, nothing moves — a
-wide-enough viewport in REVEAL looks centered. This is one pure function
-taking (member boxes, focused member, viewport width) → offset.
+it so the focused member's box sits inside the viewport with `20px` of air
+between it and the edge it was pushed against — flush against the glass
+reads as clipped, not focused. When the centered offset already satisfies
+both bounds, nothing moves. This is one pure function taking (member boxes,
+focused member, viewport width) → offset. The `820px` SPLIT boundary is the
+host plus this padding on both sides, so at the boundary the fit is exact.
 
 ### Rename to EDITOR
 

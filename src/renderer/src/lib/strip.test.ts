@@ -6,6 +6,7 @@ import {
   COLUMN_STEP,
   COLUMN_WIDTH,
   REVEAL_MIN_WIDTH,
+  REVEAL_PADDING,
   clampThread,
   memberBoxes,
   paneGroupWidth,
@@ -81,19 +82,21 @@ describe('paneOffset', () => {
 
   it('reveal keeps the focused host fully visible, partner clipped', () => {
     // Centered would be -585; the host's box [0,780] in a 1000px viewport
-    // demands offset ≥ -500, so the group slides right and the terminal
-    // hangs off the right edge.
+    // demands offset ≥ -480 (20px of edge padding), so the group slides
+    // right and the terminal hangs off the right edge.
     const offset = paneOffset(0, ATTACHED_GROUP_WIDTH, boxes.host, 'reveal', 1000)
-    expect(offset).toBe(-500)
-    // Host on screen: [0, 780]; attachment [780, 1170] clipped at 1000.
-    expect(1000 / 2 + offset + boxes.host.start).toBe(0)
+    expect(offset).toBe(-500 + REVEAL_PADDING)
+    // Host on screen: [20, 800]; attachment [800, 1190] clipped at 1000.
+    expect(1000 / 2 + offset + boxes.host.start).toBe(REVEAL_PADDING)
   })
 
   it('reveal slides the other way for a focused attachment', () => {
     const offset = paneOffset(0, ATTACHED_GROUP_WIDTH, boxes.attachment, 'reveal', 1000)
-    expect(offset).toBe(-670)
-    // Attachment right edge lands exactly on the viewport's right edge.
-    expect(1000 / 2 + offset + boxes.attachment.start + boxes.attachment.width).toBe(1000)
+    expect(offset).toBe(-670 - REVEAL_PADDING)
+    // Attachment right edge lands a padding short of the viewport's right edge.
+    expect(1000 / 2 + offset + boxes.attachment.start + boxes.attachment.width).toBe(
+      1000 - REVEAL_PADDING,
+    )
   })
 
   it('reveal is a no-op when centring already shows the member', () => {
@@ -107,9 +110,9 @@ describe('paneOffset', () => {
   it('handles a left-side attachment symmetrically', () => {
     const left = memberBoxes('left', 'reveal')
     const offset = paneOffset(0, ATTACHED_GROUP_WIDTH, left.host, 'reveal', 1000)
-    // Host box [390, 1170] must fit: offset ≤ 500 - 1170 = -670.
-    expect(offset).toBe(-670)
-    expect(1000 / 2 + offset + left.host.start + left.host.width).toBe(1000)
+    // Host box [390, 1170] must fit padded: offset ≤ 500 - 1170 - 20 = -690.
+    expect(offset).toBe(-690)
+    expect(1000 / 2 + offset + left.host.start + left.host.width).toBe(1000 - REVEAL_PADDING)
   })
 
   it('centres the member itself when it outgrows the viewport', () => {
@@ -127,7 +130,7 @@ describe('paneOffset', () => {
   it('offsets a later group by everything before it', () => {
     // One plain column, then the group: groupStart = 780 + 22.
     const offset = paneOffset(802, ATTACHED_GROUP_WIDTH, boxes.host, 'reveal', 1000)
-    expect(offset).toBe(-500 - 802)
+    expect(offset).toBe(-500 + REVEAL_PADDING - 802)
   })
 })
 

@@ -5,9 +5,12 @@ export const COLUMN_GAP = 22
 export const COLUMN_STEP = COLUMN_WIDTH + COLUMN_GAP
 export const ATTACHMENT_WIDTH = 390
 export const ATTACHED_GROUP_WIDTH = COLUMN_WIDTH + ATTACHMENT_WIDTH
+/** Breathing room between a revealed member and the viewport edge it is
+ *  pushed against — flush against the glass reads as clipped, not focused. */
+export const REVEAL_PADDING = 20
 /** Below this the clamped reveal would pin the host to both viewport edges
- *  at once: the host itself plus a 40px breathing margin. */
-export const REVEAL_MIN_WIDTH = COLUMN_WIDTH + 40
+ *  at once: the host itself plus its padding on both sides. */
+export const REVEAL_MIN_WIDTH = COLUMN_WIDTH + 2 * REVEAL_PADDING
 
 /** Pixel offset that centres the focused column inside a strip anchored at left:50%. */
 export function stripOffset(focusedIndex: number): number {
@@ -66,8 +69,9 @@ export function memberBoxes(
  *  `groupStart` (strip-x of its left edge), against a strip anchored at
  *  left:50%. Full centres the group; split centres the member; reveal
  *  centres the group but clamps so the member's box stays inside the
- *  viewport — with the degenerate member-wider-than-viewport case falling
- *  back to centring the member, clipped evenly. */
+ *  viewport with `REVEAL_PADDING` of air on the pushed edge — with the
+ *  degenerate member-wider-than-viewport case falling back to centring the
+ *  member, clipped evenly. */
 export function paneOffset(
   groupStart: number,
   groupWidth: number,
@@ -79,8 +83,8 @@ export function paneOffset(
   if (regime === 'split') return -(memberStart + member.width / 2)
   const centered = -(groupStart + groupWidth / 2)
   if (regime === 'full') return centered
-  const lo = -viewportWidth / 2 - memberStart
-  const hi = viewportWidth / 2 - (memberStart + member.width)
+  const lo = -viewportWidth / 2 - memberStart + REVEAL_PADDING
+  const hi = viewportWidth / 2 - (memberStart + member.width) - REVEAL_PADDING
   if (lo > hi) return -(memberStart + member.width / 2)
   return Math.min(hi, Math.max(lo, centered))
 }
