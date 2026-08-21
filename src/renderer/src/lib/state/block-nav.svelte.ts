@@ -8,7 +8,8 @@
 import { navBlocks } from '../blocks'
 import { visibleBlocks } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
-import { accordionNavId, accordionShown, lastTurnIdOf, turnResolved, turnsOf } from '../turn-accordion'
+import { accordionShown, lastTurnIdOf, turnResolved } from '../turn-accordion'
+import { foldChain } from '../folds'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { isVimMode } from '../types'
 import { app } from './app.svelte'
@@ -17,7 +18,7 @@ import { dashboardRecent } from './dashboard-recent.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { columnBody, scrollColumn } from './columns'
+import { scrollColumn } from './columns'
 import { pageColumn } from './paging'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
@@ -60,59 +61,6 @@ class BlockNav {
           ),
       },
     )
-  }
-
-  /** `o` in OCARINA: collapse or expand the turn under the reader's eyes.
-   *
-   *  "Under the eyes" is the turn whose region — its header down to the next
-   *  turn's header — overlaps the column's viewport the most, so the key acts
-   *  on what the reader is looking at rather than on whatever is focused.
-   *  Expanding also brings the header to the top of the view: the work it
-   *  just revealed unfolds *below* the row that names it, instead of the view
-   *  landing somewhere in the middle of forty new rows. */
-  toggleVisibleTurn(): void {
-    const threadId = app.thread.id
-    const model = threads.get(threadId)
-    const visible = reasoningOpen.shown ? model.blocks : visibleBlocks(model.blocks)
-    const body = columnBody(threadId)
-    if (!body) return
-
-    const lastTurn = lastTurnIdOf(visible)
-    const headers = turnsOf(visible).flatMap((item) => {
-      if (item.kind !== 'turn') return []
-      const el = blockElement(threadId, accordionNavId(item.id))
-      return el === undefined ? [] : [{ turn: item, el }]
-    })
-    if (headers.length === 0) return
-
-    // Regions partition the column at the headers; the winner is the one the
-    // viewport shows the most of. Measured from the live rects, so collapsed
-    // turns above cost their two lines and no more.
-    const view = body.getBoundingClientRect()
-    const tops = headers.map((entry) => entry.el.getBoundingClientRect().top)
-    let pick = headers[0]
-    let most = -Infinity
-    for (let index = 0; index < headers.length; index += 1) {
-      const start = tops[index]
-      const end = tops[index + 1] ?? view.bottom + body.scrollHeight
-      const overlap = Math.min(end, view.bottom) - Math.max(start, view.top)
-      if (overlap > most) {
-        most = overlap
-        pick = headers[index]
-      }
-    }
-
-    const navId = accordionNavId(pick.turn.id)
-    const resolved = turnResolved(pick.turn, lastTurn, model.runState)
-    const open = accordionShown(pick.turn, resolved, (fallback) =>
-      toolOpen.isOpen(threadId, navId, fallback),
-    )
-    toolOpen.set(threadId, navId, !open)
-    // The ring may have been standing on a row the collapse just took away.
-    this.settleFocus(threadId)
-    if (!open) {
-      requestAnimationFrame(() => revealBlock(threadId, navId, 'start'))
-    }
   }
 
   /** Moves the ring off a block that is no longer there.
@@ -207,23 +155,59 @@ class BlockNav {
     if (leap.active && !leap.activeFor(here)) leap.end()
   }
 
-  /** `l` and `h` in READ. A tool row opens and closes; anything else has
-   *  nothing to widen, and the key does nothing rather than something
-   *  surprising. */
+  /** `l` and `h` in READ.
+   *
+   *  `l` opens the focused row, group, or turn header — what is pointed at.
+   *  `h` closes the nearest *open* fold at or around the ring, vim's `zc`:
+   *  the row's own body, then the group the row sits in, then the turn — so
+   *  `h` on a grandchild closes its parent, never the whole turn while the
+   *  parent still stands. On anything with no open fold around it, the key
+   *  does nothing rather than something surprising. */
   expandBlock(open: boolean): void {
     const threadId = app.thread.id
     const navId = blockFocus.idOf(threadId)
     if (navId === null) return
 
-    const block = this.#list(threadId).find((entry) => entry.id === navId)
-    if (!block) return
+    const entry = this.#list(threadId).find((one) => one.id === navId)
+    if (!entry) return
 
-    if (block.rowId === undefined) return
+    if (open) {
+      if (entry.rowId === undefined) return
+      toolOpen.set(threadId, navId, true)
+      // Opening a body makes the block taller, and the ring should not be
+      // pushed off the bottom of the view by its own contents.
+      revealBlock(threadId, navId)
+      return
+    }
 
-    toolOpen.set(threadId, navId, open)
-    // Opening a body makes the block taller, and the ring should not be pushed
-    // off the bottom of the view by its own contents.
-    if (open) revealBlock(threadId, navId)
+    const model = threads.get(threadId)
+    const visible = reasoningOpen.shown ? model.blocks : visibleBlocks(model.blocks)
+    const lastTurn = lastTurnIdOf(visible)
+
+    for (const fold of foldChain(visible, entry)) {
+      const shown =
+        fold.kind === 'row'
+          ? toolOpen.isOpen(threadId, fold.navId, fold.row.open ?? false)
+          : fold.kind === 'group'
+            ? groupShown(fold.group, (fallback) =>
+                toolOpen.isOpen(threadId, fold.navId, fallback),
+              )
+            : accordionShown(
+                fold.turn,
+                turnResolved(fold.turn, lastTurn, model.runState),
+                (fallback) => toolOpen.isOpen(threadId, fold.navId, fallback),
+              )
+      if (!shown) continue
+
+      toolOpen.set(threadId, fold.navId, false)
+      if (fold.navId !== navId) {
+        // The fold that closed took the ring's row with it; the ring moves to
+        // the header that now stands for that work.
+        blockFocus.set(threadId, fold.navId)
+        revealBlock(threadId, fold.navId)
+      }
+      return
+    }
   }
 
   /** One key while a leap is up. Always consumed: a keystroke that fell
