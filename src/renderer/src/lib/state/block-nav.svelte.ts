@@ -8,6 +8,7 @@
 import { navBlocks } from '../blocks'
 import { visibleBlocks } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
+import { accordionShown, lastTurnIdOf, turnResolved } from '../turn-accordion'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { isVimMode } from '../types'
 import { app } from './app.svelte'
@@ -42,8 +43,22 @@ class BlockNav {
     // on nothing is a key that appears to do nothing.
     const visible = reasoningOpen.shown ? blocks : visibleBlocks(blocks)
 
-    return navBlocks(visible, (navId, group) =>
-      groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
+    // The accordion callback is the same rule `ThreadView` draws with — the
+    // shared-seam contract: a stop the transcript does not draw is a `j` that
+    // appears to do nothing.
+    const model = threads.get(threadId)
+    const lastTurn = lastTurnIdOf(visible)
+    return navBlocks(
+      visible,
+      (navId, group) =>
+        groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
+      {
+        resolved: (turn) => turnResolved(turn, lastTurn, model.runState),
+        open: (navId, turn) =>
+          accordionShown(turn, turnResolved(turn, lastTurn, model.runState), (fallback) =>
+            toolOpen.isOpen(threadId, navId, fallback),
+          ),
+      },
     )
   }
 

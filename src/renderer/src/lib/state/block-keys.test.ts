@@ -136,7 +136,15 @@ describe('READ through the real key path', () => {
   })
 
   it('opens and closes the focused tool row with l and h', () => {
+    // A resolved turn's work sits behind its accordion: the second j lands on
+    // the header, l opens it, and only then is the row a stop at all.
     shell.handleKey({ key: 'j' })
+    shell.handleKey({ key: 'j' })
+    expect(blockFocus.idOf('s1')).toBe('accordion:u1')
+
+    shell.handleKey({ key: 'l' })
+    expect(toolOpen.isOpen('s1', 'accordion:u1', false)).toBe(true)
+
     shell.handleKey({ key: 'j' })
     expect(blockFocus.idOf('s1')).toBe('l1:r1')
 

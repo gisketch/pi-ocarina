@@ -126,3 +126,29 @@ export function accordionLabel(took: string | null, outcome: TurnSpan['outcome']
 export function blocksOf(item: TurnItem): Block[] {
   return item.kind === 'block' ? [item.block] : [item.opener, ...item.inner, ...item.final]
 }
+
+/** Whether a turn draws a header row at all. One function because two
+ *  callers ask — the component that draws it and the stop list that lets `j`
+ *  land on it — and a header drawn but not a stop is a ring that skips a
+ *  visible row. A resolved turn with no work has nothing to hide and no
+ *  clock worth a row; an unresolved one shows the turn began, before any
+ *  work exists. */
+export function accordionDrawn(turn: TurnItem & { kind: 'turn' }, resolved: boolean): boolean {
+  return turn.inner.length > 0 || !resolved
+}
+
+/** Where an accordion registers, and what its open state is keyed on. One
+ *  function so the stop list and the component cannot disagree — the same
+ *  seam `groupNavId` is, for the same reason. */
+export function accordionNavId(turnId: string): string {
+  return `accordion:${turnId}`
+}
+
+/** The newest turn's id — the only one that can be running. */
+export function lastTurnIdOf(blocks: Block[]): string | null {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (block.kind === 'user') return block.id
+  }
+  return null
+}

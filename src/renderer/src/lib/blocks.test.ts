@@ -162,6 +162,77 @@ describe('navBlocks', () => {
   })
 })
 
+describe('the accordion layer', () => {
+  const groups = (): Parameters<typeof navBlocks>[1] => () => true
+  const accordion = (over: { resolved?: boolean; open?: boolean } = {}) => ({
+    resolved: () => over.resolved ?? true,
+    open: () => over.open ?? false,
+  })
+  const turnBlocks: Block[] = [
+    user('u1'),
+    {
+      kind: 'ledger',
+      id: 'l1',
+      rows: [{ id: 'r1', kind: 'read', target: 'a.ts', status: 'ok' }],
+    },
+    agent('a1'),
+  ]
+
+  it('does not exist when no callback is given', () => {
+    expect(navBlocks(turnBlocks, groups()).map((entry) => entry.id)).toEqual([
+      'u1',
+      'l1:r1',
+      'a1',
+    ])
+  })
+
+  it('a closed turn is one header stop; its work is not on the list', () => {
+    const ids = navBlocks(turnBlocks, groups(), accordion()).map((entry) => entry.id)
+    expect(ids).toEqual(['u1', 'accordion:u1', 'a1'])
+  })
+
+  it('an open turn keeps the header and puts the work back', () => {
+    const ids = navBlocks(turnBlocks, groups(), accordion({ open: true })).map((entry) => entry.id)
+    expect(ids).toEqual(['u1', 'accordion:u1', 'l1:r1', 'a1'])
+  })
+
+  it('a turn with no work registers no header', () => {
+    const ids = navBlocks([user('u1'), agent('a1')], groups(), accordion()).map(
+      (entry) => entry.id,
+    )
+    expect(ids).toEqual(['u1', 'a1'])
+  })
+
+  it('an unresolved turn with no work yet still registers its header', () => {
+    // The header is drawn the moment a turn begins — the stop list must
+    // agree, or the ring skips a visible row (`accordionDrawn` is the one
+    // rule both obey).
+    const ids = navBlocks(
+      [user('u1')],
+      groups(),
+      accordion({ resolved: false, open: true }),
+    ).map((entry) => entry.id)
+    expect(ids).toEqual(['u1', 'accordion:u1'])
+  })
+
+  it('a checkpoint inside a closed turn still rides to the next user message', () => {
+    const blocks: Block[] = [
+      user('u1'),
+      {
+        kind: 'ledger',
+        id: 'l1',
+        rows: [{ id: 'r1', kind: 'read', target: 'a.ts', status: 'ok' }],
+      },
+      { kind: 'checkpoint', id: 'c1', label: 'restore' },
+      user('u2'),
+      agent('a2'),
+    ]
+
+    const entries = navBlocks(blocks, groups(), accordion())
+    expect(entries.find((entry) => entry.id === 'u2')?.checkpointId).toBe('c1')
+  })
+})
+
 describe('step', () => {
   const list = navBlocks([user('u1'), agent('a1'), user('u2')])
 

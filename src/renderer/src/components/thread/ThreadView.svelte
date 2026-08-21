@@ -10,10 +10,18 @@
   import RawBlock from './RawBlock.svelte'
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
-  import TurnFooter from './TurnFooter.svelte'
+  import TurnAccordion from './TurnAccordion.svelte'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
   import { visibleBlocks } from '$lib/thread-rows'
-  import { groupShown } from '$lib/ledger-groups'
+  import {
+    accordionDrawn,
+    accordionNavId,
+    accordionShown,
+    lastTurnIdOf,
+    turnResolved,
+    turnsOf,
+    type TurnItem,
+  } from '$lib/turn-accordion'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import { blockFocus, navTarget } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
@@ -22,8 +30,7 @@
   import { app } from '$lib/state/app.svelte'
   import { askKeys } from '$lib/state/ask-keys.svelte'
   import type { Block } from '$lib/thread'
-  import { labelOwning, marksTurnStart } from '$lib/thread-turn'
-  import { navBlocks } from '$lib/blocks'
+  import { marksTurnStart } from '$lib/thread-turn'
 
   interface Props {
     threadId: ThreadId
@@ -61,29 +68,27 @@
   // Null until the reader starts navigating. That is what keeps a column
   // nobody has touched looking exactly as it always did.
   const focused = $derived(blockFocus.idOf(threadId))
-  /** The turn's clock, when this session has timed one. */
-  const turn = $derived(threads.get(threadId).turn)
+  /** The whole model: the accordion reads `turn`, `spans` and `runState`. */
+  const model = $derived(threads.get(threadId))
 
-  // Which block the ring is on — a tool row reports its ledger, since the name
-  // above a turn belongs to the whole turn and not to one row of it.
-  //
-  // Guarded on there being a ring at all. `navBlocks` walks the whole thread,
-  // and `shown` changes on every token of a streaming turn: without the guard
-  // a five-thousand-block thread rebuilds five thousand entries per token, to
-  // answer a question nobody is asking while nothing is focused.
-  // The same expansion rule the ledger draws with. Built with every group
-  // collapsed, this could not find a row inside an open one — so the ring was
-  // lit on the row while the block around it was not.
-  const focusedBlock = $derived(
-    focused === null
-      ? null
-      : (navBlocks(shown, (navId, group) =>
-          groupShown(group, (fallback) => toolOpen.isOpen(threadId, navId, fallback)),
-        ).find((entry) => entry.id === focused)?.blockId ?? null),
-  )
+  // The turn accordion's projection (spec 2026-08-21): one collapsed row per
+  // finished turn, the opener and the answer outside it. Same list, same
+  // blocks — a visibility toggle, never a layout.
+  type Turn = Extract<TurnItem, { kind: 'turn' }>
+  const items = $derived(turnsOf(shown))
+  const lastTurn = $derived(lastTurnIdOf(shown))
+  /** Each block's position in `shown`, which is what `opensTurn` indexes. */
+  const at = $derived(new Map(shown.map((block, index) => [block, index])))
 
-  // The agent name that introduces the focused block, so it stays lit with it.
-  const litLabel = $derived(labelOwning(shown, opensTurn, focusedBlock))
+  const resolvedOf = (turn: Turn): boolean => turnResolved(turn, lastTurn, model.runState)
+  const openOf = (turn: Turn): boolean =>
+    accordionShown(turn, resolvedOf(turn), (fallback) =>
+      toolOpen.isOpen(threadId, accordionNavId(turn.id), fallback),
+    )
+  /** The clock a header draws: the live one while it runs, the filed one
+   *  after. A replayed turn has neither, and its row says only `worked`. */
+  const spanOf = (turn: Turn) =>
+    resolvedOf(turn) ? model.spans?.[turn.id] : (model.turn ?? model.spans?.[turn.id])
 
   // Compared against the block, not the nav id: a message splits into segments
   // whose ids are `${blockId}#n`, and matching those against the block id put
@@ -124,8 +129,9 @@
      produce two of them. Keying on the id alone makes a collision fatal — the
      list throws, and Svelte abandons every update queued behind it, which
      strands unrelated chrome mid-frame. -->
-{#each shown as block, i (`${block.kind}:${block.id}`)}
-  {#if opensTurn[i]}
+{#snippet blockView(block: Block, labelled: boolean)}
+  {@const i = at.get(block) ?? -1}
+  {#if labelled && opensTurn[i]}
     <!-- The name is not a block anyone can point at, so while the ring is out
          it is always the quiet half of the contrast. -->
     <div class="turn"><AgentLabel /></div>
@@ -212,17 +218,44 @@
       {/if}
     </div>
   {/if}
-{/each}
+{/snippet}
 
-{#if turn && (turn.endedAt === undefined || shown.at(-1)?.kind !== 'user')}
-  <!-- After every block, so anything that arrives lands above it: the footer
-       is the end of the turn, and content under it would be work the turn had
-       already reported finishing.
-       A finished footer stands down once a new message is the last thing in
-       the thread: the reader has asked for something else and the old turn's
-       record would be sitting under their new question. -->
-  <TurnFooter {turn} />
-{/if}
+{#each items as item (item.kind === 'turn' ? `t:${item.id}` : `${item.block.kind}:${item.block.id}`)}
+  {#if item.kind === 'block'}
+    {@render blockView(item.block, true)}
+  {:else}
+    {@const resolved = resolvedOf(item)}
+    {@const open = openOf(item)}
+    {@render blockView(item.opener, false)}
+    {#if accordionDrawn(item, resolved) || item.final.length > 0}
+      <!-- Said once per turn, above the header: the accordion is the turn's
+           work, and the name belongs to all of it. -->
+      <div class="turn"><AgentLabel /></div>
+    {/if}
+    {#if accordionDrawn(item, resolved)}
+      <!-- The header ticks while the turn runs — the role the old footer
+           played — and is the collapsed row after. Drawn even before any
+           work exists, so a just-sent message shows the turn began.
+           `accordionDrawn` is the same presence rule the stop list obeys. -->
+      <TurnAccordion
+        turnId={item.id}
+        {threadId}
+        span={spanOf(item)}
+        {resolved}
+        {open}
+        focusedNav={focused}
+      />
+    {/if}
+    {#if open}
+      {#each item.inner as block (`${block.kind}:${block.id}`)}
+        {@render blockView(block, false)}
+      {/each}
+    {/if}
+    {#each item.final as block (`${block.kind}:${block.id}`)}
+      {@render blockView(block, false)}
+    {/each}
+  {/if}
+{/each}
 
 <style>
   /* The band is the whole of the navigation's appearance — one signal for one

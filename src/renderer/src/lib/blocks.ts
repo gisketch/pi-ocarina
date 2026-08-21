@@ -12,7 +12,10 @@
 import { parseMarkdownCached, segmentTextCached, segmentsOfCached } from './parse-cache'
 import { pointableRows } from './ledger-rows'
 import { groupRows, type RowGroup } from './ledger-groups'
+import { accordionDrawn, accordionNavId, turnsOf, type TurnItem } from './turn-accordion'
 import type { Block, ToolRow } from './thread'
+
+type Turn = Extract<TurnItem, { kind: 'turn' }>
 
 export interface NavBlock {
   /** Unique across the thread, and stable: this is what focus stores and what
@@ -177,7 +180,33 @@ export function navBlocks(
    *  went blind for the whole of every sweep. Absent (the demo catalog, tests)
    *  falls back to the group's own default. */
   groupOpen: (navId: string, group: RowGroup) => boolean = (_navId, group) => group.live,
+  /** The accordion layer's two questions, answered by the caller because
+   *  they need thread state this module must not know. Absent (tests,
+   *  callers that predate the accordion) there is no accordion layer at all:
+   *  every block's stops appear, which is exactly the pre-accordion list. */
+  accordion?: {
+    resolved: (turn: Turn) => boolean
+    open: (navId: string, turn: Turn) => boolean
+  },
 ): NavBlock[] {
+  // The accordion is a projection over whole blocks, so it sits in front of
+  // the per-block walk rather than inside it: a closed turn's inner blocks
+  // produce no stops — `j` landing on a row nobody can see is a key that
+  // appears to do nothing — and the header registers as one stop of its own,
+  // right after its opener's entries.
+  const turns = accordion === undefined ? [] : turnsOf(blocks)
+  /** Turn opened by this user block, keyed by the opener's id. */
+  const opens = new Map<string, Turn>()
+  /** Inner blocks of *closed* turns — the ones that produce no stops. */
+  const hidden = new Set<string>()
+  for (const item of turns) {
+    if (item.kind !== 'turn') continue
+    opens.set(item.opener.id, item)
+    if (!accordion?.open(accordionNavId(item.id), item)) {
+      for (const block of item.inner) hidden.add(block.id)
+    }
+  }
+
   const list: NavBlock[] = []
   /** A checkpoint waiting for the message that comes after it. */
   let pending: string | null = null
@@ -185,6 +214,14 @@ export function navBlocks(
   let adjacent: NavBlock | null = null
 
   for (const block of blocks) {
+    // A closed accordion's work is not drawn, so none of it is a stop. A
+    // checkpoint is never skipped: it emits no entry of its own, and its id
+    // must still ride to the next user message.
+    if (hidden.has(block.id) && block.kind !== 'checkpoint') {
+      adjacent = null
+      continue
+    }
+
     if (block.kind === 'checkpoint') {
       if (adjacent !== null && adjacent.checkpointId === undefined) {
         adjacent.checkpointId = block.id
@@ -232,6 +269,27 @@ export function navBlocks(
       list.push(...entries)
       pending = null
       adjacent = block.kind === 'user' ? (first ?? null) : null
+
+      // The turn this message opened registers its header right here, in
+      // drawn order: `j` off the question lands on the accordion, and `l`
+      // on it is what makes the work below reachable. `accordionDrawn` is
+      // the one presence rule the renderer also obeys.
+      const turn = opens.get(block.id)
+      if (
+        block.kind === 'user' &&
+        turn !== undefined &&
+        accordion !== undefined &&
+        accordionDrawn(turn, accordion.resolved(turn))
+      ) {
+        list.push({
+          id: accordionNavId(turn.id),
+          kind: 'tool',
+          blockId: turn.id,
+          rowId: `accordion:${turn.id}`,
+          label: 'worked',
+          text: 'worked',
+        })
+      }
       continue
     }
 
