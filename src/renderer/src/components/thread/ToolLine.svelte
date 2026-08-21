@@ -37,9 +37,14 @@
   .kind.muted {
     color: var(--fg-dim);
   }
+  /* One line, however long the command. The row is a label; the expanded body
+     is where the full text lives (turn-accordion spec). */
   .target {
     color: var(--fg);
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .target.struck {
     text-decoration: line-through;

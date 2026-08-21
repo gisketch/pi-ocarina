@@ -11,7 +11,7 @@
 
 import { parseMarkdownCached, segmentTextCached, segmentsOfCached } from './parse-cache'
 import { pointableRows } from './ledger-rows'
-import { countedAs, groupRows, type RowGroup } from './ledger-groups'
+import { groupRows, type RowGroup } from './ledger-groups'
 import type { Block, ToolRow } from './thread'
 
 export interface NavBlock {
@@ -80,7 +80,7 @@ function groupEntry(blockId: string, group: RowGroup): NavBlock {
     kind: 'tool',
     blockId,
     rowId: `group:${group.id}`,
-    label: short(`${group.tool} ${countedAs(group.tool, group.rows.length)} · ${group.preview}`),
+    label: short(`${group.summary} · ${group.preview}`),
     text: group.preview,
   }
 }

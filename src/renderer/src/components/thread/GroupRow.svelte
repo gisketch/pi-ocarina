@@ -7,7 +7,7 @@
   import BlockMenu from './BlockMenu.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import Icon from '../Icon.svelte'
-  import { countedAs, type RowGroup } from '$lib/ledger-groups'
+  import type { RowGroup } from '$lib/ledger-groups'
   import type { ToolRow } from '$lib/thread'
 
   /** A run of similar calls, as one row.
@@ -59,11 +59,11 @@
   {/if}
   <span class="node" class:pulse={group.live}><Icon name={toolIcon(group.tool)} /></span>
   <button class="row" onclick={() => toolOpen.toggle(threadId, navId, group.live)}>
-    <!-- The bare kind, never a tense. A group is a category of call, not one
-         call that happened: `edited 2 calls` claims a single edit and reads as
-         a grammatical mistake beside `read 4 calls`. -->
-    <span class="kind">{group.tool}</span>
-    <span class="count">{countedAs(group.tool, group.rows.length)}</span>
+    <!-- The spacer keeps the summary on the target column, where every other
+         row's subject sits. A mixed run has no one kind to put in the gutter,
+         and a first-kind label there would claim the whole run was reads. -->
+    <span class="kind"></span>
+    <span class="count">{group.summary}</span>
     <span class="preview">{group.preview}</span>
     <span class="meta">
       {#each metaSegments(group.meta) as segment, i (i)}<span class={segment.tone ?? ''}

@@ -19,8 +19,20 @@ describe('navBlocks', () => {
       },
     ]
 
-    expect(navBlocks(blocks).map((entry) => entry.id)).toEqual(['l1:r1', 'l1:r2', 'l1:r3'])
-    expect(navBlocks(blocks)[0]).toMatchObject({ kind: 'tool', blockId: 'l1', rowId: 'r1' })
+    // A mixed run groups now, so a closed ledger is one stop; opening the
+    // group is what puts its members on the list.
+    expect(navBlocks(blocks).map((entry) => entry.id)).toEqual(['l1:group:r1'])
+    expect(navBlocks(blocks, () => true).map((entry) => entry.id)).toEqual([
+      'l1:group:r1',
+      'l1:r1',
+      'l1:r2',
+      'l1:r3',
+    ])
+    expect(navBlocks(blocks, () => true)[1]).toMatchObject({
+      kind: 'tool',
+      blockId: 'l1',
+      rowId: 'r1',
+    })
   })
 
   it('does not count nested subagent rows', () => {

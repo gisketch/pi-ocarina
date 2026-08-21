@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countedAs, groupRows, groupShown, rowsOf, type LedgerItem } from './ledger-groups'
+import { countedAs, groupRows, groupShown, rowsOf, summaryOf, type LedgerItem } from './ledger-groups'
 import type { ToolKind, ToolRow, ToolStatus } from './thread'
 
 let next = 0
@@ -29,7 +29,7 @@ describe('what groups', () => {
     expect(shape(groupRows([row('read', 'a.ts')]))).toEqual(['read'])
   })
 
-  it('breaks a run when the kind changes', () => {
+  it('keeps grouping across a kind change — a run is contiguity, not sameness', () => {
     const items = groupRows([
       row('read', 'a.ts'),
       row('read', 'b.ts'),
@@ -38,12 +38,22 @@ describe('what groups', () => {
       row('lsp', 'run'),
     ])
 
-    expect(shape(items)).toEqual(['read×2', 'bash', 'lsp×2'])
+    expect(shape(items)).toEqual(['read×5'])
   })
 
-  it('never groups a kind whose calls are each their own event', () => {
-    // Two commands in a row are two different things that happened.
-    expect(shape(groupRows([row('bash', 'a'), row('bash', 'b')]))).toEqual(['bash', 'bash'])
+  it('groups commands like everything else', () => {
+    // Reversed from the pre-accordion rule: the accordion is the summary
+    // layer now, and expand shows each command.
+    expect(shape(groupRows([row('bash', 'a'), row('bash', 'b')]))).toEqual(['bash×2'])
+  })
+
+  it('groups a kind it has never heard of', () => {
+    const items = groupRows([
+      row('mystery' as ToolKind, 'a'),
+      row('mystery' as ToolKind, 'b'),
+    ])
+
+    expect(shape(items)).toEqual(['mystery×2'])
   })
 
   it('groups lsp calls across their operations', () => {
@@ -56,29 +66,37 @@ describe('what groups', () => {
   })
 })
 
-describe('a skill load inside a sweep', () => {
-  it('breaks the run rather than joining it', () => {
+describe('what breaks a run', () => {
+  it('a thought — prose separates one run from the next', () => {
     const items = groupRows([
-      row('read', 'src/a.ts'),
-      row('read', 'src/b.ts'),
-      row('skill', 'reviewer'),
-      row('read', 'src/c.ts'),
-      row('read', 'src/d.ts'),
+      row('read', 'a.ts'),
+      row('read', 'b.ts'),
+      row('think', ''),
+      row('bash', 'pnpm test'),
+      row('bash', 'pnpm check'),
     ])
 
-    // Not `read×4` with the skill hidden inside, and not `read×2 skill read×2`
-    // collapsed back together afterwards: the skill is a wall.
-    expect(shape(items)).toEqual(['read×2', 'skill', 'read×2'])
+    expect(shape(items)).toEqual(['read×2', 'think', 'bash×2'])
   })
 
-  it('never becomes a group of its own', () => {
+  it('an agent row — a child is its own grammar', () => {
     const items = groupRows([
-      row('skill', 'reviewer'),
-      row('skill', 'scout'),
-      row('skill', 'planner'),
+      row('read', 'a.ts'),
+      row('agent', 'scout'),
+      row('read', 'b.ts'),
     ])
 
-    expect(shape(items)).toEqual(['skill', 'skill', 'skill'])
+    expect(shape(items)).toEqual(['read', 'agent', 'read'])
+  })
+
+  it('not a skill load any more — it joins like everything else', () => {
+    const items = groupRows([
+      row('read', 'src/a.ts'),
+      row('skill', 'reviewer'),
+      row('read', 'src/b.ts'),
+    ])
+
+    expect(shape(items)).toEqual(['read×3'])
   })
 })
 
@@ -231,9 +249,35 @@ describe('what a group counts', () => {
     expect(countedAs('grep', 1)).toBe('1 search')
   })
 
+  it('counts commands for a shell', () => {
+    expect(countedAs('bash', 3)).toBe('3 commands')
+    expect(countedAs('bash', 1)).toBe('1 command')
+  })
+
   it('counts calls for a kind with nothing better to say', () => {
-    expect(countedAs('bash', 3)).toBe('3 calls')
-    expect(countedAs('bash', 1)).toBe('1 call')
+    expect(countedAs('todo', 3)).toBe('3 calls')
+    expect(countedAs('todo', 1)).toBe('1 call')
+  })
+
+  it('summarizes a mixed run per kind, in first-appearance order', () => {
+    const [group] = groupRows([
+      row('read', 'a.ts'),
+      row('write', 'b.ts'),
+      row('grep', 'foo'),
+      row('edit', 'a.ts'),
+      row('read', 'c.ts'),
+    ])
+
+    expect(group.kind === 'group' && group.summary).toBe(
+      'read 2 files · wrote 1 file · 1 search · edited 1 file',
+    )
+  })
+
+  it('opens a kind with a verb where English has one', () => {
+    expect(summaryOf([row('bash', 'a'), row('bash', 'b'), row('bash', 'c')])).toBe(
+      'ran 3 commands',
+    )
+    expect(summaryOf([row('lsp', 'draw'), row('lsp', 'run')])).toBe('2 lookups')
   })
 
   it('never says "1 files"', () => {

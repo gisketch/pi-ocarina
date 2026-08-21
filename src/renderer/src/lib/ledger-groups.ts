@@ -12,21 +12,20 @@
 
 import type { ToolKind, ToolRow } from './thread'
 
-/** Kinds whose runs are worth collapsing.
+/** Kinds that never join a run, whatever else is true of the row.
  *
- *  Reading, searching and asking the compiler are the calls an agent makes in
- *  sweeps, and one of them tells the reader as much as twenty. `bash` is not
- *  here: two commands in a row are two different things that happened, and a
- *  summary would hide which. */
-const GROUPABLE: ReadonlySet<ToolKind> = new Set<ToolKind>(['read', 'grep', 'lsp', 'edit'])
-// `think` is deliberately absent. Two thoughts are two different things the
-// model worked out, and `think · 2 calls` would summarize away the only part
-// of a turn that is not already summarized.
-//
-// `skill` is absent for a sharper reason. A skill load *is* a read, so it would
-// join a run of reads and vanish into `4 reads` — and a skill changes how the
-// agent behaves for the rest of the turn. It is the one read that must never be
-// summarized away.
+ *  Everything else groups — `bash`, `write`, `skill`, kinds this build has
+ *  never heard of. That reverses two older exclusions knowingly (turn-accordion
+ *  spec): the group row used to be the only summary layer, so a hidden bash or
+ *  skill was a hidden fact. The accordion now hides the whole turn by default,
+ *  and a whole row inside a closed accordion protects nobody — expand shows
+ *  each call.
+ *
+ *  `think` stays out because it stops being a row at all: a thought draws as
+ *  prose, and prose is what separates one run from the next. `agent` stays out
+ *  because a child is a different grammar with its own nesting, and the row
+ *  above it already summarizes its work. */
+const UNGROUPABLE: ReadonlySet<ToolKind> = new Set<ToolKind>(['think', 'agent'])
 
 /** How many targets a summary names before it counts the rest. */
 export const NAMED_TARGETS = 3
@@ -46,6 +45,9 @@ const COUNTED: Readonly<Record<string, { one: string; many: string }>> = {
   write: { one: 'file', many: 'files' },
   grep: { one: 'search', many: 'searches' },
   lsp: { one: 'lookup', many: 'lookups' },
+  bash: { one: 'command', many: 'commands' },
+  skill: { one: 'skill', many: 'skills' },
+  fetch: { one: 'url', many: 'urls' },
 }
 
 const CALLS = { one: 'call', many: 'calls' }
@@ -55,13 +57,47 @@ export function countedAs(kind: string, n: number): string {
   return `${n} ${n === 1 ? noun.one : noun.many}`
 }
 
+/** The verb a kind's tally opens with, where English has one.
+ *
+ *  `read 2 files · ran 3 commands` reads as a sentence; `2 files · 3 commands`
+ *  reads as an inventory. Kinds without a natural verb (`grep`, `lsp`) let the
+ *  noun carry it — `2 searches` already says what happened. Past tense on
+ *  purpose: a group summarizes a run that ran. */
+const VERBED: Readonly<Record<string, string>> = {
+  read: 'read',
+  edit: 'edited',
+  write: 'wrote',
+  bash: 'ran',
+  fetch: 'fetched',
+  skill: 'loaded',
+}
+
+/** A mixed run's tally, kinds in first-appearance order:
+ *  `read 2 files · edited 1 file · ran 3 commands`. */
+export function summaryOf(rows: readonly ToolRow[]): string {
+  const counts = new Map<string, number>()
+  for (const row of rows) counts.set(row.kind, (counts.get(row.kind) ?? 0) + 1)
+
+  return [...counts.entries()]
+    .map(([kind, n]) => {
+      const verb = VERBED[kind]
+      const tally = countedAs(kind, n)
+      return verb ? `${verb} ${tally}` : tally
+    })
+    .join(' · ')
+}
+
 export interface RowGroup {
   kind: 'group'
   /** Stable across a run's growth: the first member's id. Expansion state is
    *  keyed on this, so a group that gains a member stays open. */
   id: string
+  /** The first member's kind — what the row's icon draws. A mixed run has no
+   *  one kind; the summary is where the mix is said. */
   tool: ToolKind
   rows: ToolRow[]
+  /** `read 2 files · edited 1 file · ran 3 commands` */
+  summary: string
   /** `worker.ts · retry.ts · queue.ts +1` */
   preview: string
   /** Summed from the members: `412L`, `+41 −12`. Empty when they said
@@ -80,7 +116,7 @@ export type LedgerItem = { kind: 'row'; row: ToolRow } | RowGroup
  *  over a red fact. Those stay whole rows, and they break the run they were
  *  part of. */
 function joinable(row: ToolRow): boolean {
-  if (!GROUPABLE.has(row.kind)) return false
+  if (UNGROUPABLE.has(row.kind)) return false
   if (row.status !== 'ok' && row.status !== 'running') return false
   // A call the reader had to approve is already separated: the approve card is
   // its own block, and a block boundary ends the ledger the run was in. There
@@ -140,6 +176,7 @@ function groupOf(rows: ToolRow[]): RowGroup {
     id: rows[0].id,
     tool: rows[0].kind,
     rows,
+    summary: summaryOf(rows),
     preview: previewOf(rows),
     meta: metaOf(rows),
     // *Any* member still running, not merely the newest. Tools run in
@@ -171,7 +208,6 @@ export function groupRows(rows: readonly ToolRow[]): LedgerItem[] {
       items.push({ kind: 'row', row })
       continue
     }
-    if (run.length > 0 && run[0].kind !== row.kind) flush()
     run.push(row)
   }
   flush()

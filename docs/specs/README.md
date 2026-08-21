@@ -111,6 +111,11 @@ settle. Ordered by the ranking in
 - [2026-08-20-attached-panes.md](2026-08-20-attached-panes.md) — attach
   terminals, and later other pane types, to chat or buffer columns so the group
   centers and moves as one entity. **Approved and implemented 2026-08-20.**
+- [2026-08-21-turn-accordion.md](2026-08-21-turn-accordion.md) — a finished
+  turn collapses to one `Worked for Xs ›` row plus its final message; run
+  grouping widens to contiguous mixed-kind runs (every kind groupable);
+  thoughts render as muted italic prose. **Grilled and approved 2026-08-21
+  (owner direction).** Amends tool-row-grouping and reasoning.
 - [2026-08-20-pane-reveal-and-editor.md](2026-08-20-pane-reveal-and-editor.md) —
   fixed pane widths with a focus-follows reveal at narrow viewports, a SPLIT
   regime at very low width, the buffer renamed EDITOR, and markdown files
