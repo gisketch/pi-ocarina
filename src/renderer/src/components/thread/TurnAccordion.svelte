@@ -10,6 +10,7 @@
    *  because the members must draw exactly as they always did — the accordion
    *  is a visibility toggle, not a layout. */
   import Icon from '../Icon.svelte'
+  import Identicon from '../Identicon.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import { chevron } from '$lib/ledger'
   import { elapsed } from '$lib/elapsed'
@@ -27,6 +28,8 @@
     resolved,
     open,
     focusedNav,
+    workspaceName,
+    hue,
   }: {
     turnId: string
     threadId: string
@@ -36,6 +39,10 @@
     resolved: boolean
     open: boolean
     focusedNav: string | null
+    /** The header is the turn's whole byline — there is no `PI` label above
+     *  it — so it wears the workspace's own sigil instead of a dot. */
+    workspaceName: string
+    hue: number
   } = $props()
 
   const navId = $derived(accordionNavId(turnId))
@@ -68,7 +75,9 @@
     <BlockMenu />
   {/if}
   <button class="row" onclick={() => toolOpen.toggle(threadId, navId, !resolved)}>
-    <span class="mark" class:running={!resolved}></span>
+    <span class="sigil" class:running={!resolved}>
+      <Identicon name={workspaceName} {hue} size={11} />
+    </span>
     <span class="label">{label}</span>
     <span class="chev"><Icon name={chevron(open)} /></span>
   </button>
@@ -102,21 +111,21 @@
     background: var(--bg-hover);
   }
 
-  .mark {
-    width: 6px;
-    height: 6px;
+  .sigil {
+    display: inline-flex;
     flex: none;
-    background: var(--fg-dimmest);
   }
-  .mark.running {
-    background: var(--accent);
+  .sigil.running {
     animation: pulse 1.1s ease-in-out infinite;
   }
 
+  /* The message's size, not the chrome's: this row is the turn's byline —
+     there is no `PI` label above it any more — and a ten-pixel whisper under
+     a twelve-and-a-half-pixel answer read as chrome, not as speech. */
   .label {
     font-family: var(--font-chrome);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
     color: var(--fg-dim);
   }
 

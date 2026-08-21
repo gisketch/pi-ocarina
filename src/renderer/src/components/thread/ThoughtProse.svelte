@@ -21,6 +21,15 @@
 <style>
   .prose-thought {
     font-style: italic;
-    padding: 3px 6px;
+    padding: 3px 0;
+  }
+  /* The message's own size, not a tool body's: the prose stands beside PI's
+     answers, and eleven-pixel narration next to twelve-and-a-half-pixel
+     speech read as a different program talking. Colour stays a step down —
+     narration, not the answer. */
+  .prose-thought :global(.thought) {
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--fg-dim);
   }
 </style>

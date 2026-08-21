@@ -227,15 +227,10 @@
     {@const resolved = resolvedOf(item)}
     {@const open = openOf(item)}
     {@render blockView(item.opener, false)}
-    {#if accordionDrawn(item, resolved) || item.final.length > 0}
-      <!-- Said once per turn, above the header: the accordion is the turn's
-           work, and the name belongs to all of it. -->
-      <div class="turn"><AgentLabel /></div>
-    {/if}
     {#if accordionDrawn(item, resolved)}
-      <!-- The header ticks while the turn runs — the role the old footer
-           played — and is the collapsed row after. Drawn even before any
-           work exists, so a just-sent message shows the turn began.
+      <!-- The header is the turn's whole byline: it ticks while the turn
+           runs — the role the old footer played — and is the collapsed row
+           after. No `PI` label above it; the sigil on the row says who.
            `accordionDrawn` is the same presence rule the stop list obeys. -->
       <TurnAccordion
         turnId={item.id}
@@ -244,7 +239,13 @@
         {resolved}
         {open}
         focusedNav={focused}
+        workspaceName={app.workspace.name}
+        {hue}
       />
+    {:else if item.final.length > 0}
+      <!-- A turn that answered without working draws no header, so the name
+           still has to be said above the answer. -->
+      <div class="turn"><AgentLabel /></div>
     {/if}
     {#if open}
       {#each item.inner as block (`${block.kind}:${block.id}`)}

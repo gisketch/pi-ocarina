@@ -59,10 +59,8 @@
   {/if}
   <span class="node" class:pulse={group.live}><Icon name={toolIcon(group.tool)} /></span>
   <button class="row" onclick={() => toolOpen.toggle(threadId, navId, group.live)}>
-    <!-- The spacer keeps the summary on the target column, where every other
-         row's subject sits. A mixed run has no one kind to put in the gutter,
-         and a first-kind label there would claim the whole run was reads. -->
-    <span class="kind"></span>
+    <!-- No gutter spacer: the summary names its own kinds, so reserving the
+         label column would only indent the row for a word it never draws. -->
     <span class="count">{group.summary}</span>
     <span class="preview">{group.preview}</span>
     <span class="meta">
@@ -121,13 +119,6 @@
     background: var(--bg-hover);
   }
 
-  .kind {
-    font-family: var(--font-chrome);
-    font-size: 10px;
-    width: max(36px, var(--gutter, 4ch));
-    flex: none;
-    color: var(--fg-dim);
-  }
   .count {
     color: var(--fg);
     flex: none;

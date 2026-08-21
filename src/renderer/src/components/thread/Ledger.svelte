@@ -15,7 +15,7 @@
   import GroupRow from './GroupRow.svelte'
   import ThoughtProse from './ThoughtProse.svelte'
   import Icon from '../Icon.svelte'
-  import { groupRows, groupShown, type RowGroup } from '$lib/ledger-groups'
+  import { groupRows, groupShown, type LedgerItem, type RowGroup } from '$lib/ledger-groups'
   import { groupNavId } from '$lib/blocks'
 
   interface Props {
@@ -72,6 +72,26 @@
   // ids, bodies and order are untouched, so focus, leap and the block menu all
   // still address the rows they always did.
   const items = $derived(groupRows(rows))
+
+  // The spine breaks at every thought. A thought reads as the model's own
+  // message, not as a call on the ledger's rail — so the block draws as runs
+  // of calls with the prose *between* them, each run its own spined box.
+  type Segment = { kind: 'run'; items: LedgerItem[] } | { kind: 'think'; row: ToolRow }
+  const segments = $derived.by((): Segment[] => {
+    const out: Segment[] = []
+    let run: LedgerItem[] = []
+    for (const item of items) {
+      if (item.kind === 'row' && item.row.kind === 'think') {
+        if (run.length > 0) out.push({ kind: 'run', items: run })
+        run = []
+        out.push({ kind: 'think', row: item.row })
+      } else {
+        run.push(item)
+      }
+    }
+    if (run.length > 0) out.push({ kind: 'run', items: run })
+    return out
+  })
 
   // Only when the reader asked. A group that opened because `j` walked past it
   // would undo the thing it is for — a busy turn stays four lines until
@@ -167,26 +187,33 @@
      `content-visibility: auto` and with it paint containment — which clips a
      menu hanging off its last row just as surely as the row's own containment
      did. Lifting it on the row alone was half a fix. -->
-<div
-  class="ledger"
-  class:hosting={anyHosting}
-  style="--gutter: {gutter}ch"
->
-  {#each items as item (item.kind === 'group' ? `g:${item.id}` : item.row.id)}
-    {#if item.kind === 'group'}
-      <GroupRow
-        group={item}
-        open={groupOpen(item)}
-        {threadId}
-        {blockId}
-        {focusedNav}
-        {entry}
-      />
-    {:else}
-      {@render entry(item.row, false)}
-    {/if}
-  {/each}
-</div>
+{#each segments as segment (segment.kind === 'think' ? `t:${segment.row.id}` : `s:${segment.items[0].kind === 'group' ? segment.items[0].id : segment.items[0].row.id}`)}
+  {#if segment.kind === 'think'}
+    <!-- Outside the spined box on purpose: the prose is the model speaking,
+         and `bare` takes the rail and the indent away while keeping the
+         entry's focus band and menu machinery. -->
+    <div class="ledger bare" class:hosting={anyHosting}>
+      {@render entry(segment.row, false)}
+    </div>
+  {:else}
+    <div class="ledger" class:hosting={anyHosting} style="--gutter: {gutter}ch">
+      {#each segment.items as item (item.kind === 'group' ? `g:${item.id}` : item.row.id)}
+        {#if item.kind === 'group'}
+          <GroupRow
+            group={item}
+            open={groupOpen(item)}
+            {threadId}
+            {blockId}
+            {focusedNav}
+            {entry}
+          />
+        {:else}
+          {@render entry(item.row, false)}
+        {/if}
+      {/each}
+    </div>
+  {/if}
+{/each}
 
 <style>
   /* The spine is drawn inside the box rather than as a border on its edge, and
@@ -199,6 +226,14 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  /* A thought's box: no spine, no ledger indent — prose at the message's own
+     margin. The entry inside keeps its focus band and menu handling. */
+  .ledger.bare::before {
+    display: none;
+  }
+  .ledger.bare > .entry {
+    padding-left: 0;
   }
   .ledger.hosting {
     content-visibility: visible;
