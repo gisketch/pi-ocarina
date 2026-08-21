@@ -13,6 +13,7 @@
   import { drawnChildren, hiddenUnder, kindsIn, pointableRows } from '$lib/ledger-rows'
   import { widestLabel } from '$lib/tool-label'
   import GroupRow from './GroupRow.svelte'
+  import ThoughtProse from './ThoughtProse.svelte'
   import Icon from '../Icon.svelte'
   import { groupRows, groupShown, type RowGroup } from '$lib/ledger-groups'
   import { groupNavId } from '$lib/blocks'
@@ -50,7 +51,9 @@
   // and none of them moves when a call lands and `editing` becomes `edited`.
   // Derived from the kinds present, never measured: a rect read here would
   // force layout on rows the column is deliberately not laying out.
-  const gutter = $derived(widestLabel(kindsIn(rows)))
+  // Thoughts draw no label any more, so `thinking` must not widen the gutter
+  // every other row aligns to.
+  const gutter = $derived(widestLabel(kindsIn(rows).filter((kind) => kind !== 'think')))
 
   const stops = $derived(pointableRows(rows))
   const anyHosting = $derived(stops.some((row) => menuOn(navIdOf(row))))
@@ -98,6 +101,14 @@
     {#if points && menuOn(navIdOf(row))}
       <BlockMenu />
     {/if}
+    {#if row.kind === 'think'}
+      <!-- A thought is prose, not a call (turn-accordion spec): no node dot,
+           no `thought` label, no chevron — the words themselves, full and
+           always visible. It keeps the entry wrapper above because it is
+           still a stop: `j` lands on it, the menu opens on it, copy reads
+           its text. -->
+      <ThoughtProse text={row.body?.type === 'thought' ? row.body.text : ''} />
+    {:else}
     <span class="node {nodeTone(row)}" class:pulse={row.status === 'running'}
       ><Icon name={toolIcon(row.kind, row.lang)} /></span
     >
@@ -131,6 +142,7 @@
 
     {#if row.body && isOpen(row)}
       <ToolBody body={row.body} lang={row.lang ?? ''} />
+    {/if}
     {/if}
 
     {#if row.children?.length}

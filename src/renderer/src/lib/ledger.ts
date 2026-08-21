@@ -81,7 +81,9 @@ function plainSegments(text: string): MetaSegment[] {
 }
 
 export function isExpandable(row: ToolRow): boolean {
-  return row.body !== undefined
+  // A thought draws its full text as prose (turn-accordion spec) — there is
+  // nothing left under it to expand.
+  return row.body !== undefined && row.kind !== 'think'
 }
 
 /** Which chevron a row wears. An icon name rather than a character: the two

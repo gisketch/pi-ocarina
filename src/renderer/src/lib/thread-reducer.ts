@@ -76,12 +76,9 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
         tool: 'think',
         // Filled in as the thought arrives: at `start` there is nothing to
         // show, and a placeholder would be one more word to read past.
+        // No `open` flag: a thought draws its full text as prose now
+        // (turn-accordion spec), so it has no expansion to default.
         target: '',
-        // Open while it streams: hiding the one visibly-happening part of a
-        // turn behind a click is how an app looks stalled. `reasoning-end`
-        // puts the default back to closed, and a reader who touched it in
-        // between keeps whatever they chose.
-        open: true,
       })
 
     case 'reasoning-delta':
@@ -98,7 +95,6 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
       return updateRowIn(model, event.id, (row) => ({
         ...row,
         status: 'ok',
-        open: false,
         ...(event.ms >= 100 ? { meta: elapsed(event.ms) } : {}),
       }))
 
