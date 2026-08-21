@@ -1,6 +1,6 @@
 # Turn Accordion — Execution Plan
 
-Status: active 2026-08-21. Canonical behavior lives in
+Status: completed 2026-08-21 (TA1–TA4 landed as four commits: 872bc99, 01eadb3, 8885fb5, 8d41bf7). The owner's visual pass in the real app is the open check. Canonical behavior lives in
 [the approved spec](../../specs/2026-08-21-turn-accordion.md).
 
 Four tickets, sequential except TA1/TA2 which are independent of each other.
@@ -12,7 +12,7 @@ only the *latest* turn (`ThreadViewModel.turn`, one `TurnSpan`), and replayed
 history is deliberately untimed. So collapsed rows carry a duration only for
 turns run in this session; a replayed turn's row is a bare `Worked ›`.
 
-## TA1 — Grouping widens: contiguous mixed-kind runs, every kind
+## TA1 — Grouping widens: contiguous mixed-kind runs, every kind ✅
 
 Delivered behavior: inside a ledger, any contiguous run of ≥2 successful tool
 rows collapses to one group row regardless of kind mix:
@@ -60,7 +60,7 @@ forms one group, failure breaks, think breaks, agent row breaks,
 
 Blocked by: nothing.
 
-## TA2 — Thoughts are prose
+## TA2 — Thoughts are prose ✅
 
 Delivered behavior: a `think` row stops rendering as a tool row. It draws as
 a muted, italic chat-style message — no gutter icon, no `thought` label, no
@@ -94,7 +94,7 @@ moved; otherwise render-level assertions in existing ledger tests.
 Blocked by: nothing (visual interplay with TA1 groups, but no shared code
 beyond `joinable` keeping think excluded).
 
-## TA3 — The turn partition and its clocks (pure model)
+## TA3 — The turn partition and its clocks (pure model) ✅
 
 Delivered behavior: none visible. A pure seam the accordion draws from.
 
@@ -129,7 +129,7 @@ event sequence, label wording for all four states. `pnpm check`.
 
 Blocked by: nothing (parallel-safe with TA1/TA2; committed before TA4).
 
-## TA4 — The accordion draws, collapses, and navigates
+## TA4 — The accordion draws, collapses, and navigates ✅
 
 Delivered behavior: the spec's headline. A running turn draws open under a
 ticking `Working for 12s…` header row; resolution collapses it to
