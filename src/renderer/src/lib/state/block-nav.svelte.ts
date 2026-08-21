@@ -175,8 +175,11 @@ class BlockNav {
       if (entry.rowId === undefined) return
       toolOpen.set(threadId, navId, true)
       // Opening a body makes the block taller, and the ring should not be
-      // pushed off the bottom of the view by its own contents.
-      revealBlock(threadId, navId)
+      // pushed off the bottom of the view by its own contents. A *turn*
+      // opening goes further: its header rides to the top of the view, so
+      // the work it just revealed unfolds below the row that names it
+      // instead of somewhere under the fold.
+      revealBlock(threadId, navId, entry.rowId.startsWith('accordion:') ? 'start' : 'nearest')
       return
     }
 

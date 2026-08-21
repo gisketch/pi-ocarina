@@ -7,6 +7,9 @@
   import BlockMenu from './BlockMenu.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import Icon from '../Icon.svelte'
+  import { slide } from 'svelte/transition'
+  import { quintOut } from 'svelte/easing'
+  import { foldDuration } from '$lib/motion'
   import type { RowGroup } from '$lib/ledger-groups'
   import type { ToolRow } from '$lib/thread'
 
@@ -72,7 +75,7 @@
 </div>
 
 {#if shown}
-  <div class="members">
+  <div class="members" transition:slide={{ duration: foldDuration(), easing: quintOut }}>
     {#each group.rows as row (row.id)}
       {@render entry(row, false)}
     {/each}

@@ -6,9 +6,22 @@
 
 export const SWAP_MS = 280
 
-export function swapDuration(): number {
+/** A fold opening or closing — an accordion's work, a group's members, a
+ *  row's body. Shorter than a swap: a fold moves height in place, and 280ms
+ *  of a forty-row turn unfolding reads as the app lagging. */
+export const FOLD_MS = 180
+
+function honored(ms: number): number {
   if (typeof document === 'undefined') return 0
   if (document.documentElement.dataset.motion === 'off') return 0
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 0
-  return SWAP_MS
+  return ms
+}
+
+export function swapDuration(): number {
+  return honored(SWAP_MS)
+}
+
+export function foldDuration(): number {
+  return honored(FOLD_MS)
 }

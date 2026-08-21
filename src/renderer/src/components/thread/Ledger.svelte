@@ -14,6 +14,9 @@
   import { widestLabel } from '$lib/tool-label'
   import GroupRow from './GroupRow.svelte'
   import ThoughtProse from './ThoughtProse.svelte'
+  import { slide } from 'svelte/transition'
+  import { quintOut } from 'svelte/easing'
+  import { foldDuration } from '$lib/motion'
   import Icon from '../Icon.svelte'
   import { groupRows, groupShown, type LedgerItem, type RowGroup } from '$lib/ledger-groups'
   import { groupNavId } from '$lib/blocks'
@@ -161,7 +164,9 @@
     </svelte:element>
 
     {#if row.body && isOpen(row)}
-      <ToolBody body={row.body} lang={row.lang ?? ''} />
+      <div transition:slide={{ duration: foldDuration(), easing: quintOut }}>
+        <ToolBody body={row.body} lang={row.lang ?? ''} />
+      </div>
     {/if}
     {/if}
 

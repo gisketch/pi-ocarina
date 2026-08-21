@@ -16,7 +16,7 @@
   import { elapsed } from '$lib/elapsed'
   import { accordionLabel, accordionNavId } from '$lib/turn-accordion'
   import { clock } from '$lib/state/clock.svelte'
-  import { navTarget } from '$lib/state/block-focus.svelte'
+  import { navTarget, revealBlock } from '$lib/state/block-focus.svelte'
   import { blockMenu } from '$lib/state/block-menu.svelte'
   import { toolOpen } from '$lib/state/tool-open.svelte'
   import type { TurnSpan } from '$lib/thread'
@@ -57,6 +57,13 @@
     return clock.watch()
   })
 
+  /** A click expands like `l` does: opening rides the header to the top of
+   *  the view, so the revealed work unfolds below the row that names it. */
+  function toggle(): void {
+    toolOpen.toggle(threadId, navId, !resolved)
+    if (!open) revealBlock(threadId, navId, 'start')
+  }
+
   const took = $derived(span ? elapsed((span.endedAt ?? clock.now) - span.startedAt) : null)
   const label = $derived(
     !resolved && span === undefined
@@ -74,7 +81,7 @@
   {#if menuOn}
     <BlockMenu />
   {/if}
-  <button class="row" onclick={() => toolOpen.toggle(threadId, navId, !resolved)}>
+  <button class="row" onclick={toggle}>
     <span class="sigil" class:running={!resolved}>
       <Identicon name={workspaceName} {hue} size={11} />
     </span>

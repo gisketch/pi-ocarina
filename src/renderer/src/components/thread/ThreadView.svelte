@@ -11,6 +11,9 @@
   import { catalog } from '$lib/state/catalog.svelte'
   import BlockMenu from './BlockMenu.svelte'
   import TurnAccordion from './TurnAccordion.svelte'
+  import { slide } from 'svelte/transition'
+  import { quintOut } from 'svelte/easing'
+  import { foldDuration } from '$lib/motion'
   import { reasoningOpen } from '$lib/state/reasoning.svelte'
   import { visibleBlocks } from '$lib/thread-rows'
   import {
@@ -248,9 +251,22 @@
       <div class="turn"><AgentLabel /></div>
     {/if}
     {#if open}
-      {#each item.inner as block (`${block.kind}:${block.id}`)}
-        {@render blockView(block, false)}
-      {/each}
+      <!-- One wrapper so the whole fold slides as one piece. Its children
+           re-take the column's per-block virtualization rules, which the
+           wrapper interrupted; the wrapper itself virtualizes as one region,
+           which is acceptable because closed turns render nothing at all —
+           open history is rare and the running turn is on screen anyway. -->
+      <!-- Inline because the column pads every direct child and the fold's
+           children pad themselves — specificity would tie, inline wins. -->
+      <div
+        class="fold"
+        style="padding-inline: 0"
+        transition:slide={{ duration: foldDuration(), easing: quintOut }}
+      >
+        {#each item.inner as block (`${block.kind}:${block.id}`)}
+          {@render blockView(block, false)}
+        {/each}
+      </div>
     {/if}
     {#each item.final as block (`${block.kind}:${block.id}`)}
       {@render blockView(block, false)}
@@ -262,6 +278,24 @@
   /* The band is the whole of the navigation's appearance — one signal for one
      state, and no geometry, so the focused block does not shift the text it is
      marking. */
+  /* The fold interrupted `.body > *`, so its children re-take the column's
+     per-block virtualization and padding rules; the streaming last child
+     stays exempt for the same reason the column's is. */
+  .fold {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .fold > :global(*) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+    padding-inline: var(--pad-column);
+    flex: none;
+  }
+  .fold > :global(*:last-child) {
+    content-visibility: visible;
+  }
+
   .nav {
     position: relative;
     /* Blocks are independent of one another, so lighting one never
