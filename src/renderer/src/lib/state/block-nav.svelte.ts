@@ -8,7 +8,7 @@
 import { navBlocks } from '../blocks'
 import { visibleBlocks } from '../thread-rows'
 import { groupShown } from '../ledger-groups'
-import { accordionShown, lastTurnIdOf, turnResolved } from '../turn-accordion'
+import { accordionNavId, accordionShown, lastTurnIdOf, turnResolved, turnsOf } from '../turn-accordion'
 import { MODIFIER_KEYS, SCROLL_STEP, type KeyEventLike } from '../keyboard'
 import { isVimMode } from '../types'
 import { app } from './app.svelte'
@@ -17,7 +17,7 @@ import { dashboardRecent } from './dashboard-recent.svelte'
 import { leap } from './leap.svelte'
 import { blockMenu } from './block-menu.svelte'
 import { changes } from './changes.svelte'
-import { scrollColumn } from './columns'
+import { columnBody, scrollColumn } from './columns'
 import { pageColumn } from './paging'
 import { threads } from './threads.svelte'
 import { toolOpen } from './tool-open.svelte'
@@ -60,6 +60,59 @@ class BlockNav {
           ),
       },
     )
+  }
+
+  /** `o` in OCARINA: collapse or expand the turn under the reader's eyes.
+   *
+   *  "Under the eyes" is the turn whose region — its header down to the next
+   *  turn's header — overlaps the column's viewport the most, so the key acts
+   *  on what the reader is looking at rather than on whatever is focused.
+   *  Expanding also brings the header to the top of the view: the work it
+   *  just revealed unfolds *below* the row that names it, instead of the view
+   *  landing somewhere in the middle of forty new rows. */
+  toggleVisibleTurn(): void {
+    const threadId = app.thread.id
+    const model = threads.get(threadId)
+    const visible = reasoningOpen.shown ? model.blocks : visibleBlocks(model.blocks)
+    const body = columnBody(threadId)
+    if (!body) return
+
+    const lastTurn = lastTurnIdOf(visible)
+    const headers = turnsOf(visible).flatMap((item) => {
+      if (item.kind !== 'turn') return []
+      const el = blockElement(threadId, accordionNavId(item.id))
+      return el === undefined ? [] : [{ turn: item, el }]
+    })
+    if (headers.length === 0) return
+
+    // Regions partition the column at the headers; the winner is the one the
+    // viewport shows the most of. Measured from the live rects, so collapsed
+    // turns above cost their two lines and no more.
+    const view = body.getBoundingClientRect()
+    const tops = headers.map((entry) => entry.el.getBoundingClientRect().top)
+    let pick = headers[0]
+    let most = -Infinity
+    for (let index = 0; index < headers.length; index += 1) {
+      const start = tops[index]
+      const end = tops[index + 1] ?? view.bottom + body.scrollHeight
+      const overlap = Math.min(end, view.bottom) - Math.max(start, view.top)
+      if (overlap > most) {
+        most = overlap
+        pick = headers[index]
+      }
+    }
+
+    const navId = accordionNavId(pick.turn.id)
+    const resolved = turnResolved(pick.turn, lastTurn, model.runState)
+    const open = accordionShown(pick.turn, resolved, (fallback) =>
+      toolOpen.isOpen(threadId, navId, fallback),
+    )
+    toolOpen.set(threadId, navId, !open)
+    // The ring may have been standing on a row the collapse just took away.
+    this.settleFocus(threadId)
+    if (!open) {
+      requestAnimationFrame(() => revealBlock(threadId, navId, 'start'))
+    }
   }
 
   /** Moves the ring off a block that is no longer there.

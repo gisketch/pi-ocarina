@@ -55,7 +55,7 @@ export type Action =
   /** Back to the newest content in the focused thread, and pinned there. */
   | { type: 'jumpToLive' }
   /** Show or hide what the model thought, everywhere. */
-  | { type: 'toggleReasoning' }
+  | { type: 'toggleTurn' }
   | { type: 'termEscape' }
   /** Focus the buffer column's editor, in vim normal or straight into insert. */
   | { type: 'bufferEnter'; insert: boolean }

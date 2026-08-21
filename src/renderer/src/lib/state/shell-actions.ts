@@ -25,7 +25,6 @@ import { commit } from './commit.svelte'
 import { following } from './following.svelte'
 import { newestCodeBlock } from '../thread'
 import { permission } from './permission.svelte'
-import { reasoningOpen } from './reasoning.svelte'
 import { renameAsk } from './rename-ask.svelte'
 import { sweep } from './sweep.svelte'
 import { termMode } from './term-mode.svelte'
@@ -145,12 +144,8 @@ export function runAction(shell: ShellHost, action: Action): void {
       // newest block rather than from wherever the reader left it.
       blockNav.focusLatest()
       break
-    case 'toggleReasoning':
-      reasoningOpen.toggleAll()
-      // The ring may have been standing on a thought that is now gone. Left
-      // there it points at nothing, and the next `j` starts over from the
-      // top of the thread.
-      blockNav.settleFocus()
+    case 'toggleTurn':
+      blockNav.toggleVisibleTurn()
       break
     case 'termEscape':
       termMode.escape()

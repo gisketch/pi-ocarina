@@ -312,7 +312,7 @@ export function reduceKey(state: KeyState, event: KeyEventLike, ctx: KeyContext)
     case 'G':
       return result(state, [{ type: 'jumpToLive' }])
     case 'o':
-      return result(state, [{ type: 'toggleReasoning' }])
+      return result(state, [{ type: 'toggleTurn' }])
     case 'i':
       return result({ ...state, mode: 'CHAT' }, [{ type: 'focusComposer' }])
     case 'a':

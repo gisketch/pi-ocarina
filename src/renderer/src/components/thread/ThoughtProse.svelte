@@ -20,7 +20,6 @@
 
 <style>
   .prose-thought {
-    font-style: italic;
     padding: 3px 0;
   }
   /* The message's own size, not a tool body's: the prose stands beside PI's

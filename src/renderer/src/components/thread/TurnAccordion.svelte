@@ -95,12 +95,15 @@
     z-index: 5;
   }
 
+  /* No left padding: the sigil sits on the same left edge as the messages
+     and the prose around it — six pixels of button padding read as the one
+     row in the column that drifted. */
   .row {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 4px 6px;
+    padding: 4px 6px 4px 0;
     background: none;
     border: none;
     text-align: left;

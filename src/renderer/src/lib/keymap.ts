@@ -41,7 +41,7 @@ export const SHIPPED_KEYS: Readonly<Record<string, ShippedKey>> = {
   'leader.start': { mode: 'OCARINA', key: ' ', label: 'leader chord', group: 'navigate' },
   'compose.insert': { mode: 'OCARINA', key: 'i', label: 'compose · editor insert', group: 'navigate' },
   'yank.code': { mode: 'OCARINA', key: 'y', label: 'yank last code', group: 'navigate' },
-  'reasoning.toggle': { mode: 'OCARINA', key: 'o', label: 'toggle reasoning', group: 'navigate' },
+  'turn.toggle': { mode: 'OCARINA', key: 'o', label: 'collapse/expand turn', group: 'navigate' },
   'block.menu': { mode: 'OCARINA', key: 'a', label: 'block actions', group: 'navigate' },
   'leap.start': { mode: 'OCARINA', key: 's', label: 'leap to block', group: 'navigate' },
   'thread.worktree': { mode: 'OCARINA', key: 'b', label: 'worktree thread (dashboard)', group: 'navigate' },
