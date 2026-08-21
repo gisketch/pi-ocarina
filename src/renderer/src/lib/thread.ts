@@ -145,6 +145,13 @@ export interface ThreadViewModel {
   /** What pi says this thread is running on. Absent until the thread opens. */
   model?: { provider: string; id: string; name: string; reasoning: ReasoningLevel }
   connectivity?: { state: 'degraded' | 'restored'; retryInSeconds?: number }
+  /** Finished turns' clocks, keyed by the user block that opened each turn.
+   *
+   *  Only turns run in this session appear: replay records what was said,
+   *  not how long it took, and a collapsed row for a replayed turn says
+   *  `worked` with no duration. Stamped at turn end, never while running —
+   *  the running turn's clock is `turn` below. */
+  spans?: Record<string, TurnSpan>
   /** The turn the thread is running, or the one it last ran.
    *
    *  Timed here rather than by the backend: it is what the reader waited, not

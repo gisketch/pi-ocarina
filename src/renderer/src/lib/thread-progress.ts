@@ -53,3 +53,28 @@ export function turnFor(
     event.state === 'failed' ? 'failed' : event.state === 'done' ? 'done' : 'stopped'
   return { ...model.turn, endedAt: Date.now(), outcome }
 }
+
+/** Files a finished turn's clock under the user block that opened it.
+ *
+ *  Only finished spans: the running turn's clock is `model.turn`, and while
+ *  it runs the opener may not even be in the blocks yet — the driver emits
+ *  the user message on its own schedule. By the time a turn *ends* its
+ *  opener is the newest user block, which is exactly what the accordion
+ *  keys on (turn-accordion spec). */
+export function spansFor(
+  model: ThreadViewModel,
+  turn: TurnSpan | undefined,
+): Record<string, TurnSpan> | undefined {
+  if (turn === undefined || turn.endedAt === undefined) return model.spans
+  // Only the ending *transition* stamps. A later state event hands the same
+  // ended span back unchanged, and by then a new user message may be the
+  // newest — restamping would file the old turn's clock under the new
+  // turn's opener.
+  if (model.turn?.endedAt !== undefined) return model.spans
+  for (let index = model.blocks.length - 1; index >= 0; index -= 1) {
+    const block = model.blocks[index]
+    if (block.kind !== 'user') continue
+    return { ...model.spans, [block.id]: turn }
+  }
+  return model.spans
+}

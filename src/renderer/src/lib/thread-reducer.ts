@@ -16,7 +16,7 @@ import { growTurnMessage, settleTurnMessage } from './thread-turn'
 import { EMPTY_THREAD } from './thread'
 import { editLedger, nestRow, trailingLedger, updateRow } from './thread-rows'
 import { elapsed } from './elapsed'
-import { thoughtOf, turnFor, updateRowIn } from './thread-progress'
+import { spansFor, thoughtOf, turnFor, updateRowIn } from './thread-progress'
 import {
   decide,
   dropBlock,
@@ -54,8 +54,16 @@ function apply(model: ThreadViewModel, event: UiEvent): ThreadViewModel {
     case 'thread-reset':
       return EMPTY_THREAD
 
-    case 'thread-state':
-      return { ...model, runState: event.state, reason: event.reason, turn: turnFor(model, event) }
+    case 'thread-state': {
+      const turn = turnFor(model, event)
+      return {
+        ...model,
+        runState: event.state,
+        reason: event.reason,
+        turn,
+        spans: spansFor(model, turn),
+      }
+    }
 
     case 'user-message':
       return push(model, {
